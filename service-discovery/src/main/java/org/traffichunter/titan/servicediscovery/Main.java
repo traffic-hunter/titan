@@ -1,4 +1,4 @@
-package org.traffichunter.titan;
+package org.traffichunter.titan.servicediscovery;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
