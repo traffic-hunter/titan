@@ -11,7 +11,7 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/bootstrap" />
             <option value="$PROJECT_DIR$/core" />
-            <option value="$PROJECT_DIR$/server" />
+            <option value="$PROJECT_DIR$/monitor" />
             <option value="$PROJECT_DIR$/service-discovery" />
           </set>
         </option>
