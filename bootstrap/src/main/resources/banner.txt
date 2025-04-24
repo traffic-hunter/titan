@@ -1,0 +1,12 @@
+.___________. __  .___________.    ___      .__   __.
+|           ||  | |           |   /   \     |  \ |  |
+`---|  |----`|  | `---|  |----`  /  ^  \    |   \|  |
+    |  |     |  |     |  |      /  /_\  \   |  . `  |
+    |  |     |  |     |  |     /  _____  \  |  |\   |
+    |__|     |__|     |__|    /__/     \__\ |__| \__|
+
+:: Titan server ${version} Ver ::
+:: Made by traffic-hunter ::
+:: Running on Java ${java.version} ::
+:: JDK Information ${jdk} ${java.specification} ::
+:: Started on ${time} ::
