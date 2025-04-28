@@ -24,6 +24,7 @@ subprojects {
         annotationProcessor("org.projectlombok:lombok:1.18.38")
 
         implementation("org.slf4j:slf4j-api:2.0.17")
+        implementation("com.google.guava:guava:33.4.8-jre")
     }
 }
 
