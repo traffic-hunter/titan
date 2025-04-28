@@ -30,15 +30,21 @@ import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 /**
  * @author yungwang-o
  */
-public class JmxCpuMbeanCollector implements JmxMbeanCollector<CpuData> {
+public final class JmxCpuMbeanCollector implements JmxMbeanCollector<CpuData> {
 
     @Override
-    public Property property() {
-        return Property.CPU;
+    public CollectorType getCollectorType() {
+        return CollectorType.CPU;
+    }
+
+    @Override
+    public Class<CpuData> getDataType() {
+        return CpuData.class;
     }
 
     @Override
     public CpuData collect() {
+
         OperatingSystemMXBean osMXBean =
                 (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 

@@ -34,8 +34,13 @@ import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 public final class JmxHeapMbeanCollector implements JmxMbeanCollector<HeapData> {
 
     @Override
-    public Property property() {
-        return Property.MEMORY;
+    public CollectorType getCollectorType() {
+        return CollectorType.HEAP;
+    }
+
+    @Override
+    public Class<HeapData> getDataType() {
+        return HeapData.class;
     }
 
     @Override

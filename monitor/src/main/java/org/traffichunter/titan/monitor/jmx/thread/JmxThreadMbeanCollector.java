@@ -30,15 +30,21 @@ import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 /**
  * @author yungwang-o
  */
-public class JmxThreadMbeanCollector implements JmxMbeanCollector<ThreadData> {
+public final class JmxThreadMbeanCollector implements JmxMbeanCollector<ThreadData> {
 
     @Override
-    public Property property() {
-        return Property.THREAD;
+    public CollectorType getCollectorType() {
+        return CollectorType.THREAD;
+    }
+
+    @Override
+    public Class<ThreadData> getDataType() {
+        return ThreadData.class;
     }
 
     @Override
     public ThreadData collect() {
+
         ThreadMXBean threadMXBean = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
         return ThreadData.builder()

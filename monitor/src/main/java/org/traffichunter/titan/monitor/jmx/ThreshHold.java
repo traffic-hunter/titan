@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,17 +26,7 @@ package org.traffichunter.titan.monitor.jmx;
 /**
  * @author yungwang-o
  */
-public interface JmxMbeanCollector<T> {
+public interface ThreshHold {
 
-    CollectorType getCollectorType();
-
-    Class<T> getDataType();
-
-    T collect();
-
-    enum CollectorType {
-        CPU,
-        HEAP,
-        THREAD
-    }
+    boolean isCheckThreshold(double factor);
 }

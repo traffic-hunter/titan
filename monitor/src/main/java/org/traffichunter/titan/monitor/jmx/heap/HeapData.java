@@ -24,6 +24,7 @@
 package org.traffichunter.titan.monitor.jmx.heap;
 
 import lombok.Builder;
+import org.traffichunter.titan.monitor.jmx.ThreshHold;
 
 /**
  * @author yungwang-o
@@ -38,5 +39,16 @@ public record HeapData(
         long committed,
 
         long max
-) {
+
+) implements ThreshHold {
+
+    @Override
+    public boolean isCheckThreshold(final double factor) {
+        if (this.max() <= 0) {
+            return false;
+        }
+
+        double usageRate = (double) this.used() / this.max();
+        return usageRate > factor;
+    }
 }

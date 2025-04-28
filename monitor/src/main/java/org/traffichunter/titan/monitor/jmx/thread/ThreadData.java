@@ -24,6 +24,7 @@
 package org.traffichunter.titan.monitor.jmx.thread;
 
 import lombok.Builder;
+import org.traffichunter.titan.monitor.jmx.ThreshHold;
 
 /**
  * @author yungwang-o
@@ -36,5 +37,11 @@ public record ThreadData(
         int getPeekThreadCount,
 
         long getTotalStartThreadCount
-) {
+
+) implements ThreshHold {
+
+    @Override
+    public boolean isCheckThreshold(final double factor) {
+        return this.threadCount() > (int) factor;
+    }
 }
