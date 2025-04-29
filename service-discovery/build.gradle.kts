@@ -10,6 +10,8 @@ repositories {
 }
 
 dependencies {
+
+    implementation(project(":bootstrap"))
 }
 
 tasks.test {
