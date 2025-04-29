@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,44 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap;
-
-import org.traffichunter.titan.bootstrap.Banner.Mode;
+package org.traffichunter.titan.core.httpserver;
 
 /**
  * @author yungwang-o
  */
-public final class Configurations {
+public interface HttpServer extends AutoCloseable {
 
-    public static Banner.Mode banner(final Property property) {
-        boolean mode = Boolean.getBoolean(property.value);
+    int getPort();
 
-        if(!mode) {
-            return Mode.OFF;
-        }
-
-        return Mode.ON;
-    }
-
-    public static int port(final Property property) {
-        String port = System.getProperty(property.value);
-
-        if(port == null || port.isEmpty()) {
-            return 7777;
-        }
-
-        return Integer.parseInt(port);
-    }
-
-    public enum Property {
-        BANNER_MODE("titan.banner.mode"),
-        PORT("titan.web.server.port"),
-        ;
-
-        private final String value;
-
-        Property(final String value) {
-            this.value = value;
-        }
-    }
+    void start() throws Exception;
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,44 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap;
+package org.traffichunter.titan.core;
 
-import org.traffichunter.titan.bootstrap.Banner.Mode;
+import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
+import org.traffichunter.titan.bootstrap.TitanShutdownHook;
+import org.traffichunter.titan.bootstrap.httpserver.SettingHttpServer;
 
 /**
  * @author yungwang-o
  */
-public final class Configurations {
+public class CoreApplication implements ApplicationStarter {
 
-    public static Banner.Mode banner(final Property property) {
-        boolean mode = Boolean.getBoolean(property.value);
+    private final TitanShutdownHook shutdownHook;
 
-        if(!mode) {
-            return Mode.OFF;
-        }
-
-        return Mode.ON;
+    public CoreApplication(final TitanShutdownHook shutdownHook) {
+        this.shutdownHook = shutdownHook;
     }
 
-    public static int port(final Property property) {
-        String port = System.getProperty(property.value);
+    @Override
+    public void start(final SettingHttpServer httpServer) {
 
-        if(port == null || port.isEmpty()) {
-            return 7777;
-        }
-
-        return Integer.parseInt(port);
-    }
-
-    public enum Property {
-        BANNER_MODE("titan.banner.mode"),
-        PORT("titan.web.server.port"),
-        ;
-
-        private final String value;
-
-        Property(final String value) {
-            this.value = value;
-        }
     }
 }
