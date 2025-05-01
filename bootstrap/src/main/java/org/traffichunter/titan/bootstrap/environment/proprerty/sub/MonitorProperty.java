@@ -21,18 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.httpserver;
+package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
-import lombok.Builder;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author yungwang-o
  */
-@Builder
-public record SettingHttpServer(
+@Data
+@NoArgsConstructor(access = AccessLevel.PUBLIC)
+@RequiredArgsConstructor
+public class MonitorProperty {
 
-        int port,
+    private long initialDelay;
 
-        Pooling pooling
-) {
+    private long delay;
+
+    private int scheduledThreadPool;
 }
