@@ -21,6 +21,10 @@ dependencies {
     // embedded jetty
     implementation("org.eclipse.jetty:jetty-server:${jettyVersion}")
     implementation("org.eclipse.jetty.ee10:jetty-ee10-servlet:${jettyVersion}")
+    implementation("org.eclipse.jetty:jetty-http:${jettyVersion}")
+
+    // objectmapper
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
 }
 
 tasks.test {

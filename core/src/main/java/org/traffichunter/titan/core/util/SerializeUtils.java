@@ -21,16 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.httpserver;
+package org.traffichunter.titan.core.util;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * @author yungwang-o
  */
-public interface HttpServer {
+public class SerializeUtils {
 
-    int getPort();
+    private static final ObjectMapper mapper = new ObjectMapper();
 
-    void start();
+    public static <T> String serialize(final T object) throws JsonProcessingException {
+        return mapper.writeValueAsString(object);
+    }
 
-    void close();
+    public static <T> byte[] serializeToBytes(final T object) throws JsonProcessingException {
+        return mapper.writeValueAsBytes(object);
+    }
+
+    public static <T> T deserialize(final String json, final Class<T> type) throws JsonProcessingException {
+        return mapper.readValue(json, type);
+    }
+
+    public static <T> T deserialize(final InputStream is, final Class<T> type) throws IOException {
+        return mapper.readValue(is, type);
+    }
+
+    public static <T> T deserialize(final byte[] json, final Class<T> type) throws IOException {
+        return mapper.readValue(json, type);
+    }
 }

@@ -47,7 +47,7 @@ public enum JettyThreadPool {
             return new VirtualThreadPool(maxThreadPool);
         }
     },
-    _QUEUED(Pooling.QUEUED) {
+    _QUEUED(Pooling._QUEUED) {
         @Override
         public ThreadPool getThreadPool() {
             return new QueuedThreadPool();
@@ -58,7 +58,7 @@ public enum JettyThreadPool {
             return new QueuedThreadPool(maxThreadPool);
         }
     },
-    _MONITOR(Pooling.MONITOR) {
+    _MONITOR(Pooling._MONITOR) {
         @Override
         public ThreadPool getThreadPool() {
             return new MonitoredQueuedThreadPool();
@@ -75,6 +75,10 @@ public enum JettyThreadPool {
 
     JettyThreadPool(final Pooling pooling) {
         this.pooling = pooling;
+    }
+
+    public JettyThreadPool match(final Pooling pooling) {
+        return pooling == this.pooling ? this : null;
     }
 
     public abstract ThreadPool getThreadPool();

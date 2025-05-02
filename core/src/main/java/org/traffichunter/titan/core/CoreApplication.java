@@ -23,13 +23,25 @@
  */
 package org.traffichunter.titan.core;
 
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
 import org.traffichunter.titan.bootstrap.TitanShutdownHook;
-import org.traffichunter.titan.bootstrap.httpserver.SettingHttpServer;
+import org.traffichunter.titan.bootstrap.Settings;
+import org.traffichunter.titan.bootstrap.httpserver.SettingsHttpServer;
+import org.traffichunter.titan.core.httpserver.HealthCheckServlet;
+import org.traffichunter.titan.core.httpserver.HttpServer;
+import org.traffichunter.titan.core.httpserver.ServiceDiscoveryServlet;
+import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer;
+import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer.ContextServlet;
+import org.traffichunter.titan.monitor.Monitor;
+import org.traffichunter.titan.monitor.jmx.heap.HeapData;
+import org.traffichunter.titan.servicediscovery.ServiceDiscovery;
 
 /**
+ * invoke reflection to bootstrap
  * @author yungwang-o
  */
+@SuppressWarnings("unused")
 public class CoreApplication implements ApplicationStarter {
 
     private final TitanShutdownHook shutdownHook;
@@ -39,7 +51,62 @@ public class CoreApplication implements ApplicationStarter {
     }
 
     @Override
-    public void start(final SettingHttpServer httpServer) {
+    public void start(final Settings settings) {
 
+        shutdownHook.enableShutdown();
+
+        HttpServer httpServer = initializeHttpServer(settings.settingsHttpServer());
+        httpServer.start();
+
+        Monitor monitor = new Monitor(settings.settingsMonitor());
+
+        ServiceDiscovery serviceDiscovery = new ServiceDiscovery(settings.serviceDiscovery());
+
+        shutdownHook.addShutdownCallback(httpServer::close);
+    }
+
+    private EmbeddedJettyHttpServer initializeHttpServer(final SettingsHttpServer settingsHttpServer) {
+        return EmbeddedJettyHttpServer.builder()
+                .port(settingsHttpServer.port())
+                .contextHandler(ServletContextHandler.SESSIONS)
+                .threadPool(settingsHttpServer.pooling())
+                .addContextServlet(new ContextServlet(ServiceDiscoveryServlet.class, "/service-discovery"))
+                .addContextServlet(new ContextServlet(HealthCheckServlet.class, "/health-check"))
+                .build();
+    }
+
+    private static class ApplicationRunner implements Runnable {
+
+        private final Monitor monitor;
+        private final ServiceDiscovery serviceDiscovery;
+
+        ApplicationRunner(final Monitor monitor, final ServiceDiscovery serviceDiscovery) {
+            this.monitor = monitor;
+            this.serviceDiscovery = serviceDiscovery;
+        }
+
+        @Override
+        public void run() {
+            monitor.doMonitor(HeapData.class);
+            serviceDiscovery.warmUp();
+        }
+    }
+
+    public static class CoreApplicationException extends RuntimeException {
+
+        public CoreApplicationException() {
+        }
+
+        public CoreApplicationException(final String message) {
+            super(message);
+        }
+
+        public CoreApplicationException(final String message, final Throwable cause) {
+            super(message, cause);
+        }
+
+        public CoreApplicationException(final Throwable cause) {
+            super(cause);
+        }
     }
 }

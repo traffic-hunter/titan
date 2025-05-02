@@ -26,12 +26,14 @@ package org.traffichunter.titan.core.httpserver.jetty;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import jakarta.servlet.Servlet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.ThreadPool;
+import org.traffichunter.titan.bootstrap.httpserver.Pooling;
 import org.traffichunter.titan.core.httpserver.HttpServer;
 import org.traffichunter.titan.core.httpserver.threadpool.JettyThreadPool;
 
@@ -67,8 +69,9 @@ public class EmbeddedJettyHttpServer implements HttpServer {
         this.server.setHandler(handler);
         gracefulShutdown(builder.isGracefulShutdown);
 
-        log.info("Embedded Jetty HTTP server started on port {}", this.port);
-        log.info("Embedded Jetty HTTP server started on servlet context path {}", this.handler.getContextPath());
+        log.info("Embedded Jetty HTTP server ver. {}", server.getServerInfo());
+        log.info("Embedded Jetty HTTP server started on port. {}", this.port);
+        log.info("Embedded Jetty HTTP server started on servlet context path. {}", this.handler.getContextPath());
     }
 
     public static Builder builder() {
@@ -81,14 +84,24 @@ public class EmbeddedJettyHttpServer implements HttpServer {
     }
 
     @Override
-    public void start() throws Exception {
-        server.start();
-        server.join();
+    public void start(){
+        try {
+            server.start();
+            server.join();
+        } catch (Exception e) {
+            log.error("Failed to start embedded Jetty HTTP server = {}", e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public void close() throws Exception {
-        server.stop();
+    public void close() {
+        try {
+            server.stop();
+        } catch (Exception e) {
+            log.error("Failed to stop embedded Jetty HTTP server = {}", e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
     private void registerServlets(final ServletContextHandler servletContextHandler,
@@ -119,6 +132,18 @@ public class EmbeddedJettyHttpServer implements HttpServer {
         @CanIgnoreReturnValue
         public Builder threadPool(final JettyThreadPool threadPool) {
             this.threadPool = threadPool.getThreadPool();
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder threadPool(final Pooling pooling) {
+
+            this.threadPool = Arrays.stream(JettyThreadPool.values())
+                    .map(jettyThreadPool -> jettyThreadPool.match(pooling))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("No thread pool found"))
+                    .getThreadPool();
+
             return this;
         }
 
