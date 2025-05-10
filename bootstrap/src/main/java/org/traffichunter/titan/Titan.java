@@ -24,7 +24,6 @@
 package org.traffichunter.titan;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.BootState;
 import org.traffichunter.titan.bootstrap.TitanBootstrap;
 
 /**
@@ -32,18 +31,7 @@ import org.traffichunter.titan.bootstrap.TitanBootstrap;
  */
 @Slf4j
 public class Titan {
-
-    private static final BootState BOOT_STATE = new BootState();
-
     public static void main(String[] args) {
-
-        final boolean isStarted = BOOT_STATE.start();
-
-        if(!isStarted) {
-            log.error("Failed to start titan");
-            return;
-        }
-
         TitanBootstrap.run("ㅎㅇ");
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,44 +21,39 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap;
+package org.traffichunter.titan.bootstrap.event;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import com.google.common.eventbus.EventBus;
 
 /**
+ * <p>
+ *  this class is everywhere-accessible
+ * </p>
  * @author yungwang-o
  */
-public class TitanShutdownHook implements Runnable {
+public enum EventBusHolder {
 
-    private final Set<Runnable> shutdownCallbacks = ConcurrentHashMap.newKeySet();
+    INSTANCE,
+    ;
 
-    private volatile boolean enabledShutdown;
+    EventBusHolder() {}
 
-    public void enableShutdown() {
-        this.enabledShutdown = true;
+    private final EventBus eventBus = new EventBus();
+
+    public void register(final Object listener) {
+        eventBus.register(listener);
     }
 
-    public boolean getEnabledShutdown() {
-        return this.enabledShutdown;
+    public void unregister(final Object listener) {
+        eventBus.unregister(listener);
     }
 
-    @CanIgnoreReturnValue
-    public TitanShutdownHook addShutdownCallback(final Runnable callback) {
-        shutdownCallbacks.add(callback);
-        return this;
+    public void post(final Object event) {
+        eventBus.post(event);
     }
 
     @Override
-    public void run() {
-
-        if(!enabledShutdown) {
-            return;
-        }
-
-        for(Runnable callback : shutdownCallbacks) {
-            Runtime.getRuntime().addShutdownHook(new Thread(callback));
-        }
+    public String toString() {
+        return super.toString();
     }
 }

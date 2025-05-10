@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,44 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap;
+package org.traffichunter.titan.bootstrap.httpserver;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import lombok.Getter;
 
 /**
  * @author yungwang-o
  */
-public class TitanShutdownHook implements Runnable {
+@Getter
+public enum Pooling {
+    _VIRTUAL("virtual"),
+    _QUEUED("queue"),
+    _MONITOR("monitor");
 
-    private final Set<Runnable> shutdownCallbacks = ConcurrentHashMap.newKeySet();
+    private final String pooling;
 
-    private volatile boolean enabledShutdown;
-
-    public void enableShutdown() {
-        this.enabledShutdown = true;
-    }
-
-    public boolean getEnabledShutdown() {
-        return this.enabledShutdown;
-    }
-
-    @CanIgnoreReturnValue
-    public TitanShutdownHook addShutdownCallback(final Runnable callback) {
-        shutdownCallbacks.add(callback);
-        return this;
-    }
-
-    @Override
-    public void run() {
-
-        if(!enabledShutdown) {
-            return;
-        }
-
-        for(Runnable callback : shutdownCallbacks) {
-            Runtime.getRuntime().addShutdownHook(new Thread(callback));
-        }
+    Pooling(final String pooling) {
+        this.pooling = pooling;
     }
 }

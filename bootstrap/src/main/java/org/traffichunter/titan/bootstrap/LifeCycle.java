@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,42 +23,30 @@
  */
 package org.traffichunter.titan.bootstrap;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author yungwang-o
  */
-public class TitanShutdownHook implements Runnable {
+public abstract class LifeCycle {
 
-    private final Set<Runnable> shutdownCallbacks = ConcurrentHashMap.newKeySet();
+    private final AtomicReference<State> state = new AtomicReference<>(State.INITIALIZED);
 
-    private volatile boolean enabledShutdown;
+    public abstract boolean isInitialized();
 
-    public void enableShutdown() {
-        this.enabledShutdown = true;
+    public abstract boolean isStating();
+
+    public abstract boolean isStopped();
+
+    public abstract void setState(State state);
+
+    public State getState() {
+        return state.get();
     }
 
-    public boolean getEnabledShutdown() {
-        return this.enabledShutdown;
-    }
-
-    @CanIgnoreReturnValue
-    public TitanShutdownHook addShutdownCallback(final Runnable callback) {
-        shutdownCallbacks.add(callback);
-        return this;
-    }
-
-    @Override
-    public void run() {
-
-        if(!enabledShutdown) {
-            return;
-        }
-
-        for(Runnable callback : shutdownCallbacks) {
-            Runtime.getRuntime().addShutdownHook(new Thread(callback));
-        }
+    public enum State {
+        INITIALIZED,
+        STATING,
+        STOPPED
     }
 }

@@ -23,10 +23,12 @@
  */
 package org.traffichunter.titan.bootstrap;
 
+import java.lang.reflect.Constructor;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations.Property;
+import org.traffichunter.titan.bootstrap.environment.ConfigurationInitializer;
 
 /**
  * @author yungwang-o
@@ -34,59 +36,114 @@ import org.traffichunter.titan.bootstrap.Configurations.Property;
 @Slf4j
 public final class TitanBootstrap {
 
+    private static final String CALL_CORE_APPLICATION =
+            "org.traffichunter.titan.core.CoreApplication";
+
     private final TitanShutdownHook shutdownHook = new TitanShutdownHook();
 
     private final Banner.Mode bannerMode = Configurations.banner(Property.BANNER_MODE);
     private final Banner banner = new Banner();
 
-    private final StartUp startUp = new StartUp();
+    private final ConfigurationInitializer configurationInitializer;
 
-    private final String env;
+    private final BootState BOOT_STATE = new BootState();
 
-    TitanBootstrap(final String env) {
-        this.env = env;
+    TitanBootstrap(final String configPath) {
+        this.configurationInitializer = ConfigurationInitializer.getDefault(configPath);
     }
 
     private void run() {
 
+        final boolean isStarted = BOOT_STATE.start();
+        if(!isStarted) {
+            log.error("Failed to start titan");
+            return;
+        }
+
+        final  StartUp startUp = new StartUp();
+
         banner.print(bannerMode);
 
+        Settings settings = configurationInitializer.load();
 
-        log.info("Started titan in {} second", startUp.getUpTime());
+        try {
+            ApplicationStarter applicationStarter = invokeCoreApplication(TitanBootstrap.class.getClassLoader());
+
+            applicationStarter.start(settings);
+        } catch (Exception e) {
+            log.error("Failed bootstrapping titan = {}", e.getMessage());
+            throw new BootstrapException("Failed bootstrapping titan", e);
+        }
+
+        log.info("Started titan in {} second", startUp.getUpTime().toMillis() / 1_000.0);
     }
 
     public static void run(final String env) {
         new TitanBootstrap(env).run();
     }
 
-    private static class StartUp {
+    private static class StartUp extends StopWatch {
 
-        private final Instant startTime;
-
-        private Instant endTime;
-
-        StartUp() {
-            this.startTime = Instant.now();
+        public StartUp() {
+            super();
         }
 
-        public double getUpTime() {
-            if(startTime == null && endTime == null) {
-                throw new IllegalStateException("startTime and endTime are not set");
-            }
-
-            return Duration.between(getStartTime(), getEndTime()).toMillis() / 1_000.0;
-        }
-
+        @Override
         public Instant getStartTime() {
-            return startTime;
+            return this.startTime;
         }
 
+        @Override
         public Instant getEndTime() {
             if(endTime == null) {
-                endTime = Instant.now();
+                this.endTime = Instant.now();
+            }
+            return endTime;
+        }
+
+        @Override
+        public Duration getUpTime() {
+            if(getStartTime() == null && getEndTime() == null) {
+                throw new IllegalStateException("No start time or end time specified");
             }
 
-            return endTime;
+            return Duration.between(getStartTime(), getEndTime());
+        }
+    }
+
+    /**
+     * To avoid module cyclic dependencies, reflection was used.
+     */
+    private ApplicationStarter invokeCoreApplication(final ClassLoader classLoader) throws Exception {
+
+        Class<?> coreApp = classLoader.loadClass(CALL_CORE_APPLICATION);
+
+        Constructor<?> constructor = coreApp.getDeclaredConstructor(TitanShutdownHook.class);
+
+        return (ApplicationStarter) constructor.newInstance(shutdownHook);
+    }
+
+    public interface ApplicationStarter {
+
+        void start(Settings settings);
+    }
+
+    static class BootstrapException extends RuntimeException {
+
+        public BootstrapException() {
+            super();
+        }
+
+        public BootstrapException(final String message) {
+            super(message);
+        }
+
+        public BootstrapException(final String message, final Throwable cause) {
+            super(message, cause);
+        }
+
+        public BootstrapException(final Throwable cause) {
+            super(cause);
         }
     }
 }
