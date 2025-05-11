@@ -24,16 +24,16 @@
 package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 
 /**
  * @author yungwang-o
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class MonitorProperty {
 
     private long initialDelay;

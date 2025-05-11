@@ -24,9 +24,9 @@
 package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery.Struct;
 
 /**
@@ -34,7 +34,7 @@ import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscove
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class ServiceDiscoveryProperty {
 
     private Struct struct;

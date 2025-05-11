@@ -24,9 +24,9 @@
 package org.traffichunter.titan.bootstrap.environment.proprerty;
 
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HttpServerProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServiceDiscoveryProperty;
@@ -36,7 +36,7 @@ import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServiceDiscov
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class TitanSubProperty {
 
     private HttpServerProperty httpServer;
