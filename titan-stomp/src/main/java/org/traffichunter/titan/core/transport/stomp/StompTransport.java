@@ -21,11 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core;
+package org.traffichunter.titan.core.transport.stomp;
+
+import org.traffichunter.titan.core.transport.Transport;
 
 /**
  * @author yungwang-o
  */
-public class MessageTransportLoader {
-
+public interface StompTransport extends Transport {
 }

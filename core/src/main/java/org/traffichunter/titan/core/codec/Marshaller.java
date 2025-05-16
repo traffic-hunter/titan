@@ -21,20 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport.stomp;
-
-import java.io.IOException;
-import java.net.InetAddress;
-import org.traffichunter.titan.core.transport.Connection;
+package org.traffichunter.titan.core.codec;
 
 /**
  * @author yungwang-o
  */
-public interface StompConnection extends Connection {
+public interface Marshaller {
 
-    void send();
+    void marshal();
 
-    void connect(InetAddress address, int port) throws IOException;
-
-    void disconnect() throws IOException;
+    void unmarshal();
 }

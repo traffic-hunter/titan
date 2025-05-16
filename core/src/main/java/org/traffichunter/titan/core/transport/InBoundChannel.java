@@ -23,13 +23,31 @@
  */
 package org.traffichunter.titan.core.transport;
 
-import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
 
 /**
  * @author yungwang-o
  */
-public interface Connection extends Closeable {
+public class InBoundChannel implements Channel {
 
-    void open() throws IOException;
+    private final ServerNIOConnector connector;
+
+    private final ByteBuffer buffer;
+
+    public InBoundChannel(final ServerNIOConnector connector, final ByteBuffer buffer) {
+        this.connector = connector;
+        this.buffer = buffer;
+    }
+
+    @Override
+    public boolean isOpen() {
+        return connector.isOpen();
+    }
+
+    @Override
+    public void close() throws IOException {
+        connector.close();
+    }
 }
