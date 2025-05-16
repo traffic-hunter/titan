@@ -50,9 +50,21 @@ public final class Configurations {
         return Integer.parseInt(port);
     }
 
+    public static String environment() {
+        String environmentPath = System.getProperty(Property.ENVIRONMENT.value);
+
+        if(environmentPath == null || environmentPath.isEmpty()) {
+            return "./titan-env.yml";
+        }
+
+        return environmentPath;
+    }
+
     public enum Property {
         BANNER_MODE("titan.banner.mode"),
         PORT("titan.web.server.port"),
+        TRANSPORT_PORT("titan.transport.server.port"),
+        ENVIRONMENT("titan.environment.path"),
         ;
 
         private final String value;

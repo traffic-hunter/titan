@@ -23,15 +23,15 @@
  */
 package org.traffichunter.titan;
 
-import lombok.extern.slf4j.Slf4j;
+import static org.traffichunter.titan.bootstrap.Configurations.*;
+import static org.traffichunter.titan.bootstrap.Configurations.Property.*;
+
+import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.TitanBootstrap;
 
-/**
- * @author yungwang-o
- */
-@Slf4j
 public class Titan {
+
     public static void main(String[] args) {
-        TitanBootstrap.run("ㅎㅇ");
+        TitanBootstrap.run(Configurations.environment());
     }
 }
