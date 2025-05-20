@@ -26,25 +26,42 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
+import lombok.AccessLevel;
+import lombok.Getter;
+import org.traffichunter.titan.core.util.Protocol;
 
 /**
  * @author yungwang-o
  */
-public class InBoundChannel implements Channel {
+public abstract class AbstractInBoundChannel<FRAME> implements Channel {
 
-    private final ServerNIOConnector connector;
+    @Getter(value = AccessLevel.PROTECTED)
+    protected final ServerNIOConnector connector;
 
-    private final ByteBuffer buffer;
+    protected final ByteBuffer byteBuffer;
 
-    public InBoundChannel(final ServerNIOConnector connector, final ByteBuffer buffer) {
+    @Getter
+    private final Protocol protocol;
+
+    public AbstractInBoundChannel(final ServerNIOConnector connector,
+                                  final ByteBuffer byteBuffer,
+                                  final Protocol protocol) {
+
         this.connector = connector;
-        this.buffer = buffer;
+        this.byteBuffer = byteBuffer;
+        this.protocol = protocol;
     }
 
     @Override
     public boolean isOpen() {
         return connector.isOpen();
     }
+
+    public abstract FRAME recv() throws IOException;
+
+    public abstract FRAME recv(long timeout) throws IOException;
+
+    protected abstract boolean validate(FRAME frame);
 
     @Override
     public void close() throws IOException {
