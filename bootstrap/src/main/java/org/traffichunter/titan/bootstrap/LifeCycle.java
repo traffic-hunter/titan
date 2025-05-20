@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public abstract class LifeCycle {
 
-    private final AtomicReference<State> state = new AtomicReference<>(State.INITIALIZED);
+    protected final AtomicReference<State> state = new AtomicReference<>(State.INITIALIZED);
 
     public abstract boolean isInitialized();
 
