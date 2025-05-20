@@ -23,6 +23,8 @@
  */
 package org.traffichunter.titan.core.transport;
 
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 
 /**
@@ -39,4 +41,8 @@ public interface ServerNIOConnector extends Connector {
     }
 
     ServerSocketChannel serverSocketChannel();
+
+    SelectionKey selectionKey();
+
+    Selector selector();
 }

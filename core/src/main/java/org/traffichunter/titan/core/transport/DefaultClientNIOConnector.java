@@ -52,6 +52,7 @@ final class DefaultClientNIOConnector implements ClientNIOConnector {
         }
 
         socketChannel = SocketChannel.open();
+        socketChannel.configureBlocking(false);
         socketChannel.connect(socketAddress);
 
         state.setState(State.STATING);

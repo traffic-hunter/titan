@@ -36,4 +36,6 @@ public interface Connector extends Closeable {
     boolean isOpen();
 
     boolean isClosed();
+
+    void close() throws IOException;
 }

@@ -25,6 +25,8 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import org.traffichunter.titan.bootstrap.LifeCycle;
 import org.traffichunter.titan.bootstrap.LifeCycle.State;
@@ -35,6 +37,8 @@ import org.traffichunter.titan.bootstrap.LifeCycle.State;
 final class DefaultServerNIOConnector implements ServerNIOConnector {
 
     private ServerSocketChannel serverSocketChannel;
+
+    private Selector selector;
 
     private final int port;
 
@@ -51,9 +55,11 @@ final class DefaultServerNIOConnector implements ServerNIOConnector {
             return;
         }
 
+        selector = Selector.open();
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.configureBlocking(false);
         serverSocketChannel.bind(new InetSocketAddress(port));
+        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT | SelectionKey.OP_CONNECT);
         connectorState.setState(State.STATING);
     }
 
@@ -64,6 +70,24 @@ final class DefaultServerNIOConnector implements ServerNIOConnector {
         }
 
         return serverSocketChannel;
+    }
+
+    @Override
+    public Selector selector() {
+        if(!selector.isOpen() || selector == null) {
+            throw new IllegalStateException("selector is not open");
+        }
+
+        return selector;
+    }
+
+    @Override
+    public SelectionKey selectionKey() {
+        if(!selector.isOpen() || selector == null) {
+            throw new IllegalStateException("selector is not open");
+        }
+
+        return serverSocketChannel.keyFor(selector);
     }
 
     @Override
