@@ -21,50 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport;
+package org.traffichunter.titan.core.util;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
-import lombok.AccessLevel;
 import lombok.Getter;
-import org.traffichunter.titan.core.util.Protocol;
 
 /**
  * @author yungwang-o
  */
-public abstract class AbstractInBoundChannel<FRAME> implements Channel {
+@Getter
+public enum Protocol {
+    STOMP("stomp", "1.2"),
+    MQTT("mqtt", "5.0"),
+    ;
 
-    @Getter(value = AccessLevel.PROTECTED)
-    protected final ServerNIOConnector connector;
+    private final String name;
+    private final String version;
 
-    protected final ByteBuffer byteBuffer;
-
-    @Getter
-    private final Protocol protocol;
-
-    public AbstractInBoundChannel(final ServerNIOConnector connector,
-                                  final ByteBuffer byteBuffer,
-                                  final Protocol protocol) {
-
-        this.connector = connector;
-        this.byteBuffer = byteBuffer;
-        this.protocol = protocol;
-    }
-
-    @Override
-    public boolean isOpen() {
-        return connector.isOpen();
-    }
-
-    public abstract FRAME recv() throws IOException;
-
-    public abstract FRAME recv(long timeout) throws IOException;
-
-    protected abstract boolean validate(FRAME frame);
-
-    @Override
-    public void close() throws IOException {
-        connector.close();
+    Protocol(final String name, final String version) {
+        this.name = name;
+        this.version = version;
     }
 }

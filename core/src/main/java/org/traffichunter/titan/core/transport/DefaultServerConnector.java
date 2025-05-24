@@ -28,13 +28,15 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import org.traffichunter.titan.bootstrap.LifeCycle;
-import org.traffichunter.titan.bootstrap.LifeCycle.State;
+import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+import org.traffichunter.titan.core.util.IdGenerator;
 
 /**
  * @author yungwang-o
  */
-final class DefaultServerNIOConnector implements ServerNIOConnector {
+public class DefaultServerConnector implements ServerConnector {
 
     private ServerSocketChannel serverSocketChannel;
 
@@ -42,16 +44,18 @@ final class DefaultServerNIOConnector implements ServerNIOConnector {
 
     private final int port;
 
-    private final ServerNIOConnectorState connectorState = new ServerNIOConnectorState();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public DefaultServerNIOConnector(final int port){
+    private final String sessionId;
+
+    public DefaultServerConnector(final int port){
         this.port = port;
-        this.connectorState.setState(State.INITIALIZED);
+        this.sessionId = IdGenerator.generate();
     }
 
     @Override
     public void open() throws IOException {
-        if(!connectorState.isInitialized() || serverSocketChannel == null){
+        if (serverSocketChannel == null || closed.get()) {
             return;
         }
 
@@ -59,8 +63,23 @@ final class DefaultServerNIOConnector implements ServerNIOConnector {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.configureBlocking(false);
         serverSocketChannel.bind(new InetSocketAddress(port));
-        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT | SelectionKey.OP_CONNECT);
-        connectorState.setState(State.STATING);
+        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+    }
+
+    @Override
+    public int port() {
+        return port;
+    }
+
+    @Override
+    public SocketChannel accept(final boolean isBlocking) throws IOException {
+        if(!isOpen()) {
+            throw new IllegalStateException("connector is closed or not open");
+        }
+
+        SocketChannel socketChannel = serverSocketChannel.accept();
+        socketChannel.configureBlocking(isBlocking);
+        return socketChannel;
     }
 
     @Override
@@ -91,13 +110,22 @@ final class DefaultServerNIOConnector implements ServerNIOConnector {
     }
 
     @Override
+    public String sessionId() {
+        return this.sessionId;
+    }
+
+    @Override
     public boolean isOpen() {
-        return serverSocketChannel != null && serverSocketChannel.isOpen() && connectorState.isStating();
+        return serverSocketChannel != null &&
+                selector != null &&
+                serverSocketChannel.isOpen() &&
+                selector.isOpen() &&
+                !closed.get();
     }
 
     @Override
     public boolean isClosed() {
-        return serverSocketChannel != null && connectorState.isStopped();
+        return serverSocketChannel != null && (!serverSocketChannel.isOpen() || closed.get());
     }
 
     @Override
@@ -106,33 +134,9 @@ final class DefaultServerNIOConnector implements ServerNIOConnector {
             return;
         }
 
-        serverSocketChannel.close();
-    }
-
-    public State getState() {
-        return connectorState.getState();
-    }
-
-    private static class ServerNIOConnectorState extends LifeCycle {
-
-        @Override
-        public boolean isInitialized() {
-            return state.get() == State.INITIALIZED;
-        }
-
-        @Override
-        public boolean isStating() {
-            return state.get() == State.STATING;
-        }
-
-        @Override
-        public boolean isStopped() {
-            return state.get() == State.STOPPED;
-        }
-
-        @Override
-        public void setState(final State state) {
-            super.state.compareAndSet(super.state.get(), state);
+        if(closed.compareAndSet(false, true)) {
+            selector.close();
+            serverSocketChannel.close();
         }
     }
 }

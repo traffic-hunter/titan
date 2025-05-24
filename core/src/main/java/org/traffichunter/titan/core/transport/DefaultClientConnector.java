@@ -24,45 +24,64 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
-import lombok.AccessLevel;
-import lombok.Getter;
-import org.traffichunter.titan.core.util.Protocol;
+import java.net.InetSocketAddress;
+import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author yungwang-o
  */
-public abstract class AbstractOutBoundChannel<FRAME> implements Channel {
+public class DefaultClientConnector implements ClientConnector {
 
-    @Getter(value = AccessLevel.PROTECTED)
-    protected final ClientNIOConnector connector;
+    private SocketChannel socketChannel;
 
-    protected final ByteBuffer byteBuffer;
+    private final InetSocketAddress socketAddress;
 
-    @Getter
-    private final Protocol protocol;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public AbstractOutBoundChannel(final ClientNIOConnector connector,
-                                   final ByteBuffer byteBuffer,
-                                   final Protocol protocol) {
+    public DefaultClientConnector(final InetSocketAddress socketAddress) {
+        this.socketAddress = socketAddress;
+    }
 
-        this.connector = connector;
-        this.byteBuffer = byteBuffer;
-        this.protocol = protocol;
+    @Override
+    public void open() throws IOException {
+        if (socketChannel != null || closed.get()) {
+            return;
+        }
+
+        socketChannel = SocketChannel.open();
+        socketChannel.configureBlocking(false);
+        socketChannel.connect(socketAddress);
+    }
+
+    @Override
+    public SocketChannel socketChannel() {
+        if(!isOpen()) {
+            throw new IllegalStateException("Client socket is not open");
+        }
+
+        return socketChannel;
     }
 
     @Override
     public boolean isOpen() {
-        return connector.isOpen();
+        return socketChannel.isOpen() && !closed.get();
     }
 
-    public abstract void send(FRAME frame);
+    @Override
+    public boolean isConnected() {
+        return socketChannel.isConnected();
+    }
 
-    protected abstract boolean validate(FRAME frame);
+    @Override
+    public boolean isClosed() {
+        return closed.get();
+    }
 
     @Override
     public void close() throws IOException {
-        connector.close();
+        if(closed.compareAndSet(false, true)) {
+            socketChannel.close();
+        }
     }
 }

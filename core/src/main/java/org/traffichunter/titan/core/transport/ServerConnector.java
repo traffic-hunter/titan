@@ -21,12 +21,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.transport;
 
-import org.traffichunter.titan.core.transport.Transport;
+import java.io.IOException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
 /**
  * @author yungwang-o
  */
-public interface StompTransport extends Transport {
+public interface ServerConnector extends Connector {
+
+    static ServerConnector getDefault() {
+        return new DefaultServerConnector(7777);
+    }
+
+    static ServerConnector getDefault(int port) {
+        return new DefaultServerConnector(port);
+    };
+
+    int port();
+
+    ServerSocketChannel serverSocketChannel();
+
+    SocketChannel accept(boolean isBlocking) throws IOException;
+
+    SelectionKey selectionKey();
+
+    String sessionId();
+
+    Selector selector();
 }

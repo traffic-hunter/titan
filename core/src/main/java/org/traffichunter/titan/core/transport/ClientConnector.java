@@ -23,26 +23,19 @@
  */
 package org.traffichunter.titan.core.transport;
 
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
+import java.net.InetSocketAddress;
+import java.nio.channels.SocketChannel;
 
 /**
  * @author yungwang-o
  */
-public interface ServerNIOConnector extends Connector {
+public interface ClientConnector extends Connector {
 
-    static ServerNIOConnector getDefault() {
-        return new DefaultServerNIOConnector(7777);
+    static ClientConnector getDefault(String ip, int port) {
+        return new DefaultClientConnector(new InetSocketAddress(ip, port));
     }
 
-    static ServerNIOConnector getDefault(int port) {
-        return new DefaultServerNIOConnector(port);
-    }
+    SocketChannel socketChannel();
 
-    ServerSocketChannel serverSocketChannel();
-
-    SelectionKey selectionKey();
-
-    Selector selector();
+    boolean isConnected();
 }

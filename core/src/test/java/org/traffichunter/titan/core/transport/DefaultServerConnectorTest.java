@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
  * @author yungwang-o
  */
 @DisplayNameGeneration(ReplaceUnderscores.class)
-class DefaultServerNIOConnectorTest {
+class DefaultServerConnectorTest {
 
     @Test
     void connector_test() {

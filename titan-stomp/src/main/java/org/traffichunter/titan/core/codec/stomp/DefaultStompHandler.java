@@ -21,21 +21,60 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport;
-
-import java.net.InetSocketAddress;
-import java.nio.channels.SocketChannel;
+package org.traffichunter.titan.core.codec.stomp;
 
 /**
  * @author yungwang-o
  */
-public interface ClientNIOConnector extends Connector {
+final class DefaultStompHandler implements StompHandler {
 
-    static ClientNIOConnector getDefault(String ip, int port) {
-        return new DefaultClientNIOConnector(new InetSocketAddress(ip, port));
+    @Override
+    public void handle(final StompFrame frame) {
+
     }
 
-    SocketChannel socketChannel();
+    @Override
+    public void begin(final StompFrame sf) {
 
-    boolean isConnected();
+    }
+
+    @Override
+    public void abort(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void ack(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void commit(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void connect(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void nack(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void send(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void subscribe(final StompFrame sf) {
+
+    }
+
+    @Override
+    public void unsubscribe(final StompFrame sf) {
+
+    }
 }
