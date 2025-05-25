@@ -25,8 +25,8 @@ package org.traffichunter.titan.servicediscovery;
 
 import java.util.List;
 import org.traffichunter.titan.bootstrap.event.EventBusHolder;
+import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
 import org.traffichunter.titan.servicediscovery.registery.ServiceRegistry;
-import org.traffichunter.titan.servicediscovery.registery.ServiceRegistry.Struct;
 
 /**
  * @author yungwang-o
@@ -37,12 +37,12 @@ public class ServiceDiscovery {
 
     private final EventBusHolder eventBusHolder = EventBusHolder.INSTANCE;
 
-    public ServiceDiscovery(final Struct struct) {
+    public ServiceDiscovery(final SettingsServiceDiscovery settingsServiceDiscovery) {
 
-        this.serviceRegistry = switch (struct) {
+        this.serviceRegistry = switch (settingsServiceDiscovery.struct()) {
             case CACHE -> ServiceRegistry.cache();
             case MAP -> ServiceRegistry.map();
-            case null -> throw new IllegalStateException("Unexpected value: " + struct);
+            case null -> throw new IllegalStateException("Unexpected value: " + null);
         };
     }
 
@@ -54,11 +54,11 @@ public class ServiceDiscovery {
         serviceRegistry.unRegister(routingKey);
     }
 
-    private List<RoutingTable> getService() {
+    public List<RoutingTable> getService() {
         return serviceRegistry.getServices();
     }
 
-    private void warmUp() {
+    public void warmUp() {
 
     }
 }

@@ -24,14 +24,13 @@
 package org.traffichunter.titan.monitor;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.event.EventManager;
+import org.traffichunter.titan.bootstrap.event.EventBusHolder;
+import org.traffichunter.titan.bootstrap.monitor.SettingsMonitor;
 import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.cpu.CpuData;
 import org.traffichunter.titan.monitor.jmx.cpu.JmxCpuMbeanCollector;
@@ -52,26 +51,26 @@ public final class Monitor {
 
     private final ScheduledExecutorService schedule;
 
-    private final EventManager eventManager = EventManager.INSTANCE;
+    private final EventBusHolder eventBusHolder = EventBusHolder.INSTANCE;
 
-    private final ScheduleProperties scheduleProperties;
+    private final SettingsMonitor settingsMonitor;
 
-    public Monitor(final ScheduleProperties scheduleProperties, final int scheduledThreadPool) {
+    public Monitor(final SettingsMonitor settingsMonitor) {
 
-        if(scheduledThreadPool == 0) {
+        if(settingsMonitor.scheduledThreadPool() == 0) {
             throw new IllegalArgumentException("Scheduled thread pool must be non-zero");
         }
 
-        if(scheduledThreadPool == 1) {
+        if(settingsMonitor.scheduledThreadPool() == 1) {
             this.schedule = Executors.newSingleThreadScheduledExecutor(createMonitorThreadFactory());
         } else {
             this.schedule = Executors.newScheduledThreadPool(
-                    scheduledThreadPool,
+                    settingsMonitor.scheduledThreadPool(),
                     createMonitorThreadFactory()
             );
         }
 
-        this.scheduleProperties = Objects.requireNonNull(scheduleProperties, "Schedule properties must not be null");
+        this.settingsMonitor = settingsMonitor;
         this.collectors = Map.of(
                 CpuData.class, new JmxCpuMbeanCollector(),
                 HeapData.class, new JmxHeapMbeanCollector(),
@@ -88,12 +87,12 @@ public final class Monitor {
                     R collect = collector.collect();
 
                     if(isAppHealthThresholdExceeded(collect)) {
-                        eventManager.post(collect);
+                        eventBusHolder.post(collect);
                     }
                 },
-                scheduleProperties.initialDelay(),
-                scheduleProperties.delay(),
-                scheduleProperties.timeUnit()
+                settingsMonitor.initialDelay(),
+                settingsMonitor.delay(),
+                settingsMonitor.timeUnit()
         );
     }
 
@@ -157,14 +156,4 @@ public final class Monitor {
             return thread;
         };
     }
-
-    @Builder
-    public record ScheduleProperties(
-
-            long initialDelay,
-
-            long delay,
-
-            TimeUnit timeUnit
-    ) {}
 }

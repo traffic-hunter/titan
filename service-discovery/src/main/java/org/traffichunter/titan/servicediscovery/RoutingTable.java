@@ -32,6 +32,8 @@ public record RoutingTable(
 
         String serviceName,
 
+        String serviceId,
+
         String targetAddress, // ip, dns
 
         int port
