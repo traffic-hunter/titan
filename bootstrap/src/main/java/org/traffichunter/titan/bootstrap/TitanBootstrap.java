@@ -118,9 +118,9 @@ public final class TitanBootstrap {
 
         Class<?> coreApp = classLoader.loadClass(CALL_CORE_APPLICATION);
 
-        Constructor<?> constructor = coreApp.getDeclaredConstructor(TitanShutdownHook.class);
+        Constructor<?> constructor = coreApp.getDeclaredConstructor();
 
-        return (ApplicationStarter) constructor.newInstance(shutdownHook);
+        return (ApplicationStarter) constructor.newInstance();
     }
 
     public interface ApplicationStarter {

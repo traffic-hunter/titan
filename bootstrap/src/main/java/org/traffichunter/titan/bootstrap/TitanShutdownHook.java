@@ -26,6 +26,7 @@ package org.traffichunter.titan.bootstrap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author yungwang-o
@@ -40,7 +41,7 @@ public class TitanShutdownHook implements Runnable {
         this.enabledShutdown = true;
     }
 
-    public boolean getEnabledShutdown() {
+    public boolean isEnabled() {
         return this.enabledShutdown;
     }
 
