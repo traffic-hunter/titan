@@ -25,7 +25,6 @@ package org.traffichunter.titan.core;
 
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
-import org.traffichunter.titan.bootstrap.TitanShutdownHook;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.bootstrap.httpserver.SettingsHttpServer;
 import org.traffichunter.titan.core.httpserver.HealthCheckServlet;
@@ -44,16 +43,10 @@ import org.traffichunter.titan.servicediscovery.ServiceDiscovery;
 @SuppressWarnings("unused")
 public class CoreApplication implements ApplicationStarter {
 
-    private final TitanShutdownHook shutdownHook;
-
-    public CoreApplication(final TitanShutdownHook shutdownHook) {
-        this.shutdownHook = shutdownHook;
-    }
+    public CoreApplication() {}
 
     @Override
     public void start(final Settings settings) {
-
-        shutdownHook.enableShutdown();
 
         HttpServer httpServer = initializeHttpServer(settings.settingsHttpServer());
         httpServer.start();
@@ -61,8 +54,6 @@ public class CoreApplication implements ApplicationStarter {
         Monitor monitor = new Monitor(settings.settingsMonitor());
 
         ServiceDiscovery serviceDiscovery = new ServiceDiscovery(settings.serviceDiscovery());
-
-        shutdownHook.addShutdownCallback(httpServer::close);
     }
 
     private EmbeddedJettyHttpServer initializeHttpServer(final SettingsHttpServer settingsHttpServer) {
