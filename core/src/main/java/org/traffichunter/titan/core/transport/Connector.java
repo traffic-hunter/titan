@@ -31,8 +31,6 @@ import java.io.IOException;
  */
 public interface Connector extends Closeable {
 
-    void open() throws IOException;
-
     boolean isOpen();
 
     boolean isClosed();

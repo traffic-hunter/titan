@@ -33,25 +33,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class DefaultClientConnector implements ClientConnector {
 
-    private SocketChannel socketChannel;
+    private final SocketChannel socketChannel;
 
     private final InetSocketAddress socketAddress;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public DefaultClientConnector(final InetSocketAddress socketAddress) {
+    DefaultClientConnector(final InetSocketAddress socketAddress) {
         this.socketAddress = socketAddress;
-    }
-
-    @Override
-    public void open() throws IOException {
-        if (socketChannel != null || closed.get()) {
-            return;
+        try {
+            this.socketChannel = SocketChannel.open();
+            this.socketChannel.configureBlocking(false);
+            this.socketChannel.connect(socketAddress);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-
-        socketChannel = SocketChannel.open();
-        socketChannel.configureBlocking(false);
-        socketChannel.connect(socketAddress);
     }
 
     @Override

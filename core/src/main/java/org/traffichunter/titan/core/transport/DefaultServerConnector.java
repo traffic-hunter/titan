@@ -24,7 +24,9 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.ProtocolFamily;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -32,43 +34,53 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import org.traffichunter.titan.core.util.IdGenerator;
+import org.traffichunter.titan.core.util.annotation.ThreadSafe;
 
 /**
  * @author yungwang-o
  */
 public class DefaultServerConnector implements ServerConnector {
 
-    private ServerSocketChannel serverSocketChannel;
+    private final ServerSocketChannel serverSocketChannel;
 
-    private Selector selector;
-
-    private final int port;
+    private final ReentrantLock lock = new ReentrantLock();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final String sessionId;
 
-    public DefaultServerConnector(final int port){
-        this.port = port;
+    DefaultServerConnector() {
         this.sessionId = IdGenerator.generate();
+        try {
+            this.serverSocketChannel = ServerSocketChannel.open();
+            this.serverSocketChannel.configureBlocking(false);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
-    public void open() throws IOException {
-        if (serverSocketChannel == null || closed.get()) {
-            return;
+    public void register(final Selector selector) {
+        try {
+            serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
         }
+    }
 
-        selector = Selector.open();
-        serverSocketChannel = ServerSocketChannel.open();
-        serverSocketChannel.configureBlocking(false);
-        serverSocketChannel.bind(new InetSocketAddress(port));
-        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+    @Override
+    public String host() {
+        return serverSocketChannel.socket().getInetAddress().getHostAddress();
     }
 
     @Override
     public int port() {
-        return port;
+        return serverSocketChannel.socket().getLocalPort();
+    }
+
+    @Override
+    public void bind(final InetSocketAddress address) throws IOException {
+        serverSocketChannel.bind(address);
     }
 
     @Override
@@ -92,24 +104,6 @@ public class DefaultServerConnector implements ServerConnector {
     }
 
     @Override
-    public Selector selector() {
-        if(!selector.isOpen() || selector == null) {
-            throw new IllegalStateException("selector is not open");
-        }
-
-        return selector;
-    }
-
-    @Override
-    public SelectionKey selectionKey() {
-        if(!selector.isOpen() || selector == null) {
-            throw new IllegalStateException("selector is not open");
-        }
-
-        return serverSocketChannel.keyFor(selector);
-    }
-
-    @Override
     public String sessionId() {
         return this.sessionId;
     }
@@ -117,9 +111,7 @@ public class DefaultServerConnector implements ServerConnector {
     @Override
     public boolean isOpen() {
         return serverSocketChannel != null &&
-                selector != null &&
                 serverSocketChannel.isOpen() &&
-                selector.isOpen() &&
                 !closed.get();
     }
 
@@ -129,14 +121,19 @@ public class DefaultServerConnector implements ServerConnector {
     }
 
     @Override
+    @ThreadSafe
     public void close() throws IOException {
-        if(serverSocketChannel == null) {
-            return;
-        }
+        lock.lock();
+        try {
+            if (serverSocketChannel == null) {
+                return;
+            }
 
-        if(closed.compareAndSet(false, true)) {
-            selector.close();
-            serverSocketChannel.close();
+            if (closed.compareAndSet(false, true)) {
+                serverSocketChannel.close();
+            }
+        } finally {
+            lock.unlock();
         }
     }
 }

@@ -24,6 +24,8 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -34,23 +36,21 @@ import java.nio.channels.SocketChannel;
  */
 public interface ServerConnector extends Connector {
 
-    static ServerConnector getDefault() {
-        return new DefaultServerConnector(7777);
+    static ServerConnector open() {
+        return new DefaultServerConnector();
     }
 
-    static ServerConnector getDefault(int port) {
-        return new DefaultServerConnector(port);
-    };
+    void register(Selector selector);
+
+    String host();
 
     int port();
 
     ServerSocketChannel serverSocketChannel();
 
+    void bind(InetSocketAddress address) throws IOException;
+
     SocketChannel accept(boolean isBlocking) throws IOException;
 
-    SelectionKey selectionKey();
-
     String sessionId();
-
-    Selector selector();
 }
