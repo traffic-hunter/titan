@@ -60,11 +60,22 @@ public final class Configurations {
         return environmentPath;
     }
 
+    public static int taskPendingCapacity() {
+        String property = System.getProperty(Property.EVENTLOOP_PENDING_MAX_CAPACITY.value);
+
+        if(property == null || property.isEmpty()) {
+            return Integer.MAX_VALUE;
+        }
+
+        return Integer.parseInt(property);
+    }
+
     public enum Property {
         BANNER_MODE("titan.banner.mode"),
         PORT("titan.web.server.port"),
         TRANSPORT_PORT("titan.transport.server.port"),
         ENVIRONMENT("titan.environment.path"),
+        EVENTLOOP_PENDING_MAX_CAPACITY("titan.eventloop.pending.capacity"),
         ;
 
         private final String value;
