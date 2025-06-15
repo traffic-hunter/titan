@@ -1,10 +1,14 @@
 # Titan
 
-Titan is a message queue with automatic routing capabilities.
+Titan is a message dispatcher with automatic routing capabilities.
+
+## What is message dispatcher?
+
+A Message Dispatcher is a component that routes incoming messages to appropriate handlers or processors based on message type, content, or predefined rules.
 
 ## Concept
 
-- High performance and low latency
+- High performance and low latency (NIO, Async)
 - Auto routing with service discovery
 - We periodically monitor heap usage via JMX to prevent heap overflow.
 
@@ -13,7 +17,7 @@ Titan is a message queue with automatic routing capabilities.
 ```text
 The MIT License
 
-Copyright (c) 2025 traffic-hunter.org
+Copyright (c) 2025 traffic-hunter
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
