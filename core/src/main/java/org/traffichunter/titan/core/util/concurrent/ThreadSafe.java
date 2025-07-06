@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.annotation;
+package org.traffichunter.titan.core.util.concurrent;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
