@@ -23,30 +23,14 @@
  */
 package org.traffichunter.titan.bootstrap;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 /**
  * @author yungwang-o
  */
-public abstract class LifeCycle {
+public interface LifeCycle {
 
-    protected final AtomicReference<State> state = new AtomicReference<>(State.INITIALIZED);
+    boolean isInitialized();
 
-    public abstract boolean isInitialized();
+    boolean isStarting();
 
-    public abstract boolean isStating();
-
-    public abstract boolean isStopped();
-
-    public abstract void setState(State state);
-
-    public State getState() {
-        return state.get();
-    }
-
-    public enum State {
-        INITIALIZED,
-        STATING,
-        STOPPED
-    }
+    boolean isStopped();
 }
