@@ -21,52 +21,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.servicediscovery;
+package org.traffichunter.titan.core.queue;
 
-import java.util.Objects;
-import java.util.regex.Pattern;
-import lombok.Getter;
+import java.util.Iterator;
+import java.util.List;
+import org.traffichunter.titan.core.message.AbstractMessage;
+import org.traffichunter.titan.core.util.concurrent.Pausable;
+import org.traffichunter.titan.servicediscovery.RoutingKey;
 
 /**
  * @author yungwang-o
  */
-@Getter
-public final class RoutingKey {
+public interface RoutingQueue<M extends AbstractMessage> extends Pausable, Iterator<M> {
 
-    private static final Pattern ROUTING_KEY_PATTERN =
-            Pattern.compile("^([a-zA-Z0-9_]+)(\\.([a-zA-Z0-9_]+))*(\\.(\\*|#))?$");
+    RoutingKey route();
 
-    private final String key;
+    boolean equalsTo(RoutingKey key);
 
-    private RoutingKey(final String key) {
-        if(!matchKey(key)) {
-            throw new IllegalArgumentException("Invalid routing key: " + key);
-        }
+    M enqueue(M message);
 
-        this.key = key;
-    }
+    M peek();
 
-    public static RoutingKey create(final String routingKey) {
-        return new RoutingKey(routingKey);
-    }
+    List<M> pressure();
 
-    private boolean matchKey(final String key) {
-        return ROUTING_KEY_PATTERN.matcher(key).matches();
-    }
+    M dispatch();
 
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof RoutingKey key1)) {
-            return false;
-        }
-        return Objects.equals(getKey(), key1.getKey());
-    }
+    int size();
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(getKey());
-    }
+    int capacity();
+
+    void clear();
 }
