@@ -28,19 +28,14 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor.AbortPolicy;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
-import javax.swing.tree.ExpandVetoException;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.SingleEventLoop.EventLoopLifeCycleImpl.EventLoopStatus;
-import org.traffichunter.titan.core.util.annotation.ThreadSafe;
+import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 
 /**
@@ -68,7 +63,7 @@ final class SingleEventLoop implements EventLoop {
         this(Configurations.taskPendingCapacity());
     }
 
-    public SingleEventLoop(final int isPendingMaxTasksCapacity) {
+    private SingleEventLoop(final int isPendingMaxTasksCapacity) {
         if(isPendingMaxTasksCapacity <= 0) {
             throw new IllegalArgumentException("Task pending max tasks capacity must be greater than zero");
         }
@@ -110,7 +105,7 @@ final class SingleEventLoop implements EventLoop {
             throw new EventLoopException("Task is null");
         }
 
-        if(!lifeCycle.isStarting()) {
+        if(lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 
@@ -129,7 +124,7 @@ final class SingleEventLoop implements EventLoop {
             throw new EventLoopException("Task is null");
         }
 
-        if(!lifeCycle.isStarting()) {
+        if(lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 
@@ -163,7 +158,7 @@ final class SingleEventLoop implements EventLoop {
             throw new EventLoopException("Task is null");
         }
 
-        if(!lifeCycle.isStarting()) {
+        if(lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 
@@ -171,10 +166,15 @@ final class SingleEventLoop implements EventLoop {
     }
 
     @Override
+    public ThreadPoolExecutor eventLoopExecutor() {
+        return taskExecutors;
+    }
+
+    @Override
     @ThreadSafe
     public void suspend() {
 
-        if(!lifeCycle.isStarting()) {
+        if(lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 
@@ -189,7 +189,7 @@ final class SingleEventLoop implements EventLoop {
     @ThreadSafe
     public void shutdown(final boolean isGraceful, final long timeout, final TimeUnit unit) {
 
-        if(!lifeCycle.isStarting()) {
+        if(lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 
@@ -212,7 +212,7 @@ final class SingleEventLoop implements EventLoop {
      */
     @Override
     public void close() {
-        if(!lifeCycle.isStarting()) {
+        if(lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 

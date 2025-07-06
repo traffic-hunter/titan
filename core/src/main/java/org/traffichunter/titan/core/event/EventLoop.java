@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.event;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.bootstrap.LifeCycle;
 
@@ -38,19 +38,15 @@ public interface EventLoop {
         return new SingleEventLoop();
     }
 
-    static EventLoop single(int isPendingMaxTasksCapacity) {
-        return new SingleEventLoop(isPendingMaxTasksCapacity);
-    }
-
     void start();
 
     void restart();
 
     EventLoopLifeCycle getLifeCycle();
 
-    <T> Future<T> submit(Callable<T> task);
+    <T> CompletableFuture<T> submit(Callable<T> task);
 
-    Future<Void> submit(Runnable task);
+    CompletableFuture<Void> submit(Runnable task);
 
     void execute(Runnable task);
 
@@ -61,6 +57,8 @@ public interface EventLoop {
     }
 
     void shutdown(boolean isGraceful, long timeout, TimeUnit unit);
+
+    ThreadPoolExecutor eventLoopExecutor();
 
     void close();
 
