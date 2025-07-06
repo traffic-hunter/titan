@@ -30,7 +30,11 @@ import java.util.UUID;
  */
 public class IdGenerator {
 
-    public static String generate(){
+    public static String uuid(){
         return UUID.randomUUID().toString();
+    }
+
+    public static String timestamp() {
+        throw new UnsupportedOperationException();
     }
 }

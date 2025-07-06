@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.Objects;
 import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
+import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.inet.Receivable;
 import org.traffichunter.titan.core.util.inet.Sendable;
 
@@ -69,6 +70,7 @@ public final class ChannelContext implements Receivable, Sendable, Channel {
     }
 
     @Override
+    @ThreadSafe
     public int recv(final ByteBuffer readBuf) {
         try {
             return socketChannel.read(readBuf);
@@ -78,6 +80,7 @@ public final class ChannelContext implements Receivable, Sendable, Channel {
     }
 
     @Override
+    @ThreadSafe
     public int send(final ByteBuffer writeBuf) {
         try {
             return socketChannel.write(writeBuf);

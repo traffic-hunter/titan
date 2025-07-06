@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.net.ProtocolFamily;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -34,7 +33,7 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.annotation.ThreadSafe;
+import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 
 /**
  * @author yungwang-o
@@ -50,7 +49,7 @@ public class DefaultServerConnector implements ServerConnector {
     private final String sessionId;
 
     DefaultServerConnector() {
-        this.sessionId = IdGenerator.generate();
+        this.sessionId = IdGenerator.uuid();
         try {
             this.serverSocketChannel = ServerSocketChannel.open();
             this.serverSocketChannel.configureBlocking(false);
