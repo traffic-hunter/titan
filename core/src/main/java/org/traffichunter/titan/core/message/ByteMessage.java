@@ -40,13 +40,10 @@ public class ByteMessage extends AbstractMessage {
     @Builder
     public ByteMessage(final Priority priority,
                        final RoutingKey routingKey,
-                       final Instant createdAt,
-                       final Instant dispatchedAt,
-                       final boolean isRecovery,
                        final String producerId,
                        final byte[] message) {
 
-        super(priority, routingKey, createdAt, dispatchedAt, isRecovery, producerId, message.length);
+        super(priority, routingKey, Instant.now(), false, producerId, message.length);
         this.message = message;
     }
 

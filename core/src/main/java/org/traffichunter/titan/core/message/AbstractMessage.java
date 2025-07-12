@@ -36,18 +36,24 @@ import org.traffichunter.titan.servicediscovery.RoutingKey;
 public abstract class AbstractMessage implements Comparable<AbstractMessage> {
 
     private final String uniqueId = IdGenerator.uuid();
+
     private final Priority priority;
+
     private final RoutingKey routingKey;
+
     private final Instant createdAt;
-    private final Instant dispatchedAt;
-    private final boolean isRecovery;
+
+    private Instant dispatchedAt;
+
+    private boolean isRecovery;
+
     private final String producerId;
+
     private final long size;
 
     protected AbstractMessage(final Priority priority,
                               final RoutingKey routingKey,
                               final Instant createdAt,
-                              final Instant dispatchedAt,
                               final boolean isRecovery,
                               final String producerId,
                               final long size) {
@@ -55,10 +61,17 @@ public abstract class AbstractMessage implements Comparable<AbstractMessage> {
         this.priority = Objects.requireNonNull(priority, "priority");
         this.routingKey = Objects.requireNonNull(routingKey, "routingKey");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
-        this.dispatchedAt = Objects.requireNonNull(dispatchedAt, "dispatchedAt");
         this.isRecovery = isRecovery;
         this.producerId = Objects.requireNonNull(producerId, "producerId");
         this.size = size;
+    }
+
+    public void setRecover() {
+        this.isRecovery = true;
+    }
+
+    public void setDispatchAt(final Instant dispatchedAt) {
+        this.dispatchedAt = dispatchedAt;
     }
 
     @Override

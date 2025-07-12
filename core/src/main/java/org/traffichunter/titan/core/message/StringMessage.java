@@ -39,13 +39,10 @@ public class StringMessage extends AbstractMessage {
     @Builder
     private StringMessage(final Priority priority,
                           final RoutingKey routingKey,
-                          final Instant createdAt,
-                          final Instant dispatchedAt,
-                          final boolean isRecovery,
                           final String producerId,
                           final String message) {
 
-        super(priority, routingKey, createdAt, dispatchedAt, isRecovery, producerId, message.length());
+        super(priority, routingKey, Instant.now(),false, producerId, message.length());
         this.message = message;
     }
 
