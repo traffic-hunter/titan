@@ -64,7 +64,7 @@ public final class Configurations {
         String property = System.getProperty(Property.EVENTLOOP_PENDING_MAX_CAPACITY.value);
 
         if(property == null || property.isEmpty()) {
-            return Integer.MAX_VALUE;
+            return 500;
         }
 
         return Integer.parseInt(property);
