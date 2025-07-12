@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -60,7 +61,7 @@ class InetServerImpl implements InetServer {
 
     private final Object lock = new Object();
 
-    private final Thread listenerThread = new Thread(this::start, InetConstants.INET_SERVER_LISTENER_THREAD);
+    private final Thread listenerThread = new Thread(this::start0, InetConstants.INET_SERVER_LISTENER_THREAD);
 
     private ReadHandler<byte[]> readHandler;
 
@@ -80,8 +81,17 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
+    public void start() {
+        if(!listening) {
+            throw new IllegalStateException("Server is not listening");
+        }
+
+        listenerThread.start();
+    }
+
+    @Override
     public CompletableFuture<InetServer> listen() {
-        return listen(new InetSocketAddress(connector.host(), connector.port()));
+        return listen(new InetSocketAddress(InetAddress.getLoopbackAddress(), InetConstants.DEFAULT_PORT));
     }
 
     @Override
@@ -89,6 +99,11 @@ class InetServerImpl implements InetServer {
         if(!connector.isOpen()) {
             log.error("Connector is not open");
             return CompletableFuture.failedFuture(new IllegalStateException("Connector is not open"));
+        }
+
+        if(address.isUnresolved()) {
+            log.error("Address is unresolved");
+            return CompletableFuture.failedFuture(new IllegalStateException("Address is unresolved"));
         }
 
         listening = true;
@@ -114,7 +129,7 @@ class InetServerImpl implements InetServer {
     public InetServer onWrite(final WriteHandler<byte[]> handler) {
         Objects.requireNonNull(handler, "handler");
         writeHandler = handler;
-        return null;
+        return this;
     }
 
     @Override
@@ -138,25 +153,23 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public CompletableFuture<Void> shutdown(final boolean isGraceful) {
+    public void shutdown(final boolean isGraceful) {
         if(isGraceful) {
             if(shutdownHook.isEnabled()) {
-                return CompletableFuture.runAsync(() ->
-                        shutdownHook.addShutdownCallback(this::doClose));
+                shutdownHook.addShutdownCallback(this::doClose);
             }
+            return;
         }
 
-        return CompletableFuture.runAsync(this::doClose);
+        doClose();
     }
 
     @Override
-    public CompletableFuture<Void> close() {
-        return CompletableFuture.runAsync(this::doClose);
+    public void close() {
+        doClose();
     }
 
     private CompletableFuture<InetServer> bind(final InetSocketAddress address) {
-
-        listenerThread.start();
 
         return inetServerEventLoop.submit(() -> {
             try {
@@ -172,11 +185,11 @@ class InetServerImpl implements InetServer {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void accept(final boolean isBlocking, final SelectionKey key) {
+    private void accept(final boolean isBlocking) {
         try {
-            SocketChannel socketChannel = connector.accept(isBlocking);
-            ChannelContext channelContext = ChannelContext.create(socketChannel);
-            key.attach(channelContext);
+            SocketChannel client = connector.accept(isBlocking);
+            ChannelContext channelContext = ChannelContext.create(client);
+            client.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE, channelContext);
         } catch (IOException e) {
             throw new ServerException("Failed accept", e);
         }
@@ -189,6 +202,7 @@ class InetServerImpl implements InetServer {
             return;
         }
 
+        log.info("Closing server...");
         try {
             synchronized (lock) {
                 listening = false;
@@ -196,13 +210,15 @@ class InetServerImpl implements InetServer {
             inetServerEventLoop.gracefulShutdown(10, TimeUnit.SECONDS);
             selector.close();
             connector.close();
+            log.info("Closed server");
         } catch (IOException e) {
             throw new IllegalStateException("Cannot close server", e);
         }
     }
 
-    private void start() {
-        log.info("Launch server on {}:{}", connector.host(), connector.port());
+    private void start0() {
+
+        log.info("Server launched!!");
 
         while (isListening() && selector.isOpen()) {
             try {
@@ -219,7 +235,7 @@ class InetServerImpl implements InetServer {
                 SelectionKey key = iter.next();
 
                 if(key.isAcceptable()) {
-                    accept(false, key);
+                    accept(false);
                 } else {
                     if(key.isReadable()) {
                         try (ChannelContext cc = ChannelContext.select(key)) {
@@ -235,10 +251,10 @@ class InetServerImpl implements InetServer {
                                         byte[] data = new byte[buf.remaining()];
                                         buf.get(data);
                                         readHandler.handle(data);
-                                        return null;
+                                        buf.clear();
+                                        return CompletableFuture.completedFuture(data);
                                     }).exceptionally(throwable -> {
                                         log.error("Recv error = {}", throwable.getMessage());
-                                        doClose();
                                         return null;
                                     });
                         } catch (IOException e) {
@@ -248,19 +264,17 @@ class InetServerImpl implements InetServer {
 
                     if(key.isWritable()) {
                         try (ChannelContext cc = ChannelContext.select(key)){
-                            ByteBuffer buf  = ByteBuffer.allocate(8 * 1024);
                             byte[] data = writeHandler.handle();
-                            buf.compact();
-                            buf.put(data);
+                            ByteBuffer buf = ByteBuffer.wrap(data);
                             inetServerEventLoop.submit(() -> cc.send(buf))
                                     .thenCompose(write -> {
                                         if(write <= 0) {
                                             throw new ServerException("Failed to write channel");
                                         }
-                                        return null;
+                                        return CompletableFuture.completedFuture(data);
                                     });
                         } catch (IOException e) {
-                            throw new ServerException(e);
+                            throw new ServerException("Failed writable" ,e);
                         }
                     }
                 }

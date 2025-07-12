@@ -41,6 +41,8 @@ public interface InetServer {
         return new InetServerImpl(ServerConnector.open(), EventLoop.single());
     }
 
+    void start();
+
     @CanIgnoreReturnValue
     CompletableFuture<InetServer> listen();
 
@@ -70,9 +72,9 @@ public interface InetServer {
 
     boolean isClosed();
 
-    CompletableFuture<Void> shutdown(boolean isGraceful);
+    void shutdown(boolean isGraceful);
 
-    CompletableFuture<Void> close();
+    void close();
 
     class ServerException extends RuntimeException {
 
