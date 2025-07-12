@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.queue;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
 import org.traffichunter.titan.core.message.AbstractMessage;
@@ -32,19 +33,24 @@ import org.traffichunter.titan.servicediscovery.RoutingKey;
 /**
  * @author yungwang-o
  */
-public interface RoutingQueue<M extends AbstractMessage> extends Pausable, Iterator<M> {
+public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage> {
+
+    static DispatcherQueue get(RoutingKey key, int capacity) {
+        return new MessageDispatcherQueue(key, capacity);
+    }
 
     RoutingKey route();
 
     boolean equalsTo(RoutingKey key);
 
-    M enqueue(M message);
+    @CanIgnoreReturnValue
+    AbstractMessage enqueue(AbstractMessage message);
 
-    M peek();
+    AbstractMessage peek();
 
-    List<M> pressure();
+    List<AbstractMessage> pressure();
 
-    M dispatch();
+    AbstractMessage dispatch();
 
     int size();
 

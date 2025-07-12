@@ -23,7 +23,6 @@
  */
 package org.traffichunter.titan.core.queue;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -38,7 +37,7 @@ import org.traffichunter.titan.servicediscovery.RoutingKey;
  * @author yungwang-o
  */
 @Slf4j
-public class MessageRoutingQueue implements RoutingQueue<AbstractMessage> {
+class MessageDispatcherQueue implements DispatcherQueue {
 
     private final BlockingQueue<AbstractMessage> queue;
     private final int capacity;
@@ -48,7 +47,7 @@ public class MessageRoutingQueue implements RoutingQueue<AbstractMessage> {
     private final Condition pauseCondition = pauseLock.newCondition();
     private volatile boolean isPaused = false;
 
-    public MessageRoutingQueue(final RoutingKey routingKey, final int capacity) {
+    protected MessageDispatcherQueue(final RoutingKey routingKey, final int capacity) {
         this.capacity = capacity;
         this.queue = new PriorityBlockingQueue<>(capacity);
         this.routingKey = routingKey;
@@ -65,7 +64,6 @@ public class MessageRoutingQueue implements RoutingQueue<AbstractMessage> {
     }
 
     @Override
-    @CanIgnoreReturnValue
     public AbstractMessage enqueue(final AbstractMessage message) {
         if(isPaused) {
             log.info("Waiting for queue to be resumed");
