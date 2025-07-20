@@ -10,6 +10,10 @@ repositories {
 }
 
 val jettyVersion = "12.0.19"
+val jacksonVersion = "2.19.0"
+val apacheCommonsPool = "2.12.1"
+val slf4jVersion = "2.0.17"
+val logbackVersion = "1.5.18"
 
 dependencies {
 
@@ -24,7 +28,20 @@ dependencies {
     implementation("org.eclipse.jetty:jetty-http:${jettyVersion}")
 
     // objectmapper
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+
+    // apache commons pool2
+    implementation("org.apache.commons:commons-pool2:${apacheCommonsPool}")
+
+    // netty buffer
+    implementation("io.netty:netty-buffer:4.2.2.Final")
+
+    // SLF4J
+    implementation("org.slf4j:slf4j-api:${slf4jVersion}")
+    implementation("ch.qos.logback:logback-classic:${logbackVersion}")
+
+    // assertJ
+    testImplementation("org.assertj:assertj-core:3.27.3")
 }
 
 tasks.test {
