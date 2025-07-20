@@ -69,28 +69,17 @@ public class DefaultServerConnector implements ServerConnector {
 
     @Override
     public String host() {
-        return serverSocketChannel.socket().getInetAddress().getHostAddress();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public int port() {
-        return serverSocketChannel.socket().getLocalPort();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void bind(final InetSocketAddress address) throws IOException {
         serverSocketChannel.bind(address);
-    }
-
-    @Override
-    public SocketChannel accept(final boolean isBlocking) throws IOException {
-        if(!isOpen()) {
-            throw new IllegalStateException("connector is closed or not open");
-        }
-
-        SocketChannel socketChannel = serverSocketChannel.accept();
-        socketChannel.configureBlocking(isBlocking);
-        return socketChannel;
     }
 
     @Override

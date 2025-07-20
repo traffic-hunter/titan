@@ -50,7 +50,5 @@ public interface ServerConnector extends Connector {
 
     void bind(InetSocketAddress address) throws IOException;
 
-    SocketChannel accept(boolean isBlocking) throws IOException;
-
     String sessionId();
 }

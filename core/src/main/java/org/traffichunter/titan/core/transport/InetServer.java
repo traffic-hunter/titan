@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.transport;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import org.traffichunter.titan.core.event.EventLoop;
 import org.traffichunter.titan.core.util.inet.InetConstants;
@@ -38,35 +39,39 @@ import org.traffichunter.titan.core.util.inet.WriteHandler;
 public interface InetServer {
 
     static InetServer open() {
-        return new InetServerImpl(ServerConnector.open(), EventLoop.single());
+        return new InetServerImpl(ServerConnector.open());
     }
 
     void start();
 
     @CanIgnoreReturnValue
-    CompletableFuture<InetServer> listen();
+    Future<InetServer> listen();
 
     @CanIgnoreReturnValue
-    default CompletableFuture<InetServer> listen(int port) {
+    default Future<InetServer> listen(int port) {
         return listen(InetConstants.UNKNOWN_HOST, port);
     }
 
     @CanIgnoreReturnValue
-    default CompletableFuture<InetServer> listen(String host, int port) {
+    default Future<InetServer> listen(String host, int port) {
         return listen(new InetSocketAddress(host, port));
     }
 
     @CanIgnoreReturnValue
-    CompletableFuture<InetServer> listen(InetSocketAddress address);
+    Future<InetServer> listen(InetSocketAddress address);
 
     @CanIgnoreReturnValue
     InetServer exceptionHandler(Consumer<Throwable> handler);
 
+    @CanIgnoreReturnValue
     InetServer onRead(ReadHandler<byte[]> handler);
 
+    @CanIgnoreReturnValue
     InetServer onWrite(WriteHandler<byte[]> handler);
 
     int activePort();
+
+    boolean isStart();
 
     boolean isListening();
 
@@ -74,7 +79,7 @@ public interface InetServer {
 
     void shutdown(boolean isGraceful);
 
-    void close();
+    default void close() { shutdown(false); }
 
     class ServerException extends RuntimeException {
 

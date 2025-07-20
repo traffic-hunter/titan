@@ -32,5 +32,5 @@ public interface InetConstants {
 
     int DEFAULT_PORT = 7777;
 
-    String INET_SERVER_LISTENER_THREAD = "InetServerListenerThread";
+    String INET_SERVER_WORKER_THREAD = "InetServerWorkerThread";
 }
