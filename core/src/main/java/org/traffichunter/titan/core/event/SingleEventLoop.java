@@ -23,18 +23,20 @@
  */
 package org.traffichunter.titan.core.event;
 
+import java.io.IOException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.SingleEventLoop.EventLoopLifeCycleImpl.EventLoopStatus;
+import org.traffichunter.titan.core.transport.InetServer.ServerException;
+import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 
@@ -48,9 +50,17 @@ final class SingleEventLoop implements EventLoop {
 
     private static final String EVENT_LOOP_THREAD_NAME = "EventLoopWorkerThread";
 
-    private final AdvancedThreadPoolExecutor taskExecutors;
+    private final AdvancedThreadPoolExecutor eventLoopExecutor;
 
     private final EventLoopLifeCycle lifeCycle = new EventLoopLifeCycleImpl();
+
+    private final Selector selector;
+
+    private final Handler<ChannelContext> readHandler;
+
+    private final Handler<ChannelContext> writeHandler;
+
+    private final Handler<Selector> acceptHandler;
 
     // Optimize atomicReference
     private static final AtomicReferenceFieldUpdater<SingleEventLoop, EventLoopStatus> STATUS_UPDATER =
@@ -59,29 +69,38 @@ final class SingleEventLoop implements EventLoop {
 
     private static final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
 
-    public SingleEventLoop() {
-        this(Configurations.taskPendingCapacity());
-    }
-
-    private SingleEventLoop(final int isPendingMaxTasksCapacity) {
+    private SingleEventLoop(
+        final Selector selector,
+        final int isPendingMaxTasksCapacity,
+        final Handler<ChannelContext> readHandler,
+        final Handler<ChannelContext> writeHandler,
+        final Handler<Selector> acceptHandler
+    ) {
         if(isPendingMaxTasksCapacity <= 0) {
             throw new IllegalArgumentException("Task pending max tasks capacity must be greater than zero");
         }
 
+        this.selector = selector;
+        this.readHandler = readHandler;
+        this.writeHandler = writeHandler;
+        this.acceptHandler = acceptHandler;
         this.status = EventLoopStatus.NOT_INITIALIZED;
-        this.taskExecutors = Objects.requireNonNull(
+        this.eventLoopExecutor = Objects.requireNonNull(
                 initializeThreadPoolExecutors(isPendingMaxTasksCapacity),
                 "initializeThreadPoolExecutors"
         );
-        this.taskExecutors.allowCoreThreadTimeOut(false);
+        this.eventLoopExecutor.allowCoreThreadTimeOut(false);
+        if(!this.eventLoopExecutor.prestartCoreThread()) {
+            throw new EventLoopException("EventLoop all core threads have already been started");
+        }
         this.status = EventLoopStatus.INITIALIZED;
     }
 
     @Override
     public void start() {
         if(lifeCycle.isInitialized()) {
-            log.info("Starting event loop");
             STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
+            eventLoopExecutor.execute(this::start0);
         } else {
             throw new EventLoopException("EventLoop is not initialized");
         }
@@ -93,46 +112,10 @@ final class SingleEventLoop implements EventLoop {
         if(lifeCycle.isSuspended()) {
             log.info("Restarting event loop");
             STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
-            taskExecutors.resume();
+            eventLoopExecutor.resume();
         } else {
             throw new EventLoopException("EventLoop is not suspended");
         }
-    }
-
-    @Override
-    public <T> CompletableFuture<T> submit(final Callable<T> task) {
-        if(task == null) {
-            throw new EventLoopException("Task is null");
-        }
-
-        if(lifeCycle.isStarting()) {
-            throw new EventLoopException("EventLoop is not started");
-        }
-
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return task.call();
-            } catch (Exception e) {
-                throw new EventLoopException(e);
-            }
-        }, taskExecutors);
-    }
-
-    @Override
-    public CompletableFuture<Void> submit(final Runnable task) {
-        if(task == null) {
-            throw new EventLoopException("Task is null");
-        }
-
-        if(lifeCycle.isStarting()) {
-            throw new EventLoopException("EventLoop is not started");
-        }
-
-        return CompletableFuture.runAsync(task, taskExecutors);
-    }
-
-    private Runnable pollTask() {
-        return taskQueue().poll();
     }
 
     @Override
@@ -141,33 +124,15 @@ final class SingleEventLoop implements EventLoop {
     }
 
     public int size() {
-        return taskQueue().size();
+        return eventLoopExecutor.getQueue().size();
     }
 
     public boolean isEmpty() {
-        return taskQueue().isEmpty();
+        return eventLoopExecutor.getQueue().isEmpty();
     }
 
-    public boolean isInEvnetLoop() {
+    public boolean inEvnetLoop() {
         return Thread.currentThread().getName().equals(EVENT_LOOP_THREAD_NAME);
-    }
-
-    @Override
-    public void execute(final Runnable task) {
-        if(task == null) {
-            throw new EventLoopException("Task is null");
-        }
-
-        if(lifeCycle.isStarting()) {
-            throw new EventLoopException("EventLoop is not started");
-        }
-
-        taskExecutors.execute(task);
-    }
-
-    @Override
-    public ThreadPoolExecutor eventLoopExecutor() {
-        return taskExecutors;
     }
 
     @Override
@@ -180,7 +145,7 @@ final class SingleEventLoop implements EventLoop {
 
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.SUSPENDING);
 
-        taskExecutors.pause();
+        eventLoopExecutor.pause();
 
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.SUSPENDED);
     }
@@ -189,7 +154,7 @@ final class SingleEventLoop implements EventLoop {
     @ThreadSafe
     public void shutdown(final boolean isGraceful, final long timeout, final TimeUnit unit) {
 
-        if(lifeCycle.isStarting()) {
+        if(!lifeCycle.isStarting()) {
             throw new EventLoopException("EventLoop is not started");
         }
 
@@ -220,37 +185,27 @@ final class SingleEventLoop implements EventLoop {
 
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPING);
 
-        taskExecutors.close();
+        eventLoopExecutor.close();
 
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPED);
-    }
 
-    private Runnable peekTask() {
-        if(taskQueue().isEmpty()) {
-            throw new EventLoopException("Task is empty");
-        }
-
-        return taskQueue().peek();
+        log.info("Closed event loop");
     }
 
     @ThreadSafe
     private void shutdown(final long timeout, final TimeUnit unit) {
 
-        taskExecutors.shutdown();
+        eventLoopExecutor.shutdown();
         try {
 
-            if (!taskExecutors.awaitTermination(timeout, unit)) {
-                taskExecutors.shutdownNow();
+            if (!eventLoopExecutor.awaitTermination(timeout, unit)) {
+                eventLoopExecutor.shutdownNow();
             }
         } catch (InterruptedException e) {
             log.info("interrupted while shutting down");
-            taskExecutors.shutdownNow();
+            eventLoopExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
-    }
-
-    private BlockingQueue<Runnable> taskQueue() {
-        return taskExecutors.getQueue();
     }
 
     private static AdvancedThreadPoolExecutor initializeThreadPoolExecutors(final int isPendingMaxTasksCapacity) {
@@ -260,6 +215,103 @@ final class SingleEventLoop implements EventLoop {
                 new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
                 (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME)
         );
+    }
+
+    private void start0() {
+
+        log.info("Start event loop!!");
+
+        if(!selector.isOpen()) {
+            throw new IllegalStateException("Failed event loop; not open selector");
+        }
+
+        while (lifeCycle.isStarting() && !Thread.currentThread().isInterrupted()) {
+            try {
+                int select = selector.select();
+                if (select == 0) {
+                    continue;
+                }
+            } catch (IOException e) {
+                Thread.currentThread().interrupt();
+                throw new ServerException(e);
+            }
+
+            Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
+            while (iter.hasNext()) {
+                SelectionKey key = iter.next();
+                iter.remove();
+
+                if(!key.isValid()) {
+                    continue;
+                }
+
+                if(key.isAcceptable()) {
+                    acceptHandler.handle(selector);
+                } else if(key.isReadable()) {
+                    try (ChannelContext cc = ChannelContext.select(key)) {
+                        readHandler.handle(cc);
+                    } catch (IOException e) {
+                        key.cancel();
+                        throw new ServerException("Failed readable", e);
+                    }
+                } else if(key.isWritable()) {
+                    try (ChannelContext cc = ChannelContext.select(key)) {
+                       writeHandler.handle(cc);
+                    } catch (IOException e) {
+                        key.cancel();
+                        throw new ServerException("Failed writable", e);
+                    }
+                }
+            }
+        }
+    }
+
+    static class SingleEventLoopBuilderImpl implements Builder {
+
+        private Selector selector;
+        private int capacity;
+        private Handler<ChannelContext> readHandler;
+        private Handler<ChannelContext> writeHandler;
+        private Handler<Selector> acceptHandler;
+
+        @Override
+        public Builder selector(final Selector selector) {
+            Objects.requireNonNull(selector, "selector");
+            this.selector = selector;
+            return this;
+        }
+
+        @Override
+        public Builder capacity(final int capacity) {
+            this.capacity = capacity;
+            return this;
+        }
+
+        @Override
+        public Builder onRead(final Handler<ChannelContext> handler) {
+            Objects.requireNonNull(handler, "on read handler");
+            this.readHandler = handler;
+            return this;
+        }
+
+        @Override
+        public Builder onWrite(final Handler<ChannelContext> handler) {
+            Objects.requireNonNull(handler, "on write handler");
+            this.writeHandler = handler;
+            return this;
+        }
+
+        @Override
+        public Builder onAccept(final Handler<Selector> handler) {
+            Objects.requireNonNull(handler, "on accept handler");
+            this.acceptHandler = handler;
+            return this;
+        }
+
+        @Override
+        public EventLoop build() {
+            return new SingleEventLoop(selector, capacity, readHandler, writeHandler, acceptHandler);
+        }
     }
 
     class EventLoopLifeCycleImpl implements EventLoopLifeCycle {
@@ -306,8 +358,7 @@ final class SingleEventLoop implements EventLoop {
 
     private static class EventLoopException extends RuntimeException {
 
-        public EventLoopException() {
-        }
+        public EventLoopException() {}
 
         public EventLoopException(final String message) {
             super(message);

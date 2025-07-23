@@ -24,25 +24,21 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousServerSocketChannel;
-import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.EventLoop;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.inet.InetConstants;
@@ -63,6 +59,8 @@ class InetServerImpl implements InetServer {
 
     private final Object lock = new Object();
 
+    private final ByteBuffer buf = ByteBuffer.allocate(8 * 1024);
+
     private ReadHandler<byte[]> readHandler;
 
     private WriteHandler<byte[]> writeHandler;
@@ -77,7 +75,7 @@ class InetServerImpl implements InetServer {
         try {
             this.selector = Selector.open();
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new ServerException("Failed to open selector", e);
         }
     }
 
@@ -114,8 +112,6 @@ class InetServerImpl implements InetServer {
                 return server;
             }).exceptionally(ex -> {
                 log.error("Failed to listen on host = {}. port = {}, exception = {}", address.getHostString(), address.getPort(), ex.getMessage());
-                close();
-                listening = false;
                 return this;
             });
     }
@@ -186,7 +182,7 @@ class InetServerImpl implements InetServer {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void accept() {
+    private void accept(final Selector selector) {
         if(!connector.isOpen()) {
             throw new ServerException("Connector is not open");
         }
@@ -221,78 +217,43 @@ class InetServerImpl implements InetServer {
                 listening = false;
             }
 
-            selector.close();
             connector.close();
             log.info("Closed server");
         } catch (IOException e) {
-            throw new IllegalStateException("Cannot close server", e);
+            throw new ServerException("Cannot close server", e);
         }
     }
 
     private void start0() {
 
-        log.info("Server launched!!");
+        log.info("Start inet server!!");
 
-        if(!selector.isOpen()) {
-            throw new IllegalStateException("Not open selector");
-        }
-
-        while (isListening() && !Thread.currentThread().isInterrupted()) {
-            try {
-                int select = selector.select();
-                if (select == 0) {
-                    continue;
-                }
-            } catch (IOException e) {
-                Thread.currentThread().interrupt();
-                throw new ServerException(e);
-            }
-
-            Iterator<SelectionKey> iter = selector.selectedKeys().iterator();
-            while (iter.hasNext()) {
-                SelectionKey key = iter.next();
-                iter.remove();
-
-                if(!key.isValid()) {
-                    continue;
-                }
-
-                if(key.isAcceptable()) {
-                    accept();
-                } else if(key.isReadable()) {
-                    try (ChannelContext cc = ChannelContext.select(key)) {
-                        ByteBuffer buf = ByteBuffer.allocate(8 * 1024);
-                        int read = cc.recv(buf);
-
-                        if(read <= 0) {
-                            throw new ServerException("Failed to read channel");
-                        }
-
-                        // TODO Considering gc optimization
-                        buf.flip();
-                        byte[] data = new byte[buf.remaining()];
-                        buf.get(data);
-                        readHandler.handle(data);
-                        buf.clear();
-                    } catch (Exception e) {
-                        key.cancel();
-                        throw new ServerException("Failed readable", e);
+        EventLoop eventLoop = EventLoop.builder()
+                .selector(selector)
+                .onAccept(this::accept)
+                .capacity(Configurations.taskPendingCapacity())
+                .onRead(ctx -> {
+                    int read = ctx.recv(buf);
+                    if(read < 0) {
+                        throw new ServerException("Failed to read channel");
                     }
-                } else if(key.isWritable()) {
-                    try (ChannelContext cc = ChannelContext.select(key)) {
-                        byte[] data = writeHandler.handle();
-                        ByteBuffer buf = ByteBuffer.wrap(data);
-                        int write = cc.send(buf);
 
-                        if(write <= 0) {
-                            throw new ServerException("Failed to write channel");
-                        }
-                    } catch (Exception e) {
-                        key.cancel();
-                        throw new ServerException("Failed writable" ,e);
+                    buf.flip();
+                    byte[] data = new byte[buf.remaining()];
+                    buf.get(data);
+                    readHandler.handle(data);
+                    buf.clear();
+                })
+                .onWrite(ctx -> {
+                    byte[] data = writeHandler.handle();
+                    int send = ctx.send(ByteBuffer.wrap(data));
+
+                    if(send < 0) {
+                        throw new ServerException("Failed to write channel");
                     }
-                }
-            }
-        }
+                })
+                .build();
+
+        eventLoop.start();
     }
 }

@@ -23,19 +23,20 @@
  */
 package org.traffichunter.titan.core.event;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.nio.channels.Selector;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.bootstrap.LifeCycle;
+import org.traffichunter.titan.core.event.SingleEventLoop.SingleEventLoopBuilderImpl;
+import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.channel.ChannelContext;
 
 /**
  * @author yungwang-o
  */
 public interface EventLoop {
 
-    static EventLoop single() {
-        return new SingleEventLoop();
+    static Builder builder() {
+        return new SingleEventLoopBuilderImpl();
     }
 
     void start();
@@ -43,12 +44,6 @@ public interface EventLoop {
     void restart();
 
     EventLoopLifeCycle getLifeCycle();
-
-    <T> CompletableFuture<T> submit(Callable<T> task);
-
-    CompletableFuture<Void> submit(Runnable task);
-
-    void execute(Runnable task);
 
     void suspend();
 
@@ -58,9 +53,22 @@ public interface EventLoop {
 
     void shutdown(boolean isGraceful, long timeout, TimeUnit unit);
 
-    ThreadPoolExecutor eventLoopExecutor();
-
     void close();
+
+    interface Builder {
+
+        Builder selector(Selector selector);
+
+        Builder capacity(int capacity);
+
+        Builder onRead(Handler<ChannelContext> handler);
+
+        Builder onWrite(Handler<ChannelContext> handler);
+
+        Builder onAccept(Handler<Selector> handler);
+
+        EventLoop build();
+    }
 
     interface EventLoopLifeCycle extends LifeCycle {
 
