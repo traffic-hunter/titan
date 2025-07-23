@@ -66,6 +66,11 @@ public final class RoutingKey {
     }
 
     @Override
+    public String toString() {
+        return key;
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hashCode(getKey());
     }
