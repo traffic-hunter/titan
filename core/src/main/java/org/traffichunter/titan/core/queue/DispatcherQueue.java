@@ -52,6 +52,8 @@ public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage> {
 
     AbstractMessage dispatch();
 
+    void updateRoutingKey(RoutingKey key);
+
     int size();
 
     int capacity();

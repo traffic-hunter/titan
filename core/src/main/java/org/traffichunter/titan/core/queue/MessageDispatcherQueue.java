@@ -41,7 +41,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     private final BlockingQueue<AbstractMessage> queue;
     private final int capacity;
-    private final RoutingKey routingKey;
+    private RoutingKey routingKey;
 
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
@@ -125,6 +125,17 @@ class MessageDispatcherQueue implements DispatcherQueue {
     @Override
     public AbstractMessage dispatch() {
         return queue.poll();
+    }
+
+    @Override
+    public void updateRoutingKey(final RoutingKey key) {
+        if(key == null) {
+            throw new IllegalArgumentException("Key cannot be null");
+        }
+
+        synchronized (this) {
+            this.routingKey = key;
+        }
     }
 
     @Override
