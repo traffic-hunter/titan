@@ -21,12 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.queue;
+package org.traffichunter.titan.core;
 
 /**
  * @author yungwang-o
  */
-public class TitanQueue {
+public class ServerTest {
 
 
 }
