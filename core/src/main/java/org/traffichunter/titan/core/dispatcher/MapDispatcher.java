@@ -35,7 +35,7 @@ import org.traffichunter.titan.servicediscovery.RoutingKey;
  */
 @Getter
 @Slf4j
-class MapDispatcher implements Dispatcher {
+public class MapDispatcher implements Dispatcher {
 
     private final Map<RoutingKey, DispatcherQueue> map;
 

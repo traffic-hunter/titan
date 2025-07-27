@@ -31,7 +31,7 @@ import org.traffichunter.titan.servicediscovery.RoutingKey;
 /**
  * @author yungwang-o
  */
-class TrieDispatcher implements Dispatcher {
+public class TrieDispatcher implements Dispatcher {
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
 
