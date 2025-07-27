@@ -21,14 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.queue.dispatch;
+package org.traffichunter.titan.core.dispatcher;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.queue.DispatcherQueue;
 import org.traffichunter.titan.servicediscovery.RoutingKey;
 
 /**

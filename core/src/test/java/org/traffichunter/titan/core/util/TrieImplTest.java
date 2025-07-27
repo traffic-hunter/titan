@@ -1,7 +1,6 @@
 package org.traffichunter.titan.core.util;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.traffichunter.titan.core.queue.DispatcherQueue;
+import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.servicediscovery.RoutingKey;
 
 /**

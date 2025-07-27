@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.ByteMessage;
 import org.traffichunter.titan.core.message.Priority;
-import org.traffichunter.titan.core.queue.DispatcherQueue;
+import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.servicediscovery.RoutingKey;
 

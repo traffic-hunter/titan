@@ -21,42 +21,43 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.queue;
+package org.traffichunter.titan.core.dispatcher;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Iterator;
 import java.util.List;
-import org.traffichunter.titan.core.message.AbstractMessage;
-import org.traffichunter.titan.core.util.concurrent.Pausable;
+import org.traffichunter.titan.core.util.Trie;
+import org.traffichunter.titan.core.util.TrieImpl;
 import org.traffichunter.titan.servicediscovery.RoutingKey;
 
 /**
  * @author yungwang-o
  */
-public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage> {
+public class TrieDispatcher implements Dispatcher {
 
-    static DispatcherQueue get(RoutingKey key, int capacity) {
-        return new MessageDispatcherQueue(key, capacity);
+    private final Trie<DispatcherQueue> trie = new TrieImpl<>();
+
+    @Override
+    public DispatcherQueue find(final RoutingKey key) {
+        return trie.search(key.getKey())
+                .orElseThrow(() -> new IllegalArgumentException("Not found dispatcher-queue for key: " + key));
     }
 
-    RoutingKey route();
+    @Override
+    public void insert(final RoutingKey key, final DispatcherQueue queue) {
+        trie.insert(key.getKey(), queue);
+    }
 
-    boolean equalsTo(RoutingKey key);
+    @Override
+    public void remove(final RoutingKey key) {
+        trie.remove(key.getKey());
+    }
 
-    @CanIgnoreReturnValue
-    AbstractMessage enqueue(AbstractMessage message);
+    @Override
+    public void update(final RoutingKey originKey, final RoutingKey updateKey) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 
-    AbstractMessage peek();
-
-    List<AbstractMessage> pressure();
-
-    AbstractMessage dispatch();
-
-    void updateRoutingKey(RoutingKey key);
-
-    int size();
-
-    int capacity();
-
-    void clear();
+    @Override
+    public List<DispatcherQueue> findAll(final RoutingKey key) {
+        return trie.searchAll(key.getKey());
+    }
 }
