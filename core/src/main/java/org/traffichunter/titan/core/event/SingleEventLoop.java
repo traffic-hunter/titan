@@ -266,7 +266,7 @@ final class SingleEventLoop implements EventLoop {
         }
     }
 
-    static class SingleEventLoopBuilderImpl implements Builder {
+    static class SingleEventLoopBuilderImpl implements EventLoop.Builder {
 
         private Selector selector;
         private int capacity;
@@ -314,7 +314,7 @@ final class SingleEventLoop implements EventLoop {
         }
     }
 
-    class EventLoopLifeCycleImpl implements EventLoopLifeCycle {
+    class EventLoopLifeCycleImpl implements EventLoop.EventLoopLifeCycle {
 
         enum EventLoopStatus {
             NOT_INITIALIZED, INITIALIZED, SUSPENDING, SUSPENDED, STARTING, STOPPING, STOPPED;
