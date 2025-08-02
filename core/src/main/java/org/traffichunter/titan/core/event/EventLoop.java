@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.event;
 import java.nio.channels.Selector;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.bootstrap.LifeCycle;
-import org.traffichunter.titan.core.event.SingleEventLoop.SingleEventLoopBuilderImpl;
+import org.traffichunter.titan.core.event.NIOEventLoop.SingleEventLoopBuilderImpl;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 

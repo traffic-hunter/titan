@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
-import org.traffichunter.titan.core.event.SingleEventLoop.EventLoopLifeCycleImpl.EventLoopStatus;
+import org.traffichunter.titan.core.event.NIOEventLoop.EventLoopLifeCycleImpl.EventLoopStatus;
 import org.traffichunter.titan.core.transport.InetServer.ServerException;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
@@ -41,12 +41,79 @@ import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 
 /**
- * This implementation is single thread Event Loop
+ * A high-performance, single-threaded NIO-based event loop implementation that provides
+ * efficient asynchronous I/O operations using Java NIO's {@link Selector} mechanism.
+ *
+ * <p>This implementation follows the reactor pattern and is designed to handle high-throughput,
+ * low-latency network operations in a non-blocking manner. The event loop processes three
+ * primary types of I/O events:</p>
+ *
+ * <ul>
+ *   <li><strong>Accept Events</strong>: Handles incoming client connection requests</li>
+ *   <li><strong>Read Events</strong>: Processes data received from connected clients</li>
+ *   <li><strong>Write Events</strong>: Manages data transmission to connected clients</li>
+ * </ul>
+ *
+ * <h3>Key Features:</h3>
+ * <ul>
+ *   <li>Single-threaded event processing for optimal performance</li>
+ *   <li>Non-blocking I/O operations with zero-copy optimizations</li>
+ *   <li>Thread-safe state management using atomic operations</li>
+ *   <li>Graceful shutdown with configurable timeout</li>
+ *   <li>Runtime suspension and resumption capabilities</li>
+ *   <li>Bounded task queue with configurable capacity</li>
+ * </ul>
+ *
+ * <h3>Lifecycle Management:</h3>
+ * <p>The event loop follows a well-defined state transition model:</p>
+ * <pre>
+ * NOT_INITIALIZED → INITIALIZED → STARTING → (SUSPENDING ⇄ SUSPENDED) → STOPPING → STOPPED
+ * </pre>
+ *
+ * <h3>Usage Example:</h3>
+ * <pre>{@code
+ * // Create and configure the event loop
+ * EventLoop eventLoop = new NIOEventLoop.SingleEventLoopBuilderImpl()
+ *     .selector(Selector.open())
+ *     .capacity(1000)
+ *     .onAccept(this::handleAccept)
+ *     .onRead(this::handleRead)
+ *     .onWrite(this::handleWrite)
+ *     .build();
+ *
+ * // Start processing events
+ * eventLoop.start();
+ *
+ * // Graceful shutdown with 30-second timeout
+ * eventLoop.shutdown(true, 30, TimeUnit.SECONDS);
+ * }</pre>
+ *
+ * <h3>Performance Considerations:</h3>
+ * <p>This implementation is optimized for high-performance scenarios and includes
+ * several performance enhancements:</p>
+ * <ul>
+ *   <li>Uses {@link AtomicReferenceFieldUpdater} for lock-free state transitions</li>
+ *   <li>Employs a dedicated worker thread with optimized thread pool configuration</li>
+ *   <li>Implements efficient memory management with try-with-resources patterns</li>
+ * </ul>
+ *
+ * <p><strong>Thread Safety:</strong> This class is thread-safe. All state transitions
+ * are performed atomically using {@link AtomicReferenceFieldUpdater}, ensuring
+ * consistent state management across concurrent operations.</p>
+ *
+ * <p><strong>Important:</strong> Since the event loop operates on a single thread,
+ * blocking operations within event handlers will stall the entire event processing
+ * pipeline. All I/O handlers must be non-blocking and complete quickly.</p>
  *
  * @author yungwang-o
+ * @since 1.0
+ * @see EventLoop
+ * @see Selector
+ * @see ChannelContext
+ * @see AdvancedThreadPoolExecutor
  */
 @Slf4j
-final class SingleEventLoop implements EventLoop {
+final class NIOEventLoop implements EventLoop {
 
     private static final String EVENT_LOOP_THREAD_NAME = "EventLoopWorkerThread";
 
@@ -63,13 +130,13 @@ final class SingleEventLoop implements EventLoop {
     private final Handler<Selector> acceptHandler;
 
     // Optimize atomicReference
-    private static final AtomicReferenceFieldUpdater<SingleEventLoop, EventLoopStatus> STATUS_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(SingleEventLoop.class, EventLoopStatus.class, "status");
+    private static final AtomicReferenceFieldUpdater<NIOEventLoop, EventLoopStatus> STATUS_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(NIOEventLoop.class, EventLoopStatus.class, "status");
     private volatile EventLoopStatus status;
 
     private static final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
 
-    private SingleEventLoop(
+    private NIOEventLoop(
         final Selector selector,
         final int isPendingMaxTasksCapacity,
         final Handler<ChannelContext> readHandler,
@@ -310,7 +377,7 @@ final class SingleEventLoop implements EventLoop {
 
         @Override
         public EventLoop build() {
-            return new SingleEventLoop(selector, capacity, readHandler, writeHandler, acceptHandler);
+            return new NIOEventLoop(selector, capacity, readHandler, writeHandler, acceptHandler);
         }
     }
 
