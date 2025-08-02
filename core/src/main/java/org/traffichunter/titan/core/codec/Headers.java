@@ -40,9 +40,13 @@ public abstract class Headers<K, V, H extends Headers<K, V, H>> {
 
     public abstract void put(K key, V value);
 
+    public abstract void putIfAbsent(K key, V value);
+
     public abstract V get(K key);
 
     public abstract boolean containsKey(K key);
+
+    public abstract Set<K> keySet();
 
     public abstract Set<Map.Entry<K, V>> entrySet();
 
