@@ -15,7 +15,7 @@ class RoutingKeyTest {
             "user.key",
             "user.*",
             "user.key.*",
-            "order.created.#"
+            "order.created.*"
     })
     void check_valid_routing_key(String key) {
         Assertions.assertDoesNotThrow(() -> RoutingKey.create(key));

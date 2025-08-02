@@ -34,7 +34,7 @@ import lombok.Getter;
 public final class RoutingKey {
 
     private static final Pattern ROUTING_KEY_PATTERN =
-            Pattern.compile("^([a-zA-Z0-9_]+)(\\.([a-zA-Z0-9_]+))*(\\.(\\*|#))?$");
+            Pattern.compile("^([a-zA-Z0-9_]+)(\\.([a-zA-Z0-9_]+))*(\\.(\\*))?$");
 
     private final String key;
 
@@ -48,6 +48,22 @@ public final class RoutingKey {
 
     public static RoutingKey create(final String routingKey) {
         return new RoutingKey(routingKey);
+    }
+
+    public boolean startsWith(final String prefix) {
+       return key.startsWith(prefix);
+    }
+
+    public boolean startsWith(final RoutingKey prefix) {
+        return key.startsWith(prefix.key);
+    }
+
+    public boolean contains(final String routingKey) {
+        return key.contains(routingKey);
+    }
+
+    public boolean contains(final RoutingKey prefix) {
+        return key.contains(prefix.key);
     }
 
     private boolean matchKey(final String key) {
