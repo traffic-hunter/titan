@@ -69,9 +69,17 @@ public class MapDispatcher implements Dispatcher {
 
     @Override
     public List<DispatcherQueue> findAll(final RoutingKey key) {
-        return map.values()
+
+        String routingKey = key.getKey();
+
+        int lastIdx = routingKey.lastIndexOf("*");
+
+        String prefixRoutingKey = routingKey.substring(0, lastIdx - 1);
+
+        return map.keySet()
                 .stream()
-                .filter(val -> val.route().equals(key))
+                .filter(mapKey -> mapKey.startsWith(prefixRoutingKey))
+                .map(map::get)
                 .toList();
     }
 }

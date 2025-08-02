@@ -53,7 +53,7 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public void update(final RoutingKey originKey, final RoutingKey updateKey) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        throw new UnsupportedOperationException();
     }
 
     @Override
