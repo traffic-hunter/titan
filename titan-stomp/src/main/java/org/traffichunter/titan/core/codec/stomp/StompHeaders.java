@@ -38,6 +38,9 @@ import org.traffichunter.titan.core.codec.Headers;
 @Getter
 public final class StompHeaders extends Headers<StompHeaders.Elements, String, StompHeaders> {
 
+    public static final StompHeaders DEFAULT =
+            new StompHeaders(new HashMap<>(), "stomp", "1.2");
+
     private final String name;
 
     private final String version;
@@ -58,6 +61,13 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
     }
 
     @Override
+    public void putIfAbsent(final Elements key, final String value) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(value, "value");
+        map.putIfAbsent(key, value);
+    }
+
+    @Override
     public String get(final Elements key) {
         Objects.requireNonNull(key, "key");
         return map.get(key);
@@ -72,6 +82,11 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
     @Override
     public Set<Entry<Elements, String>> entrySet() {
         return map.entrySet();
+    }
+
+    @Override
+    public Set<Elements> keySet() {
+        return map.keySet();
     }
 
     @Override

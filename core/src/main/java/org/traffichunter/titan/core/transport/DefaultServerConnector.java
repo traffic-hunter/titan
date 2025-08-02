@@ -42,8 +42,6 @@ public class DefaultServerConnector implements ServerConnector {
 
     private final ServerSocketChannel serverSocketChannel;
 
-    private final ReentrantLock lock = new ReentrantLock();
-
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final String sessionId;
@@ -111,17 +109,13 @@ public class DefaultServerConnector implements ServerConnector {
     @Override
     @ThreadSafe
     public void close() throws IOException {
-        lock.lock();
-        try {
+        if (closed.compareAndSet(false, true)) {
+
             if (serverSocketChannel == null) {
                 return;
             }
 
-            if (closed.compareAndSet(false, true)) {
-                serverSocketChannel.close();
-            }
-        } finally {
-            lock.unlock();
+            serverSocketChannel.close();
         }
     }
 }

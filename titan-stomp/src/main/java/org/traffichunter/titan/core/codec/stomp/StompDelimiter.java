@@ -29,13 +29,13 @@ import lombok.Getter;
  * @author yungwang-o
  */
 @Getter
-enum StompDelimiter {
+public enum StompDelimiter {
 
     CR((byte) 0x0D, '\r'),         // carriage return
     LF((byte) 0x0A, '\n'),         // line feed
-    NUL((byte) 0x00, '\0'),        // null
+    NUL((byte) 0x00, '\u0000'),        // null
     COLON((byte) 0x3A, ':'),// colon ':'
-    ;
+    COMMA((byte) 0x3B, ',');
 
     private final byte hex;
     private final char character;
@@ -43,5 +43,9 @@ enum StompDelimiter {
     StompDelimiter(final byte hex, final char character) {
         this.hex = hex;
         this.character = character;
+    }
+
+    public String getString() {
+        return String.valueOf(this.character);
     }
 }

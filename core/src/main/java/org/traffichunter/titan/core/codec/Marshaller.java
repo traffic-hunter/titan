@@ -26,9 +26,9 @@ package org.traffichunter.titan.core.codec;
 /**
  * @author yungwang-o
  */
-public interface Marshaller {
+public interface Marshaller<T> {
 
-    void marshal();
+    byte[] marshall();
 
-    void unmarshal();
+    T unmarshall();
 }
