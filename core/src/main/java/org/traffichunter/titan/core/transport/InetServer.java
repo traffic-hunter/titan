@@ -40,27 +40,14 @@ import org.traffichunter.titan.core.util.inet.WriteHandler;
  */
 public interface InetServer {
 
-    static InetServer open() {
-        return new InetServerImpl(ServerConnector.open());
+    static InetServer open(InetSocketAddress address) {
+        return new InetServerImpl(ServerConnector.open(address));
     }
 
     void start();
 
     @CanIgnoreReturnValue
     Future<InetServer> listen();
-
-    @CanIgnoreReturnValue
-    default Future<InetServer> listen(int port) {
-        return listen(InetConstants.UNKNOWN_HOST, port);
-    }
-
-    @CanIgnoreReturnValue
-    default Future<InetServer> listen(String host, int port) {
-        return listen(new InetSocketAddress(host, port));
-    }
-
-    @CanIgnoreReturnValue
-    Future<InetServer> listen(InetSocketAddress address);
 
     @CanIgnoreReturnValue
     InetServer exceptionHandler(Consumer<Throwable> handler);
@@ -70,6 +57,8 @@ public interface InetServer {
 
     @CanIgnoreReturnValue
     InetServer onWrite(WriteHandler<byte[]> handler);
+
+    String host();
 
     int activePort();
 

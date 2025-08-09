@@ -89,29 +89,17 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public Future<InetServer> listen() {
-        return listen(new InetSocketAddress(InetAddress.getLoopbackAddress(), InetConstants.DEFAULT_PORT));
-    }
-
-    @Override
-    public synchronized Future<InetServer> listen(final InetSocketAddress address) {
+    public synchronized Future<InetServer> listen() {
         if(!connector.isOpen()) {
             log.error("Connector is not open");
             return CompletableFuture.failedFuture(new IllegalStateException("Connector is not open"));
         }
 
-        if(address.isUnresolved()) {
-            log.error("Address is unresolved");
-            return CompletableFuture.failedFuture(new IllegalStateException("Address is unresolved"));
-        }
-
-        log.info("Listening on host = {}, port = {}", address.getHostString(), address.getPort());
-
-        return bind(address).thenApply(server -> {
+        return bind().thenApply(server -> {
                 listening = true;
                 return server;
             }).exceptionally(ex -> {
-                log.error("Failed to listen on host = {}. port = {}, exception = {}", address.getHostString(), address.getPort(), ex.getMessage());
+                log.error("Failed to listen on host = {}. port = {}, exception = {}", connector.host(), connector.host(), ex.getMessage());
                 return this;
             });
     }
@@ -133,6 +121,11 @@ class InetServerImpl implements InetServer {
     @Override
     public InetServer exceptionHandler(final Consumer<Throwable> handler) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String host() {
+        return connector.host();
     }
 
     @Override
@@ -167,10 +160,10 @@ class InetServerImpl implements InetServer {
         doClose();
     }
 
-    private CompletableFuture<InetServer> bind(final InetSocketAddress address) {
+    private CompletableFuture<InetServer> bind() {
 
         try {
-            connector.bind(address);
+            connector.bind();
 
             connector.register(selector);
 

@@ -30,25 +30,39 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 
 /**
  * @author yungwang-o
  */
+@Slf4j
 public class DefaultServerConnector implements ServerConnector {
 
     private final ServerSocketChannel serverSocketChannel;
+
+    private final InetSocketAddress address;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final String sessionId;
 
-    DefaultServerConnector() {
+    DefaultServerConnector(final InetSocketAddress address) {
         this.sessionId = IdGenerator.uuid();
         try {
+            this.address = address;
+
+            if(this.address.isUnresolved()) {
+                log.error("Address is unresolved");
+                throw new IllegalStateException("Address is unresolved");
+            }
+
+            log.info("Connected on host = {}, port = {}", address.getHostName(), address.getPort());
+
             this.serverSocketChannel = ServerSocketChannel.open();
             this.serverSocketChannel.configureBlocking(false);
         } catch (IOException e) {
@@ -66,17 +80,13 @@ public class DefaultServerConnector implements ServerConnector {
     }
 
     @Override
-    public String host() {
-        throw new UnsupportedOperationException();
-    }
+    public String host() { return address.getHostName(); }
 
     @Override
-    public int port() {
-        throw new UnsupportedOperationException();
-    }
+    public int port() { return address.getPort(); }
 
     @Override
-    public void bind(final InetSocketAddress address) throws IOException {
+    public void bind() throws IOException {
         serverSocketChannel.bind(address);
     }
 

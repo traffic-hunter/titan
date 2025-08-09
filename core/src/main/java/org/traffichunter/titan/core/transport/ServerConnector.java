@@ -36,8 +36,8 @@ import java.nio.channels.SocketChannel;
  */
 public interface ServerConnector extends Connector {
 
-    static ServerConnector open() {
-        return new DefaultServerConnector();
+    static ServerConnector open(InetSocketAddress address) {
+        return new DefaultServerConnector(address);
     }
 
     void register(Selector selector);
@@ -48,7 +48,7 @@ public interface ServerConnector extends Connector {
 
     ServerSocketChannel serverSocketChannel();
 
-    void bind(InetSocketAddress address) throws IOException;
+    void bind() throws IOException;
 
     String sessionId();
 }

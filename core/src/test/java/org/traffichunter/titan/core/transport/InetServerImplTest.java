@@ -32,9 +32,9 @@ class InetServerImplTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        server = InetServer.open();
+        server = InetServer.open(new InetSocketAddress("localhost", 7777));
 
-        server.listen(new InetSocketAddress("localhost", 7777))
+        server.listen()
                 .get()
                 .onRead(handle -> {
                     log.info("Handler called with: = {}", new String(handle));
