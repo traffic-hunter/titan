@@ -57,7 +57,6 @@ import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
  * <h3>Key Features:</h3>
  * <ul>
  *   <li>Single-threaded event processing for optimal performance</li>
- *   <li>Non-blocking I/O operations with zero-copy optimizations</li>
  *   <li>Thread-safe state management using atomic operations</li>
  *   <li>Graceful shutdown with configurable timeout</li>
  *   <li>Runtime suspension and resumption capabilities</li>
