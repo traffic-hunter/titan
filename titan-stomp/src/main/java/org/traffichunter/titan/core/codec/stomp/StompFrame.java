@@ -23,15 +23,18 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.helpers.MessageFormatter;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.util.Pair;
 
 /**
  * @author yungwang-o
@@ -73,21 +76,28 @@ public class StompFrame {
         return new StompFrame(headers, command, body);
     }
 
+    public void addHeader(final Elements key, final String value) {
+        headers.putIfAbsent(key, value);
+    }
+
+    public String getHeader(final Elements key) {
+        return headers.get(key).orElseThrow(() -> new StompFrameException("Missing header " + key));
+    }
+
+    public ByteBuffer toBuffer() {
+        return ByteBuffer.wrap(toString().getBytes(StandardCharsets.UTF_8));
+    }
+
     public String toStringForLogging() {
         return toString(true);
     }
 
+    @Override
     public String toString() {
         return toString(false);
     }
 
-    @CanIgnoreReturnValue
-    public StompFrame addHeader(final Elements key, final String value) {
-        headers.putIfAbsent(key, value);
-        return this;
-    }
-
-    private String toString(final boolean isLogging) {
+    public String toString(final boolean isLogging) {
         final StringBuilder sb = new StringBuilder();
         sb.append(command.name());
 
@@ -125,12 +135,22 @@ public class StompFrame {
     }
 
     public static class HeartBeat {
-        final int x;
-        final int y;
+        final long x;
+        final long y;
 
-        public HeartBeat(final int x, final int y) {
+        private HeartBeat(final long x, final long y) {
             this.x = x;
             this.y = y;
+        }
+
+        public static final Pair<Long, Long> DEFAULT_HEARTBEAT = new Pair<>(1_000L, 1_000L);
+
+        public static HeartBeat create(final long x, final long y) {
+            return new HeartBeat(x, y);
+        }
+
+        public static HeartBeat create(final Pair<Long, Long> heartbeat) {
+            return new HeartBeat(heartbeat.first(), heartbeat.second());
         }
 
         public static HeartBeat doParse(final String header) {
@@ -139,26 +159,39 @@ public class StompFrame {
             }
 
             String[] token = header.split(StompDelimiter.COMMA.getString());
-            return new HeartBeat(Integer.parseInt(token[0]), Integer.parseInt(token[1]));
+            return new HeartBeat(Long.parseLong(token[0]), Long.parseLong(token[1]));
         }
 
         @Override
         public String toString() {
-            return x + "," + y;
+            return "HeartBeat{" + "x=" + x + ", y=" + y + '}';
+        }
+    }
+
+    public static String errorFrame(final String message, final Object... obj) {
+        return MessageFormatter.basicArrayFormat(message, obj);
+    }
+
+    public static class StompFrameException extends StompException {
+
+        public StompFrameException() {
         }
 
-        public static long computePingPeriod(HeartBeat client, HeartBeat server) {
-            if (client.x == 0 || server.y == 0) {
-                return 0;
-            }
-            return Math.max(client.x, server.y);
+        public StompFrameException(final String message) {
+            super(message);
         }
 
-        public static long computePongPeriod(HeartBeat client, HeartBeat server) {
-            if (client.x == 0 || server.y == 0) {
-                return 0;
-            }
-            return Math.max(client.y, server.x);
+        public StompFrameException(final String message, final Throwable cause) {
+            super(message, cause);
+        }
+
+        public StompFrameException(final Throwable cause) {
+            super(cause);
+        }
+
+        public StompFrameException(final String message, final Throwable cause, final boolean enableSuppression,
+                                   final boolean writableStackTrace) {
+            super(message, cause, enableSuppression, writableStackTrace);
         }
     }
 }

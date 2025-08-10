@@ -23,8 +23,10 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
+import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.transport.Connector;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.ServerConnector;
@@ -40,8 +42,10 @@ final class DefaultStompServer implements StompServer {
 
     private final InetServer inetServer;
 
-    public DefaultStompServer() {
-        this(InetServer.open());
+    private final StompVersion version = StompVersion.STOMP_1_2;
+
+    public DefaultStompServer(final InetSocketAddress address) {
+        this(InetServer.open(address));
     }
 
     public DefaultStompServer(final InetServer inetServer) {
@@ -60,18 +64,6 @@ final class DefaultStompServer implements StompServer {
     }
 
     @Override
-    public Future<StompServer> listen(final int port) {
-        inetServer.listen(port);
-        return CompletableFuture.completedFuture(this);
-    }
-
-    @Override
-    public Future<StompServer> listen(final String host, final int port) {
-        inetServer.listen(host, port);
-        return CompletableFuture.completedFuture(this);
-    }
-
-    @Override
     public StompServer onRead(final ReadHandler<byte[]> handler) {
         inetServer.onRead(handler);
         return this;
@@ -81,6 +73,11 @@ final class DefaultStompServer implements StompServer {
     public StompServer onWrite(final WriteHandler<byte[]> handler) {
         inetServer.onWrite(handler);
         return this;
+    }
+
+    @Override
+    public String host() {
+        return inetServer.host();
     }
 
     @Override
@@ -101,6 +98,16 @@ final class DefaultStompServer implements StompServer {
     @Override
     public boolean isClosed() {
         return inetServer.isClosed();
+    }
+
+    @Override
+    public String getVersion() {
+        return version.getVersion();
+    }
+
+    @Override
+    public void configureHeartbeat() {
+        throw new UnsupportedOperationException();
     }
 
     @Override

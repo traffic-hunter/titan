@@ -23,11 +23,8 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import org.traffichunter.titan.core.transport.Connector;
-import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
 import org.traffichunter.titan.core.util.inet.WriteHandler;
 
@@ -40,13 +37,11 @@ public interface StompServer {
 
     Future<StompServer> listen();
 
-    Future<StompServer> listen(int port);
-
-    Future<StompServer> listen(String host, int port);
-
     StompServer onRead(ReadHandler<byte[]> handler);
 
     StompServer onWrite(WriteHandler<byte[]> handler);
+
+    String host();
 
     int activePort();
 
@@ -55,6 +50,10 @@ public interface StompServer {
     boolean isListening();
 
     boolean isClosed();
+
+    String getVersion();
+
+    void configureHeartbeat();
 
     void close();
 }

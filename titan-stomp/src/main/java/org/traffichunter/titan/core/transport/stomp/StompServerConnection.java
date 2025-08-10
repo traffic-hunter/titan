@@ -21,15 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.transport.stomp;
 
-import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import javax.net.ssl.SSLSession;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
 
 /**
  * @author yungwang-o
  */
-@FunctionalInterface
-public interface StompHandler {
+public interface StompServerConnection {
 
-    void handle(StompFrame sf, StompServerConnection sc);
+    void write(StompFrame frame);
+
+    void write(ByteBuffer buf);
+
+    String session();
+
+    SSLSession sslSession();
+
+    StompServer server();
+
+    Instant lastActivityTime();
+
+    void close();
 }

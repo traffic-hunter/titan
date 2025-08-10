@@ -28,6 +28,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import lombok.Getter;
 import org.traffichunter.titan.core.codec.Headers;
@@ -38,12 +39,14 @@ import org.traffichunter.titan.core.codec.Headers;
 @Getter
 public final class StompHeaders extends Headers<StompHeaders.Elements, String, StompHeaders> {
 
-    public static final StompHeaders DEFAULT =
-            new StompHeaders(new HashMap<>(), "stomp", "1.2");
+    public static final StompHeaders DEFAULT = new StompHeaders(StompVersion.STOMP_1_2);
 
     private final String name;
-
     private final String version;
+
+    public StompHeaders(final StompVersion version) {
+        this(new HashMap<>(), version.getName(), version.getVersion());
+    }
 
     public StompHeaders(final Map<Elements, String> map, final String name, final String version) {
         super(map);
@@ -68,9 +71,9 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
     }
 
     @Override
-    public String get(final Elements key) {
+    public Optional<String> get(final Elements key) {
         Objects.requireNonNull(key, "key");
-        return map.get(key);
+        return Optional.of(map.get(key));
     }
 
     @Override

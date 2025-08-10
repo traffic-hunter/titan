@@ -33,8 +33,8 @@ public enum StompDelimiter {
 
     CR((byte) 0x0D, '\r'),         // carriage return
     LF((byte) 0x0A, '\n'),         // line feed
-    NUL((byte) 0x00, '\u0000'),        // null
-    COLON((byte) 0x3A, ':'),// colon ':'
+    NUL((byte) 0x00, '\u0000'),    // null
+    COLON((byte) 0x3A, ':'),       // colon ':'
     COMMA((byte) 0x3B, ',');
 
     private final byte hex;

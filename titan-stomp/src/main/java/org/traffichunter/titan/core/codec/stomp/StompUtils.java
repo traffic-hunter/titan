@@ -24,12 +24,16 @@
 package org.traffichunter.titan.core.codec.stomp;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 
 /**
  * @author yungwang-o
  */
 public class StompUtils {
+
+    private static final Base64.Encoder ENCODER = Base64.getEncoder();
+    private static final Base64.Decoder DECODER = Base64.getDecoder();
 
     public static StompFrame doParse(final String stomp, final StompHeaders headers) {
 
