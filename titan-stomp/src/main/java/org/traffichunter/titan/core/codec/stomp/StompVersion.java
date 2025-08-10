@@ -23,8 +23,29 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
+import lombok.Getter;
+
 /**
  * @author yungwang-o
  */
-public class Queue {
+@Getter
+public enum StompVersion {
+    STOMP_1_2("stomp", "1.2"),
+    STOMP_1_1("stomp", "1.1"),
+    STOMP_1_0("stomp", "1.0"),
+    ;
+
+    private final String name;
+    private final String version;
+
+    StompVersion(final String name, final String version) {
+        this.name = name;
+        this.version = version;
+    }
+
+    public void validate(final String version) {
+        if(!this.version.equals(version)) {
+            throw new StompException("Version " + version + " does not match expected version " + this.version);
+        }
+    }
 }

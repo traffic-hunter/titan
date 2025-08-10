@@ -26,55 +26,5 @@ package org.traffichunter.titan.core.codec.stomp;
 /**
  * @author yungwang-o
  */
-final class DefaultStompHandler implements StompHandler {
-
-    @Override
-    public void handle(final StompFrame frame) {
-
-    }
-
-    @Override
-    public void begin(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void abort(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void ack(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void commit(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void connect(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void nack(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void send(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void subscribe(final StompFrame sf) {
-
-    }
-
-    @Override
-    public void unsubscribe(final StompFrame sf) {
-
-    }
+public class StompParser {
 }
