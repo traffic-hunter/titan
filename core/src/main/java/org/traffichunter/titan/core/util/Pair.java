@@ -21,10 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.util;
 
 /**
  * @author yungwang-o
  */
-public class Topic {
+public record Pair<F, S> (F first, S second) {
+
+    public static <F, S> Pair<F, S> create(final F first, final S second) {
+        return new Pair<>(first, second);
+    }
 }
