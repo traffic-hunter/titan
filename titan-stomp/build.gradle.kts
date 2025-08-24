@@ -11,7 +11,6 @@ repositories {
 
 dependencies {
     implementation(project(":core"))
-    implementation(project(":service-discovery"))
 }
 
 tasks.test {
