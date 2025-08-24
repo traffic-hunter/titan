@@ -21,12 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.servicediscovery;
+package org.traffichunter.titan.core.servicediscovery;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import org.traffichunter.titan.bootstrap.event.EventBusHolder;
 import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
-import org.traffichunter.titan.servicediscovery.registery.ServiceRegistry;
+import org.traffichunter.titan.core.servicediscovery.registery.ServiceRegistry;
 
 /**
  * @author yungwang-o
@@ -34,8 +34,6 @@ import org.traffichunter.titan.servicediscovery.registery.ServiceRegistry;
 public class ServiceDiscovery {
 
     private final ServiceRegistry serviceRegistry;
-
-    private final EventBusHolder eventBusHolder = EventBusHolder.INSTANCE;
 
     public ServiceDiscovery(final SettingsServiceDiscovery settingsServiceDiscovery) {
 
@@ -46,16 +44,29 @@ public class ServiceDiscovery {
         };
     }
 
-    public void discover(final RoutingTable routingTable) {
-        serviceRegistry.register(routingTable);
+    public void register(final String key, final ServiceTable serviceTable) {
+        serviceRegistry.register(key, serviceTable);
     }
 
-    public void unDiscover(final RoutingKey routingKey) {
-        serviceRegistry.unRegister(routingKey);
+    public boolean containsKey(final String key) {
+        return serviceRegistry.isRegistered(key);
     }
 
-    public List<RoutingTable> getService() {
+    @CanIgnoreReturnValue
+    public ServiceTable discover(final String key) {
+        return serviceRegistry.getService(key);
+    }
+
+    public void unDiscover(final String key) {
+        serviceRegistry.unRegister(key);
+    }
+
+    public List<ServiceTable> getServices() {
         return serviceRegistry.getServices();
+    }
+
+    public boolean isEmpty() {
+        return serviceRegistry.isEmpty();
     }
 
     public void warmUp() {

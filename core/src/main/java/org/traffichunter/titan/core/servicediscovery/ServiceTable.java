@@ -21,21 +21,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.servicediscovery;
+package org.traffichunter.titan.core.servicediscovery;
+
+import java.net.InetSocketAddress;
+import lombok.Builder;
 
 /**
  * @author yungwang-o
  */
-public record RoutingTable(
-
-        RoutingKey routingKey,
+@Builder
+public record ServiceTable(
 
         String serviceName,
 
         String serviceId,
 
-        String targetAddress, // ip, dns
+        RouteStatus routeStatus,
 
-        int port
+        InetSocketAddress targetAddress
 ) {
 }

@@ -21,11 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.servicediscovery.registery;
+package org.traffichunter.titan.core.servicediscovery.registery;
 
 import java.util.List;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
-import org.traffichunter.titan.servicediscovery.RoutingTable;
+import org.traffichunter.titan.bootstrap.Configurations;
+import org.traffichunter.titan.core.servicediscovery.ServiceTable;
 
 /**
  * @author yungwang-o
@@ -33,28 +33,26 @@ import org.traffichunter.titan.servicediscovery.RoutingTable;
 public interface ServiceRegistry {
 
     static ServiceRegistry cache() {
-        return new GuavaServiceRegistry(100);
+        return new GuavaServiceRegistry(Configurations.maxConnection());
     }
 
     static ServiceRegistry map() {
-        return new SimpleServiceRegistry();
+        return new SimpleServiceRegistry(Configurations.maxConnection());
     }
 
-    void register(RoutingTable routingTable);
+    void register(String key, ServiceTable serviceTable);
 
-    void unRegister(RoutingKey routingKey);
+    void unRegister(String key);
 
-    boolean isRegistered(RoutingKey routingKey);
+    boolean isRegistered(String key);
 
-    RoutingTable getService(RoutingKey routingKey);
+    ServiceTable getService(String key);
 
-    List<RoutingTable> getServices();
+    List<String> keys();
+
+    List<ServiceTable> getServices();
 
     boolean isEmpty();
 
     void clear();
-
-    enum Struct {
-        CACHE, MAP
-    }
 }

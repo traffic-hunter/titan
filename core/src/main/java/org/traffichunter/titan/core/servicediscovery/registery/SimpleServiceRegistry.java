@@ -21,60 +21,65 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.servicediscovery.registery;
+package org.traffichunter.titan.core.servicediscovery.registery;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
-import org.traffichunter.titan.servicediscovery.RoutingTable;
+import org.traffichunter.titan.core.servicediscovery.ServiceTable;
 
 /**
  * @author yungwang-o
  */
 final class SimpleServiceRegistry implements ServiceRegistry {
 
-    private final Map<RoutingKey, RoutingTable> tables = new ConcurrentHashMap<>();
+    private final Map<String, ServiceTable> tables;
 
-    @Override
-    public void register(final RoutingTable routingTable) {
-        if(routingTable == null) {
-            throw new IllegalStateException("Routing table is null");
-        }
-
-        tables.put(routingTable.routingKey(), routingTable);
+    public SimpleServiceRegistry(final int maxConnections) {
+        this.tables = new ConcurrentHashMap<>(maxConnections);
     }
 
     @Override
-    public void unRegister(final RoutingKey routingKey) {
-        if(routingKey == null) {
-            throw new IllegalStateException("Routing key is null");
-        }
+    public void register(final String key, final ServiceTable serviceTable) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(serviceTable, "routingTable");
 
-        tables.remove(routingKey);
+        tables.put(key, serviceTable);
     }
 
     @Override
-    public boolean isRegistered(final RoutingKey routingKey) {
-        if(routingKey == null) {
-           return false;
-        }
+    public void unRegister(final String key) {
+        Objects.requireNonNull(key, "key");
 
-        return tables.containsKey(routingKey);
+        tables.remove(key);
     }
 
     @Override
-    public RoutingTable getService(final RoutingKey routingKey) {
-        if(routingKey == null) {
-            return null;
-        }
+    public boolean isRegistered(final String key) {
+        Objects.requireNonNull(key, "key");
 
-        return tables.get(routingKey);
+        return tables.containsKey(key);
     }
 
     @Override
-    public List<RoutingTable> getServices() {
-        return tables.values().stream()
+    public ServiceTable getService(final String key) {
+        Objects.requireNonNull(key, "key");
+
+        return tables.get(key);
+    }
+
+    @Override
+    public List<String> keys() {
+        return tables.keySet()
+                .stream()
+                .toList();
+    }
+
+    @Override
+    public List<ServiceTable> getServices() {
+        return tables.values()
+                .stream()
                 .toList();
     }
 

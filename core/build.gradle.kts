@@ -20,7 +20,6 @@ dependencies {
     implementation(project(":bootstrap"))
     implementation(project(":monitor"))
     implementation(project(":recovery"))
-    implementation(project(":service-discovery"))
 
     // embedded jetty
     implementation("org.eclipse.jetty:jetty-server:${jettyVersion}")

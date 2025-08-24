@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.servicediscovery;
+package org.traffichunter.titan.core.util;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
