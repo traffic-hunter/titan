@@ -28,5 +28,7 @@ package org.traffichunter.titan.core.codec.stomp;
  */
 public interface Ack {
 
-    StompFrame subscribe();
+    void ack();
+
+    void nack();
 }

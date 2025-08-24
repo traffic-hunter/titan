@@ -30,6 +30,7 @@ import java.nio.channels.SocketChannel;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLSession;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
@@ -47,6 +48,7 @@ public class StompConnectionImpl implements StompServerConnection {
 
     private volatile Instant lastActivatedTime;
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public StompConnectionImpl(final StompServer server, final SocketChannel socket) {
@@ -87,8 +89,14 @@ public class StompConnectionImpl implements StompServerConnection {
 
     @Override
     @CanIgnoreReturnValue
-    public Instant lastActivityTime() {
-        return lastActivatedTime = Instant.now();
+    public Instant lastActivatedAt() {
+        lock.lock();
+        try {
+            this.lastActivatedTime = Instant.now();
+            return lastActivatedTime;
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

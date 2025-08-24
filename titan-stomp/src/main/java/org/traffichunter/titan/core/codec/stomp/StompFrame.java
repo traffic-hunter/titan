@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.codec.stomp;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
@@ -35,13 +34,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.helpers.MessageFormatter;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.Pair;
+import org.traffichunter.titan.core.util.inet.Frame;
 
 /**
  * @author yungwang-o
  */
 @Getter
 @Slf4j
-public class StompFrame {
+public class StompFrame implements Frame<Elements, String> {
 
     public static final StompFrame ERR_STOMP_FRAME =
             StompFrame.create(new StompHeaders(new HashMap<>(), "stomp", "1.2"), StompCommand.ERROR);
@@ -76,14 +76,17 @@ public class StompFrame {
         return new StompFrame(headers, command, body);
     }
 
+    @Override
     public void addHeader(final Elements key, final String value) {
         headers.putIfAbsent(key, value);
     }
 
+    @Override
     public String getHeader(final Elements key) {
         return headers.get(key).orElseThrow(() -> new StompFrameException("Missing header " + key));
     }
 
+    @Override
     public ByteBuffer toBuffer() {
         return ByteBuffer.wrap(toString().getBytes(StandardCharsets.UTF_8));
     }
@@ -168,8 +171,20 @@ public class StompFrame {
         }
     }
 
-    public static String errorFrame(final String message, final Object... obj) {
-        return MessageFormatter.basicArrayFormat(message, obj);
+    public static ByteBuffer errorFrame(final String message) {
+        return ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static ByteBuffer errorFrame(final String message, final Object... obj) {
+        return ByteBuffer.wrap(
+                MessageFormatter.basicArrayFormat(message, obj).getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    interface AckMode {
+        String AUTO = "auto";
+        String CLIENT = "client";
+        String CLIENT_INDIVIDUAL = "client-individual";
     }
 
     public static class StompFrameException extends StompException {

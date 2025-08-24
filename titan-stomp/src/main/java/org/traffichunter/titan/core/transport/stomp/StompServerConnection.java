@@ -27,11 +27,12 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import javax.net.ssl.SSLSession;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.util.inet.ServerConnection;
 
 /**
  * @author yungwang-o
  */
-public interface StompServerConnection {
+public interface StompServerConnection extends ServerConnection {
 
     void write(StompFrame frame);
 
@@ -43,7 +44,7 @@ public interface StompServerConnection {
 
     StompServer server();
 
-    Instant lastActivityTime();
+    Instant lastActivatedAt();
 
     void close();
 }
