@@ -27,57 +27,58 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import org.traffichunter.titan.core.servicediscovery.ServiceTable;
+import org.traffichunter.titan.core.servicediscovery.Subscription;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
  */
 final class SimpleServiceRegistry implements ServiceRegistry {
 
-    private final Map<String, ServiceTable> tables;
+    private final Map<RoutingKey, Subscription> tables;
 
     public SimpleServiceRegistry(final int maxConnections) {
         this.tables = new ConcurrentHashMap<>(maxConnections);
     }
 
     @Override
-    public void register(final String key, final ServiceTable serviceTable) {
+    public void register(final RoutingKey key, final Subscription subscription) {
         Objects.requireNonNull(key, "key");
-        Objects.requireNonNull(serviceTable, "routingTable");
+        Objects.requireNonNull(subscription, "routingTable");
 
-        tables.put(key, serviceTable);
+        tables.put(key, subscription);
     }
 
     @Override
-    public void unRegister(final String key) {
+    public void unRegister(final RoutingKey key) {
         Objects.requireNonNull(key, "key");
 
         tables.remove(key);
     }
 
     @Override
-    public boolean isRegistered(final String key) {
+    public boolean isRegistered(final RoutingKey key) {
         Objects.requireNonNull(key, "key");
 
         return tables.containsKey(key);
     }
 
     @Override
-    public ServiceTable getService(final String key) {
+    public Subscription getService(final RoutingKey key) {
         Objects.requireNonNull(key, "key");
 
         return tables.get(key);
     }
 
     @Override
-    public List<String> keys() {
+    public List<RoutingKey> keys() {
         return tables.keySet()
                 .stream()
                 .toList();
     }
 
     @Override
-    public List<ServiceTable> getServices() {
+    public List<Subscription> getServices() {
         return tables.values()
                 .stream()
                 .toList();

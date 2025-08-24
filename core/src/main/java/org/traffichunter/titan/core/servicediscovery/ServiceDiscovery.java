@@ -27,6 +27,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
 import org.traffichunter.titan.core.servicediscovery.registery.ServiceRegistry;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
@@ -44,24 +45,28 @@ public class ServiceDiscovery {
         };
     }
 
-    public void register(final String key, final ServiceTable serviceTable) {
-        serviceRegistry.register(key, serviceTable);
+    public void register(final RoutingKey key, final Subscription subscription) {
+        if (key == null || subscription == null) {
+            throw new IllegalArgumentException("key or subscription is null.");
+        }
+
+        serviceRegistry.register(key, subscription);
     }
 
-    public boolean containsKey(final String key) {
+    public boolean containsKey(final RoutingKey key) {
         return serviceRegistry.isRegistered(key);
     }
 
     @CanIgnoreReturnValue
-    public ServiceTable discover(final String key) {
+    public Subscription discover(final RoutingKey key) {
         return serviceRegistry.getService(key);
     }
 
-    public void unDiscover(final String key) {
+    public void unDiscover(final RoutingKey key) {
         serviceRegistry.unRegister(key);
     }
 
-    public List<ServiceTable> getServices() {
+    public List<Subscription> getServices() {
         return serviceRegistry.getServices();
     }
 

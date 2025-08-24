@@ -28,14 +28,15 @@ import com.google.common.cache.CacheBuilder;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.core.servicediscovery.ServiceTable;
+import org.traffichunter.titan.core.servicediscovery.Subscription;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
  */
 final class GuavaServiceRegistry implements ServiceRegistry {
 
-    private final Cache<String, ServiceTable> tables;
+    private final Cache<RoutingKey, Subscription> tables;
 
     public GuavaServiceRegistry(final int capacity) {
         this.tables = CacheBuilder.newBuilder()
@@ -47,36 +48,36 @@ final class GuavaServiceRegistry implements ServiceRegistry {
     }
 
     @Override
-    public void register(final String key, final ServiceTable serviceTable) {
+    public void register(final RoutingKey key, final Subscription subscription) {
         Objects.requireNonNull(key, "key");
-        Objects.requireNonNull(serviceTable, "routingTable");
+        Objects.requireNonNull(subscription, "subscription");
 
-        tables.put(key, serviceTable);
+        tables.put(key, subscription);
     }
 
     @Override
-    public void unRegister(final String key) {
+    public void unRegister(final RoutingKey key) {
         Objects.requireNonNull(key, "key");
 
         tables.invalidate(key);
     }
 
     @Override
-    public boolean isRegistered(final String key) {
+    public boolean isRegistered(final RoutingKey key) {
         Objects.requireNonNull(key, "key");
 
         return tables.getIfPresent(key) != null;
     }
 
     @Override
-    public ServiceTable getService(final String key) {
+    public Subscription getService(final RoutingKey key) {
         Objects.requireNonNull(key, "key");
 
         return tables.getIfPresent(key);
     }
 
     @Override
-    public List<String> keys() {
+    public List<RoutingKey> keys() {
         return tables.asMap()
                 .keySet()
                 .stream()
@@ -84,7 +85,7 @@ final class GuavaServiceRegistry implements ServiceRegistry {
     }
 
     @Override
-    public List<ServiceTable> getServices() {
+    public List<Subscription> getServices() {
         return tables.asMap()
                 .values()
                 .stream()

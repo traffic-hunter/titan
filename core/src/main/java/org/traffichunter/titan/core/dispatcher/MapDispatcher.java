@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
@@ -40,18 +40,32 @@ public class MapDispatcher implements Dispatcher {
     private final Map<RoutingKey, DispatcherQueue> map;
 
     public MapDispatcher(final int initialCapacity) {
-        this.map = new ConcurrentHashMap<>(initialCapacity);
+        this(new ConcurrentHashMap<>(initialCapacity));
+    }
+
+    public MapDispatcher(final Map<RoutingKey, DispatcherQueue> map) {
+        this.map = map;
     }
 
     @Override
     public DispatcherQueue find(final RoutingKey key) {
-        return map.get(key);
+        if(exists(key)) {
+            return map.get(key);
+        }
+
+        return null;
+    }
+
+    @Override
+    public boolean exists(final RoutingKey key) {
+        return map.containsKey(key);
     }
 
     @Override
     public void insert(final RoutingKey key, final DispatcherQueue queue) {
         if(map.containsKey(key)) {
             log.error("Duplicate key: {}", key);
+            return;
         }
 
         map.put(key, queue);
@@ -68,7 +82,7 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<DispatcherQueue> findAll(final RoutingKey key) {
+    public List<DispatcherQueue> dispatch(final RoutingKey key) {
 
         String routingKey = key.getKey();
 

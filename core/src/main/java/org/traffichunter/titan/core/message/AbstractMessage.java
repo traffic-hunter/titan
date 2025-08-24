@@ -27,7 +27,7 @@ import java.time.Instant;
 import java.util.Objects;
 import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o

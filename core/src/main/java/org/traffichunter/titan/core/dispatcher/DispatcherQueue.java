@@ -27,21 +27,29 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
 import org.traffichunter.titan.core.message.AbstractMessage;
+import org.traffichunter.titan.core.servicediscovery.ServiceDiscovery;
+import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
+import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
 
 /**
  * @author yungwang-o
  */
-public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage> {
+public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage>, DispatcherQueueMbean {
 
-    static DispatcherQueue get(RoutingKey key, int capacity) {
+    static DispatcherQueue create(RoutingKey key) {
+        return new MessageDispatcherQueue(key);
+    }
+
+    static DispatcherQueue create(RoutingKey key, int capacity) {
         return new MessageDispatcherQueue(key, capacity);
     }
 
     RoutingKey route();
 
     boolean equalsTo(RoutingKey key);
+
+    ServiceDiscovery serviceDiscovery();
 
     @CanIgnoreReturnValue
     AbstractMessage enqueue(AbstractMessage message);

@@ -18,14 +18,14 @@ import org.traffichunter.titan.core.message.ByteMessage;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
  */
 class InetServerImplTest {
 
-    private final DispatcherQueue rq = DispatcherQueue.get(RoutingKey.create("route.test"), 100);
+    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 100);
     private InetServer server;
 
     private final Logger log = LoggerFactory.getLogger(InetServerImplTest.class);

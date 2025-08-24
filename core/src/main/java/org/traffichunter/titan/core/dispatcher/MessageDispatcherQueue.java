@@ -24,14 +24,20 @@
 package org.traffichunter.titan.core.dispatcher;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
+import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery.Struct;
 import org.traffichunter.titan.core.message.AbstractMessage;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
+import org.traffichunter.titan.core.servicediscovery.ServiceDiscovery;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
@@ -41,16 +47,31 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     private final BlockingQueue<AbstractMessage> queue;
     private final int capacity;
-    private RoutingKey routingKey;
+    private volatile RoutingKey routingKey;
 
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
     private volatile boolean isPaused = false;
 
-    protected MessageDispatcherQueue(final RoutingKey routingKey, final int capacity) {
+    private final ServiceDiscovery serviceDiscovery =
+            new ServiceDiscovery(SettingsServiceDiscovery.mode(Struct.CACHE));
+
+    /**
+     * {@link PriorityBlockingQueue} default capacity 11
+     */
+    MessageDispatcherQueue(final RoutingKey routingKey) {
+        this(routingKey, 11);
+    }
+
+    MessageDispatcherQueue(final RoutingKey routingKey, final int capacity) {
         this.capacity = capacity;
         this.queue = new PriorityBlockingQueue<>(capacity);
         this.routingKey = routingKey;
+    }
+
+    @Override
+    public ServiceDiscovery serviceDiscovery() {
+        return serviceDiscovery;
     }
 
     @Override
@@ -117,8 +138,9 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public List<AbstractMessage> pressure() {
-        List<AbstractMessage> messages = new ArrayList<>(queue.size());
-        messages.addAll(queue);
+        List<AbstractMessage> messages = new ArrayList<>();
+        queue.drainTo(messages);
+
         return messages;
     }
 
@@ -161,7 +183,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
         } finally {
             pauseLock.unlock();
         }

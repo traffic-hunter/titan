@@ -9,7 +9,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
 
 /**
  * @author yungwang-o
@@ -19,8 +18,8 @@ class TrieImplTest {
     @ParameterizedTest
     @ValueSource(strings = {"a", "a.b", "a.b.c", "a.b.d"})
     void startWith_success_test(String path) {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 100);
-        DispatcherQueue dq2 = DispatcherQueue.get(RoutingKey.create("a.b.d"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -35,8 +34,8 @@ class TrieImplTest {
     @ParameterizedTest
     @ValueSource(strings = {"c", "c.b", "aaa.bbb.c", "ac.bd.d"})
     void startWith_failed_test(String path) {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 100);
-        DispatcherQueue dq2 = DispatcherQueue.get(RoutingKey.create("a.b.d"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -50,7 +49,7 @@ class TrieImplTest {
 
     @Test
     void get_success_test() {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -64,7 +63,7 @@ class TrieImplTest {
 
     @Test
     void get_failed_test() {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -78,11 +77,11 @@ class TrieImplTest {
     @ParameterizedTest
     @CsvSource({"*, 5", "a.*, 4", "a.b.*, 4", "b.*, 1"})
     void search_all_success_test(String path, int result) {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("b.b.a"), 1);
-        DispatcherQueue dq2 = DispatcherQueue.get(RoutingKey.create("a.b.b"), 1);
-        DispatcherQueue dq3 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 1);
-        DispatcherQueue dq4 = DispatcherQueue.get(RoutingKey.create("a.b.d"), 1);
-        DispatcherQueue dq5 = DispatcherQueue.get(RoutingKey.create("a.b.e"), 1);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("b.b.a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.b"), 1);
+        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 1);
+        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 1);
+        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("a.b.e"), 1);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -103,11 +102,11 @@ class TrieImplTest {
     @ParameterizedTest
     @ValueSource(strings = {"*.a", "*.*.a", "a.*.a"})
     void searchAll_failed_test(String path) {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("a.b.a"), 1);
-        DispatcherQueue dq2 = DispatcherQueue.get(RoutingKey.create("a.b.b"), 1);
-        DispatcherQueue dq3 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 1);
-        DispatcherQueue dq4 = DispatcherQueue.get(RoutingKey.create("a.b.d"), 1);
-        DispatcherQueue dq5 = DispatcherQueue.get(RoutingKey.create("a.b.e"), 1);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.b"), 1);
+        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 1);
+        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 1);
+        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("a.b.e"), 1);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -124,11 +123,11 @@ class TrieImplTest {
 
     @Test
     void remove_test() {
-        DispatcherQueue dq1 = DispatcherQueue.get(RoutingKey.create("a.b.a"), 1);
-        DispatcherQueue dq2 = DispatcherQueue.get(RoutingKey.create("a.b.b"), 1);
-        DispatcherQueue dq3 = DispatcherQueue.get(RoutingKey.create("a.b.c"), 1);
-        DispatcherQueue dq4 = DispatcherQueue.get(RoutingKey.create("a.b.d"), 1);
-        DispatcherQueue dq5 = DispatcherQueue.get(RoutingKey.create("a.b.e"), 1);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.b"), 1);
+        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 1);
+        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 1);
+        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("a.b.e"), 1);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 

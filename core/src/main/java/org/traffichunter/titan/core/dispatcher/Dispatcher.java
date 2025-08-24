@@ -24,14 +24,20 @@
 package org.traffichunter.titan.core.dispatcher;
 
 import java.util.List;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
  */
 public interface Dispatcher {
 
+    /**
+     * @param key routing key
+     * @return null
+     */
     DispatcherQueue find(RoutingKey key);
+
+    boolean exists(RoutingKey key);
 
     /**
      * @param key routing key
@@ -43,5 +49,5 @@ public interface Dispatcher {
 
     void update(RoutingKey originKey, RoutingKey updateKey);
 
-    List<DispatcherQueue> findAll(RoutingKey key);
+    List<DispatcherQueue> dispatch(RoutingKey key);
 }

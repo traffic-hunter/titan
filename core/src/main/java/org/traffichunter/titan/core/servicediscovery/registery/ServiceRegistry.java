@@ -25,7 +25,8 @@ package org.traffichunter.titan.core.servicediscovery.registery;
 
 import java.util.List;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.servicediscovery.ServiceTable;
+import org.traffichunter.titan.core.servicediscovery.Subscription;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
@@ -40,17 +41,17 @@ public interface ServiceRegistry {
         return new SimpleServiceRegistry(Configurations.maxConnection());
     }
 
-    void register(String key, ServiceTable serviceTable);
+    void register(RoutingKey key, Subscription subscription);
 
-    void unRegister(String key);
+    void unRegister(RoutingKey key);
 
-    boolean isRegistered(String key);
+    boolean isRegistered(RoutingKey key);
 
-    ServiceTable getService(String key);
+    Subscription getService(RoutingKey key);
 
-    List<String> keys();
+    List<RoutingKey> keys();
 
-    List<ServiceTable> getServices();
+    List<Subscription> getServices();
 
     boolean isEmpty();
 

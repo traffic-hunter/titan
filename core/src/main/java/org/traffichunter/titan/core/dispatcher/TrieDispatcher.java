@@ -24,9 +24,9 @@
 package org.traffichunter.titan.core.dispatcher;
 
 import java.util.List;
+import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
-import org.traffichunter.titan.servicediscovery.RoutingKey;
 
 /**
  * @author yungwang-o
@@ -35,10 +35,19 @@ public class TrieDispatcher implements Dispatcher {
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
 
+    /**
+     * @param key routingKey
+     * @return null
+     */
     @Override
     public DispatcherQueue find(final RoutingKey key) {
         return trie.search(key.getKey())
-                .orElseThrow(() -> new IllegalArgumentException("Not found dispatcher-queue for key: " + key));
+                .orElse(null);
+    }
+
+    @Override
+    public boolean exists(final RoutingKey key) {
+        return trie.startsWith(key.getKey());
     }
 
     @Override
@@ -57,7 +66,7 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<DispatcherQueue> findAll(final RoutingKey key) {
+    public List<DispatcherQueue> dispatch(final RoutingKey key) {
         return trie.searchAll(key.getKey());
     }
 }

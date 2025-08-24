@@ -21,37 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec;
+package org.traffichunter.titan.core.util.inet;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import javax.net.ssl.SSLSession;
 
 /**
  * @author yungwang-o
  */
-public abstract class Headers<K, V, H extends Headers<K, V, H>> {
+public interface ServerConnection {
 
-    protected final Map<K, V> map;
+    void write(ByteBuffer buf);
 
-    protected Headers(final Map<K, V> map) {
-        this.map = map;
-    }
+    String session();
 
-    public abstract void put(K key, V value);
+    SSLSession sslSession();
 
-    public abstract void putIfAbsent(K key, V value);
+    Instant lastActivatedAt();
 
-    public abstract Optional<V> get(K key);
-
-    public abstract boolean containsKey(K key);
-
-    public abstract Set<K> keySet();
-
-    public abstract Set<Map.Entry<K, V>> entrySet();
-
-    public abstract Iterator<Map.Entry<K, V>> iterator();
-
-    public abstract H getHeader();
+    void close();
 }
