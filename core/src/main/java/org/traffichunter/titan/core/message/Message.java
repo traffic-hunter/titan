@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.message;
 
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
@@ -33,7 +34,7 @@ import org.traffichunter.titan.core.util.RoutingKey;
  * @author yungwang-o
  */
 @Getter
-public abstract class AbstractMessage implements Comparable<AbstractMessage> {
+public final class Message implements Comparable<Message> {
 
     private final String uniqueId = IdGenerator.uuid();
 
@@ -51,19 +52,23 @@ public abstract class AbstractMessage implements Comparable<AbstractMessage> {
 
     private final long size;
 
-    protected AbstractMessage(final Priority priority,
-                              final RoutingKey routingKey,
-                              final Instant createdAt,
-                              final boolean isRecovery,
-                              final String producerId,
-                              final long size) {
+    private final byte[] body;
 
+    @Builder
+    public Message(final Priority priority,
+                   final RoutingKey routingKey,
+                   final Instant createdAt,
+                   final boolean isRecovery,
+                   final String producerId,
+                   final byte[] body
+    ) {
         this.priority = Objects.requireNonNull(priority, "priority");
         this.routingKey = Objects.requireNonNull(routingKey, "routingKey");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.isRecovery = isRecovery;
         this.producerId = Objects.requireNonNull(producerId, "producerId");
-        this.size = size;
+        this.body = Objects.requireNonNull(body, "body");
+        this.size = body.length;
     }
 
     public void setRecover() {
@@ -75,7 +80,7 @@ public abstract class AbstractMessage implements Comparable<AbstractMessage> {
     }
 
     @Override
-    public int compareTo(final AbstractMessage o) {
+    public int compareTo(final Message o) {
         if(this.priority.getPriorityValue() == o.priority.getPriorityValue()) {
             return this.createdAt.compareTo(o.createdAt);
         }
