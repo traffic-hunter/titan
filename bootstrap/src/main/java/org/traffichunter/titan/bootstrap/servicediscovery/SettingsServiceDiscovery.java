@@ -26,10 +26,12 @@ package org.traffichunter.titan.bootstrap.servicediscovery;
 /**
  * @author yungwang-o
  */
-public record SettingsServiceDiscovery(
+public record SettingsServiceDiscovery(Struct struct) {
 
-        Struct struct
-) {
+    public static SettingsServiceDiscovery mode(final Struct struct) {
+        return new SettingsServiceDiscovery(struct);
+    }
+
     public enum Struct {
         MAP, CACHE
     }

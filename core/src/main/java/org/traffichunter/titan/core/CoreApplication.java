@@ -29,12 +29,10 @@ import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.bootstrap.httpserver.SettingsHttpServer;
 import org.traffichunter.titan.core.httpserver.HealthCheckServlet;
 import org.traffichunter.titan.core.httpserver.HttpServer;
-import org.traffichunter.titan.core.httpserver.ServiceDiscoveryServlet;
 import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer;
 import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer.ContextServlet;
 import org.traffichunter.titan.monitor.Monitor;
 import org.traffichunter.titan.monitor.jmx.heap.HeapData;
-import org.traffichunter.titan.servicediscovery.ServiceDiscovery;
 
 /**
  * invoke reflection to bootstrap
@@ -52,8 +50,6 @@ public class CoreApplication implements ApplicationStarter {
         httpServer.start();
 
         Monitor monitor = new Monitor(settings.settingsMonitor());
-
-        ServiceDiscovery serviceDiscovery = new ServiceDiscovery(settings.serviceDiscovery());
     }
 
     private EmbeddedJettyHttpServer initializeHttpServer(final SettingsHttpServer settingsHttpServer) {
@@ -61,7 +57,6 @@ public class CoreApplication implements ApplicationStarter {
                 .port(settingsHttpServer.port())
                 .contextHandler(ServletContextHandler.SESSIONS)
                 .threadPool(settingsHttpServer.pooling())
-                .addContextServlet(new ContextServlet(ServiceDiscoveryServlet.class, "/service-discovery"))
                 .addContextServlet(new ContextServlet(HealthCheckServlet.class, "/health-check"))
                 .build();
     }
@@ -69,17 +64,14 @@ public class CoreApplication implements ApplicationStarter {
     private static class ApplicationRunner implements Runnable {
 
         private final Monitor monitor;
-        private final ServiceDiscovery serviceDiscovery;
 
-        ApplicationRunner(final Monitor monitor, final ServiceDiscovery serviceDiscovery) {
+        ApplicationRunner(final Monitor monitor) {
             this.monitor = monitor;
-            this.serviceDiscovery = serviceDiscovery;
         }
 
         @Override
         public void run() {
             monitor.doMonitor(HeapData.class);
-            serviceDiscovery.warmUp();
         }
     }
 
