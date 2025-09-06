@@ -25,20 +25,23 @@ package org.traffichunter.titan.core.codec.stomp;
 
 import static org.traffichunter.titan.core.codec.stomp.StompVersion.*;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.LongAdder;
+import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.codec.Json;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
+import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
-import org.traffichunter.titan.core.servicediscovery.RouteStatus;
-import org.traffichunter.titan.core.servicediscovery.Subscription;
 import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
+import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
  */
+@Slf4j
 public final class StompHandlerImpl implements StompHandler {
 
     private final Dispatcher dispatcher;
@@ -49,6 +52,7 @@ public final class StompHandlerImpl implements StompHandler {
 
     @Override
     public void handle(final StompFrame sf, final StompServerConnection sc) {
+        sc.setLastActivatedAt();
 
         switch (sf.getCommand()) {
             case STOMP, CONNECT -> doConnect(sf, sc);
@@ -74,7 +78,7 @@ public final class StompHandlerImpl implements StompHandler {
             return;
         }
 
-        if(!Transactions.getInstance().addTransaction(sc, txId)) {
+        if(Transactions.getInstance().registerTransaction(sc, txId)) {
             sc.write(StompFrame.errorFrame("Transaction id = {} already exists.", txId));
             sc.close();
             return;
@@ -118,7 +122,7 @@ public final class StompHandlerImpl implements StompHandler {
                 sc.close();
             }
         } else {
-            if(!Transactions.getInstance().addTransaction(sc, id)) {
+            if(Transactions.getInstance().registerTransaction(sc, id)) {
                 Transactions.getInstance().removeTransactions(sc);
                 sc.write(StompFrame.errorFrame("Failed transaction add id = {}", id));
                 sc.close();
@@ -145,7 +149,7 @@ public final class StompHandlerImpl implements StompHandler {
             return;
         }
 
-
+        // TODO tx chunk implementation.
 
         transaction.clear();
         Transactions.getInstance().removeTransaction(sc, txId);
@@ -162,7 +166,29 @@ public final class StompHandlerImpl implements StompHandler {
         if(!accept.equals(sc.server().getVersion())) {
             sc.write(StompFrame.errorFrame("Not match stomp version... client version = {}", accept));
             sc.close();
+            return;
         }
+
+        String heartbeat = Optional.ofNullable(sf.getHeader(Elements.HEART_BEAT))
+                .orElse(Json.serialize(HeartBeat.doParse(null)));
+        long ping = StompFrame.HeartBeat.computePingClientToServer(
+                HeartBeat.DEFAULT,
+                HeartBeat.doParse(heartbeat)
+        );
+        long pong = StompFrame.HeartBeat.computePingClientToServer(
+                HeartBeat.DEFAULT,
+                HeartBeat.doParse(heartbeat)
+        );
+
+        sc.setHeartbeat(ping, pong, () -> sc.write(StompFrame.PING));
+
+        StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.CONNECT);
+        frame.addHeader(Elements.SESSION, sc.session());
+        frame.addHeader(Elements.VERSION, sc.server().getVersion());
+        frame.addHeader(Elements.SERVER, IdGenerator.name());
+        frame.addHeader(Elements.HEART_BEAT, Json.serialize(HeartBeat.DEFAULT));
+
+        sc.write(frame.toBuffer());
     }
 
     private void doDisconnect(final StompFrame sf, final StompServerConnection sc) {
@@ -188,7 +214,7 @@ public final class StompHandlerImpl implements StompHandler {
                 sc.close();
             }
         } else {
-            if(!Transactions.getInstance().addTransaction(sc, id)) {
+            if(Transactions.getInstance().registerTransaction(sc, id)) {
                 Transactions.getInstance().removeTransactions(sc);
                 sc.write(StompFrame.errorFrame("Failed transaction add id = {}", id));
                 sc.close();
@@ -201,6 +227,34 @@ public final class StompHandlerImpl implements StompHandler {
 
     private void doSend(final StompFrame sf, final StompServerConnection sc) {
 
+        String destination = sf.getHeader(Elements.DESTINATION);
+        if(destination == null) {
+            sc.write(StompFrame.errorFrame("Wrong send destination id, Id is required."));
+            sc.close();
+            return;
+        }
+
+        List<DispatcherQueue> dispatch = dispatcher.dispatch(RoutingKey.create(destination));
+        dispatch.stream()
+                .map(DispatcherQueue::dispatch)
+                .forEach(message -> {
+
+                    final StompHeaders headers = StompHeaders.create();
+                    headers.put(Elements.SUBSCRIPTION, sf.getHeader(Elements.ID));
+                    headers.put(Elements.MESSAGE_ID, message.getUniqueId());
+
+                    final StompFrame frame = StompFrame.create(headers, StompCommand.MESSAGE, message.getBody());
+                    sc.subscriptions().forEach(subscription -> {
+                            if (!subscription.ackMode().equals(AckMode.AUTO)) {
+                                headers.put(Elements.ACK, message.getUniqueId());
+                            }
+
+                            subscription.serverConnection().write(frame.toBuffer());
+                        }
+                    );
+                });
+
+        doReceipt(sf, sc);
     }
 
     private void doSubscribe(final StompFrame sf, final StompServerConnection sc) {
@@ -218,20 +272,27 @@ public final class StompHandlerImpl implements StompHandler {
             return;
         }
 
-        // TODO Enforce a maximum subscriber limit.
-
-        RoutingKey routingKey = RoutingKey.create(destination);
-        if(dispatcher.exists(routingKey)) {
-            final Subscription subscription = Subscription.builder()
-                    .routeStatus(RouteStatus.UP)
-                    .serviceId(id)
-                    .serviceName("")
+        // TODO Enforce a maximum subscriber limit. default size 100.
+        final RoutingKey key = RoutingKey.create(destination);
+        try {
+            Subscription subscription = Subscription.builder()
+                    .id(id)
+                    .ackMode(ack)
+                    .serverConnection(sc)
+                    .key(key)
                     .build();
 
-            dispatcher.find(routingKey)
-                    .serviceDiscovery()
-                    .register(routingKey, subscription);
-        } else {
+            sc.subscribe(id, subscription);
+        } catch (Exception e) {
+            log.error("Error subscribe id = {} {}", id, e.getMessage());
+            sc.write(StompFrame.errorFrame("Failed to subscribe destination = {}", destination));
+            sc.close();
+            return;
+        }
+
+        if(!dispatcher.exists(key)) {
+            sc.write(StompFrame.errorFrame("Not found dispatcher. destination = {}", destination));
+            sc.close();
             return;
         }
 
@@ -240,13 +301,30 @@ public final class StompHandlerImpl implements StompHandler {
 
     private void doUnsubscribe(final StompFrame sf, final StompServerConnection sc) {
 
+        String id = sf.getHeader(Elements.ID);
+        if(id == null) {
+            sc.write(StompFrame.errorFrame("Wrong unsubscribe id, Id is required."));
+            sc.close();
+            return;
+        }
+
+        try {
+            sc.unsubscribe(id);
+        } catch (Exception e) {
+            log.error("Error unsubscribe id = {} {}", id, e.getMessage());
+            sc.write(StompFrame.errorFrame("Failed to unsubscribe destination = {}", id));
+            sc.close();
+            return;
+        }
+
+        doReceipt(sf, sc);
     }
 
     private void doReceipt(final StompFrame sf, final StompServerConnection sc) {
 
         String receipt = sf.getHeader(Elements.RECEIPT);
         if(receipt != null) {
-            StompFrame stompFrame = StompFrame.create(StompHeaders.DEFAULT, StompCommand.RECEIPT);
+            StompFrame stompFrame = StompFrame.create(StompHeaders.create(), StompCommand.RECEIPT);
             stompFrame.addHeader(Elements.RECEIPT_ID, receipt);
 
             sc.write(stompFrame);

@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
@@ -34,8 +35,10 @@ public final class Transactions {
 
     private final List<Transaction> transactions = new ArrayList<>();
 
+    private static final Transactions INSTANCE = new Transactions();
+
     public static Transactions getInstance() {
-        return new Transactions();
+        return INSTANCE;
     }
 
     public synchronized Transaction getTransaction(final StompServerConnection sc, final String txId) {
@@ -45,7 +48,7 @@ public final class Transactions {
                 .orElse(null);
     }
 
-    public synchronized boolean addTransaction(final StompServerConnection sc, final String txId) {
+    public synchronized boolean registerTransaction(final StompServerConnection sc, final String txId) {
         if(getTransaction(sc, txId) != null) {
             return false;
         }
@@ -61,6 +64,7 @@ public final class Transactions {
         return transactions.remove(Transaction.create(sc, txId));
     }
 
+    @CanIgnoreReturnValue
     public synchronized boolean removeTransactions(final StompServerConnection sc) {
         if (sc == null) {
             return false;

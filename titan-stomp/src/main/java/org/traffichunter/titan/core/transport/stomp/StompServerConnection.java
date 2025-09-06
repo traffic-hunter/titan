@@ -25,8 +25,11 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import javax.net.ssl.SSLSession;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.Subscription;
 import org.traffichunter.titan.core.util.inet.ServerConnection;
 
 /**
@@ -42,9 +45,22 @@ public interface StompServerConnection extends ServerConnection {
 
     SSLSession sslSession();
 
+    Set<String> ids();
+
+    void subscribe(String id, Subscription subscription);
+
+    void unsubscribe(String id);
+
+    /**
+     * read-only
+     */
+    List<Subscription> subscriptions();
+
     StompServer server();
 
-    Instant lastActivatedAt();
+    Instant setLastActivatedAt();
+
+    void setHeartbeat(long ping, long pong, Runnable handler);
 
     void close();
 }

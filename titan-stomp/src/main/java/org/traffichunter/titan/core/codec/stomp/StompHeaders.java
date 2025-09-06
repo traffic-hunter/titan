@@ -39,8 +39,6 @@ import org.traffichunter.titan.core.codec.Headers;
 @Getter
 public final class StompHeaders extends Headers<StompHeaders.Elements, String, StompHeaders> {
 
-    public static final StompHeaders DEFAULT = new StompHeaders(StompVersion.STOMP_1_2);
-
     private final String name;
     private final String version;
 
@@ -54,6 +52,10 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         Objects.requireNonNull(version, "version");
         this.name = name;
         this.version = version;
+    }
+
+    public static StompHeaders create() {
+        return new StompHeaders(StompVersion.STOMP_1_2);
     }
 
     @Override

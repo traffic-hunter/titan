@@ -24,9 +24,8 @@
 package org.traffichunter.titan.core.transport.stomp;
 
 import java.util.concurrent.Future;
-import org.traffichunter.titan.core.codec.stomp.StompVersion;
-import org.traffichunter.titan.core.util.inet.ReadHandler;
-import org.traffichunter.titan.core.util.inet.WriteHandler;
+import java.util.concurrent.TimeUnit;
+import org.traffichunter.titan.core.codec.stomp.StompHandler;
 
 /**
  * @author yungwang-o
@@ -37,9 +36,9 @@ public interface StompServer {
 
     Future<StompServer> listen();
 
-    StompServer onRead(ReadHandler<byte[]> handler);
+    StompServer onRead(StompHandler handler);
 
-    StompServer onWrite(WriteHandler<byte[]> handler);
+    StompServer onWrite(StompHandler handler);
 
     String host();
 
@@ -53,7 +52,13 @@ public interface StompServer {
 
     String getVersion();
 
-    void configureHeartbeat();
+    default long setInterval(long delay, Runnable handler) {
+        return setInterval(delay, true, TimeUnit.MICROSECONDS, handler);
+    }
+
+    long setInterval(long delay, boolean fixedRate, TimeUnit unit, Runnable handler);
+
+    void cancelInterval(long timerId);
 
     void close();
 }

@@ -31,7 +31,7 @@ class StompFrameTest {
 
         String stompMessage = stompFrame.toString();
 
-        StompFrame parseFrame = StompUtils.doParse(stompMessage, StompHeaders.DEFAULT);
+        StompFrame parseFrame = StompUtils.doParse(stompMessage, StompHeaders.create());
 
         Assertions.assertEquals(parseFrame.getCommand(), stompFrame.getCommand());
 

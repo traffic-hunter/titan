@@ -27,31 +27,43 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLSession;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.Subscription;
 import org.traffichunter.titan.core.util.IdGenerator;
 
 /**
  * @author yungwang-o
  */
 @Slf4j
-public class StompConnectionImpl implements StompServerConnection {
+public class StompServerConnectionImpl implements StompServerConnection {
+
+    private static final int MAX_SUBSCRIBER = 100;
 
     private final StompServer server;
     private final SocketChannel socket;
     private final String sessionId = IdGenerator.uuid();
 
+    private final Map<String, Subscription> subscriptions = new ConcurrentHashMap<>(MAX_SUBSCRIBER);
+
     private volatile Instant lastActivatedTime;
 
-    private final ReentrantLock lock = new ReentrantLock();
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public StompConnectionImpl(final StompServer server, final SocketChannel socket) {
+    private long pingTimer = -1;
+    private long pongTimer = -1;
+
+    public StompServerConnectionImpl(final StompServer server, final SocketChannel socket) {
         Objects.requireNonNull(server, "server");
         Objects.requireNonNull(socket, "socket");
         this.server = server;
@@ -68,7 +80,7 @@ public class StompConnectionImpl implements StompServerConnection {
         try {
             socket.write(buf);
         } catch (IOException e) {
-            log.error("Error writing frame", e);
+            log.error("Error writing frame = {}", e.getMessage());
         }
     }
 
@@ -83,29 +95,72 @@ public class StompConnectionImpl implements StompServerConnection {
     }
 
     @Override
+    public Set<String> ids() {
+        return subscriptions.keySet();
+    }
+
+    @Override
+    public void subscribe(final String id, final Subscription subscription) {
+        subscriptions.put(id, subscription);
+    }
+
+    @Override
+    public void unsubscribe(final String id) {
+        subscriptions.remove(id);
+    }
+
+    @Override
+    public List<Subscription> subscriptions() {
+        return subscriptions.values().stream().toList();
+    }
+
+    @Override
     public StompServer server() {
         return server;
     }
 
     @Override
     @CanIgnoreReturnValue
-    public Instant lastActivatedAt() {
-        lock.lock();
-        try {
-            this.lastActivatedTime = Instant.now();
-            return lastActivatedTime;
-        } finally {
-            lock.unlock();
+    public Instant setLastActivatedAt() {
+        return lastActivatedTime = Instant.now();
+    }
+
+    @Override
+    public synchronized void setHeartbeat(final long ping, final long pong, final Runnable handler) {
+        if (ping > 0) {
+            pingTimer = server.setInterval(ping, handler);
+        }
+        if (pong > 0) {
+            pongTimer = server.setInterval(pong, () -> {
+                long d = Duration.between(lastActivatedTime, Instant.now()).toMillis();
+                if(d > pong * 2) {
+                    log.warn("Connection closed due to heartbeat timeout. = {} ms", d);
+                    close();
+                }
+            });
         }
     }
 
     @Override
     public void close() {
         if(closed.compareAndSet(false, true)) {
-
             try {
+                cancelHeartbeat();
                 socket.close();
-            } catch (IOException ignore) { }
+            } catch (IOException e) {
+                log.error("Error closing socket = {}", e.getMessage());
+            }
+        }
+    }
+
+    private void cancelHeartbeat() {
+        if (pingTimer >= 0) {
+            server.cancelInterval(pingTimer);
+            pingTimer = -1;
+        }
+        if (pongTimer >= 0) {
+            server.cancelInterval(pongTimer);
+            pongTimer = -1;
         }
     }
 }

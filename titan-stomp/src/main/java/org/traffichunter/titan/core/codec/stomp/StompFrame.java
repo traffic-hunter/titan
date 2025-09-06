@@ -46,6 +46,9 @@ public class StompFrame implements Frame<Elements, String> {
     public static final StompFrame ERR_STOMP_FRAME =
             StompFrame.create(new StompHeaders(new HashMap<>(), "stomp", "1.2"), StompCommand.ERROR);
 
+    public static final StompFrame PING =
+            StompFrame.create(StompHeaders.create(), null, new byte[] {StompDelimiter.LF.getHex()});
+
     private final StompHeaders headers;
 
     private final StompCommand command;
@@ -78,7 +81,7 @@ public class StompFrame implements Frame<Elements, String> {
 
     @Override
     public void addHeader(final Elements key, final String value) {
-        headers.putIfAbsent(key, value);
+        headers.put(key, value);
     }
 
     @Override
@@ -137,16 +140,9 @@ public class StompFrame implements Frame<Elements, String> {
         return sb.toString();
     }
 
-    public static class HeartBeat {
-        final long x;
-        final long y;
+    public record HeartBeat(long x, long y) {
 
-        private HeartBeat(final long x, final long y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        public static final Pair<Long, Long> DEFAULT_HEARTBEAT = new Pair<>(1_000L, 1_000L);
+        public static final HeartBeat DEFAULT = new HeartBeat(1_000, 1_000);
 
         public static HeartBeat create(final long x, final long y) {
             return new HeartBeat(x, y);
@@ -156,6 +152,9 @@ public class StompFrame implements Frame<Elements, String> {
             return new HeartBeat(heartbeat.first(), heartbeat.second());
         }
 
+        /**
+         * Header is null (x: 0, y: 0)
+         */
         public static HeartBeat doParse(final String header) {
             if (header == null) {
                 return new HeartBeat(0, 0);
@@ -167,7 +166,23 @@ public class StompFrame implements Frame<Elements, String> {
 
         @Override
         public String toString() {
-            return "HeartBeat{" + "x=" + x + ", y=" + y + '}';
+            return "x=" + x + ", y=" + y;
+        }
+
+        public static long computePingClientToServer(final HeartBeat client, final HeartBeat server) {
+            if(client.x == 0 || server.y == 0) {
+                return 0;
+            }
+
+            return Math.max(client.x, server.y);
+        }
+
+        public static long computePongServerToClient(final HeartBeat client, final HeartBeat server) {
+            if(client.y == 0 || server.x == 0) {
+                return 0;
+            }
+
+            return Math.max(client.y, server.x);
         }
     }
 

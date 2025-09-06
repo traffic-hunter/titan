@@ -21,23 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.servicediscovery;
+package org.traffichunter.titan.core.codec.stomp;
 
-import java.net.InetSocketAddress;
 import lombok.Builder;
+import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.inet.ServerConnection;
 
 /**
  * @author yungwang-o
  */
 @Builder
-public record ServiceTable(
-
-        String serviceName,
-
-        String serviceId,
-
-        RouteStatus routeStatus,
-
-        InetSocketAddress targetAddress
+public record Subscription(
+        RoutingKey key,
+        ServerConnection serverConnection,
+        String id,
+        String ackMode
 ) {
 }
