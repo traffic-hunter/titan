@@ -23,26 +23,46 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
+import static org.traffichunter.titan.core.codec.stomp.StompFrame.*;
+
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.codec.stomp.StompCommand;
+import org.traffichunter.titan.core.codec.stomp.StompException;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompHandler;
+import org.traffichunter.titan.core.codec.stomp.StompHandlerImpl;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
-import org.traffichunter.titan.core.transport.Connector;
+import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.InetServer;
-import org.traffichunter.titan.core.transport.ServerConnector;
-import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.inet.ReadHandler;
-import org.traffichunter.titan.core.util.inet.WriteHandler;
 
 /**
  * @author yungwang-o
  */
+@Slf4j
 final class DefaultStompServer implements StompServer {
 
     private final InetServer inetServer;
 
+    // Considering event loop..
+    private final ScheduledExecutorService schedule;
+
     private final StompVersion version = StompVersion.STOMP_1_2;
+
+    private final StompHandler handler = new StompHandlerImpl(Dispatcher.getDefault());
+
+    private final Map<Long, Future<?>> tasks = new ConcurrentHashMap<>();
+    private final AtomicLong timer = new AtomicLong();
 
     public DefaultStompServer(final InetSocketAddress address) {
         this(InetServer.open(address));
@@ -50,6 +70,7 @@ final class DefaultStompServer implements StompServer {
 
     public DefaultStompServer(final InetServer inetServer) {
         this.inetServer = inetServer;
+        this.schedule = new ScheduledThreadPoolExecutor(1);
     }
 
     @Override
@@ -59,19 +80,32 @@ final class DefaultStompServer implements StompServer {
 
     @Override
     public Future<StompServer> listen() {
-        inetServer.listen();
-        return CompletableFuture.completedFuture(this);
+        return inetServer.listen().thenApply(server -> {
+            server.onConnect(channel -> {
+                StompServerConnection ssc = new StompServerConnectionImpl(this, channel);
+                StompFrame frame = create(StompHeaders.create(), StompCommand.CONNECT);
+                handler.handle(frame, ssc);
+            });
+
+            return this;
+        });
     }
 
     @Override
-    public StompServer onRead(final ReadHandler<byte[]> handler) {
-        inetServer.onRead(handler);
+    public StompServer onRead(final StompHandler handler) {
+
+        inetServer.onRead(data -> {
+            //StompServerConnection serverConnection = new StompServerConnectionImpl(this, SocketChannel.open());
+
+        });
         return this;
     }
 
     @Override
-    public StompServer onWrite(final WriteHandler<byte[]> handler) {
-        inetServer.onWrite(handler);
+    public StompServer onWrite(final StompHandler handler) {
+        // TODO write handler
+
+        inetServer.onWrite(null);
         return this;
     }
 
@@ -106,12 +140,36 @@ final class DefaultStompServer implements StompServer {
     }
 
     @Override
-    public void configureHeartbeat() {
-        throw new UnsupportedOperationException();
+    public long setInterval(final long delay, final boolean fixedRate, final TimeUnit unit, final Runnable handler) {
+        if(delay <= 0) {
+            throw new IllegalArgumentException("delay must be greater than zero");
+        }
+
+        long timerId = timer.getAndIncrement();
+
+        ScheduledFuture<?> task;
+        if(fixedRate) {
+            task = schedule.scheduleAtFixedRate(handler, delay, delay, TimeUnit.MILLISECONDS);
+        } else {
+            task = schedule.schedule(handler, delay, TimeUnit.MILLISECONDS);
+        }
+
+        tasks.put(timerId, task);
+
+        return timerId;
     }
 
     @Override
     public void close() {
         inetServer.close();
+    }
+
+    @Override
+    public void cancelInterval(final long timerId) {
+        Future<?> task = tasks.remove(timerId);
+
+        if(task != null) {
+            task.cancel(false);
+        }
     }
 }
