@@ -24,30 +24,38 @@
 package org.traffichunter.titan.core.util.concurrent;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.traffichunter.titan.bootstrap.Configurations;
 
 /**
  * @author yungwang-o
  */
-public final class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pausable {
+public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pausable {
+
+    private final Runnable NOOP = () -> { };
 
     private final Lock pauseLock = new ReentrantLock();
 
     private final Condition pausedCond = pauseLock.newCondition();
 
-    private volatile boolean isPaused = false;
+    private boolean isPaused = false;
 
     public AdvancedThreadPoolExecutor(final int corePoolSize,
                                       final int maximumPoolSize,
                                       final long keepAliveTime,
                                       final TimeUnit unit,
                                       final BlockingQueue<Runnable> workQueue) {
+
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
     }
 
@@ -57,6 +65,7 @@ public final class AdvancedThreadPoolExecutor extends ThreadPoolExecutor impleme
                                       final TimeUnit unit,
                                       final BlockingQueue<Runnable> workQueue,
                                       final ThreadFactory threadFactory) {
+
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
     }
 
@@ -66,6 +75,7 @@ public final class AdvancedThreadPoolExecutor extends ThreadPoolExecutor impleme
                                       final TimeUnit unit,
                                       final BlockingQueue<Runnable> workQueue,
                                       final RejectedExecutionHandler handler) {
+
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
     }
 
@@ -76,6 +86,7 @@ public final class AdvancedThreadPoolExecutor extends ThreadPoolExecutor impleme
                                       final BlockingQueue<Runnable> workQueue,
                                       final ThreadFactory threadFactory,
                                       final RejectedExecutionHandler handler) {
+
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
     }
 

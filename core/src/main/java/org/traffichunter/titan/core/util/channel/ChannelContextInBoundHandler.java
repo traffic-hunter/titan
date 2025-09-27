@@ -21,50 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.util.channel;
 
-import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.bootstrap.LifeCycle;
-import org.traffichunter.titan.core.util.channel.Context;
+import org.traffichunter.titan.core.util.Handler;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoop {
-
-    void start();
-
-    void restart();
-
-    EventLoopLifeCycle getLifeCycle();
-
-    void suspend();
-
-    default void gracefulShutdown(long timeout, TimeUnit unit) {
-        shutdown(true, timeout, unit);
-    }
-
-    void shutdown(boolean isGraceful, long timeout, TimeUnit unit);
-
-    void close();
-
-    interface EventLoopLifeCycle extends LifeCycle {
-
-        boolean isNotInitialized();
-
-        boolean isSuspending();
-
-        boolean isSuspended();
-
-        @Override
-        boolean isInitialized();
-
-        @Override
-        boolean isStarting();
-
-        boolean isStopping();
-
-        @Override
-        boolean isStopped();
-    }
+@FunctionalInterface
+public interface ChannelContextInBoundHandler extends Handler<ChannelContext> {
 }
