@@ -23,11 +23,11 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
+import org.traffichunter.titan.core.util.Handler;
+
 /**
  * @author yungwang-o
  */
 @FunctionalInterface
-public interface WriteHandler<T> {
-
-    T handle();
+public interface WriteHandler extends Handler<byte[]> {
 }

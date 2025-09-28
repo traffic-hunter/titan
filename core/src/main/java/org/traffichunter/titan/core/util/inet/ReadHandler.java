@@ -23,11 +23,11 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
+import org.traffichunter.titan.core.util.Handler;
+
 /**
  * @author yungwang-o
  */
 @FunctionalInterface
-public interface ReadHandler<T> {
-
-    void handle(T read);
+public interface ReadHandler extends Handler<byte[]> {
 }
