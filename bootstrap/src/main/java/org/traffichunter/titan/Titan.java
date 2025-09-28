@@ -23,9 +23,6 @@
  */
 package org.traffichunter.titan;
 
-import static org.traffichunter.titan.bootstrap.Configurations.*;
-import static org.traffichunter.titan.bootstrap.Configurations.Property.*;
-
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.TitanBootstrap;
 

@@ -60,6 +60,26 @@ public final class Configurations {
         return environmentPath;
     }
 
+    public static Integer maxConnection() {
+        String property = System.getProperty(Property.MAX_CONNECTION_COUNT.value);
+
+        if(property == null || property.isEmpty()) {
+            return 8192;
+        }
+
+        return Integer.parseInt(property);
+    }
+
+    public static String name() {
+        String property = System.getProperty(Property.NAME.value);
+
+        if(property == null || property.isEmpty()) {
+            return "titan";
+        }
+
+        return property;
+    }
+
     public static int taskPendingCapacity() {
         String property = System.getProperty(Property.EVENTLOOP_PENDING_MAX_CAPACITY.value);
 
@@ -76,6 +96,8 @@ public final class Configurations {
         TRANSPORT_PORT("titan.transport.server.port"),
         ENVIRONMENT("titan.environment.path"),
         EVENTLOOP_PENDING_MAX_CAPACITY("titan.eventloop.pending.capacity"),
+        MAX_CONNECTION_COUNT("titan.connection.max"),
+        NAME("titan.name"),
         ;
 
         private final String value;

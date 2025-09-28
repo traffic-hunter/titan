@@ -37,7 +37,7 @@ public class TitanShutdownHook implements Runnable {
 
     private volatile boolean enabledShutdown;
 
-    public void enableShutdown() {
+    public synchronized void enableShutdown() {
         this.enabledShutdown = true;
     }
 
