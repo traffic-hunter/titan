@@ -31,6 +31,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
@@ -40,22 +41,23 @@ import org.traffichunter.titan.core.util.inet.Sendable;
 /**
  * @author yungwang-o
  */
-public final class ChannelContext implements Receivable, Sendable, Channel {
+public final class ChannelContext implements Context {
 
     private final SocketChannel socketChannel;
 
-    @Getter
     private final Instant createdAt;
 
     private final String contextId;
+
+    private volatile boolean isClosed;
 
     private ChannelContext(final SocketChannel socketChannel) {
         this.socketChannel = socketChannel;
         this.contextId = IdGenerator.uuid();
         this.createdAt = Instant.now();
+        this.isClosed = false;
     }
 
-    @CanIgnoreReturnValue
     public static ChannelContext create(final SocketChannel socketChannel) {
         return new ChannelContext(socketChannel);
     }
@@ -70,18 +72,31 @@ public final class ChannelContext implements Receivable, Sendable, Channel {
     }
 
     @Override
-    @ThreadSafe
+    @CanIgnoreReturnValue
     public int recv(final ByteBuffer readBuf) {
+        if(isClosed()) {
+            return -1;
+        }
+
         try {
-            return socketChannel.read(readBuf);
+            int read = socketChannel.read(readBuf);
+            if(read < 0) {
+                close();
+            }
+
+            return read;
         } catch (IOException e) {
             throw new IllegalStateException("Receive error = " + e.getMessage());
         }
     }
 
     @Override
-    @ThreadSafe
+    @CanIgnoreReturnValue
     public int send(final ByteBuffer writeBuf) {
+        if(isClosed()) {
+            return -1;
+        }
+
         try {
             return socketChannel.write(writeBuf);
         } catch (IOException e) {
@@ -89,12 +104,26 @@ public final class ChannelContext implements Receivable, Sendable, Channel {
         }
     }
 
+    public SocketChannel socketChannel() {
+        return socketChannel;
+    }
+
+    public Instant createdAt() {
+        return createdAt;
+    }
+
     public boolean isClosed() {
-        return !socketChannel.isOpen();
+        return !socketChannel.isOpen() && isClosed;
     }
 
     @Override
     public void close() throws IOException {
+        if(isClosed) {
+            return;
+        }
+
+        isClosed = true;
+
         socketChannel.close();
     }
 

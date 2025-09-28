@@ -49,8 +49,6 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
 
     private final Selector selector;
 
-    private final EventLoopPropagator eventLoopPropagator = EventLoopPropagator.getInstance();
-
     private final Handler<ChannelContext> readHandler;
 
     private final Handler<ChannelContext> writeHandler;
@@ -162,6 +160,20 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
         log.info("Closed event loop");
     }
 
+    public void register(final ChannelContext ctx) {
+        selector.wakeup();
+
+        try {
+            ctx.socketChannel().register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE, ctx);
+        } catch (IOException e) {
+            try {
+                ctx.close();
+            } catch (IOException e1) {
+                log.error("Error closing channel = {}", e1.getMessage());
+            }
+        }
+    }
+
     public int size() {
         return super.getQueue().size();
     }
@@ -219,17 +231,11 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
                 }
 
                 if(key.isReadable()) {
-                    try (ChannelContext cc = ChannelContext.select(key)) {
-                        readHandler.handle(cc);
-                    } catch (IOException e) {
-                        key.cancel();
-                    }
+                    ChannelContext cc = ChannelContext.select(key);
+                    readHandler.handle(cc);
                 } else if(key.isWritable()) {
-                    try (ChannelContext cc = ChannelContext.select(key)) {
-                        writeHandler.handle(cc);
-                    } catch (IOException e) {
-                        key.cancel();
-                    }
+                    ChannelContext cc = ChannelContext.select(key);
+                    writeHandler.handle(cc);
                 }
             }
         }

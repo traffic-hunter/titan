@@ -28,7 +28,6 @@ import java.nio.channels.Selector;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 
@@ -38,39 +37,33 @@ import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 @Slf4j
 public final class EventLoopFactory {
 
-    private static Selector selector = null;
-
     private static final int maxTaskPendingCapacity = Configurations.taskPendingCapacity();
 
-    static {
+    public static PrimaryNIOEventLoop createPrimaryEventLoop() {
         try {
-            selector = Selector.open();
+            return new PrimaryNIOEventLoop(Selector.open(), maxTaskPendingCapacity);
         } catch (IOException e) {
-            log.error("Failed to open selector = {}", e.getMessage());
+            throw new EventLoopException("Failed to create PrimaryNIOEventLoop", e);
         }
-    }
-
-    public static PrimaryNIOEventLoop createPrimaryEventLoop(final Handler<Selector> handler) {
-        Objects.requireNonNull(selector, "selector is null");
-        Objects.requireNonNull(handler, "handler is null");
-
-        return new PrimaryNIOEventLoop(selector, maxTaskPendingCapacity);
     }
 
     public static SecondaryNIOEventLoop createSecondaryEventLoop(
             final ChannelContextInBoundHandler inBoundHandler,
             final ChannelContextOutBoundHandler outboundHandler
     ) {
-        Objects.requireNonNull(selector, "selector is null");
         Objects.requireNonNull(inBoundHandler, "inBoundHandler is null");
         Objects.requireNonNull(outboundHandler, "outboundHandler is null");
 
-        return new SecondaryNIOEventLoop(
-                selector,
-                maxTaskPendingCapacity,
-                inBoundHandler,
-                outboundHandler
-        );
+        try {
+            return new SecondaryNIOEventLoop(
+                    Selector.open(),
+                    maxTaskPendingCapacity,
+                    inBoundHandler,
+                    outboundHandler
+            );
+        } catch (IOException e) {
+            throw new EventLoopException("Failed to create PrimaryNIOEventLoop", e)
+        }
     }
 
     private EventLoopFactory() {}

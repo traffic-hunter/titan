@@ -23,71 +23,91 @@
  */
 package org.traffichunter.titan.core.event;
 
-import java.nio.channels.Selector;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.core.util.Handler;
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
-import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
+import org.traffichunter.titan.core.util.channel.RoundRobinChannelPropagator;
 
 /**
  * @author yungwang-o
  */
+@Slf4j
 public final class EventLoops {
-
-    private final AdvancedThreadPoolExecutor executor;
 
     private final PrimaryNIOEventLoop primaryEventLoop;
 
-    private final List<SecondaryNIOEventLoop> secondaryEventLoops = new CopyOnWriteArrayList<>();
-
-    private final Handler<Selector> selectorHandler;
+    private final List<SecondaryNIOEventLoop> secondaryEventLoops = new ArrayList<>();
 
     private final ChannelContextInBoundHandler inBoundHandler;
 
     private final ChannelContextOutBoundHandler outBoundHandler;
 
+    private final RoundRobinChannelPropagator<SecondaryNIOEventLoop> propagator;
+
     private final int nThread;
 
-    public EventLoops(final PrimaryNIOEventLoop primaryEventLoop,
-                      final Handler<Selector> selectorHandler,
-                      final ChannelContextInBoundHandler inBoundHandler,
-                      final ChannelContextOutBoundHandler outBoundHandler) {
-
-        this(primaryEventLoop, selectorHandler, inBoundHandler, outBoundHandler, Runtime.getRuntime().availableProcessors() * 2);
+    public EventLoops(final ChannelContextInBoundHandler inBoundHandler, final ChannelContextOutBoundHandler outBoundHandler) {
+        this(inBoundHandler, outBoundHandler, Runtime.getRuntime().availableProcessors() * 2);
     }
 
-    public EventLoops(final PrimaryNIOEventLoop primaryEventLoop,
-                      final Handler<Selector> selectorHandler,
-                      final ChannelContextInBoundHandler inBoundHandler,
+    public EventLoops(final ChannelContextInBoundHandler inBoundHandler,
                       final ChannelContextOutBoundHandler outBoundHandler,
                       final int nThread) {
 
-        this.primaryEventLoop = primaryEventLoop;
-        this.executor = new AdvancedThreadPoolExecutor(
-                nThread,
-                nThread,
-                0,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>()
-        );
-        this.selectorHandler = selectorHandler;
+        this.primaryEventLoop = initializePrimaryEventLoop();
         this.inBoundHandler = inBoundHandler;
         this.outBoundHandler = outBoundHandler;
         this.nThread = nThread;
-        this.secondaryEventLoops.addAll(initializeSecondaryEventLoops(inBoundHandler, outBoundHandler));
+        this.secondaryEventLoops.addAll(initializeSecondaryEventLoops());
+        this.propagator = new RoundRobinChannelPropagator<>(secondaryEventLoops);
     }
 
+    public void start() {
+        register();
 
+        primaryEventLoop.start();
+        secondaryEventLoops.forEach(EventLoop::start);
+    }
 
-    private List<SecondaryNIOEventLoop> initializeSecondaryEventLoops(
-            final ChannelContextInBoundHandler inBoundHandler,
-            final ChannelContextOutBoundHandler outBoundHandler
-    ) {
+    public void shutdown() {
+        shutdown(10, TimeUnit.SECONDS);
+    }
+
+    public void shutdown(final long timeout, final TimeUnit unit) {
+        primaryEventLoop.gracefulShutdown(timeout, unit);
+        secondaryEventLoops.forEach(
+                secondaryNIOEventLoop -> secondaryNIOEventLoop.gracefulShutdown(timeout, unit)
+        );
+    }
+
+    public void close() {
+        primaryEventLoop.close();
+        secondaryEventLoops.forEach(EventLoop::close);
+    }
+
+    private void register() {
+        primaryEventLoop.registerHandler(ctx -> {
+            try {
+                SecondaryNIOEventLoop el = propagator.next();
+                el.register(ctx);
+            } catch (Exception e) {
+                log.error("Failed to register secondary event loop = {}", e.getMessage());
+                try {
+                    ctx.close();
+                } catch (IOException ignored) { }
+            }
+        });
+    }
+
+    private PrimaryNIOEventLoop initializePrimaryEventLoop() {
+        return EventLoopFactory.createPrimaryEventLoop();
+    }
+
+    private List<SecondaryNIOEventLoop> initializeSecondaryEventLoops() {
 
         List<SecondaryNIOEventLoop> secondaryEventLoops = new ArrayList<>();
 

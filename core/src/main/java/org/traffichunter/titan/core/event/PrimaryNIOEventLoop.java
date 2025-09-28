@@ -29,6 +29,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -48,7 +49,7 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
 
     private final Selector selector;
 
-    private final EventLoopPropagator eventLoopPropagator = EventLoopPropagator.getInstance();
+    private Handler<ChannelContext> acceptHandler;
 
     // Optimize atomicReference
     private static final AtomicReferenceFieldUpdater<PrimaryNIOEventLoop, EventLoopStatus> STATUS_UPDATER =
@@ -63,7 +64,6 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
                 new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
                 (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME)
         );
-
         this.selector = selector;
         this.status = EventLoopStatus.NOT_INITIALIZED;
         super.allowCoreThreadTimeOut(false);
@@ -154,6 +154,12 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
         log.info("Closed event loop");
     }
 
+    public void registerHandler(final Handler<ChannelContext> handler) {
+        Objects.requireNonNull(handler, "acceptHandler");
+
+        this.acceptHandler = handler;
+    }
+
     public int size() {
         return super.getQueue().size();
     }
@@ -218,7 +224,7 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
 
                         ChannelContext ctx = ChannelContext.create(clientSocketChannel);
 
-                        eventLoopPropagator.register(ctx);
+                        acceptHandler.handle(ctx);
 
                         log.info("Accepted connection from {}", clientSocketChannel.getRemoteAddress());
                     } catch (IOException e) {
