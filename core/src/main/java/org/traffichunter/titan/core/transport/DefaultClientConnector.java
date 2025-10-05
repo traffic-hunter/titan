@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author yungwang-o
  */
-public class DefaultClientConnector implements ClientConnector {
+class DefaultClientConnector implements ClientConnector {
 
     private final SocketChannel socketChannel;
 
