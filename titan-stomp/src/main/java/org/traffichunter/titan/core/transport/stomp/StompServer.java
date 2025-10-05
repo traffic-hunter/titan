@@ -38,8 +38,6 @@ public interface StompServer {
 
     StompServer onRead(StompHandler handler);
 
-    StompServer onWrite(StompHandler handler);
-
     String host();
 
     int activePort();

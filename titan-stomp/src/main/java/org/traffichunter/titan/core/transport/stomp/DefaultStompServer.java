@@ -99,14 +99,6 @@ final class DefaultStompServer implements StompServer {
     }
 
     @Override
-    public StompServer onWrite(final StompHandler handler) {
-        // TODO write handler
-
-        inetServer.onWrite(null);
-        return this;
-    }
-
-    @Override
     public String host() {
         return inetServer.host();
     }
