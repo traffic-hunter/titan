@@ -114,7 +114,10 @@ class InetServerImpl implements InetServer {
             } else if(recv < 0) {
                 try {
                     ctx.close();
-                } catch (IOException ignore) { }
+                } catch (IOException e) {
+                    log.info("Failed to close socket = {}", e.getMessage());
+                    doClose();
+                }
             }
         });
 
