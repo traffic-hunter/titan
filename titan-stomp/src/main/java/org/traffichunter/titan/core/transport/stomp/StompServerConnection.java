@@ -30,19 +30,23 @@ import java.util.Set;
 import javax.net.ssl.SSLSession;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.Subscription;
-import org.traffichunter.titan.core.util.inet.ServerConnection;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.inet.Connection;
 
 /**
  * @author yungwang-o
  */
-public interface StompServerConnection extends ServerConnection {
+public interface StompServerConnection extends Connection {
 
     void write(StompFrame frame);
 
-    void write(ByteBuffer buf);
+    @Override
+    void write(Buffer buffer);
 
+    @Override
     String session();
 
+    @Override
     SSLSession sslSession();
 
     Set<String> ids();
@@ -58,9 +62,11 @@ public interface StompServerConnection extends ServerConnection {
 
     StompServer server();
 
+    @Override
     Instant setLastActivatedAt();
 
     void setHeartbeat(long ping, long pong, Runnable handler);
 
+    @Override
     void close();
 }

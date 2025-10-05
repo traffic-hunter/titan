@@ -23,7 +23,8 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
-import java.nio.ByteBuffer;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
+
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -34,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.helpers.MessageFormatter;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.Pair;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.inet.Frame;
 
 /**
@@ -53,7 +55,7 @@ public class StompFrame implements Frame<Elements, String> {
 
     private final StompCommand command;
 
-    private final byte[] body;
+    private final Buffer body;
 
     private StompFrame(final StompHeaders headers, final StompCommand command) {
         this(headers, command, new byte[] {});
@@ -65,7 +67,7 @@ public class StompFrame implements Frame<Elements, String> {
         Objects.requireNonNull(body);
         this.headers = headers;
         this.command = command;
-        this.body = body;
+        this.body = Buffer.alloc(body);
     }
 
     public static StompFrame create(final StompHeaders headers, final StompCommand command) {
@@ -90,8 +92,21 @@ public class StompFrame implements Frame<Elements, String> {
     }
 
     @Override
-    public ByteBuffer toBuffer() {
-        return ByteBuffer.wrap(toString().getBytes(StandardCharsets.UTF_8));
+    public Buffer toBuffer() {
+        Buffer buffer = Buffer.alloc(command.name() + StompDelimiter.LF.getString());
+
+        Set<Entry<Elements, String>> entries = headers.entrySet();
+        entries.forEach(entry ->
+                buffer.accumulateString(encode(entry.getKey().getName(), command) + " : " + encode(entry.getValue(), command) + "\n")
+        );
+        buffer.accumulateString(StompDelimiter.LF.getString());
+
+        if(body != null) {
+            buffer.accumulateBuffer(body);
+        }
+        buffer.accumulateString(StompDelimiter.NUL.getString());
+
+        return buffer;
     }
 
     public String toStringForLogging() {
@@ -125,14 +140,14 @@ public class StompFrame implements Frame<Elements, String> {
         sb.append(StompDelimiter.CR.getCharacter()).append(StompDelimiter.LF.getCharacter());
 
         if(body != null) {
-            if(isLogging && body.length >= 100) {
-                String loggingStr = new String(body, StandardCharsets.UTF_8);
+            if(isLogging && body.length() >= 100) {
+                String loggingStr = body.toString();
 
                 String pre = loggingStr.substring(0, 30);
-                String post = loggingStr.substring(body.length - 30);
+                String post = loggingStr.substring(body.length() - 30);
                 sb.append(pre).append(".............").append(post);
             } else {
-                sb.append(new String(body, StandardCharsets.UTF_8));
+                sb.append(body);
             }
         }
 
@@ -186,14 +201,47 @@ public class StompFrame implements Frame<Elements, String> {
         }
     }
 
-    public static ByteBuffer errorFrame(final String message) {
-        return ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
+    public static Buffer errorFrame(final String message) {
+        return Buffer.alloc(message);
     }
 
-    public static ByteBuffer errorFrame(final String message, final Object... obj) {
-        return ByteBuffer.wrap(
-                MessageFormatter.basicArrayFormat(message, obj).getBytes(StandardCharsets.UTF_8)
-        );
+    public static Buffer errorFrame(final String message, final Object... obj) {
+        return Buffer.alloc(MessageFormatter.basicArrayFormat(message, obj));
+    }
+
+    public static StompFrame doParse(final String stomp, final StompHeaders headers) {
+
+        int lastIdx = stomp.lastIndexOf(StompDelimiter.NUL.getCharacter());
+        if(lastIdx == -1) {
+            return StompFrame.ERR_STOMP_FRAME;
+        }
+
+        String frameData = stomp.substring(0, lastIdx);
+
+        String[] splitFrameData = frameData.split("\r\n");
+
+        if(splitFrameData.length == 0) {
+            return StompFrame.ERR_STOMP_FRAME;
+        }
+
+        StompCommand command = StompCommand.valueOf(splitFrameData[0].toUpperCase());
+
+        for(int i = 1; i < splitFrameData.length; i++) {
+            String splitFrameDatum = splitFrameData[i];
+
+            if(splitFrameDatum.isEmpty()) {
+                break;
+            }
+
+            int idx = splitFrameDatum.indexOf(":");
+            String key = splitFrameDatum.substring(0, idx);
+            String value = splitFrameDatum.substring(idx + 1);
+
+            headers.put(Elements.valueOf(key.toUpperCase()), value);
+        }
+
+        final byte[] body = splitFrameData[splitFrameData.length - 1].getBytes(StandardCharsets.UTF_8);
+        return StompFrame.create(headers, command, body);
     }
 
     interface AckMode {

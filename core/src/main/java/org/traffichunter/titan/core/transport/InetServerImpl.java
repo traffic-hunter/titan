@@ -24,24 +24,20 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
-import org.traffichunter.titan.core.event.EventLoop;
+import org.traffichunter.titan.core.event.EventLoops;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.inet.InetConstants;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
 import org.traffichunter.titan.core.util.inet.WriteHandler;
 
@@ -53,43 +49,33 @@ class InetServerImpl implements InetServer {
 
     private final ServerConnector connector;
 
-    private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
+    private final EventLoops eventLoops;
 
-    private final Selector selector;
+    private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
 
     private final Object lock = new Object();
 
-    private final ByteBuffer buf = ByteBuffer.allocate(8 * 1024);
-
-    private ReadHandler<byte[]> readHandler;
-
-    private WriteHandler<byte[]> writeHandler;
+    private Handler<SocketChannel> connectHandler;
 
     private volatile boolean listening = false;
 
-    private final Thread listeningThread = new Thread(this::start0, InetConstants.INET_SERVER_WORKER_THREAD);
-
     InetServerImpl(final ServerConnector connector) {
         this.connector = Objects.requireNonNull(connector, "connector");
-
-        try {
-            this.selector = Selector.open();
-        } catch (IOException e) {
-            throw new ServerException("Failed to open selector", e);
-        }
+        this.eventLoops = new EventLoops();
     }
 
     @Override
     public void start() {
-        if(!listening) {
+        if(!listening || !connector.isOpen()) {
             throw new IllegalStateException("Server is not listening");
         }
 
-        listeningThread.start();
+        log.info("launched server!!");
+        eventLoops.start();
     }
 
     @Override
-    public synchronized Future<InetServer> listen() {
+    public CompletableFuture<InetServer> listen() {
         if(!connector.isOpen()) {
             log.error("Connector is not open");
             return CompletableFuture.failedFuture(new IllegalStateException("Connector is not open"));
@@ -98,28 +84,45 @@ class InetServerImpl implements InetServer {
         return bind().thenApply(server -> {
                 listening = true;
                 return server;
-            }).exceptionally(ex -> {
-                log.error("Failed to listen on host = {}. port = {}, exception = {}", connector.host(), connector.host(), ex.getMessage());
-                return this;
-            });
+            }).whenComplete(((server, ex) -> {
+                if(ex != null) {
+                    log.error("Failed to listen on host = {}. port = {}, exception = {}",
+                            connector.host(),
+                            connector.host(),
+                            ex.getMessage()
+                    );
+                }
+            }));
     }
 
     @Override
-    public InetServer onRead(final ReadHandler<byte[]> handler) {
-        Objects.requireNonNull(handler, "handler");
-        readHandler = handler;
+    public InetServer onConnect(final Handler<SocketChannel> handler) {
+        Objects.requireNonNull(handler, "connectHandler");
+        this.connectHandler = handler;
         return this;
     }
 
     @Override
-    public InetServer onWrite(final WriteHandler<byte[]> handler) {
-        Objects.requireNonNull(handler, "handler");
-        writeHandler = handler;
+    public InetServer onRead(final ReadHandler readHandler) {
+        Objects.requireNonNull(readHandler, "readHandler");
+
+        eventLoops.registerHandler(ctx -> {
+            Buffer buffer = Buffer.alloc();
+            int recv = ctx.recv(buffer);
+            if(recv > 0) {
+                readHandler.handle(buffer);
+            } else if(recv < 0) {
+                try {
+                    ctx.close();
+                } catch (IOException ignore) { }
+            }
+        });
+
         return this;
     }
 
     @Override
-    public InetServer exceptionHandler(final Consumer<Throwable> handler) {
+    public InetServer exceptionHandler(final Handler<Throwable> handler) {
         throw new UnsupportedOperationException();
     }
 
@@ -164,17 +167,17 @@ class InetServerImpl implements InetServer {
 
         try {
             connector.bind();
-
-            connector.register(selector);
-
+            eventLoops.primary().registerIoConcern(connector.serverSocketChannel());
         } catch (IOException e) {
-            throw new ServerException("Failed bind", e);
+            log.error("Failed to connect to {}.", connector.host(), e);
+            close();
         }
 
         return CompletableFuture.completedFuture(this);
     }
 
     @SuppressWarnings("SameParameterValue")
+    @Deprecated
     private void accept(final Selector selector) {
         if(!connector.isOpen()) {
             throw new ServerException("Connector is not open");
@@ -183,6 +186,8 @@ class InetServerImpl implements InetServer {
         try {
             log.info("Accepting inet server connection");
             SocketChannel client = connector.serverSocketChannel().accept();
+
+            connectHandler.handle(client);
 
             if(client == null) {
                 log.error("Failed to accept inet server connection");
@@ -210,6 +215,7 @@ class InetServerImpl implements InetServer {
                 listening = false;
             }
 
+            eventLoops.shutdown();
             connector.close();
             log.info("Closed server");
         } catch (IOException e) {
@@ -217,36 +223,7 @@ class InetServerImpl implements InetServer {
         }
     }
 
-    private void start0() {
+    private void configureKeepAlive(final boolean onOff) {
 
-        log.info("Start inet server!!");
-
-        EventLoop eventLoop = EventLoop.builder()
-                .selector(selector)
-                .onAccept(this::accept)
-                .capacity(Configurations.taskPendingCapacity())
-                .onRead(ctx -> {
-                    int read = ctx.recv(buf);
-                    if(read < 0) {
-                        throw new ServerException("Failed to read channel");
-                    }
-
-                    buf.flip();
-                    byte[] data = new byte[buf.remaining()];
-                    buf.get(data);
-                    readHandler.handle(data);
-                    buf.clear();
-                })
-                .onWrite(ctx -> {
-                    byte[] data = writeHandler.handle();
-                    int send = ctx.send(ByteBuffer.wrap(data));
-
-                    if(send < 0) {
-                        throw new ServerException("Failed to write channel");
-                    }
-                })
-                .build();
-
-        eventLoop.start();
     }
 }

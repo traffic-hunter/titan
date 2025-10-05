@@ -26,21 +26,19 @@ package org.traffichunter.titan.core.util.channel;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
-import org.traffichunter.titan.core.util.inet.Receivable;
-import org.traffichunter.titan.core.util.inet.Sendable;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
+@Slf4j
 public final class ChannelContext implements Context {
 
     private final SocketChannel socketChannel;
@@ -49,13 +47,12 @@ public final class ChannelContext implements Context {
 
     private final String contextId;
 
-    private volatile boolean isClosed;
+    private final AtomicBoolean isClosed =  new AtomicBoolean(false);
 
     private ChannelContext(final SocketChannel socketChannel) {
         this.socketChannel = socketChannel;
         this.contextId = IdGenerator.uuid();
         this.createdAt = Instant.now();
-        this.isClosed = false;
     }
 
     public static ChannelContext create(final SocketChannel socketChannel) {
@@ -73,34 +70,36 @@ public final class ChannelContext implements Context {
 
     @Override
     @CanIgnoreReturnValue
-    public int recv(final ByteBuffer readBuf) {
+    public int recv(final Buffer buffer) {
         if(isClosed()) {
             return -1;
         }
 
         try {
-            int read = socketChannel.read(readBuf);
+            int read = socketChannel.read(buffer.byteBuffer());
             if(read < 0) {
                 close();
             }
 
             return read;
         } catch (IOException e) {
-            throw new IllegalStateException("Receive error = " + e.getMessage());
+            log.info("Error reading from socket = {}", e.getMessage());
+            return -1;
         }
     }
 
     @Override
     @CanIgnoreReturnValue
-    public int send(final ByteBuffer writeBuf) {
+    public int write(final Buffer buffer) {
         if(isClosed()) {
             return -1;
         }
 
         try {
-            return socketChannel.write(writeBuf);
+            return socketChannel.write(buffer.byteBuffer());
         } catch (IOException e) {
-            throw new IllegalStateException("Send error = " + e.getMessage());
+            log.info("Error writing to socket = {}", e.getMessage());
+            return -1;
         }
     }
 
@@ -113,18 +112,14 @@ public final class ChannelContext implements Context {
     }
 
     public boolean isClosed() {
-        return !socketChannel.isOpen() && isClosed;
+        return !socketChannel.isOpen() && isClosed.get();
     }
 
     @Override
     public void close() throws IOException {
-        if(isClosed) {
-            return;
+        if(isClosed.compareAndSet(false, true)) {
+            socketChannel.close();
         }
-
-        isClosed = true;
-
-        socketChannel.close();
     }
 
     @Override

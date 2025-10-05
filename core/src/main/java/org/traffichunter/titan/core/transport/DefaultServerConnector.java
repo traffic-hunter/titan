@@ -26,13 +26,8 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
@@ -67,15 +62,6 @@ public class DefaultServerConnector implements ServerConnector {
             this.serverSocketChannel.configureBlocking(false);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-    }
-
-    @Override
-    public void register(final Selector selector) {
-        try {
-            serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         }
     }
 

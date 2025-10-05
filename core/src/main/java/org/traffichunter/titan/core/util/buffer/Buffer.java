@@ -53,11 +53,18 @@ public interface Buffer extends Clearable {
         return new InternalHeapBuffer(data, charset);
     }
 
+    static Buffer alloc(final byte[] data) {
+        Objects.requireNonNull(data);
+        return new InternalHeapBuffer(data);
+    }
+
     static Buffer allocAfterDecode(final String data) {
         Objects.requireNonNull(data);
         byte[] decode = Codec.decode(data);
         return new InternalHeapBuffer(decode);
     }
+
+    ByteBuffer byteBuffer();
 
     ByteBuf byteBuf();
 

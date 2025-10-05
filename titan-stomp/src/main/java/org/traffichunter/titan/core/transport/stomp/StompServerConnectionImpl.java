@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.Subscription;
 import org.traffichunter.titan.core.util.IdGenerator;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -66,6 +67,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     public StompServerConnectionImpl(final StompServer server, final SocketChannel socket) {
         Objects.requireNonNull(server, "server");
         Objects.requireNonNull(socket, "socket");
+
         this.server = server;
         this.socket = socket;
     }
@@ -76,9 +78,9 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public void write(final ByteBuffer buf) {
+    public void write(final Buffer buffer) {
         try {
-            socket.write(buf);
+            socket.write(buffer.byteBuffer());
         } catch (IOException e) {
             log.error("Error writing frame = {}", e.getMessage());
         }

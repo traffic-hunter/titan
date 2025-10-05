@@ -61,8 +61,13 @@ class InternalHeapBuffer implements Buffer {
     }
 
     @Override
+    public ByteBuffer byteBuffer() {
+        return Objects.requireNonNull(buf.nioBuffer(), "Buffer is null!!");
+    }
+
+    @Override
     public ByteBuf byteBuf() {
-        return Objects.requireNonNull(buf, "buf is null!!");
+        return Objects.requireNonNull(buf, "Buffer is null!!");
     }
 
     @Override
@@ -381,7 +386,7 @@ class InternalHeapBuffer implements Buffer {
     public Buffer accumulateBuffer(final Buffer buffer) {
         InternalHeapBuffer internal = (InternalHeapBuffer) buffer;
         ByteBuf buf = internal.buf;
-        this.buf.writeBytes(internal.buf, buf.readerIndex(), this.buf.readableBytes());
+        this.buf.writeBytes(buf, buf.readerIndex(), buf.readableBytes());
         return this;
     }
 

@@ -23,7 +23,7 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
-import java.nio.ByteBuffer;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -34,5 +34,5 @@ public interface Frame<K, V> {
 
     V getHeader(K key);
 
-    ByteBuffer toBuffer();
+    Buffer toBuffer();
 }

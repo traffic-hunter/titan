@@ -29,6 +29,7 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -58,9 +59,9 @@ final class DefaultStompServer implements StompServer {
     private final ScheduledExecutorService schedule;
 
     private final StompVersion version = StompVersion.STOMP_1_2;
-
     private final StompHandler handler = new StompHandlerImpl(Dispatcher.getDefault());
 
+    // timer handling
     private final Map<Long, Future<?>> tasks = new ConcurrentHashMap<>();
     private final AtomicLong timer = new AtomicLong();
 
@@ -70,7 +71,7 @@ final class DefaultStompServer implements StompServer {
 
     public DefaultStompServer(final InetServer inetServer) {
         this.inetServer = inetServer;
-        this.schedule = new ScheduledThreadPoolExecutor(1);
+        this.schedule = Executors.newSingleThreadScheduledExecutor();
     }
 
     @Override
@@ -93,11 +94,7 @@ final class DefaultStompServer implements StompServer {
 
     @Override
     public StompServer onRead(final StompHandler handler) {
-
-        inetServer.onRead(data -> {
-            //StompServerConnection serverConnection = new StompServerConnectionImpl(this, SocketChannel.open());
-
-        });
+        inetServer.onRead(data -> {});
         return this;
     }
 
@@ -145,7 +142,7 @@ final class DefaultStompServer implements StompServer {
             throw new IllegalArgumentException("delay must be greater than zero");
         }
 
-        long timerId = timer.getAndIncrement();
+        final long timerId = timer.getAndIncrement();
 
         ScheduledFuture<?> task;
         if(fixedRate) {

@@ -23,22 +23,24 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
-import java.nio.ByteBuffer;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Instant;
 import javax.net.ssl.SSLSession;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
-public interface ServerConnection {
+public interface Connection {
 
-    void write(ByteBuffer buf);
+    void write(Buffer buffer);
 
     String session();
 
     SSLSession sslSession();
 
-    Instant lastActivatedAt();
+    @CanIgnoreReturnValue
+    Instant setLastActivatedAt();
 
     void close();
 }
