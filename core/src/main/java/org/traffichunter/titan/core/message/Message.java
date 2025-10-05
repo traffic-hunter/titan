@@ -24,6 +24,7 @@
 package org.traffichunter.titan.core.message;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Objects;
 import lombok.Builder;
 import lombok.Getter;
@@ -85,5 +86,49 @@ public final class Message implements Comparable<Message> {
             return this.createdAt.compareTo(o.createdAt);
         }
         return this.priority.getPriorityValue() - o.priority.getPriorityValue();
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Message message)) {
+            return false;
+        }
+        return isRecovery() == message.isRecovery() && getSize() == message.getSize() && Objects.equals(
+                getUniqueId(), message.getUniqueId()) && getPriority() == message.getPriority() && Objects.equals(
+                getRoutingKey(), message.getRoutingKey()) && Objects.equals(getCreatedAt(),
+                message.getCreatedAt()) && Objects.equals(getDispatchedAt(), message.getDispatchedAt())
+                && Objects.equals(getProducerId(), message.getProducerId()) && Objects.deepEquals(
+                getBody(), message.getBody());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                getUniqueId(),
+                getPriority(),
+                getRoutingKey(),
+                getCreatedAt(),
+                getDispatchedAt(),
+                isRecovery(),
+                getProducerId(), getSize(), Arrays.hashCode(getBody())
+        );
+    }
+
+    @Override
+    public String toString() {
+        return "{" +
+                "uniqueId:'" + uniqueId + '\'' +
+                ", priority:" + priority +
+                ", routingKey:" + routingKey +
+                ", createdAt:" + createdAt +
+                ", dispatchedAt:" + dispatchedAt +
+                ", isRecovery:" + isRecovery +
+                ", producerId:'" + producerId + '\'' +
+                ", size:" + size +
+                ", body:" + Arrays.toString(body) +
+                '}';
     }
 }

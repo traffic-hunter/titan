@@ -29,7 +29,6 @@ import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 
 /**
  * @author yungwang-o
@@ -49,20 +48,19 @@ public final class EventLoopFactory {
 
     public static SecondaryNIOEventLoop createSecondaryEventLoop(
             final ChannelContextInBoundHandler inBoundHandler,
-            final ChannelContextOutBoundHandler outboundHandler
+            final int eventLoopNameCount
     ) {
         Objects.requireNonNull(inBoundHandler, "inBoundHandler is null");
-        Objects.requireNonNull(outboundHandler, "outboundHandler is null");
 
         try {
             return new SecondaryNIOEventLoop(
                     Selector.open(),
                     maxTaskPendingCapacity,
                     inBoundHandler,
-                    outboundHandler
+                    eventLoopNameCount
             );
         } catch (IOException e) {
-            throw new EventLoopException("Failed to create PrimaryNIOEventLoop", e)
+            throw new EventLoopException("Failed to create SecondaryNIOEventLoop", e);
         }
     }
 

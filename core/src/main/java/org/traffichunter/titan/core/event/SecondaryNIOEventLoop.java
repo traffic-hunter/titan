@@ -51,8 +51,6 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
 
     private final Handler<ChannelContext> readHandler;
 
-    private final Handler<ChannelContext> writeHandler;
-
     // Optimize atomicReference
     private static final AtomicReferenceFieldUpdater<SecondaryNIOEventLoop, EventLoopStatus> STATUS_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(SecondaryNIOEventLoop.class, EventLoopStatus.class, "status");
@@ -64,16 +62,16 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
             final Selector selector,
             final int isPendingMaxTasksCapacity,
             final Handler<ChannelContext> readHandler,
-            final Handler<ChannelContext> writeHandler
+            final int eventLoopNameCount
     ) {
         super(1, 1,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
-                (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME)
+                (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount),
+                false
         );
         this.selector = selector;
         this.readHandler = readHandler;
-        this.writeHandler = writeHandler;
         this.status = EventLoopStatus.NOT_INITIALIZED;
         super.allowCoreThreadTimeOut(false);
         if(!super.prestartCoreThread()) {
@@ -161,10 +159,9 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
     }
 
     public void register(final ChannelContext ctx) {
-        selector.wakeup();
-
         try {
-            ctx.socketChannel().register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE, ctx);
+            ctx.socketChannel().register(selector, SelectionKey.OP_READ, ctx);
+            selector.wakeup();
         } catch (IOException e) {
             try {
                 ctx.close();
@@ -233,9 +230,6 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
                 if(key.isReadable()) {
                     ChannelContext cc = ChannelContext.select(key);
                     readHandler.handle(cc);
-                } else if(key.isWritable()) {
-                    ChannelContext cc = ChannelContext.select(key);
-                    writeHandler.handle(cc);
                 }
             }
         }

@@ -24,10 +24,11 @@
 package org.traffichunter.titan.core.util.inet;
 
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
 @FunctionalInterface
-public interface WriteHandler extends Handler<byte[]> {
+public interface WriteHandler extends Handler<Buffer> {
 }

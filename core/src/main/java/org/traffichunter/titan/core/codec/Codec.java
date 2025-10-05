@@ -21,40 +21,48 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util;
+package org.traffichunter.titan.core.codec;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /**
  * @author yungwang-o
  */
-@Deprecated
-public class SerializeUtils {
+public final class Codec {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder().withoutPadding();
+    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
 
-    public static <T> String serialize(final T object) throws JsonProcessingException {
-        return mapper.writeValueAsString(object);
+    public static byte[] encode(final byte[] src) {
+        return BASE64_ENCODER.encode(src);
     }
 
-    public static <T> byte[] serializeToBytes(final T object) throws JsonProcessingException {
-        return mapper.writeValueAsBytes(object);
+    public static byte[] encode(final String src) {
+        return encode(src, StandardCharsets.UTF_8);
     }
 
-    public static <T> T deserialize(final String json, final Class<T> type) throws JsonProcessingException {
-        return mapper.readValue(json, type);
+    public static byte[] encode(final String src, final Charset charset) {
+        return BASE64_ENCODER.encode(src.getBytes(charset));
     }
 
-    public static <T> T deserialize(final InputStream is, final Class<T> type) throws IOException {
-        return mapper.readValue(is, type);
+    public static byte[] encode(final ByteBuffer src) {
+        return BASE64_ENCODER.encode(src).array();
     }
 
-    public static <T> T deserialize(final byte[] json, final Class<T> type) throws IOException {
-        return mapper.readValue(json, type);
+    public static byte[] decode(final byte[] src) {
+        return BASE64_DECODER.decode(src);
     }
 
-    private SerializeUtils() {}
+    public static byte[] decode(final String src) {
+        return BASE64_DECODER.decode(src);
+    }
+
+    public static byte[] decode(final ByteBuffer src) {
+        return BASE64_DECODER.decode(src).array();
+    }
+
+    private Codec() { }
 }

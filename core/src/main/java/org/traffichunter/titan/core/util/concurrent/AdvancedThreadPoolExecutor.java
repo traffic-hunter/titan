@@ -24,18 +24,14 @@
 package org.traffichunter.titan.core.util.concurrent;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.traffichunter.titan.bootstrap.Configurations;
 
 /**
  * @author yungwang-o
@@ -50,13 +46,15 @@ public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pa
 
     private boolean isPaused = false;
 
-    public AdvancedThreadPoolExecutor(final int corePoolSize,
-                                      final int maximumPoolSize,
-                                      final long keepAliveTime,
-                                      final TimeUnit unit,
-                                      final BlockingQueue<Runnable> workQueue) {
-
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
+    public AdvancedThreadPoolExecutor(final AdvancedThreadPoolExecutor executor) {
+        this(
+                executor.getCorePoolSize(),
+                executor.getMaximumPoolSize(),
+                executor.getKeepAliveTime(TimeUnit.MILLISECONDS),
+                TimeUnit.MILLISECONDS,
+                executor.getQueue(),
+                false
+        );
     }
 
     public AdvancedThreadPoolExecutor(final int corePoolSize,
@@ -64,9 +62,22 @@ public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pa
                                       final long keepAliveTime,
                                       final TimeUnit unit,
                                       final BlockingQueue<Runnable> workQueue,
-                                      final ThreadFactory threadFactory) {
+                                      final boolean isPaused) {
+
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
+        this.isPaused = isPaused;
+    }
+
+    public AdvancedThreadPoolExecutor(final int corePoolSize,
+                                      final int maximumPoolSize,
+                                      final long keepAliveTime,
+                                      final TimeUnit unit,
+                                      final BlockingQueue<Runnable> workQueue,
+                                      final ThreadFactory threadFactory,
+                                      final boolean isPaused) {
 
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
+        this.isPaused = isPaused;
     }
 
     public AdvancedThreadPoolExecutor(final int corePoolSize,
@@ -88,6 +99,16 @@ public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pa
                                       final RejectedExecutionHandler handler) {
 
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+    }
+
+    public static AdvancedThreadPoolExecutor singleThreadExecutor(ThreadFactory threadFactory) {
+        return new AdvancedThreadPoolExecutor(
+                1, 1,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                threadFactory,
+                false
+        );
     }
 
     @Override

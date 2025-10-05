@@ -24,6 +24,7 @@
 package org.traffichunter.titan.core.event;
 
 import java.io.IOException;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -62,7 +63,8 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
         super(1, 1,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
-                (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME)
+                (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME),
+                false
         );
         this.selector = selector;
         this.status = EventLoopStatus.NOT_INITIALIZED;
@@ -154,9 +156,16 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
         log.info("Closed event loop");
     }
 
+    public void registerIoConcern(final SelectableChannel channel) {
+        try {
+            channel.register(selector, SelectionKey.OP_ACCEPT);
+        } catch (IOException e) {
+            throw new EventLoopException("Failed to register server channel", e);
+        }
+    }
+
     public void registerHandler(final Handler<ChannelContext> handler) {
         Objects.requireNonNull(handler, "acceptHandler");
-
         this.acceptHandler = handler;
     }
 
@@ -224,7 +233,9 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
 
                         ChannelContext ctx = ChannelContext.create(clientSocketChannel);
 
-                        acceptHandler.handle(ctx);
+                        if(acceptHandler != null) {
+                            acceptHandler.handle(ctx);
+                        }
 
                         log.info("Accepted connection from {}", clientSocketChannel.getRemoteAddress());
                     } catch (IOException e) {

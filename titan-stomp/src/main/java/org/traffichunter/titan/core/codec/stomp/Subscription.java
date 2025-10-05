@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.codec.stomp;
 
 import lombok.Builder;
 import org.traffichunter.titan.core.util.RoutingKey;
-import org.traffichunter.titan.core.util.inet.ServerConnection;
+import org.traffichunter.titan.core.util.inet.Connection;
 
 /**
  * @author yungwang-o
@@ -33,7 +33,7 @@ import org.traffichunter.titan.core.util.inet.ServerConnection;
 @Builder
 public record Subscription(
         RoutingKey key,
-        ServerConnection serverConnection,
+        Connection serverConnection,
         String id,
         String ackMode
 ) {

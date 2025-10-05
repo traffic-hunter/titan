@@ -25,10 +25,10 @@ package org.traffichunter.titan.core.util.channel;
 
 import java.nio.channels.Channel;
 import org.traffichunter.titan.core.util.inet.Receivable;
-import org.traffichunter.titan.core.util.inet.Sendable;
+import org.traffichunter.titan.core.util.inet.Writable;
 
 /**
  * @author yungwang-o
  */
-public interface Context extends Receivable, Sendable, Channel {
+public interface Context extends Receivable, Writable, Channel {
 }

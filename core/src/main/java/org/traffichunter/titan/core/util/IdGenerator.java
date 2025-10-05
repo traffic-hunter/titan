@@ -24,17 +24,24 @@
 package org.traffichunter.titan.core.util;
 
 import java.util.UUID;
+import org.traffichunter.titan.bootstrap.Configurations;
 
 /**
  * @author yungwang-o
  */
-public class IdGenerator {
+public final class IdGenerator {
 
     public static String uuid(){
         return UUID.randomUUID().toString();
     }
 
+    public static String name() {
+        return Configurations.name();
+    }
+
     public static String timestamp() {
         throw new UnsupportedOperationException();
     }
+
+    private IdGenerator() { }
 }

@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.event;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
@@ -40,37 +41,36 @@ public final class EventLoops {
 
     private final PrimaryNIOEventLoop primaryEventLoop;
 
-    private final List<SecondaryNIOEventLoop> secondaryEventLoops = new ArrayList<>();
+    private final List<SecondaryNIOEventLoop> secondaryEventLoops;
 
-    private final ChannelContextInBoundHandler inBoundHandler;
-
-    private final ChannelContextOutBoundHandler outBoundHandler;
+    private ChannelContextInBoundHandler inBoundHandler;
 
     private final RoundRobinChannelPropagator<SecondaryNIOEventLoop> propagator;
 
     private final int nThread;
 
-    public EventLoops(final ChannelContextInBoundHandler inBoundHandler, final ChannelContextOutBoundHandler outBoundHandler) {
-        this(inBoundHandler, outBoundHandler, Runtime.getRuntime().availableProcessors() * 2);
+    public EventLoops() {
+        this(Runtime.getRuntime().availableProcessors() * 2);
     }
 
-    public EventLoops(final ChannelContextInBoundHandler inBoundHandler,
-                      final ChannelContextOutBoundHandler outBoundHandler,
-                      final int nThread) {
-
-        this.primaryEventLoop = initializePrimaryEventLoop();
-        this.inBoundHandler = inBoundHandler;
-        this.outBoundHandler = outBoundHandler;
+    public EventLoops(final int nThread) {
+        this.primaryEventLoop = EventLoopFactory.createPrimaryEventLoop();
         this.nThread = nThread;
-        this.secondaryEventLoops.addAll(initializeSecondaryEventLoops());
+        this.secondaryEventLoops = new ArrayList<>();
         this.propagator = new RoundRobinChannelPropagator<>(secondaryEventLoops);
     }
 
     public void start() {
+        secondaryEventLoops.addAll(initializeSecondaryEventLoops());
         register();
-
         primaryEventLoop.start();
         secondaryEventLoops.forEach(EventLoop::start);
+    }
+
+    public void registerHandler(final ChannelContextInBoundHandler inBoundHandler) {
+        Objects.requireNonNull(inBoundHandler, "inBoundHandler");
+
+        this.inBoundHandler = inBoundHandler;
     }
 
     public void shutdown() {
@@ -89,6 +89,14 @@ public final class EventLoops {
         secondaryEventLoops.forEach(EventLoop::close);
     }
 
+    public PrimaryNIOEventLoop primary() {
+        return primaryEventLoop;
+    }
+
+    public List<SecondaryNIOEventLoop> secondaries() {
+        return secondaryEventLoops;
+    }
+
     private void register() {
         primaryEventLoop.registerHandler(ctx -> {
             try {
@@ -103,17 +111,12 @@ public final class EventLoops {
         });
     }
 
-    private PrimaryNIOEventLoop initializePrimaryEventLoop() {
-        return EventLoopFactory.createPrimaryEventLoop();
-    }
-
     private List<SecondaryNIOEventLoop> initializeSecondaryEventLoops() {
-
         List<SecondaryNIOEventLoop> secondaryEventLoops = new ArrayList<>();
 
         for(int i = 0; i < nThread; i++) {
             secondaryEventLoops.add(
-                    EventLoopFactory.createSecondaryEventLoop(inBoundHandler, outBoundHandler)
+                    EventLoopFactory.createSecondaryEventLoop(inBoundHandler, i + 1)
             );
         }
 

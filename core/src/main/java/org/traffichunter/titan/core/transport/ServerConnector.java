@@ -40,8 +40,6 @@ public interface ServerConnector extends Connector {
         return new DefaultServerConnector(address);
     }
 
-    void register(Selector selector);
-
     String host();
 
     int port();

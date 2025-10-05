@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.message.ByteMessage;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.util.IdGenerator;
@@ -34,19 +36,20 @@ class InetServerImplTest {
     void setUp() throws Exception {
         server = InetServer.open(new InetSocketAddress("localhost", 7777));
 
-        server.listen()
-                .get()
+        server.listen().get()
                 .onRead(handle -> {
-                    log.info("Handler called with: = {}", new String(handle));
-                    ByteMessage msg = ByteMessage.builder()
+                    final Message msg = Message.builder()
                             .routingKey(RoutingKey.create("route.test"))
                             .priority(Priority.DEFAULT)
-                            .message(handle)
+                            .body(handle.getBytes())
                             .producerId(IdGenerator.uuid())
+                            .createdAt(Instant.now())
                             .build();
 
+                    log.info("msg = {}", msg.toString());
+
                     rq.enqueue(msg);
-                }).onWrite("hello"::getBytes);
+                });
 
         server.start();
         Thread.sleep(2000);
@@ -75,7 +78,7 @@ class InetServerImplTest {
                     socket.getOutputStream().write("hello".getBytes());
                     socket.getOutputStream().flush();
                     latch.countDown();
-                    Thread.sleep(100); // 여유 있게
+                    Thread.sleep(100);
                 } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
                 }

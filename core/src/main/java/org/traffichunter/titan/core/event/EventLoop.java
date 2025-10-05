@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.event;
 
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.bootstrap.LifeCycle;
-import org.traffichunter.titan.core.util.channel.Context;
 
 /**
  * @author yungwang-o

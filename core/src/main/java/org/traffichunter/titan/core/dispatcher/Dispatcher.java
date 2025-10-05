@@ -31,6 +31,10 @@ import org.traffichunter.titan.core.util.RoutingKey;
  */
 public interface Dispatcher {
 
+    static Dispatcher getDefault() {
+        return new TrieDispatcher();
+    }
+
     /**
      * @param key routing key
      * @return null

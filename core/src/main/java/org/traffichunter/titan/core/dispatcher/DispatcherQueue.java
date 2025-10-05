@@ -26,8 +26,7 @@ package org.traffichunter.titan.core.dispatcher;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
-import org.traffichunter.titan.core.message.AbstractMessage;
-import org.traffichunter.titan.core.servicediscovery.ServiceDiscovery;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
 import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
@@ -35,7 +34,7 @@ import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
 /**
  * @author yungwang-o
  */
-public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage>, DispatcherQueueMbean {
+public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
     static DispatcherQueue create(RoutingKey key) {
         return new MessageDispatcherQueue(key);
@@ -49,16 +48,14 @@ public interface DispatcherQueue extends Pausable, Iterator<AbstractMessage>, Di
 
     boolean equalsTo(RoutingKey key);
 
-    ServiceDiscovery serviceDiscovery();
-
     @CanIgnoreReturnValue
-    AbstractMessage enqueue(AbstractMessage message);
+    Message enqueue(Message message);
 
-    AbstractMessage peek();
+    Message peek();
 
-    List<AbstractMessage> pressure();
+    List<Message> pressure();
 
-    AbstractMessage dispatch();
+    Message dispatch();
 
     void updateRoutingKey(RoutingKey key);
 

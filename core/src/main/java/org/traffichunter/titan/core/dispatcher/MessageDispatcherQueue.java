@@ -24,19 +24,13 @@
 package org.traffichunter.titan.core.dispatcher;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
-import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery.Struct;
-import org.traffichunter.titan.core.message.AbstractMessage;
-import org.traffichunter.titan.core.servicediscovery.ServiceDiscovery;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
@@ -45,16 +39,13 @@ import org.traffichunter.titan.core.util.RoutingKey;
 @Slf4j
 class MessageDispatcherQueue implements DispatcherQueue {
 
-    private final BlockingQueue<AbstractMessage> queue;
+    private final BlockingQueue<Message> queue;
     private final int capacity;
     private volatile RoutingKey routingKey;
 
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
     private volatile boolean isPaused = false;
-
-    private final ServiceDiscovery serviceDiscovery =
-            new ServiceDiscovery(SettingsServiceDiscovery.mode(Struct.CACHE));
 
     /**
      * {@link PriorityBlockingQueue} default capacity 11
@@ -70,11 +61,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public ServiceDiscovery serviceDiscovery() {
-        return serviceDiscovery;
-    }
-
-    @Override
     public RoutingKey route() {
         return routingKey;
     }
@@ -85,7 +71,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public AbstractMessage enqueue(final AbstractMessage message) {
+    public Message enqueue(final Message message) {
         if(isPaused) {
             log.info("Waiting for queue to be resumed");
             wait0();
@@ -99,7 +85,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public AbstractMessage peek() {
+    public Message peek() {
         return queue.peek();
     }
 
@@ -109,7 +95,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public AbstractMessage next() {
+    public Message next() {
         return queue.iterator().next();
     }
 
@@ -137,15 +123,15 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public List<AbstractMessage> pressure() {
-        List<AbstractMessage> messages = new ArrayList<>();
+    public List<Message> pressure() {
+        List<Message> messages = new ArrayList<>();
         queue.drainTo(messages);
 
         return messages;
     }
 
     @Override
-    public AbstractMessage dispatch() {
+    public Message dispatch() {
         return queue.poll();
     }
 
