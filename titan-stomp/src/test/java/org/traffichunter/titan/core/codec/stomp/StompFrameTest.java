@@ -31,7 +31,7 @@ class StompFrameTest {
 
         String stompMessage = stompFrame.toString();
 
-        StompFrame parseFrame = StompUtils.doParse(stompMessage, StompHeaders.create());
+        StompFrame parseFrame = StompFrame.doParse(stompMessage, StompHeaders.create());
 
         Assertions.assertEquals(parseFrame.getCommand(), stompFrame.getCommand());
 
@@ -39,7 +39,7 @@ class StompFrameTest {
         headers.keySet().forEach(key ->
                 Assertions.assertEquals(stompFrame.getHeaders().get(key), parseFrame.getHeaders().get(key))
         );
-        Assertions.assertEquals(new String(parseFrame.getBody()), new String(stompFrame.getBody()));
+        Assertions.assertEquals(parseFrame.getBody(), stompFrame.getBody());
     }
 
     private static StompFrame getStompFrame() {

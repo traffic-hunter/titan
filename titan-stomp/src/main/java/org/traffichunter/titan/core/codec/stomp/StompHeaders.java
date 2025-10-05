@@ -32,12 +32,23 @@ import java.util.Optional;
 import java.util.Set;
 import lombok.Getter;
 import org.traffichunter.titan.core.codec.Headers;
+import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 
 /**
  * @author yungwang-o
  */
 @Getter
 public final class StompHeaders extends Headers<StompHeaders.Elements, String, StompHeaders> {
+
+    private static final char ESCAPE = '\\';
+    private static final char LINE_FEED = '\n';
+    private static final char CARRIAGE_RETURN = '\r';
+    private static final char COLON = ':';
+
+    private static final String ESCAPE_ESCAPE = "\\\\";
+    private static final String COLON_ESCAPE = "\\c";
+    private static final String LINE_FEED_ESCAPE = "\\n";
+    private static final String CARRIAGE_RETURN_ESCAPE = "\\r";
 
     private final String name;
     private final String version;
@@ -56,6 +67,56 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
 
     public static StompHeaders create() {
         return new StompHeaders(StompVersion.STOMP_1_2);
+    }
+
+    public static String encode(final String value, final StompCommand command) {
+        if(value == null) {
+            return "";
+        }
+
+        final boolean skipCommand = (command == StompCommand.CONNECT || command == StompCommand.CONNECTED);
+
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case ESCAPE -> sb.append(skipCommand ? c : ESCAPE_ESCAPE);
+                case LINE_FEED -> sb.append(skipCommand ? c : LINE_FEED_ESCAPE);
+                case CARRIAGE_RETURN -> sb.append(skipCommand ? c : CARRIAGE_RETURN_ESCAPE);
+                case COLON -> sb.append(skipCommand ? c : COLON_ESCAPE);
+                default -> sb.append(c);
+            }
+        }
+
+        return sb.toString();
+    }
+
+    public static String decode(final String value, final StompCommand command) {
+
+        final boolean skipCommand = (command == StompCommand.CONNECT || command == StompCommand.CONNECTED);
+
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < value.length();) {
+            char c = value.charAt(i);
+
+            if(c == ESCAPE && i + 1 < value.length()) {
+                char next = value.charAt(i + 1);
+
+                switch (next) {
+                    case ESCAPE -> sb.append(ESCAPE);
+                    case LINE_FEED -> sb.append(skipCommand ? ESCAPE : LINE_FEED);
+                    case CARRIAGE_RETURN -> sb.append(skipCommand ? ESCAPE : CARRIAGE_RETURN);
+                    case COLON -> sb.append(skipCommand ? ESCAPE : COLON);
+                    default -> throw new StompFrameException("Illegal escape sequence: \\\\\" + next");
+                }
+                i += 2;
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+
+        return sb.toString();
     }
 
     @Override
