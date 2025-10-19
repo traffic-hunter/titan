@@ -52,8 +52,7 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
 
     @Override
     protected ByteBuf newHeapBuffer(final int initialCapacity, final int maxCapacity) {
-        ByteBuf byteBuf = UnpooledByteBufAllocator.DEFAULT.heapBuffer(initialCapacity, maxCapacity);
-        return AutoReleaseByteBuf.byteBuf(byteBuf);
+        return AutoReleaseByteBuf.byteBuf(delegate.heapBuffer(initialCapacity, maxCapacity));
     }
 
     @Override

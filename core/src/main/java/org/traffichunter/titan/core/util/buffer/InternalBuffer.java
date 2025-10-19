@@ -24,11 +24,11 @@
 package org.traffichunter.titan.core.util.buffer;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.UnpooledByteBufAllocator;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
@@ -37,6 +37,7 @@ import org.traffichunter.titan.core.util.Assert;
  *
  * @author yungwang-o
  */
+@Slf4j
 class InternalBuffer implements Buffer {
 
     private ByteBuf buf;
@@ -76,6 +77,23 @@ class InternalBuffer implements Buffer {
     }
 
     @Override
+    public void release() {
+        if(buf.refCnt() == 0) {
+            log.warn("Buffer has been released!");
+            return;
+        }
+
+        boolean isRelease = buf.release();
+        Assert.checkState(isRelease, "Buffer not fully released");
+    }
+
+    @Override
+    public Buffer retain() {
+        ByteBuf retain = buf.retain();
+        return retain == buf ? this : new InternalBuffer(retain);
+    }
+
+    @Override
     public byte getByte(final int idx) {
         return buf.getByte(idx);
     }
@@ -95,7 +113,7 @@ class InternalBuffer implements Buffer {
 
     @Override
     public byte[] getBytes(final int start, final int length) {
-        Assert.checkArgument(length > 0,"invalid range: length < 0");
+        Assert.checkArgument(length > 0,"invalid range: length <= 0");
         final byte[] array = new byte[length];
         buf.getBytes(start, array, 0, length);
         return array;
@@ -452,7 +470,7 @@ class InternalBuffer implements Buffer {
     }
 
     private void reAlloc(final int capacity) {
-        ByteBuf temp = buf.alloc().heapBuffer(capacity);
+        ByteBuf temp = buf.alloc().directBuffer(capacity);
         temp.writeBytes(buf);
         buf = temp;
     }

@@ -76,6 +76,10 @@ public interface Buffer extends Clearable {
 
     ByteBuf byteBuf();
 
+    void release();
+
+    Buffer retain();
+
     byte getByte(int idx);
 
     byte[] getBytes();

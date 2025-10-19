@@ -78,9 +78,8 @@ public final class ChannelContext implements Context {
 
         try {
             ByteBuf byteBuf = buffer.byteBuf();
-            log.debug("before read: writer={}, writable={}", byteBuf.writerIndex(), byteBuf.writableBytes());
             ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
-            log.debug("dst rem = {}", dst.remaining());
+
             int read = socketChannel.read(dst);
             if(read > 0) {
                 byteBuf.writerIndex(byteBuf.writerIndex() + read);
