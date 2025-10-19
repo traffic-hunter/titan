@@ -23,7 +23,6 @@
  */
 package org.traffichunter.titan.core.transport;
 
-import io.netty.buffer.AdaptiveByteBufAllocator;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -35,13 +34,9 @@ import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.EventLoops;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
-import org.traffichunter.titan.core.util.inet.WriteHandler;
-import sun.misc.Unsafe;
 
 /**
  * @author yungwang-o
@@ -110,15 +105,22 @@ class InetServerImpl implements InetServer {
 
         eventLoops.registerHandler(ctx -> {
             Buffer buffer = Buffer.alloc(1024);
+
             int recv = ctx.recv(buffer);
             if(recv > 0) {
-                readHandler.handle(buffer);
+                try {
+                    readHandler.handle(buffer);
+                } finally {
+                    buffer.release();
+                }
             } else if(recv < 0) {
                 try {
                     ctx.close();
                 } catch (IOException e) {
                     log.info("Failed to close socket = {}", e.getMessage());
                     doClose();
+                } finally {
+                    buffer.release();
                 }
             }
         });
@@ -210,7 +212,7 @@ class InetServerImpl implements InetServer {
     @ThreadSafe
     private void doClose() {
         if(!listening) {
-            log.error("Already listening");
+            log.warn("Not listening");
             return;
         }
 
