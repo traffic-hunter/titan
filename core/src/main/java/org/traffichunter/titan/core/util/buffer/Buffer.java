@@ -36,32 +36,40 @@ import org.traffichunter.titan.core.codec.Codec;
 public interface Buffer extends Clearable {
 
     static Buffer alloc() {
-       return new InternalHeapBuffer();
+       return new InternalBuffer();
     }
 
     static Buffer alloc(final int initialCapacity) {
-        return new InternalHeapBuffer(initialCapacity);
+        return new InternalBuffer(initialCapacity);
     }
 
     static Buffer alloc(final String data) {
         Objects.requireNonNull(data);
-        return new InternalHeapBuffer(data);
+        return new InternalBuffer(data);
     }
 
     static Buffer alloc(final String data, final Charset charset) {
         Objects.requireNonNull(data); Objects.requireNonNull(charset);
-        return new InternalHeapBuffer(data, charset);
+        return new InternalBuffer(data, charset);
     }
 
     static Buffer alloc(final byte[] data) {
         Objects.requireNonNull(data);
-        return new InternalHeapBuffer(data);
+        return new InternalBuffer(data);
     }
 
     static Buffer allocAfterDecode(final String data) {
         Objects.requireNonNull(data);
         byte[] decode = Codec.decode(data);
-        return new InternalHeapBuffer(decode);
+        return new InternalBuffer(decode);
+    }
+
+    static Buffer copiedBuffer(final ByteBuf buffer) {
+        return buffer(BufferHandler.copyBuffer(buffer));
+    }
+
+    static Buffer buffer(final ByteBuf buffer) {
+        return new InternalBuffer(buffer);
     }
 
     ByteBuffer byteBuffer();

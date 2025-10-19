@@ -40,8 +40,8 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor {
 
     private final EventLoopLifeCycle lifeCycle = new EventLoopLifeCycleImpl();
 
-    public AbstractEventLoop(final String eventLoopName) {
-        super(AdvancedThreadPoolExecutor.singleThreadExecutor(r -> new Thread(r, eventLoopName)));
+    public AbstractEventLoop(final String eventLoopName, final int isPendingMaxTasksCapacity) {
+        super(AdvancedThreadPoolExecutor.singleThreadExecutor(eventLoopName, isPendingMaxTasksCapacity));
         this.eventLoopName = eventLoopName;
         try {
             this.selector = Selector.open();

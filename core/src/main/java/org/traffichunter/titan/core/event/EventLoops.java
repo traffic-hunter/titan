@@ -23,14 +23,13 @@
  */
 package org.traffichunter.titan.core.event;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.channel.RoundRobinChannelPropagator;
 
 /**
@@ -47,6 +46,8 @@ public final class EventLoops {
 
     private final RoundRobinChannelPropagator<SecondaryNIOEventLoop> propagator;
 
+    private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance(100);
+
     private final int nThread;
 
     public EventLoops() {
@@ -54,7 +55,7 @@ public final class EventLoops {
     }
 
     public EventLoops(final int nThread) {
-        this.primaryEventLoop = EventLoopFactory.createPrimaryEventLoop();
+        this.primaryEventLoop = EventLoopFactory.createPrimaryEventLoop(bridge);
         this.nThread = nThread;
         this.secondaryEventLoops = new ArrayList<>();
         this.propagator = new RoundRobinChannelPropagator<>(secondaryEventLoops);
@@ -62,8 +63,8 @@ public final class EventLoops {
 
     public void start() {
         secondaryEventLoops.addAll(initializeSecondaryEventLoops());
-        register();
         primaryEventLoop.start();
+        propagateTask();
         secondaryEventLoops.forEach(EventLoop::start);
     }
 
@@ -71,6 +72,28 @@ public final class EventLoops {
         Objects.requireNonNull(inBoundHandler, "inBoundHandler");
 
         this.inBoundHandler = inBoundHandler;
+    }
+
+    private void propagateTask() {
+
+        Thread.ofVirtual().start(() -> {
+            log.info("EventLoopBridge start!!");
+
+            while (primaryEventLoop.getLifeCycle().isStarting()) {
+
+                try {
+                    ChannelContext ctx = bridge.consume();
+                    if (ctx == null) {
+                        continue;
+                    }
+
+                    SecondaryNIOEventLoop sel = propagator.next();
+                    sel.register(ctx);
+                } catch (Exception e) {
+                    log.error("Failed to register secondary event loop = {}", e.getMessage());
+                }
+            }
+        });
     }
 
     public void shutdown() {
@@ -95,20 +118,6 @@ public final class EventLoops {
 
     public List<SecondaryNIOEventLoop> secondaries() {
         return secondaryEventLoops;
-    }
-
-    private void register() {
-        primaryEventLoop.registerHandler(ctx -> {
-            try {
-                SecondaryNIOEventLoop el = propagator.next();
-                el.register(ctx);
-            } catch (Exception e) {
-                log.error("Failed to register secondary event loop = {}", e.getMessage());
-                try {
-                    ctx.close();
-                } catch (IOException ignored) { }
-            }
-        });
     }
 
     private List<SecondaryNIOEventLoop> initializeSecondaryEventLoops() {

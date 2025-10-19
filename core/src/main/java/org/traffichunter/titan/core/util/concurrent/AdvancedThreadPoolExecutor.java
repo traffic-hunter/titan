@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.util.concurrent;
 
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -53,8 +54,10 @@ public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pa
                 executor.getKeepAliveTime(TimeUnit.MILLISECONDS),
                 TimeUnit.MILLISECONDS,
                 executor.getQueue(),
+                executor.getThreadFactory(),
                 false
         );
+        allowCoreThreadTimeOut(false);
     }
 
     public AdvancedThreadPoolExecutor(final int corePoolSize,
@@ -101,12 +104,13 @@ public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pa
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
     }
 
-    public static AdvancedThreadPoolExecutor singleThreadExecutor(ThreadFactory threadFactory) {
+    public static AdvancedThreadPoolExecutor singleThreadExecutor(final String executorName,
+                                                                  final int isPendingMaxTasksCapacity) {
         return new AdvancedThreadPoolExecutor(
                 1, 1,
                 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                threadFactory,
+                new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
+                r -> new Thread(r, executorName),
                 false
         );
     }

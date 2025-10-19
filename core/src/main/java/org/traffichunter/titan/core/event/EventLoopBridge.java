@@ -23,46 +23,50 @@
  */
 package org.traffichunter.titan.core.event;
 
-import java.io.IOException;
-import java.nio.channels.Selector;
-import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.channel.ChannelContext;
 
 /**
  * @author yungwang-o
  */
 @Slf4j
-public final class EventLoopFactory {
+public final class EventLoopBridge<T> {
 
-    private static final int maxTaskPendingCapacity = Configurations.taskPendingCapacity();
+    private final BlockingQueue<T> bridge;
 
-    public static PrimaryNIOEventLoop createPrimaryEventLoop(final EventLoopBridge bridge) {
+    public EventLoopBridge(final int capacity) {
+        this.bridge = new ArrayBlockingQueue<>(capacity);
+    }
+
+    public void produce(final T task) {
         try {
-            return new PrimaryNIOEventLoop(Selector.open(), maxTaskPendingCapacity, bridge);
-        } catch (IOException e) {
-            throw new EventLoopException("Failed to create PrimaryNIOEventLoop", e);
+            final boolean offer = bridge.offer(task, 10, TimeUnit.SECONDS);
+            if (!offer) {
+                throw new EventLoopException("Failed to produce event bridge");
+            }
+        } catch (InterruptedException ignore) {
+            log.warn("Event bridge interrupted");
         }
     }
 
-    public static SecondaryNIOEventLoop createSecondaryEventLoop(
-            final ChannelContextInBoundHandler inBoundHandler,
-            final int eventLoopNameCount
-    ) {
-        Objects.requireNonNull(inBoundHandler, "inBoundHandler is null");
-
+    public T consume() {
         try {
-            return new SecondaryNIOEventLoop(
-                    Selector.open(),
-                    maxTaskPendingCapacity,
-                    inBoundHandler,
-                    eventLoopNameCount
-            );
-        } catch (IOException e) {
-            throw new EventLoopException("Failed to create SecondaryNIOEventLoop", e);
+            return bridge.take();
+        } catch (InterruptedException ignore) {
+            log.warn("Event bridge interrupted");
+            return null;
         }
     }
 
-    private EventLoopFactory() {}
+    public List<T> pressure() {
+        List<T> tmp = new ArrayList<>(bridge.size());
+        bridge.drainTo(tmp);
+        return tmp;
+    }
 }

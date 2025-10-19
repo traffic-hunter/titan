@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.transport;
 
+import io.netty.buffer.AdaptiveByteBufAllocator;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -40,6 +41,7 @@ import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
 import org.traffichunter.titan.core.util.inet.WriteHandler;
+import sun.misc.Unsafe;
 
 /**
  * @author yungwang-o
@@ -107,7 +109,7 @@ class InetServerImpl implements InetServer {
         Objects.requireNonNull(readHandler, "readHandler");
 
         eventLoops.registerHandler(ctx -> {
-            Buffer buffer = Buffer.alloc();
+            Buffer buffer = Buffer.alloc(1024);
             int recv = ctx.recv(buffer);
             if(recv > 0) {
                 readHandler.handle(buffer);

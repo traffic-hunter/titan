@@ -27,15 +27,17 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.channel.Context;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
+import org.traffichunter.titan.core.util.eventloop.EventLoopConstants;
 
 /**
  * @author yungwang-o
@@ -43,13 +45,15 @@ import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 @Slf4j
 public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements EventLoop {
 
-    private static final String EVENT_LOOP_THREAD_NAME = "SecondaryEventLoopWorkerThread";
+    private final String eventLoopOriginName;
 
     private final EventLoopLifeCycle lifeCycle = new EventLoopLifeCycleImpl();
 
     private final Selector selector;
 
     private final Handler<ChannelContext> readHandler;
+
+    private final Queue<Runnable> pendingTasks = new ConcurrentLinkedQueue<>();
 
     // Optimize atomicReference
     private static final AtomicReferenceFieldUpdater<SecondaryNIOEventLoop, EventLoopStatus> STATUS_UPDATER =
@@ -64,40 +68,36 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
             final Handler<ChannelContext> readHandler,
             final int eventLoopNameCount
     ) {
-        super(1, 1,
-                0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
-                (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount),
-                false
+        super(AdvancedThreadPoolExecutor.singleThreadExecutor(
+                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount,
+                isPendingMaxTasksCapacity)
         );
+        this.eventLoopOriginName = EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount;
         this.selector = selector;
         this.readHandler = readHandler;
         this.status = EventLoopStatus.NOT_INITIALIZED;
-        super.allowCoreThreadTimeOut(false);
-        if(!super.prestartCoreThread()) {
-            throw new EventLoopException("EventLoop all core threads have already been started");
-        }
         this.status = EventLoopStatus.INITIALIZED;
     }
 
     @Override
     public void start() {
-        if(lifeCycle.isInitialized()) {
-            STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
-            super.execute(this::start0);
-        } else {
-            throw new EventLoopException("EventLoop is not initialized");
-        }
+        Assert.checkState(lifeCycle.isInitialized(), "EventLoop is not initialized");
+
+        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
+        super.execute(this::start0);
     }
 
     @Override
     public void restart() {
-        if(lifeCycle.isSuspended()) {
-            log.info("Restarting event loop");
-            STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
+        Assert.checkState(lifeCycle.isSuspended(), "EventLoop is not suspended");
+
+        log.info("Restarting event loop");
+        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
+        try {
             super.resume();
-        } else {
-            throw new EventLoopException("EventLoop is not suspended");
+        } catch (Exception e) {
+            log.error("Failed to resume event loop = {}", e.getMessage());
+            shutdown(true, 10, TimeUnit.SECONDS);
         }
     }
 
@@ -108,10 +108,7 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
 
     @Override
     public void suspend() {
-
-        if(lifeCycle.isStarting()) {
-            throw new EventLoopException("EventLoop is not started");
-        }
+        Assert.checkState(lifeCycle.isStarting(), "EventLoop is not started");
 
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.SUSPENDING);
 
@@ -122,10 +119,7 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
 
     @Override
     public void shutdown(final boolean isGraceful, final long timeout, final TimeUnit unit) {
-
-        if(!lifeCycle.isStarting()) {
-            throw new EventLoopException("EventLoop is not started");
-        }
+        Assert.checkState(lifeCycle.isStarting(), "EventLoop is not started");
 
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPING);
 
@@ -142,10 +136,7 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
 
     @Override
     public void close() {
-
-        if(lifeCycle.isStarting()) {
-            throw new EventLoopException("EventLoop is not started");
-        }
+        Assert.checkState(lifeCycle.isStarting(), "EventLoop is not started");
 
         log.info("Closing event loop");
 
@@ -159,16 +150,8 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
     }
 
     public void register(final ChannelContext ctx) {
-        try {
-            ctx.socketChannel().register(selector, SelectionKey.OP_READ, ctx);
-            selector.wakeup();
-        } catch (IOException e) {
-            try {
-                ctx.close();
-            } catch (IOException e1) {
-                log.error("Error closing channel = {}", e1.getMessage());
-            }
-        }
+        pendingTasks.offer(() -> doRegister(ctx));
+        selector.wakeup();
     }
 
     public int size() {
@@ -180,11 +163,10 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
     }
 
     public boolean inEvnetLoop() {
-        return Thread.currentThread().getName().equals(EVENT_LOOP_THREAD_NAME);
+        return Thread.currentThread().getName().equals(eventLoopOriginName);
     }
 
     private void shutdown(final long timeout, final TimeUnit unit) {
-
         super.shutdown();
         try {
 
@@ -192,23 +174,58 @@ public class SecondaryNIOEventLoop extends AdvancedThreadPoolExecutor implements
                 super.shutdownNow();
             }
         } catch (InterruptedException e) {
-            log.info("interrupted while shutting down");
-            super.shutdownNow();
             Thread.currentThread().interrupt();
+        } finally {
+            try {
+                selector.close();
+            } catch (IOException e) {
+                log.error("Error closing selector: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void doRegister(final ChannelContext ctx) {
+        if(inEvnetLoop()) {
+            try {
+                log.info("hello");
+                ctx.socketChannel().register(selector, SelectionKey.OP_READ, ctx);
+                SelectionKey key = ctx.socketChannel().keyFor(selector);
+                log.info("post-register key={}, valid={}", key, key != null && key.isValid());
+            } catch (IOException e) {
+                try {
+                    ctx.close();
+                } catch (IOException e1) {
+                    log.error("Error closing channel = {}", e1.getMessage());
+                }
+            }
+        }
+    }
+
+    private void processPendingTasks() {
+        Runnable task;
+
+        while ((task = pendingTasks.poll()) != null) {
+            try {
+                task.run();
+            } catch (Exception e) {
+                log.error("Error processing task: {}", e.getMessage());
+            }
         }
     }
 
     private void start0() {
-
         log.info("Start event loop!!");
 
-        if(!selector.isOpen()) {
-            throw new IllegalStateException("Failed event loop; not open selector");
-        }
+        Assert.checkState(selector.isOpen(), "Selector is not open");
 
         while (lifeCycle.isStarting() && !Thread.currentThread().isInterrupted()) {
             try {
+                processPendingTasks();
+
                 int select = selector.select();
+
+                processPendingTasks();
+
                 if (select == 0) {
                     continue;
                 }

@@ -30,27 +30,23 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
-import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
-import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.channel.Context;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
+import org.traffichunter.titan.core.util.eventloop.EventLoopConstants;
 
 @Slf4j
 public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements EventLoop {
-
-    private static final String EVENT_LOOP_THREAD_NAME = "PrimaryEventLoopWorkerThread";
 
     private final EventLoopLifeCycle lifeCycle = new EventLoopLifeCycleImpl();
 
     private final Selector selector;
 
-    private Handler<ChannelContext> acceptHandler;
+    private final EventLoopBridge<ChannelContext> bridge;
 
     // Optimize atomicReference
     private static final AtomicReferenceFieldUpdater<PrimaryNIOEventLoop, EventLoopStatus> STATUS_UPDATER =
@@ -59,30 +55,25 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
 
     private static final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
 
-    public PrimaryNIOEventLoop(final Selector selector, final int isPendingMaxTasksCapacity) {
-        super(1, 1,
-                0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(isPendingMaxTasksCapacity),
-                (r) -> new Thread(r, EVENT_LOOP_THREAD_NAME),
-                false
+    public PrimaryNIOEventLoop(final Selector selector,
+                               final int isPendingMaxTasksCapacity,
+                               final EventLoopBridge<ChannelContext> bridge) {
+        super(AdvancedThreadPoolExecutor.singleThreadExecutor(
+                EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
+                isPendingMaxTasksCapacity)
         );
+        this.bridge = bridge;
         this.selector = selector;
         this.status = EventLoopStatus.NOT_INITIALIZED;
-        super.allowCoreThreadTimeOut(false);
-        if(!super.prestartCoreThread()) {
-            throw new EventLoopException("EventLoop all core threads have already been started");
-        }
         this.status = EventLoopStatus.INITIALIZED;
     }
 
     @Override
     public void start() {
-        if(lifeCycle.isInitialized()) {
-            STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
-            super.execute(this::start0);
-        } else {
-            throw new EventLoopException("EventLoop is not initialized");
-        }
+        Assert.checkState(lifeCycle.isInitialized(), "EventLoop is not initialized");
+
+        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
+        super.execute(this::start0);
     }
 
     @Override
@@ -164,11 +155,6 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
         }
     }
 
-    public void registerHandler(final Handler<ChannelContext> handler) {
-        Objects.requireNonNull(handler, "acceptHandler");
-        this.acceptHandler = handler;
-    }
-
     public int size() {
         return super.getQueue().size();
     }
@@ -178,7 +164,7 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
     }
 
     public boolean inEvnetLoop() {
-        return Thread.currentThread().getName().equals(EVENT_LOOP_THREAD_NAME);
+        return Thread.currentThread().getName().equals(EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME);
     }
 
     private void shutdown(final long timeout, final TimeUnit unit) {
@@ -233,9 +219,7 @@ public class PrimaryNIOEventLoop extends AdvancedThreadPoolExecutor implements E
 
                         ChannelContext ctx = ChannelContext.create(clientSocketChannel);
 
-                        if(acceptHandler != null) {
-                            acceptHandler.handle(ctx);
-                        }
+                        bridge.produce(ctx);
 
                         log.info("Accepted connection from {}", clientSocketChannel.getRemoteAddress());
                     } catch (IOException e) {

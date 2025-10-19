@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import org.traffichunter.titan.core.util.Assert;
 
 /**
  *
@@ -36,28 +37,32 @@ import java.util.Objects;
  *
  * @author yungwang-o
  */
-class InternalHeapBuffer implements Buffer {
+class InternalBuffer implements Buffer {
 
     private ByteBuf buf;
 
-    public InternalHeapBuffer() {
+    public InternalBuffer() {
         this(0);
     }
 
-    public InternalHeapBuffer(final String src) {
+    public InternalBuffer(final String src) {
         this(src.getBytes(StandardCharsets.UTF_8));
     }
 
-    public InternalHeapBuffer(final String src, final Charset charset) {
+    public InternalBuffer(final String src, final Charset charset) {
         this(src.getBytes(charset));
     }
 
-    public InternalHeapBuffer(final int initialCapacity) {
-        this.buf = UnpooledByteBufAllocator.DEFAULT.heapBuffer(initialCapacity);
+    public InternalBuffer(final int initialCapacity) {
+        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(initialCapacity);
     }
 
-    public InternalHeapBuffer(final byte[] bytes) {
-        this.buf = UnpooledByteBufAllocator.DEFAULT.heapBuffer(bytes.length).writeBytes(bytes);
+    public InternalBuffer(final byte[] bytes) {
+        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(bytes.length).writeBytes(bytes);
+    }
+
+    public InternalBuffer(final ByteBuf buf) {
+        this.buf = buf;
     }
 
     @Override
@@ -90,7 +95,7 @@ class InternalHeapBuffer implements Buffer {
 
     @Override
     public byte[] getBytes(final int start, final int length) {
-        Validator.checkArgument(length > 0, () -> "invalid range: length < 0");
+        Assert.checkArgument(length > 0,"invalid range: length < 0");
         final byte[] array = new byte[length];
         buf.getBytes(start, array, 0, length);
         return array;
@@ -175,7 +180,7 @@ class InternalHeapBuffer implements Buffer {
     @Override
     public Buffer getBuffer(final int start, final int length) {
         final byte[] bytes = getBytes(start, length);
-        return new InternalHeapBuffer(bytes);
+        return new InternalBuffer(bytes);
     }
 
     @Override
@@ -252,7 +257,7 @@ class InternalHeapBuffer implements Buffer {
 
     @Override
     public Buffer setBuffer(final int idx, final Buffer buffer) {
-        InternalHeapBuffer internal = (InternalHeapBuffer) buffer;
+        InternalBuffer internal = (InternalBuffer) buffer;
         ByteBuf buf = internal.buf;
         this.buf.setBytes(idx, buf, buf.readerIndex(), buf.readableBytes());
         return this;
@@ -260,7 +265,7 @@ class InternalHeapBuffer implements Buffer {
 
     @Override
     public Buffer setBuffer(final int idx, final Buffer buffer, final int offset, final int length) {
-        InternalHeapBuffer internal = (InternalHeapBuffer) buffer;
+        InternalBuffer internal = (InternalBuffer) buffer;
         ByteBuf buf = internal.buf;
         this.buf.setBytes(idx, buf, buf.readerIndex() + offset, length);
         return this;
@@ -384,7 +389,7 @@ class InternalHeapBuffer implements Buffer {
 
     @Override
     public Buffer accumulateBuffer(final Buffer buffer) {
-        InternalHeapBuffer internal = (InternalHeapBuffer) buffer;
+        InternalBuffer internal = (InternalBuffer) buffer;
         ByteBuf buf = internal.buf;
         this.buf.writeBytes(buf, buf.readerIndex(), buf.readableBytes());
         return this;
@@ -392,7 +397,7 @@ class InternalHeapBuffer implements Buffer {
 
     @Override
     public Buffer accumulateBuffer(final Buffer buffer, final int offset, final int length) {
-        InternalHeapBuffer internal = (InternalHeapBuffer) buffer;
+        InternalBuffer internal = (InternalBuffer) buffer;
         ByteBuf buf = internal.buf;
         int start = buf.readerIndex() + offset;
         this.buf.writeBytes(buf, start, length);
@@ -424,7 +429,7 @@ class InternalHeapBuffer implements Buffer {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof InternalHeapBuffer that)) {
+        if (!(o instanceof InternalBuffer that)) {
             return false;
         }
         return Objects.equals(buf, that.buf);

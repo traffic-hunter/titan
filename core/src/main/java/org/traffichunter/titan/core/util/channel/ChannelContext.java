@@ -24,6 +24,7 @@
 package org.traffichunter.titan.core.util.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -76,14 +77,20 @@ public final class ChannelContext implements Context {
         }
 
         try {
-            int read = socketChannel.read(buffer.byteBuffer());
-            if(read < 0) {
+            ByteBuf byteBuf = buffer.byteBuf();
+            log.debug("before read: writer={}, writable={}", byteBuf.writerIndex(), byteBuf.writableBytes());
+            ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
+            log.debug("dst rem = {}", dst.remaining());
+            int read = socketChannel.read(dst);
+            if(read > 0) {
+                byteBuf.writerIndex(byteBuf.writerIndex() + read);
+            } else if(read < 0) {
                 close();
             }
 
             return read;
         } catch (IOException e) {
-            log.info("Error reading from socket = {}", e.getMessage());
+            log.error("Error reading from socket = {}", e.getMessage());
             return -1;
         }
     }

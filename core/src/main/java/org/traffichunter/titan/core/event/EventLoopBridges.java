@@ -21,16 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.eventloop;
+package org.traffichunter.titan.core.event;
+
+import org.traffichunter.titan.core.util.channel.ChannelContext;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoopConstants {
+final class EventLoopBridges {
 
-    long TIME_OUT_MILLIS = 10_000;
+    private static EventLoopBridge<ChannelContext> EVENT_LOOP_BRIDGE = null;
 
-    String PRIMARY_EVENT_LOOP_THREAD_NAME = "PrimaryEventLoopThread";
+    public static EventLoopBridge<ChannelContext> getInstance(final int capacity) {
+        if(EVENT_LOOP_BRIDGE == null) {
+            EVENT_LOOP_BRIDGE = new EventLoopBridge<>(capacity);
+        }
 
-    String SECONDARY_EVENT_LOOP_THREAD_NAME = "SecondaryEventLoopThread";
+        return EVENT_LOOP_BRIDGE;
+    }
+
+    private EventLoopBridges() { }
 }
