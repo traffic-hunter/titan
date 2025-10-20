@@ -28,7 +28,9 @@ import java.nio.channels.Selector;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
+import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.eventloop.EventLoopConstants;
 
 /**
  * @author yungwang-o
@@ -38,30 +40,25 @@ public final class EventLoopFactory {
 
     private static final int maxTaskPendingCapacity = Configurations.taskPendingCapacity();
 
-    public static PrimaryNIOEventLoop createPrimaryEventLoop(final EventLoopBridge bridge) {
-        try {
-            return new PrimaryNIOEventLoop(Selector.open(), maxTaskPendingCapacity, bridge);
-        } catch (IOException e) {
-            throw new EventLoopException("Failed to create PrimaryNIOEventLoop", e);
-        }
+    public static PrimaryNioEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
+        return new PrimaryNioEventLoop(
+                EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
+                maxTaskPendingCapacity,
+                bridge
+        );
     }
 
-    public static SecondaryNIOEventLoop createSecondaryEventLoop(
+    public static SecondaryNioEventLoop createSecondaryEventLoop(
             final ChannelContextInBoundHandler inBoundHandler,
             final int eventLoopNameCount
     ) {
         Objects.requireNonNull(inBoundHandler, "inBoundHandler is null");
 
-        try {
-            return new SecondaryNIOEventLoop(
-                    Selector.open(),
-                    maxTaskPendingCapacity,
-                    inBoundHandler,
-                    eventLoopNameCount
-            );
-        } catch (IOException e) {
-            throw new EventLoopException("Failed to create SecondaryNIOEventLoop", e);
-        }
+        return new SecondaryNioEventLoop(
+                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount,
+                maxTaskPendingCapacity,
+                inBoundHandler
+        );
     }
 
     private EventLoopFactory() {}

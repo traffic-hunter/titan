@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.util;
 
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
+import java.util.function.Supplier;
 
 /**
  * @author yungwang-o
@@ -32,39 +33,34 @@ import java.nio.BufferUnderflowException;
 public final class Assert {
 
     public static void checkArgument(final boolean expression, final String exceptionMessage) {
-        if (!expression) {
-            throw new IllegalArgumentException(exceptionMessage);
-        }
+        check(expression, () -> new IllegalArgumentException(exceptionMessage));
     }
 
     public static void checkState(final boolean expression, final String exceptionMessage) {
-        if (!expression) {
-            throw new IllegalStateException(exceptionMessage);
-        }
-    }
-
-    public static void checkRange(final int min, final int max, final String exceptionMessage) {
-        if (min > max) {
-            throw new IllegalArgumentException(exceptionMessage);
-        }
+        check(expression, () -> new IllegalStateException(exceptionMessage));
     }
 
     public static void checkOverflow(final boolean expression) {
-        if (!expression) {
-            throw new BufferOverflowException();
-        }
+        check(expression, BufferOverflowException::new);
     }
 
     public static void checkUnderflow(final boolean expression) {
-        if (!expression) {
-            throw new BufferUnderflowException();
-        }
+        check(expression, BufferUnderflowException::new);
     }
 
     public static void checkNull(final Object obj, final String exceptionMessage) {
-        if(obj == null) {
-            throw new NullPointerException(exceptionMessage);
+        check(obj == null, () -> new NullPointerException(exceptionMessage));
+    }
+
+    public static void check(final boolean expression, final Supplier<? extends Throwable> throwable) {
+        if(!expression) {
+            throwAsUnchecked(throwable.get());
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends Throwable> void throwAsUnchecked(Throwable throwable) throws T {
+        throw (T) throwable;
     }
 
     private Assert() { }

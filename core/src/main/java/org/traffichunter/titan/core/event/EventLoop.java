@@ -49,8 +49,6 @@ public interface EventLoop {
 
     interface EventLoopLifeCycle extends LifeCycle {
 
-        boolean isNotInitialized();
-
         boolean isSuspending();
 
         boolean isSuspended();

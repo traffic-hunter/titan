@@ -38,13 +38,13 @@ import org.traffichunter.titan.core.util.channel.RoundRobinChannelPropagator;
 @Slf4j
 public final class EventLoops {
 
-    private final PrimaryNIOEventLoop primaryEventLoop;
+    private final PrimaryNioEventLoop primaryEventLoop;
 
-    private final List<SecondaryNIOEventLoop> secondaryEventLoops;
+    private final List<SecondaryNioEventLoop> secondaryEventLoops;
 
     private ChannelContextInBoundHandler inBoundHandler;
 
-    private final RoundRobinChannelPropagator<SecondaryNIOEventLoop> propagator;
+    private final RoundRobinChannelPropagator<SecondaryNioEventLoop> propagator;
 
     private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance(100);
 
@@ -76,7 +76,7 @@ public final class EventLoops {
 
     private void propagateTask() {
 
-        Thread.ofVirtual().start(() -> {
+        Thread.ofVirtual().name("EventBridgeThread", 1).start(() -> {
             log.info("EventLoopBridge start!!");
 
             while (primaryEventLoop.getLifeCycle().isStarting()) {
@@ -87,7 +87,7 @@ public final class EventLoops {
                         continue;
                     }
 
-                    SecondaryNIOEventLoop sel = propagator.next();
+                    SecondaryNioEventLoop sel = propagator.next();
                     sel.register(ctx);
                 } catch (Exception e) {
                     log.error("Failed to register secondary event loop = {}", e.getMessage());
@@ -101,9 +101,11 @@ public final class EventLoops {
     }
 
     public void shutdown(final long timeout, final TimeUnit unit) {
+        log.info("Shutting down EventLoop");
+
         primaryEventLoop.gracefulShutdown(timeout, unit);
         secondaryEventLoops.forEach(
-                secondaryNIOEventLoop -> secondaryNIOEventLoop.gracefulShutdown(timeout, unit)
+                secondaryNioEventLoop -> secondaryNioEventLoop.gracefulShutdown(timeout, unit)
         );
     }
 
@@ -112,16 +114,16 @@ public final class EventLoops {
         secondaryEventLoops.forEach(EventLoop::close);
     }
 
-    public PrimaryNIOEventLoop primary() {
+    public PrimaryNioEventLoop primary() {
         return primaryEventLoop;
     }
 
-    public List<SecondaryNIOEventLoop> secondaries() {
+    public List<SecondaryNioEventLoop> secondaries() {
         return secondaryEventLoops;
     }
 
-    private List<SecondaryNIOEventLoop> initializeSecondaryEventLoops() {
-        List<SecondaryNIOEventLoop> secondaryEventLoops = new ArrayList<>();
+    private List<SecondaryNioEventLoop> initializeSecondaryEventLoops() {
+        List<SecondaryNioEventLoop> secondaryEventLoops = new ArrayList<>();
 
         for(int i = 0; i < nThread; i++) {
             secondaryEventLoops.add(
