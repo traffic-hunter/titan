@@ -24,12 +24,17 @@
 package org.traffichunter.titan.core.event;
 
 import java.io.IOException;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.util.Iterator;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.bootstrap.Configurations;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
+import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.util.eventloop.EventLoopConstants;
 
 /**
  * @author yungwang-o
@@ -37,34 +42,55 @@ import org.traffichunter.titan.core.util.channel.ChannelContext;
 @Slf4j
 public class SecondaryNioEventLoop extends AbstractNioEventLoop {
 
-    private final Handler<ChannelContext> readHandler;
+    private ChannelContextInBoundHandler inBoundHandler;
+    private ChannelContextOutBoundHandler outBoundHandler;
+    private final String eventLoopName;
 
-    public SecondaryNioEventLoop(final String eventLoopName,
-                                 final int isPendingMaxTasksCapacity,
-                                 final Handler<ChannelContext> readHandler) {
-
-        super(eventLoopName, isPendingMaxTasksCapacity);
-        this.readHandler = readHandler;
+    public SecondaryNioEventLoop() {
+        this(Configurations.taskPendingCapacity());
     }
 
-    public void register(final ChannelContext ctx) {
+    public SecondaryNioEventLoop(final int isPendingMaxTasksCapacity) {
+        this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME, isPendingMaxTasksCapacity);
+    }
+
+    public SecondaryNioEventLoop(final String eventLoopName, final int isPendingMaxTasksCapacity) {
+        super(eventLoopName, isPendingMaxTasksCapacity);
+        this.eventLoopName = eventLoopName;
+    }
+
+    @Override
+    public void registerChannelContextInboundHandler(final ChannelContextInBoundHandler inBoundHandler) {
+        this.inBoundHandler = inBoundHandler;
+    }
+
+    @Override
+    public void registerChannelContextOutboundHandler(final ChannelContextOutBoundHandler outBoundHandler) {
+        this.outBoundHandler = outBoundHandler;
+    }
+
+    void register(final ChannelContext ctx) {
         registerPendingTask(() -> doRegister(ctx));
         selector.wakeup();
     }
 
     private void doRegister(final ChannelContext ctx) {
-        try {
-            ctx.socketChannel().register(selector, SelectionKey.OP_READ, ctx);
-        } catch (IOException e) {
-            log.error("Error registering channel", e);
+        if(inEventLoop(eventLoopName)) {
             try {
-                ctx.close();
-            } catch (IOException ignored) { }
+                ctx.socketChannel().register(selector, SelectionKey.OP_READ, ctx);
+            } catch (IOException e) {
+                log.error("Error registering channel", e);
+                try {
+                    ctx.close();
+                } catch (IOException ignored) { }
+            }
         }
     }
 
     @Override
-    protected void handleSelectorKeys(final Set<SelectionKey> keySet) {
+    protected void handleIO(final Set<SelectionKey> keySet) {
+        Assert.checkNull(inBoundHandler, "Inbound handler is null!!");
+
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
             SelectionKey key = iter.next();
@@ -74,9 +100,23 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
                 continue;
             }
 
-            if(key.isReadable()) {
-                ChannelContext ctx = ChannelContext.select(key);
-                readHandler.handle(ctx);
+            ChannelContext ctx = ChannelContext.select(key);
+
+            try {
+                if (key.isConnectable()) {
+                    inBoundHandler.handleConnect(ctx);
+                    inBoundHandler.handleCompletedConnect(ctx);
+                } else if (key.isReadable()) {
+                    inBoundHandler.handleRead(ctx);
+                    inBoundHandler.handleCompletedConnect(ctx);
+                } else if (key.isWritable()) {
+                    outBoundHandler.handleWrite(ctx);
+                    outBoundHandler.handleCompletedWrite(ctx);
+                }
+            } catch (CancelledKeyException e) {
+                inBoundHandler.handleDisconnect(ctx);
+            } catch (Throwable t) {
+                inBoundHandler.handleException(ctx, t);
             }
         }
     }

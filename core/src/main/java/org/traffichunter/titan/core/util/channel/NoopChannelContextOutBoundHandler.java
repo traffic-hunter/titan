@@ -26,10 +26,5 @@ package org.traffichunter.titan.core.util.channel;
 /**
  * @author yungwang-o
  */
-public class NoopChannelContextOutBoundHandler implements ChannelContextInBoundHandler {
-
-    @Override
-    public void handle(final ChannelContext channelContext) {
-        // no-op
-    }
+public final class NoopChannelContextOutBoundHandler implements ChannelContextInBoundHandler {
 }

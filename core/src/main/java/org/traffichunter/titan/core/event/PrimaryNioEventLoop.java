@@ -32,6 +32,8 @@ import java.util.Iterator;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
+import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 
 @Slf4j
 public class PrimaryNioEventLoop extends AbstractNioEventLoop {
@@ -55,7 +57,17 @@ public class PrimaryNioEventLoop extends AbstractNioEventLoop {
     }
 
     @Override
-    protected void handleSelectorKeys(final Set<SelectionKey> keySet) {
+    public void registerChannelContextInboundHandler(final ChannelContextInBoundHandler inBoundHandler) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void registerChannelContextOutboundHandler(final ChannelContextOutBoundHandler outBoundHandler) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void handleIO(final Set<SelectionKey> keySet) {
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
             SelectionKey key = iter.next();

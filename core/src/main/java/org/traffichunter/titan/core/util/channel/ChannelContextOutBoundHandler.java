@@ -23,11 +23,12 @@
  */
 package org.traffichunter.titan.core.util.channel;
 
-import org.traffichunter.titan.core.util.Handler;
-
 /**
  * @author yungwang-o
  */
-@FunctionalInterface
-public interface ChannelContextOutBoundHandler extends Handler<ChannelContext> {
+public interface ChannelContextOutBoundHandler {
+
+    default void handleWrite(ChannelContext channelContext) { }
+
+    default void handleCompletedWrite(ChannelContext channelContext) { }
 }

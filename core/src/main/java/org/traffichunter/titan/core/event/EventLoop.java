@@ -23,8 +23,11 @@
  */
 package org.traffichunter.titan.core.event;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.bootstrap.LifeCycle;
+import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 
 /**
  * @author yungwang-o
@@ -37,9 +40,13 @@ public interface EventLoop {
 
     EventLoopLifeCycle getLifeCycle();
 
+    void registerChannelContextInboundHandler(ChannelContextInBoundHandler inBoundHandler);
+
+    void registerChannelContextOutboundHandler(ChannelContextOutBoundHandler outBoundHandler);
+
     void suspend();
 
-    default void gracefulShutdown(long timeout, TimeUnit unit) {
+    default void gracefullyShutdown(long timeout, TimeUnit unit) {
         shutdown(true, timeout, unit);
     }
 

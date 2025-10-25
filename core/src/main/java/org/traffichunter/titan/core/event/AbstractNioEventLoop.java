@@ -29,12 +29,15 @@ import java.nio.channels.Selector;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 
 /**
@@ -139,7 +142,7 @@ public abstract class AbstractNioEventLoop extends AdvancedThreadPoolExecutor im
         STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPED);
     }
 
-    protected abstract void handleSelectorKeys(Set<SelectionKey> keySet);
+    protected abstract void handleIO(Set<SelectionKey> keySet);
 
     private void doShutdown(long timeout, TimeUnit unit) {
         super.shutdown();
@@ -176,7 +179,7 @@ public abstract class AbstractNioEventLoop extends AdvancedThreadPoolExecutor im
                 break;
             }
 
-            handleSelectorKeys(selector.selectedKeys());
+            handleIO(selector.selectedKeys());
         }
     }
 

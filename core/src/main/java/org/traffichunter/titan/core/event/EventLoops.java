@@ -103,9 +103,9 @@ public final class EventLoops {
     public void shutdown(final long timeout, final TimeUnit unit) {
         log.info("Shutting down EventLoop");
 
-        primaryEventLoop.gracefulShutdown(timeout, unit);
+        primaryEventLoop.gracefullyShutdown(timeout, unit);
         secondaryEventLoops.forEach(
-                secondaryNioEventLoop -> secondaryNioEventLoop.gracefulShutdown(timeout, unit)
+                secondaryNioEventLoop -> secondaryNioEventLoop.gracefullyShutdown(timeout, unit)
         );
     }
 
@@ -127,9 +127,13 @@ public final class EventLoops {
 
         for(int i = 0; i < nThread; i++) {
             secondaryEventLoops.add(
-                    EventLoopFactory.createSecondaryEventLoop(inBoundHandler, i + 1)
+                    EventLoopFactory.createSecondaryEventLoop(i + 1)
             );
         }
+
+        secondaryEventLoops.forEach(secondaryNioEventLoop ->
+                secondaryNioEventLoop.registerChannelContextInboundHandler(inBoundHandler)
+        );
 
         return secondaryEventLoops;
     }
