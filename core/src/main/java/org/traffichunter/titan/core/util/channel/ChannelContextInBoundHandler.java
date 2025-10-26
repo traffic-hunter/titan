@@ -37,6 +37,4 @@ public interface ChannelContextInBoundHandler {
     default void handleCompletedRead(ChannelContext channelContext) { }
 
     default void handleDisconnect(ChannelContext channelContext) { }
-
-    default void handleException(ChannelContext channelContext, Throwable throwable) { }
 }

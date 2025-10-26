@@ -31,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.channel.RoundRobinChannelPropagator;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
+import org.traffichunter.titan.core.util.event.IOType;
 
 /**
  * @author yungwang-o
@@ -88,7 +90,7 @@ public final class EventLoops {
                     }
 
                     SecondaryNioEventLoop sel = propagator.next();
-                    sel.register(ctx);
+                    sel.register(ctx, IOType.READ);
                 } catch (Exception e) {
                     log.error("Failed to register secondary event loop = {}", e.getMessage());
                 }
@@ -132,7 +134,7 @@ public final class EventLoops {
         }
 
         secondaryEventLoops.forEach(secondaryNioEventLoop ->
-                secondaryNioEventLoop.registerChannelContextInboundHandler(inBoundHandler)
+                secondaryNioEventLoop.registerChannelContextHandler(inBoundHandler)
         );
 
         return secondaryEventLoops;

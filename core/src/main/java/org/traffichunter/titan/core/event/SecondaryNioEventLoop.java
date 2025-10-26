@@ -31,10 +31,12 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
-import org.traffichunter.titan.core.util.eventloop.EventLoopConstants;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
+import org.traffichunter.titan.core.util.event.IOType;
 
 /**
  * @author yungwang-o
@@ -44,6 +46,7 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
 
     private ChannelContextInBoundHandler inBoundHandler;
     private ChannelContextOutBoundHandler outBoundHandler;
+    private Handler<Throwable> exceptionHandler;
     private final String eventLoopName;
 
     public SecondaryNioEventLoop() {
@@ -60,24 +63,35 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
     }
 
     @Override
-    public void registerChannelContextInboundHandler(final ChannelContextInBoundHandler inBoundHandler) {
+    public void registerChannelContextHandler(final ChannelContextInBoundHandler inBoundHandler) {
+        Assert.checkNull(inBoundHandler, "inBoundHandler is null");
         this.inBoundHandler = inBoundHandler;
     }
 
     @Override
-    public void registerChannelContextOutboundHandler(final ChannelContextOutBoundHandler outBoundHandler) {
+    public void registerChannelContextHandler(final ChannelContextOutBoundHandler outBoundHandler) {
+        Assert.checkNull(outBoundHandler, "outBoundHandler is null");
         this.outBoundHandler = outBoundHandler;
     }
 
-    void register(final ChannelContext ctx) {
-        registerPendingTask(() -> doRegister(ctx));
+    @Override
+    public void exceptionHandler(final Handler<Throwable> exceptionHandler) {
+        this.exceptionHandler = exceptionHandler;
+    }
+
+    public void register(final ChannelContext ctx, final IOType ioType) {
+        register(() -> doRegister(ctx, ioType.value()));
+    }
+
+    public void register(final Runnable runnable) {
+        registerPendingTask(runnable);
         selector.wakeup();
     }
 
-    private void doRegister(final ChannelContext ctx) {
+    private void doRegister(final ChannelContext ctx, final int ops) {
         if(inEventLoop(eventLoopName)) {
             try {
-                ctx.socketChannel().register(selector, SelectionKey.OP_READ, ctx);
+                ctx.socketChannel().register(selector, ops, ctx);
             } catch (IOException e) {
                 log.error("Error registering channel", e);
                 try {
@@ -89,7 +103,6 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
 
     @Override
     protected void handleIO(final Set<SelectionKey> keySet) {
-        Assert.checkNull(inBoundHandler, "Inbound handler is null!!");
 
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
@@ -116,7 +129,7 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
             } catch (CancelledKeyException e) {
                 inBoundHandler.handleDisconnect(ctx);
             } catch (Throwable t) {
-                inBoundHandler.handleException(ctx, t);
+                exceptionHandler.handle(t);
             }
         }
     }

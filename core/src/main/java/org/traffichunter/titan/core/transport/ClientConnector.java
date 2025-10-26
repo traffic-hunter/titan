@@ -31,11 +31,21 @@ import java.nio.channels.SocketChannel;
  */
 public interface ClientConnector extends Connector {
 
-    static ClientConnector getDefault(String ip, int port) {
+    static ClientConnector open(String ip, int port) {
         return new DefaultClientConnector(new InetSocketAddress(ip, port));
     }
 
-    SocketChannel socketChannel();
+    static ClientConnector open(InetSocketAddress address) {
+        return new DefaultClientConnector(address);
+    }
+
+    boolean isFinishConnect();
+
+    boolean isConnectPending();
+
+    InetSocketAddress getSocketAddress();
+
+    SocketChannel channel();
 
     boolean isConnected();
 }

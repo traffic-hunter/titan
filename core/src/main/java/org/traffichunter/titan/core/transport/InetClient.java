@@ -28,38 +28,46 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.CompletableFuture;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.inet.ReadHandler;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
-public interface InetServer {
+public interface InetClient {
 
-    static InetServer open(InetSocketAddress address) {
-        return new InetServerImpl(ServerConnector.open(address));
+    static InetClient open(final InetSocketAddress address) {
+        return new InetClientImpl(address);
     }
 
-    void start();
+    @CanIgnoreReturnValue
+    InetClient start();
 
     @CanIgnoreReturnValue
-    CompletableFuture<InetServer> listen();
+    CompletableFuture<InetClient> connect();
 
     @CanIgnoreReturnValue
-    InetServer exceptionHandler(Handler<Throwable> handler);
+    InetClient onConnect(Handler<SocketChannel> connectHandler);
 
     @CanIgnoreReturnValue
-    InetServer onConnect(Handler<SocketChannel> handler);
+    InetClient onRead(Handler<Buffer> readHandler);
 
     @CanIgnoreReturnValue
-    InetServer onRead(ReadHandler readHandler);
+    InetClient onWrite(Handler<Buffer> writeHandler);
 
-    String host();
+    @CanIgnoreReturnValue
+    InetClient onDisconnect(Handler<SocketChannel> disconnectHandler);
 
-    int activePort();
+    @CanIgnoreReturnValue
+    InetClient exceptionHandler(Handler<Throwable> exceptionHandler);
 
-    boolean isStart();
+    @CanIgnoreReturnValue
+    CompletableFuture<InetClient> send(Buffer buffer);
 
-    boolean isListening();
+    String remoteHost();
+
+    int remotePort();
+
+    boolean isConnected();
 
     boolean isClosed();
 
@@ -67,25 +75,17 @@ public interface InetServer {
 
     default void close() { shutdown(false); }
 
-    class ServerException extends TransportException {
+    class ClientException extends TransportException {
 
-        public ServerException() {
-        }
+        public ClientException() {}
 
-        public ServerException(final String message) {
-            super(message);
-        }
+        public ClientException(String message) { super(message); }
 
-        public ServerException(final String message, final Throwable cause) {
-            super(message, cause);
-        }
+        public ClientException(String message, Throwable cause) { super(message, cause); }
 
-        public ServerException(final Throwable cause) {
-            super(cause);
-        }
+        public ClientException(Throwable cause) { super(cause); }
 
-        public ServerException(final String message, final Throwable cause, final boolean enableSuppression,
-                               final boolean writableStackTrace) {
+        public ClientException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
             super(message, cause, enableSuppression, writableStackTrace);
         }
     }

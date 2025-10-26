@@ -79,8 +79,7 @@ class InternalBuffer implements Buffer {
     @Override
     public void release() {
         if(buf.refCnt() == 0) {
-            log.warn("Buffer has been released!");
-            return;
+            throw new IllegalStateException("Buffer has been released!");
         }
 
         boolean isRelease = buf.release();
@@ -298,7 +297,7 @@ class InternalBuffer implements Buffer {
     @Override
     public Buffer accumulateUnsignedByte(final short value) {
         buf.writeByte(value);
-        return null;
+        return this;
     }
 
     @Override

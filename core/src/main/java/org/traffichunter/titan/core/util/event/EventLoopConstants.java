@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.eventloop;
+package org.traffichunter.titan.core.util.event;
 
 /**
  * @author yungwang-o

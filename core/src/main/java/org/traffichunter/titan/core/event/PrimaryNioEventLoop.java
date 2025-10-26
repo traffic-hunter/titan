@@ -31,6 +31,8 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
@@ -39,6 +41,8 @@ import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 public class PrimaryNioEventLoop extends AbstractNioEventLoop {
 
     private final EventLoopBridge<ChannelContext> bridge;
+
+    private Handler<Throwable> exceptionHandler;
 
     public PrimaryNioEventLoop(final String eventLoopName,
                                final int isPendingMaxTasksCapacity,
@@ -57,13 +61,18 @@ public class PrimaryNioEventLoop extends AbstractNioEventLoop {
     }
 
     @Override
-    public void registerChannelContextInboundHandler(final ChannelContextInBoundHandler inBoundHandler) {
+    public void registerChannelContextHandler(final ChannelContextInBoundHandler inBoundHandler) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void registerChannelContextOutboundHandler(final ChannelContextOutBoundHandler outBoundHandler) {
+    public void registerChannelContextHandler(final ChannelContextOutBoundHandler outBoundHandler) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void exceptionHandler(final Handler<Throwable> exceptionHandler) {
+        this.exceptionHandler = exceptionHandler;
     }
 
     @Override
@@ -88,8 +97,8 @@ public class PrimaryNioEventLoop extends AbstractNioEventLoop {
                     bridge.produce(ctx);
 
                     log.info("Accepted connection from {}", clientSocketChannel.getRemoteAddress());
-                } catch (IOException e) {
-                    log.error("Failed to accept connection = {}", e.getMessage());
+                } catch (Throwable e) {
+                    exceptionHandler.handle(e);
                     key.cancel();
                 }
             }

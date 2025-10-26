@@ -43,11 +43,8 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 public final class ChannelContext implements Context {
 
     private final SocketChannel socketChannel;
-
     private final Instant createdAt;
-
     private final String contextId;
-
     private final AtomicBoolean isClosed =  new AtomicBoolean(false);
 
     private ChannelContext(final SocketChannel socketChannel) {
@@ -102,7 +99,17 @@ public final class ChannelContext implements Context {
         }
 
         try {
-            return socketChannel.write(buffer.byteBuffer());
+            ByteBuf byteBuf = buffer.byteBuf();
+            ByteBuffer dst = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+
+            int write = socketChannel.write(dst);
+            if(write > 0) {
+                byteBuf.readerIndex(byteBuf.readerIndex() + write);
+            } else if(write < 0) {
+                close();
+            }
+
+            return write;
         } catch (IOException e) {
             log.info("Error writing to socket = {}", e.getMessage());
             return -1;

@@ -49,7 +49,7 @@ public final class Assert {
     }
 
     public static void checkNull(final Object obj, final String exceptionMessage) {
-        check(obj == null, () -> new NullPointerException(exceptionMessage));
+        check(obj != null, () -> new NullPointerException(exceptionMessage));
     }
 
     public static void check(final boolean expression, final Supplier<? extends Throwable> throwable) {

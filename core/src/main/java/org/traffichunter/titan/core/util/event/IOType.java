@@ -21,35 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
-
-import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
+package org.traffichunter.titan.core.util.event;
 
 /**
  * @author yungwang-o
  */
-@Slf4j
-public final class EventLoopFactory {
+public enum IOType {
+    READ(1),
+    WRITE(4),
+    CONNECT(8),
+    ACCEPT(16),
+    ;
 
-    private static final int MAX_TASK_PENDING_CAPACITY = Configurations.taskPendingCapacity();
+    private final int value;
 
-    public static PrimaryNioEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
-        return new PrimaryNioEventLoop(
-                EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
-                MAX_TASK_PENDING_CAPACITY,
-                bridge
-        );
+    IOType(final int value) {
+        this.value = value;
     }
 
-    public static SecondaryNioEventLoop createSecondaryEventLoop(final int eventLoopNameCount) {
-        return new SecondaryNioEventLoop(
-                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount,
-                MAX_TASK_PENDING_CAPACITY
-        );
+    public int value() {
+        return this.value;
     }
-
-    private EventLoopFactory() {}
 }

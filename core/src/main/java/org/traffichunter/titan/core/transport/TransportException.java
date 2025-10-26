@@ -21,35 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
-
-import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
+package org.traffichunter.titan.core.transport;
 
 /**
  * @author yungwang-o
  */
-@Slf4j
-public final class EventLoopFactory {
+public class TransportException extends RuntimeException {
 
-    private static final int MAX_TASK_PENDING_CAPACITY = Configurations.taskPendingCapacity();
-
-    public static PrimaryNioEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
-        return new PrimaryNioEventLoop(
-                EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
-                MAX_TASK_PENDING_CAPACITY,
-                bridge
-        );
+    public TransportException() {
     }
 
-    public static SecondaryNioEventLoop createSecondaryEventLoop(final int eventLoopNameCount) {
-        return new SecondaryNioEventLoop(
-                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount,
-                MAX_TASK_PENDING_CAPACITY
-        );
+    public TransportException(final String message) {
+        super(message);
     }
 
-    private EventLoopFactory() {}
+    public TransportException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public TransportException(final Throwable cause) {
+        super(cause);
+    }
+
+    public TransportException(final String message, final Throwable cause, final boolean enableSuppression,
+                              final boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
 }

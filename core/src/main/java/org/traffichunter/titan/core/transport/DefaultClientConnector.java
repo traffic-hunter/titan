@@ -25,38 +25,71 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.Assert;
 
 /**
  * @author yungwang-o
  */
+@Slf4j
 class DefaultClientConnector implements ClientConnector {
 
     private final SocketChannel socketChannel;
 
-    private final InetSocketAddress socketAddress;
-
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
+    private final InetSocketAddress remoteAddress;
+
     DefaultClientConnector(final InetSocketAddress socketAddress) {
-        this.socketAddress = socketAddress;
         try {
             this.socketChannel = SocketChannel.open();
             this.socketChannel.configureBlocking(false);
+
+            log.debug("connected to {}", socketAddress);
+
             this.socketChannel.connect(socketAddress);
+            boolean connected = socketChannel.connect(socketAddress);
+            if (!connected) {
+                log.debug("Connection in progress to {}", socketAddress);
+            } else {
+                log.info("Connection immediately established to {}", socketAddress);
+            }
+
+            this.remoteAddress = socketAddress;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            log.error("Failed to connect = {}, reason = {}", socketAddress, e.getMessage());
+            throw new TransportException(e);
         }
     }
 
     @Override
-    public SocketChannel socketChannel() {
-        if(!isOpen()) {
-            throw new IllegalStateException("Client socket is not open");
-        }
+    public SocketChannel channel() {
+        Assert.checkState(isOpen(), "Not open socketChannel");
 
         return socketChannel;
+    }
+
+    @Override
+    public boolean isFinishConnect() {
+        try {
+            return socketChannel.finishConnect();
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean isConnectPending() {
+        return socketChannel.isConnectionPending();
+    }
+
+    @Override
+    public InetSocketAddress getSocketAddress() {
+        return remoteAddress;
     }
 
     @Override
@@ -75,9 +108,20 @@ class DefaultClientConnector implements ClientConnector {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if(closed.compareAndSet(false, true)) {
-            socketChannel.close();
+            try {
+                log.info("Closing connection to {}", remoteAddress);
+                socketChannel.close();
+            } catch (IOException e) {
+                log.warn("Failed to close connection to {}", remoteAddress);
+            } finally {
+                try {
+                    if (socketChannel.isOpen()) {
+                        socketChannel.close();
+                    }
+                } catch (IOException ignored) { }
+            }
         }
     }
 }

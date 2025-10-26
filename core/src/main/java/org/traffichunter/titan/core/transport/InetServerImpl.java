@@ -34,6 +34,7 @@ import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.EventLoops;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.channel.ChannelContext;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
@@ -103,26 +104,31 @@ class InetServerImpl implements InetServer {
     public InetServer onRead(final ReadHandler readHandler) {
         Objects.requireNonNull(readHandler, "readHandler");
 
-        eventLoops.registerHandler(ctx -> {
-            Buffer buffer = Buffer.alloc(1024);
+        eventLoops.registerHandler(new ChannelContextInBoundHandler() {
 
-            int recv = ctx.recv(buffer);
-            if(recv > 0) {
-                try {
-                    readHandler.handle(buffer);
-                } finally {
-                    buffer.release();
-                }
-            } else if(recv < 0) {
-                try {
-                    ctx.close();
-                } catch (IOException e) {
-                    log.info("Failed to close socket = {}", e.getMessage());
-                    doClose();
-                } finally {
-                    buffer.release();
-                }
-            }
+           @Override
+           public void handleRead(final ChannelContext channelContext) {
+               Buffer buffer = Buffer.alloc(1024);
+
+               int recv = channelContext.recv(buffer);
+               if(recv > 0) {
+                   try {
+                       readHandler.handle(buffer);
+                   } finally {
+                       buffer.release();
+                   }
+               } else if(recv < 0) {
+                   try {
+                       channelContext.close();
+                   } catch (IOException e) {
+                       log.info("Failed to close socket = {}", e.getMessage());
+                       doClose();
+                   } finally {
+                       buffer.release();
+                   }
+               }
+           }
+
         });
 
         return this;
