@@ -1,4 +1,4 @@
-package org.traffichunter.titan.core.transport;
+package org.traffichunter.titan.core.test.implementation;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -6,19 +6,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.assertj.core.api.Assertions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
 
@@ -27,7 +31,7 @@ import org.traffichunter.titan.core.util.RoutingKey;
  */
 class InetServerImplTest {
 
-    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 100);
+    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 101);
     private InetServer server;
 
     private final Logger log = LoggerFactory.getLogger(InetServerImplTest.class);
@@ -66,31 +70,25 @@ class InetServerImplTest {
     }
 
     @Test
-    void inet_server_concurrent_connection_test() throws Exception {
+    @Timeout(10)
+    void inet_server_concurrent_connection_test() {
 
-        ExecutorService es = Executors.newFixedThreadPool(3);
+        ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
 
-        CountDownLatch latch = new CountDownLatch(3);
-
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 100; i++) {
             es.submit(() -> {
                 try (Socket socket = new Socket("localhost", 7777)) {
                     socket.getOutputStream().write("hello".getBytes());
                     socket.getOutputStream().flush();
-                    latch.countDown();
-                    Thread.sleep(100);
+                    Thread.sleep(50);
                 } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             });
         }
 
-        latch.await();
-
-        Thread.sleep(2000);
-
-        System.out.println("RQ SIZE = " + rq.size());
-        assertThat(rq.size()).isEqualTo(3);
+        Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(rq.size()).isEqualTo(100));
 
         es.shutdown();
         es.close();

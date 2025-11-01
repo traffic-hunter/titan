@@ -21,12 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core;
+package org.traffichunter.titan.core.test.ext;
+
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * @author yungwang-o
  */
-public class ServerTest {
-
-
+@ExtendWith(InetServerExtension.class)
+@DisplayNameGeneration(ReplaceUnderscores.class)
+public @interface InetServerBoot {
 }

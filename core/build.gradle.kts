@@ -41,6 +41,9 @@ dependencies {
 
     // assertJ
     testImplementation("org.assertj:assertj-core:3.27.3")
+
+    // awaitility
+    testImplementation("org.awaitility:awaitility:4.3.0")
 }
 
 tasks.test {

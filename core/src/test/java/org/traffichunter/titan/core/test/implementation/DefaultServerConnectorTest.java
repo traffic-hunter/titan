@@ -1,6 +1,4 @@
-package org.traffichunter.titan.core.transport;
-
-import static org.junit.jupiter.api.Assertions.*;
+package org.traffichunter.titan.core.test.implementation;
 
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;

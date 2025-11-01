@@ -1,0 +1,85 @@
+/*
+ * The MIT License
+ *
+ * Copyright (c) 2025 traffic-hunter
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+package org.traffichunter.titan.core.test.ext;
+
+import java.net.InetSocketAddress;
+import java.time.Instant;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.message.Priority;
+import org.traffichunter.titan.core.transport.InetServer;
+import org.traffichunter.titan.core.util.IdGenerator;
+import org.traffichunter.titan.core.util.RoutingKey;
+
+/**
+ * @author yungwang-o
+ */
+public class InetServerExtension implements BeforeAllCallback, AfterAllCallback {
+
+    private static final Logger log = LoggerFactory.getLogger(InetServerExtension.class);
+
+    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 100);
+    private final InetServer server;
+
+    public InetServerExtension() {
+        this.server = InetServer.open(new InetSocketAddress("localhost", 7777));
+    }
+
+    @Override
+    public void beforeAll(final ExtensionContext extensionContext) throws Exception {
+        server.listen().get()
+                .onRead(handle -> {
+                    final Message msg = Message.builder()
+                            .routingKey(RoutingKey.create("route.test"))
+                            .priority(Priority.DEFAULT)
+                            .body(handle.getBytes())
+                            .producerId(IdGenerator.uuid())
+                            .createdAt(Instant.now())
+                            .build();
+
+                    log.info("msg = {}", msg.toString());
+
+                    rq.enqueue(msg);
+                });
+        server.start();
+
+        if(server.isStart()) {
+            log.info("server is start");
+        } else {
+            throw new RuntimeException("server is not start");
+        }
+    }
+
+    @Override
+    public void afterAll(final ExtensionContext extensionContext) throws Exception {
+        if(server != null && server.isStart()) {
+            server.close();
+        }
+    }
+}
