@@ -35,15 +35,22 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  */
 public interface InetClient {
 
-    static InetClient open(final InetSocketAddress address) {
+    static InetClient open(String host, int port) {
+        return new InetClientImpl(new InetSocketAddress(host, port));
+    }
+
+    static InetClient open(InetSocketAddress address) {
         return new InetClientImpl(address);
     }
+
+    @CanIgnoreReturnValue
+    InetClient setOption(ClientOptions options);
 
     @CanIgnoreReturnValue
     InetClient start();
 
     @CanIgnoreReturnValue
-    CompletableFuture<InetClient> connect();
+    CompletableFuture<ClientConnector> connect();
 
     @CanIgnoreReturnValue
     InetClient onConnect(Handler<SocketChannel> connectHandler);
@@ -55,13 +62,10 @@ public interface InetClient {
     InetClient onWrite(Handler<Buffer> writeHandler);
 
     @CanIgnoreReturnValue
-    InetClient onDisconnect(Handler<SocketChannel> disconnectHandler);
-
-    @CanIgnoreReturnValue
     InetClient exceptionHandler(Handler<Throwable> exceptionHandler);
 
     @CanIgnoreReturnValue
-    CompletableFuture<InetClient> send(Buffer buffer);
+    CompletableFuture<Void> send(Buffer buffer);
 
     String remoteHost();
 

@@ -39,6 +39,10 @@ public interface ClientConnector extends Connector {
         return new DefaultClientConnector(address);
     }
 
+    void connect();
+
+    boolean isConnected();
+
     boolean isFinishConnect();
 
     boolean isConnectPending();
@@ -46,6 +50,4 @@ public interface ClientConnector extends Connector {
     InetSocketAddress getSocketAddress();
 
     SocketChannel channel();
-
-    boolean isConnected();
 }

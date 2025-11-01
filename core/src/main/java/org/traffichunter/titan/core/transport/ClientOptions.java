@@ -21,18 +21,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.channel;
+package org.traffichunter.titan.core.transport;
+
+import lombok.Builder;
 
 /**
  * @author yungwang-o
  */
-public interface ChannelContextInBoundHandler {
+@Builder
+public record ClientOptions(
+        boolean tcpNoDelay,
+        boolean keepAlive,
+        int sendBufferSize,
+        int receiveBufferSize,
+        long connectTimeoutMillis,
+        boolean autoReconnect,
+        boolean reuseAddr,
+        boolean reusePort
+) {
 
-    default void handleConnect(ChannelContext channelContext) { }
-
-    default void handleCompletedConnect(ChannelContext channelContext) { }
-
-    default void handleRead(ChannelContext channelContext) { }
-
-    default void handleCompletedRead(ChannelContext channelContext) { }
+    public static final ClientOptions DEFAULT = ClientOptions.builder()
+            .tcpNoDelay(true)
+            .keepAlive(false)
+            .sendBufferSize(64 * 1024)
+            .receiveBufferSize(64 * 1024)
+            .connectTimeoutMillis(30_000)
+            .autoReconnect(false)
+            .reuseAddr(false)
+            .reusePort(false)
+            .build();
 }

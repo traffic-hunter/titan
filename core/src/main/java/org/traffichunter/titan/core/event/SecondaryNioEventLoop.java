@@ -25,7 +25,9 @@ package org.traffichunter.titan.core.event;
 
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -91,7 +93,17 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
     private void doRegister(final ChannelContext ctx, final int ops) {
         if(inEventLoop(eventLoopName)) {
             try {
-                ctx.socketChannel().register(selector, ops, ctx);
+                SocketChannel channel = ctx.socketChannel();
+                SelectionKey selectionKey = channel.keyFor(selector);
+
+                // First register
+                if(selectionKey == null) {
+                    channel.register(selector, ops, ctx);
+                } else {
+                    // Already registered
+                    int currentOps = selectionKey.interestOps();
+                    selectionKey.interestOps(currentOps | ops);
+                }
             } catch (IOException e) {
                 log.error("Error registering channel", e);
                 try {
@@ -117,17 +129,25 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
 
             try {
                 if (key.isConnectable()) {
+                    if(ctx.socketChannel().isConnectionPending()) {
+                        try {
+                            if(ctx.socketChannel().finishConnect()) {
+                                log.debug("completed connect: {}", ctx.socketChannel().getRemoteAddress());
+                            }
+                        } catch (IOException e) {
+                            exceptionHandler.handle(e);
+                            continue;
+                        }
+                    }
                     inBoundHandler.handleConnect(ctx);
                     inBoundHandler.handleCompletedConnect(ctx);
                 } else if (key.isReadable()) {
                     inBoundHandler.handleRead(ctx);
-                    inBoundHandler.handleCompletedConnect(ctx);
+                    inBoundHandler.handleCompletedRead(ctx);
                 } else if (key.isWritable()) {
                     outBoundHandler.handleWrite(ctx);
                     outBoundHandler.handleCompletedWrite(ctx);
                 }
-            } catch (CancelledKeyException e) {
-                inBoundHandler.handleDisconnect(ctx);
             } catch (Throwable t) {
                 exceptionHandler.handle(t);
             }

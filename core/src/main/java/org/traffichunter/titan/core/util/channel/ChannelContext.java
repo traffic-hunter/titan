@@ -125,7 +125,7 @@ public final class ChannelContext implements Context {
     }
 
     public boolean isClosed() {
-        return !socketChannel.isOpen() && isClosed.get();
+        return isClosed.get() || !socketChannel.isOpen();
     }
 
     @Override

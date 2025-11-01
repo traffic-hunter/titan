@@ -35,6 +35,10 @@ import org.traffichunter.titan.core.util.inet.ReadHandler;
  */
 public interface InetServer {
 
+    static InetServer open(String host, int port) {
+        return InetServer.open(new InetSocketAddress(host, port));
+    }
+
     static InetServer open(InetSocketAddress address) {
         return new InetServerImpl(ServerConnector.open(address));
     }

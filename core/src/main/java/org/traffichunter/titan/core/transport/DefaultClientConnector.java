@@ -30,6 +30,7 @@ import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.transport.InetClient.ClientException;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
@@ -48,22 +49,32 @@ class DefaultClientConnector implements ClientConnector {
         try {
             this.socketChannel = SocketChannel.open();
             this.socketChannel.configureBlocking(false);
-
-            log.debug("connected to {}", socketAddress);
-
-            this.socketChannel.connect(socketAddress);
-            boolean connected = socketChannel.connect(socketAddress);
-            if (!connected) {
-                log.debug("Connection in progress to {}", socketAddress);
-            } else {
-                log.info("Connection immediately established to {}", socketAddress);
-            }
-
             this.remoteAddress = socketAddress;
         } catch (IOException e) {
             log.error("Failed to connect = {}, reason = {}", socketAddress, e.getMessage());
             throw new TransportException(e);
         }
+    }
+
+    @Override
+    public void connect() {
+        log.debug("connected to {}", remoteAddress);
+
+        try {
+            boolean connected = socketChannel.connect(remoteAddress);
+            if (!connected) {
+                log.debug("Connection in progress to {}", remoteAddress);
+            } else {
+                log.info("Connection immediately established to {}", remoteAddress);
+            }
+        } catch (IOException e) {
+            throw new ClientException(e);
+        }
+    }
+
+    @Override
+    public boolean isConnected() {
+        return socketChannel.isConnected();
     }
 
     @Override
@@ -95,11 +106,6 @@ class DefaultClientConnector implements ClientConnector {
     @Override
     public boolean isOpen() {
         return socketChannel.isOpen() && !closed.get();
-    }
-
-    @Override
-    public boolean isConnected() {
-        return socketChannel.isConnected();
     }
 
     @Override

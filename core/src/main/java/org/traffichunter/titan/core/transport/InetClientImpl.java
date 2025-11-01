@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -52,9 +53,9 @@ class InetClientImpl implements InetClient {
     private final SecondaryNioEventLoop eventLoop;
     private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
     private final Queue<Buffer> writePendingTask = new ConcurrentLinkedQueue<>();
+    private final ChannelContext ctx;
 
     private Handler<SocketChannel> connectHandler;
-    private Handler<SocketChannel> disconnectHandler;
     private Handler<Buffer> readHandler;
     private Handler<Buffer> writeHandler;
     private Handler<Throwable> exceptionHandler;
@@ -64,10 +65,11 @@ class InetClientImpl implements InetClient {
 
         this.connector = ClientConnector.open(address);
         this.eventLoop = new SecondaryNioEventLoop();
+        this.ctx = ChannelContext.create(connector.channel());
     }
 
     @Override
-    public InetClient start() {
+    public synchronized InetClient start() {
         eventLoop.registerChannelContextHandler(new ChannelContextInBoundHandler() {
             @Override
             public void handleConnect(final ChannelContext channelContext) {
@@ -101,11 +103,6 @@ class InetClientImpl implements InetClient {
                     }
                 }
             }
-
-            @Override
-            public void handleDisconnect(final ChannelContext channelContext) {
-                disconnectHandler.handle(channelContext.socketChannel());
-            }
         });
 
         eventLoop.registerChannelContextHandler(new ChannelContextOutBoundHandler() {
@@ -126,63 +123,80 @@ class InetClientImpl implements InetClient {
         });
 
         eventLoop.exceptionHandler(exceptionHandler);
-        eventLoop.register(ChannelContext.create(connector.channel()), IOType.CONNECT);
+        eventLoop.register(ctx, IOType.CONNECT);
         eventLoop.start();
         return this;
     }
 
     @Override
-    public CompletableFuture<InetClient> connect() {
+    public synchronized InetClient setOption(ClientOptions options) {
+        if(options == null) {
+            options = ClientOptions.DEFAULT;
+        }
 
-        return CompletableFuture.supplyAsync(() -> this);
+        try {
+            connector.channel()
+                    .setOption(StandardSocketOptions.TCP_NODELAY, options.tcpNoDelay())
+                    .setOption(StandardSocketOptions.SO_KEEPALIVE, options.keepAlive())
+                    .setOption(StandardSocketOptions.SO_SNDBUF, options.sendBufferSize())
+                    .setOption(StandardSocketOptions.SO_RCVBUF, options.receiveBufferSize())
+                    .setOption(StandardSocketOptions.SO_REUSEADDR, options.reuseAddr())
+                    .setOption(StandardSocketOptions.SO_REUSEPORT, options.reusePort());
+        } catch (IOException ignored) { }
+
+        return this;
     }
 
     @Override
-    public InetClient onConnect(final Handler<SocketChannel> connectHandler) {
+    public CompletableFuture<ClientConnector> connect() {
+        return CompletableFuture.supplyAsync(() -> {
+
+            eventLoop.register(() -> {
+                if(!connector.isConnected()) {
+                    connector.connect();
+                }
+            });
+            return connector;
+        });
+    }
+
+    @Override
+    public synchronized InetClient onConnect(final Handler<SocketChannel> connectHandler) {
         Assert.checkNull(connectHandler, "Connect handler is null");
         this.connectHandler = connectHandler;
         return this;
     }
 
     @Override
-    public InetClient onRead(final Handler<Buffer> readHandler) {
+    public synchronized InetClient onRead(final Handler<Buffer> readHandler) {
         Assert.checkNull(readHandler, "Read handler is null");
         this.readHandler = readHandler;
         return this;
     }
 
     @Override
-    public InetClient onWrite(final Handler<Buffer> writeHandler) {
+    public synchronized InetClient onWrite(final Handler<Buffer> writeHandler) {
         Assert.checkNull(writeHandler, "Write handler is null");
         this.writeHandler = writeHandler;
         return this;
     }
 
     @Override
-    public InetClient onDisconnect(final Handler<SocketChannel> disconnectHandler) {
-        Assert.checkNull(disconnectHandler, "Disconnect handler is null");
-        this.disconnectHandler = disconnectHandler;
-        return this;
-    }
-
-    @Override
-    public InetClient exceptionHandler(final Handler<Throwable> exceptionHandler) {
+    public synchronized InetClient exceptionHandler(final Handler<Throwable> exceptionHandler) {
         Assert.checkNull(exceptionHandler, "Exception handler is null");
         this.exceptionHandler = exceptionHandler;
         return this;
     }
 
     @Override
-    public CompletableFuture<InetClient> send(final Buffer buffer) {
+    public CompletableFuture<Void> send(final Buffer buffer) {
         if(buffer == null) {
             return CompletableFuture.failedFuture(new ClientException("Buffer is null"));
         }
 
-        return CompletableFuture.supplyAsync(() -> {
-            eventLoop.register(() -> writePendingTask.add(buffer));
-            ChannelContext ctx = ChannelContext.create(connector.channel());
+        return CompletableFuture.runAsync(() -> {
+            writePendingTask.add(buffer);
             eventLoop.register(ctx, IOType.WRITE);
-            return this;
         });
     }
 
@@ -228,7 +242,7 @@ class InetClientImpl implements InetClient {
         log.info("Closing client...");
 
         try {
-            eventLoop.shutdown(isGraceful, 10, TimeUnit.SECONDS);
+            eventLoop.shutdown(isGraceful, 30, TimeUnit.SECONDS);
             connector.close();
             log.info("Closed client");
         } catch (IOException e) {

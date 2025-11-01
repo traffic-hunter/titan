@@ -29,15 +29,12 @@ import java.nio.channels.Selector;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 
 /**
