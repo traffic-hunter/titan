@@ -1,4 +1,4 @@
-package org.traffichunter.titan.core.util.channel;
+package org.traffichunter.titan.core.channel;
 
 import java.util.Iterator;
 import java.util.List;

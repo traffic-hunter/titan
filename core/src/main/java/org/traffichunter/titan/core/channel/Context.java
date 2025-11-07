@@ -21,10 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.channel;
+package org.traffichunter.titan.core.channel;
+
+import java.nio.channels.Channel;
+import org.traffichunter.titan.core.util.inet.Receivable;
+import org.traffichunter.titan.core.util.inet.Writable;
 
 /**
  * @author yungwang-o
  */
-public final class NoopChannelContextInBoundHandler implements ChannelContextInBoundHandler {
+public interface Context extends Receivable, Writable, Channel {
 }

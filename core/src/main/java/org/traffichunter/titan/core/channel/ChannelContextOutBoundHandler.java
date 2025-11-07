@@ -21,14 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.channel;
-
-import java.nio.channels.Channel;
-import org.traffichunter.titan.core.util.inet.Receivable;
-import org.traffichunter.titan.core.util.inet.Writable;
+package org.traffichunter.titan.core.channel;
 
 /**
  * @author yungwang-o
  */
-public interface Context extends Receivable, Writable, Channel {
+public interface ChannelContextOutBoundHandler {
+
+    default void handleWrite(ChannelContext channelContext) { }
+
+    default void handleCompletedWrite(ChannelContext channelContext) { }
 }

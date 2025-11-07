@@ -13,7 +13,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.assertj.core.api.Assertions;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -31,14 +33,14 @@ import org.traffichunter.titan.core.util.RoutingKey;
  */
 class InetServerImplTest {
 
-    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 101);
-    private InetServer server;
+    private static final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 101);
+    private static InetServer server;
 
-    private final Logger log = LoggerFactory.getLogger(InetServerImplTest.class);
+    private static final Logger log = LoggerFactory.getLogger(InetServerImplTest.class);
 
-    @BeforeEach
-    void setUp() throws Exception {
-        server = InetServer.open(new InetSocketAddress("localhost", 7777));
+    @BeforeAll
+    static void setUp() throws Exception {
+        server = InetServer.open("localhost", 7777);
 
         server.listen().get()
                 .onRead(handle -> {
@@ -56,11 +58,15 @@ class InetServerImplTest {
                 });
 
         server.start();
-        Thread.sleep(2000);
     }
 
     @AfterEach
-    void tearDown() {
+    void refresh() {
+        rq.clear();
+    }
+
+    @AfterAll
+    static void tearDown() {
         server.close();
     }
 

@@ -24,8 +24,6 @@
 package org.traffichunter.titan.core.event;
 
 import java.io.IOException;
-import java.nio.channels.CancelledKeyException;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
@@ -34,9 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 import org.traffichunter.titan.core.util.event.IOType;
 

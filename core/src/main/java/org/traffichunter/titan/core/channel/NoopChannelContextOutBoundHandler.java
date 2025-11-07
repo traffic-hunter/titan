@@ -21,14 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.channel;
+package org.traffichunter.titan.core.channel;
 
 /**
  * @author yungwang-o
  */
-public interface ChannelContextOutBoundHandler {
-
-    default void handleWrite(ChannelContext channelContext) { }
-
-    default void handleCompletedWrite(ChannelContext channelContext) { }
+public final class NoopChannelContextOutBoundHandler implements ChannelContextInBoundHandler {
 }

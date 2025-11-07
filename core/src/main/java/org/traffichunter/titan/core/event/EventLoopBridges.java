@@ -23,7 +23,7 @@
  */
 package org.traffichunter.titan.core.event;
 
-import org.traffichunter.titan.core.util.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelContext;
 
 /**
  * @author yungwang-o

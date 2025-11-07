@@ -28,10 +28,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.RoundRobinChannelPropagator;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
+import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.channel.RoundRobinChannelPropagator;
 import org.traffichunter.titan.core.util.event.IOType;
 
 /**

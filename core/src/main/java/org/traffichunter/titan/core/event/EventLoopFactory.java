@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.event;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
