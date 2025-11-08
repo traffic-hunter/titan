@@ -25,37 +25,34 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLSession;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
-import org.traffichunter.titan.core.codec.stomp.Subscription;
+import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.channel.ChannelContext;
 
 /**
  * @author yungwang-o
  */
 @Slf4j
-public class StompServerConnectionImpl implements StompServerConnection {
+public class StompServerChannelImpl implements StompServerChannel {
 
     private static final int MAX_SUBSCRIBER = 100;
 
     private final StompServer server;
-    private final SocketChannel socket;
+    private final ChannelContext channel;
     private final String sessionId = IdGenerator.uuid();
 
-    private final Map<String, Subscription> subscriptions = new ConcurrentHashMap<>(MAX_SUBSCRIBER);
+    private final Map<String, ServerSubscription> subscriptions = new ConcurrentHashMap<>(MAX_SUBSCRIBER);
 
     private volatile Instant lastActivatedTime;
 
@@ -64,26 +61,19 @@ public class StompServerConnectionImpl implements StompServerConnection {
     private long pingTimer = -1;
     private long pongTimer = -1;
 
-    public StompServerConnectionImpl(final StompServer server, final SocketChannel socket) {
-        Objects.requireNonNull(server, "server");
-        Objects.requireNonNull(socket, "socket");
-
+    public StompServerChannelImpl(final StompServer server, final ChannelContext channel) {
+        this.channel = channel;
         this.server = server;
-        this.socket = socket;
     }
 
     @Override
-    public void write(final StompFrame frame) {
-        write(frame.toBuffer());
+    public void send(final StompFrame frame) {
+        this.send(frame.toBuffer());
     }
 
     @Override
-    public void write(final Buffer buffer) {
-        try {
-            socket.write(buffer.byteBuffer());
-        } catch (IOException e) {
-            log.error("Error writing frame = {}", e.getMessage());
-        }
+    public void send(final Buffer buffer) {
+        channel.write(buffer);
     }
 
     @Override
@@ -102,7 +92,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public void subscribe(final String id, final Subscription subscription) {
+    public void subscribe(final String id, final ServerSubscription subscription) {
         subscriptions.put(id, subscription);
     }
 
@@ -112,7 +102,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public List<Subscription> subscriptions() {
+    public List<ServerSubscription> subscriptions() {
         return subscriptions.values().stream().toList();
     }
 
@@ -126,6 +116,9 @@ public class StompServerConnectionImpl implements StompServerConnection {
     public Instant setLastActivatedAt() {
         return lastActivatedTime = Instant.now();
     }
+
+    @Override
+    public boolean isClosed() { return closed.get(); }
 
     @Override
     public synchronized void setHeartbeat(final long ping, final long pong, final Runnable handler) {
@@ -148,7 +141,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
         if(closed.compareAndSet(false, true)) {
             try {
                 cancelHeartbeat();
-                socket.close();
+                channel.close();
             } catch (IOException e) {
                 log.error("Error closing socket = {}", e.getMessage());
             }

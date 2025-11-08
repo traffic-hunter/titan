@@ -23,7 +23,7 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
-import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
+import org.traffichunter.titan.core.transport.stomp.StompServerChannel;
 
 /**
  * @author yungwang-o
@@ -31,5 +31,5 @@ import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
 @FunctionalInterface
 public interface StompHandler {
 
-    void handle(StompFrame sf, StompServerConnection sc);
+    void handle(StompFrame sf, StompServerChannel sc);
 }

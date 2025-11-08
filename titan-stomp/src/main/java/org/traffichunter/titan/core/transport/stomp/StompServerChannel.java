@@ -23,12 +23,49 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
-import org.traffichunter.titan.core.util.inet.Connection;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+import javax.net.ssl.SSLSession;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.channel.Channel;
 
 /**
  * @author yungwang-o
  */
-public interface StompClientConnection extends Connection {
+public interface StompServerChannel extends Channel {
 
+    void send(StompFrame frame);
 
+    @Override
+    void send(Buffer buffer);
+
+    @Override
+    String session();
+
+    @Override
+    SSLSession sslSession();
+
+    Set<String> ids();
+
+    void subscribe(String id, ServerSubscription subscription);
+
+    void unsubscribe(String id);
+
+    /**
+     * read-only
+     */
+    List<ServerSubscription> subscriptions();
+
+    StompServer server();
+
+    @Override
+    Instant setLastActivatedAt();
+
+    void setHeartbeat(long ping, long pong, Runnable handler);
+
+    @Override
+    void close();
 }

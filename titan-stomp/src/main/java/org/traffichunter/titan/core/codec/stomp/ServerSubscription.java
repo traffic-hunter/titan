@@ -21,52 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.codec.stomp;
 
-import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.util.List;
-import java.util.Set;
-import javax.net.ssl.SSLSession;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
-import org.traffichunter.titan.core.codec.stomp.Subscription;
-import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.inet.Connection;
+import lombok.Builder;
+import org.traffichunter.titan.core.channel.Channel;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yungwang-o
  */
-public interface StompServerConnection extends Connection {
-
-    void write(StompFrame frame);
-
-    @Override
-    void write(Buffer buffer);
-
-    @Override
-    String session();
-
-    @Override
-    SSLSession sslSession();
-
-    Set<String> ids();
-
-    void subscribe(String id, Subscription subscription);
-
-    void unsubscribe(String id);
-
-    /**
-     * read-only
-     */
-    List<Subscription> subscriptions();
-
-    StompServer server();
-
-    @Override
-    Instant setLastActivatedAt();
-
-    void setHeartbeat(long ping, long pong, Runnable handler);
-
-    @Override
-    void close();
+@Builder
+public record ServerSubscription(
+        RoutingKey key,
+        Channel channel,
+        String id,
+        String ackMode
+) {
 }

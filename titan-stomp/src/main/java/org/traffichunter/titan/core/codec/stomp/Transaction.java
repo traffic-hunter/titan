@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import lombok.Getter;
-import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
+import org.traffichunter.titan.core.transport.stomp.StompServerChannel;
 
 /**
  * @author yungwang-o
@@ -35,19 +35,19 @@ import org.traffichunter.titan.core.transport.stomp.StompServerConnection;
 @Getter
 public final class Transaction {
 
-    private final StompServerConnection serverConnection;
+    private final StompServerChannel serverConnection;
     private final String txId;
 
     private final List<StompFrame> frames = new ArrayList<>();
 
     private int DEFAULT_TX_SIZE = 1000;
 
-    private Transaction(final StompServerConnection serverConnection, final String txId) {
+    private Transaction(final StompServerChannel serverConnection, final String txId) {
         this.serverConnection = serverConnection;
         this.txId = txId;
     }
 
-    public static Transaction create(final StompServerConnection serverConnection, final String txId) {
+    public static Transaction create(final StompServerChannel serverConnection, final String txId) {
         return new Transaction(serverConnection, txId);
     }
 
