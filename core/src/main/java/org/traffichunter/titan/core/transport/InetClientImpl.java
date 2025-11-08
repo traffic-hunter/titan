@@ -37,9 +37,9 @@ import org.traffichunter.titan.core.event.SecondaryNioEventLoop;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.event.IOType;
 
@@ -69,7 +69,7 @@ class InetClientImpl implements InetClient {
     }
 
     @Override
-    public synchronized InetClient start() {
+    public InetClient start() {
         eventLoop.registerChannelContextHandler(new ChannelContextInBoundHandler() {
             @Override
             public void handleConnect(final ChannelContext channelContext) {
@@ -129,19 +129,19 @@ class InetClientImpl implements InetClient {
     }
 
     @Override
-    public synchronized InetClient setOption(ClientOptions options) {
+    public InetClient setOption(ClientOptions options) {
         if(options == null) {
             options = ClientOptions.DEFAULT;
         }
 
         try {
             connector.channel()
-                    .setOption(StandardSocketOptions.TCP_NODELAY, options.tcpNoDelay())
-                    .setOption(StandardSocketOptions.SO_KEEPALIVE, options.keepAlive())
-                    .setOption(StandardSocketOptions.SO_SNDBUF, options.sendBufferSize())
-                    .setOption(StandardSocketOptions.SO_RCVBUF, options.receiveBufferSize())
-                    .setOption(StandardSocketOptions.SO_REUSEADDR, options.reuseAddr())
-                    .setOption(StandardSocketOptions.SO_REUSEPORT, options.reusePort());
+                    .setOption(StandardSocketOptions.TCP_NODELAY, options.isTcpNoDelay())
+                    .setOption(StandardSocketOptions.SO_KEEPALIVE, options.isKeepAlive())
+                    .setOption(StandardSocketOptions.SO_SNDBUF, options.getSendBufferSize())
+                    .setOption(StandardSocketOptions.SO_RCVBUF, options.getReceiveBufferSize())
+                    .setOption(StandardSocketOptions.SO_REUSEADDR, options.isReuseAddr())
+                    .setOption(StandardSocketOptions.SO_REUSEPORT, options.isReusePort());
         } catch (IOException ignored) { }
 
         return this;
@@ -161,28 +161,28 @@ class InetClientImpl implements InetClient {
     }
 
     @Override
-    public synchronized InetClient onConnect(final Handler<SocketChannel> connectHandler) {
+    public InetClient onConnect(final Handler<SocketChannel> connectHandler) {
         Assert.checkNull(connectHandler, "Connect handler is null");
         this.connectHandler = connectHandler;
         return this;
     }
 
     @Override
-    public synchronized InetClient onRead(final Handler<Buffer> readHandler) {
+    public InetClient onRead(final Handler<Buffer> readHandler) {
         Assert.checkNull(readHandler, "Read handler is null");
         this.readHandler = readHandler;
         return this;
     }
 
     @Override
-    public synchronized InetClient onWrite(final Handler<Buffer> writeHandler) {
+    public InetClient onWrite(final Handler<Buffer> writeHandler) {
         Assert.checkNull(writeHandler, "Write handler is null");
         this.writeHandler = writeHandler;
         return this;
     }
 
     @Override
-    public synchronized InetClient exceptionHandler(final Handler<Throwable> exceptionHandler) {
+    public InetClient exceptionHandler(final Handler<Throwable> exceptionHandler) {
         Assert.checkNull(exceptionHandler, "Exception handler is null");
         this.exceptionHandler = exceptionHandler;
         return this;
@@ -208,6 +208,11 @@ class InetClientImpl implements InetClient {
     @Override
     public int remotePort() {
         return connector.getSocketAddress().getPort();
+    }
+
+    @Override
+    public boolean isOpen() {
+        return connector.isOpen();
     }
 
     @Override
@@ -243,6 +248,7 @@ class InetClientImpl implements InetClient {
 
         try {
             eventLoop.shutdown(isGraceful, 30, TimeUnit.SECONDS);
+            eventLoop.close();
             connector.close();
             log.info("Closed client");
         } catch (IOException e) {

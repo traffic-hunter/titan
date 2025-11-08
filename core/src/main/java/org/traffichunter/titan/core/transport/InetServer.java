@@ -25,9 +25,9 @@ package org.traffichunter.titan.core.transport;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
-import java.nio.channels.SocketChannel;
 import java.util.concurrent.CompletableFuture;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
 
 /**
@@ -52,7 +52,7 @@ public interface InetServer {
     InetServer exceptionHandler(Handler<Throwable> handler);
 
     @CanIgnoreReturnValue
-    InetServer onConnect(Handler<SocketChannel> handler);
+    InetServer onConnect(Handler<ChannelContext> handler);
 
     @CanIgnoreReturnValue
     InetServer onRead(ReadHandler readHandler);

@@ -40,17 +40,29 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yungwang-o
  */
 @Slf4j
-public final class ChannelContext implements Context {
+public class ChannelContext implements Context {
 
     private final SocketChannel socketChannel;
     private final Instant createdAt;
     private final String contextId;
     private final AtomicBoolean isClosed =  new AtomicBoolean(false);
 
-    private ChannelContext(final SocketChannel socketChannel) {
+    protected ChannelContext(final SocketChannel socketChannel) {
+        this(socketChannel, IdGenerator.uuid());
+    }
+
+    protected ChannelContext(final SocketChannel socketChannel, final String contextId) {
+        this(socketChannel, contextId, Instant.now());
+    }
+
+    private ChannelContext(final SocketChannel socketChannel, final String contextId, final Instant createdAt) {
+        Objects.requireNonNull(socketChannel, "socketChannel");
+        Objects.requireNonNull(contextId, "contextId");
+        Objects.requireNonNull(createdAt, "createdAt");
+
         this.socketChannel = socketChannel;
-        this.contextId = IdGenerator.uuid();
-        this.createdAt = Instant.now();
+        this.contextId = contextId;
+        this.createdAt = createdAt;
     }
 
     public static ChannelContext create(final SocketChannel socketChannel) {
@@ -123,6 +135,8 @@ public final class ChannelContext implements Context {
     public Instant createdAt() {
         return createdAt;
     }
+
+    public String contextId() { return contextId; }
 
     public boolean isClosed() {
         return isClosed.get() || !socketChannel.isOpen();

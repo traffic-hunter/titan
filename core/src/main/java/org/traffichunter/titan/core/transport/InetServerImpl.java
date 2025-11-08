@@ -34,9 +34,9 @@ import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.EventLoops;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
-import org.traffichunter.titan.core.util.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.util.inet.ReadHandler;
 
 /**
@@ -46,14 +46,12 @@ import org.traffichunter.titan.core.util.inet.ReadHandler;
 class InetServerImpl implements InetServer {
 
     private final ServerConnector connector;
-
     private final EventLoops eventLoops;
-
     private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
-
     private final Object lock = new Object();
 
-    private Handler<SocketChannel> connectHandler;
+    private Handler<ChannelContext> connectHandler;
+    private Handler<Buffer> readHandler;
 
     private volatile boolean listening = false;
 
@@ -67,6 +65,38 @@ class InetServerImpl implements InetServer {
         if(!listening || !connector.isOpen()) {
             throw new IllegalStateException("Server is not listening");
         }
+
+        eventLoops.registerHandler(new ChannelContextInBoundHandler() {
+
+            @Override
+            public void handleConnect(final ChannelContext channelContext) {
+                connectHandler.handle(channelContext);
+            }
+
+            @Override
+            public void handleRead(final ChannelContext channelContext) {
+                Buffer buffer = Buffer.alloc(1024);
+
+                int recv = channelContext.recv(buffer);
+                if(recv > 0) {
+                    try {
+                        readHandler.handle(buffer);
+                    } finally {
+                        buffer.release();
+                    }
+                } else if(recv < 0) {
+                    try {
+                        channelContext.close();
+                    } catch (IOException e) {
+                        log.info("Failed to close socket = {}", e.getMessage());
+                        doClose();
+                    } finally {
+                        buffer.release();
+                    }
+                }
+            }
+
+        });
 
         log.info("launched server!!");
         eventLoops.start();
@@ -94,7 +124,7 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public InetServer onConnect(final Handler<SocketChannel> handler) {
+    public InetServer onConnect(final Handler<ChannelContext> handler) {
         Objects.requireNonNull(handler, "connectHandler");
         this.connectHandler = handler;
         return this;
@@ -103,34 +133,7 @@ class InetServerImpl implements InetServer {
     @Override
     public InetServer onRead(final ReadHandler readHandler) {
         Objects.requireNonNull(readHandler, "readHandler");
-
-        eventLoops.registerHandler(new ChannelContextInBoundHandler() {
-
-           @Override
-           public void handleRead(final ChannelContext channelContext) {
-               Buffer buffer = Buffer.alloc(1024);
-
-               int recv = channelContext.recv(buffer);
-               if(recv > 0) {
-                   try {
-                       readHandler.handle(buffer);
-                   } finally {
-                       buffer.release();
-                   }
-               } else if(recv < 0) {
-                   try {
-                       channelContext.close();
-                   } catch (IOException e) {
-                       log.info("Failed to close socket = {}", e.getMessage());
-                       doClose();
-                   } finally {
-                       buffer.release();
-                   }
-               }
-           }
-
-        });
-
+        this.readHandler = readHandler;
         return this;
     }
 
@@ -200,7 +203,7 @@ class InetServerImpl implements InetServer {
             log.info("Accepting inet server connection");
             SocketChannel client = connector.serverSocketChannel().accept();
 
-            connectHandler.handle(client);
+            //connectHandler.handle(client);
 
             if(client == null) {
                 log.error("Failed to accept inet server connection");

@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.inet;
+package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Instant;
@@ -31,9 +31,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 /**
  * @author yungwang-o
  */
-public interface Connection {
+public interface Channel {
 
-    void write(Buffer buffer);
+    void send(Buffer buffer);
 
     String session();
 
@@ -41,6 +41,8 @@ public interface Connection {
 
     @CanIgnoreReturnValue
     Instant setLastActivatedAt();
+
+    boolean isClosed();
 
     void close();
 }
