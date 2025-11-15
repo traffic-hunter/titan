@@ -64,10 +64,6 @@ public interface Buffer extends Clearable {
         return new InternalBuffer(decode);
     }
 
-    static Buffer copiedBuffer(final ByteBuf buffer) {
-        return buffer(BufferHandler.copyBuffer(buffer));
-    }
-
     static Buffer buffer(final ByteBuf buffer) {
         return new InternalBuffer(buffer);
     }

@@ -28,7 +28,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 /**
  * @author yungwang-o
  */
-public interface Receivable {
+public interface ReadStream {
 
     int recv(Buffer buffer);
 }

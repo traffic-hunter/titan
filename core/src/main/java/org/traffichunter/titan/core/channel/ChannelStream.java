@@ -23,12 +23,11 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import java.nio.channels.Channel;
-import org.traffichunter.titan.core.util.inet.Receivable;
-import org.traffichunter.titan.core.util.inet.Writable;
+import org.traffichunter.titan.core.util.inet.ReadStream;
+import org.traffichunter.titan.core.util.inet.WriteStream;
 
 /**
  * @author yungwang-o
  */
-public interface Context extends Receivable, Writable, Channel {
+public interface ChannelStream extends ReadStream, WriteStream, Tunnel {
 }

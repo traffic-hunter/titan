@@ -40,27 +40,27 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yungwang-o
  */
 @Slf4j
-public class ChannelContext implements Context {
+public class ChannelContext implements ChannelStream {
 
-    private final SocketChannel socketChannel;
+    private final SocketChannel channel;
     private final Instant createdAt;
     private final String contextId;
     private final AtomicBoolean isClosed =  new AtomicBoolean(false);
 
-    protected ChannelContext(final SocketChannel socketChannel) {
-        this(socketChannel, IdGenerator.uuid());
+    protected ChannelContext(final SocketChannel channel) {
+        this(channel, IdGenerator.uuid());
     }
 
-    protected ChannelContext(final SocketChannel socketChannel, final String contextId) {
-        this(socketChannel, contextId, Instant.now());
+    protected ChannelContext(final SocketChannel channel, final String contextId) {
+        this(channel, contextId, Instant.now());
     }
 
-    private ChannelContext(final SocketChannel socketChannel, final String contextId, final Instant createdAt) {
-        Objects.requireNonNull(socketChannel, "socketChannel");
+    private ChannelContext(final SocketChannel channel, final String contextId, final Instant createdAt) {
+        Objects.requireNonNull(channel, "socketChannel");
         Objects.requireNonNull(contextId, "contextId");
         Objects.requireNonNull(createdAt, "createdAt");
 
-        this.socketChannel = socketChannel;
+        this.channel = channel;
         this.contextId = contextId;
         this.createdAt = createdAt;
     }
@@ -75,7 +75,7 @@ public class ChannelContext implements Context {
 
     @Override
     public boolean isOpen() {
-        return socketChannel.isOpen();
+        return channel.isOpen();
     }
 
     @Override
@@ -89,7 +89,7 @@ public class ChannelContext implements Context {
             ByteBuf byteBuf = buffer.byteBuf();
             ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
 
-            int read = socketChannel.read(dst);
+            int read = channel.read(dst);
             if(read > 0) {
                 byteBuf.writerIndex(byteBuf.writerIndex() + read);
             } else if(read < 0) {
@@ -114,7 +114,7 @@ public class ChannelContext implements Context {
             ByteBuf byteBuf = buffer.byteBuf();
             ByteBuffer dst = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
 
-            int write = socketChannel.write(dst);
+            int write = channel.write(dst);
             if(write > 0) {
                 byteBuf.readerIndex(byteBuf.readerIndex() + write);
             } else if(write < 0) {
@@ -129,7 +129,7 @@ public class ChannelContext implements Context {
     }
 
     public SocketChannel socketChannel() {
-        return socketChannel;
+        return channel;
     }
 
     public Instant createdAt() {
@@ -139,13 +139,13 @@ public class ChannelContext implements Context {
     public String contextId() { return contextId; }
 
     public boolean isClosed() {
-        return isClosed.get() || !socketChannel.isOpen();
+        return isClosed.get() || !channel.isOpen();
     }
 
     @Override
     public void close() throws IOException {
         if(isClosed.compareAndSet(false, true)) {
-            socketChannel.close();
+            channel.close();
         }
     }
 
