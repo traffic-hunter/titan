@@ -28,9 +28,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.channel.RoundRobinChannelPropagator;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
 import org.traffichunter.titan.core.util.event.IOType;
 
 /**
@@ -47,7 +49,7 @@ public final class EventLoops {
 
     private final RoundRobinChannelPropagator<SecondaryNioEventLoop> propagator;
 
-    private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance(100);
+    private final EventLoopBridge<ChannelContext> bridge;
 
     private final int nThread;
 
@@ -56,6 +58,7 @@ public final class EventLoops {
     }
 
     public EventLoops(final int nThread) {
+        this.bridge = EventLoopBridges.getInstance(Configurations.taskPendingCapacity());
         this.primaryEventLoop = EventLoopFactory.createPrimaryEventLoop(bridge);
         this.nThread = nThread;
         this.secondaryEventLoops = new ArrayList<>();
@@ -65,8 +68,14 @@ public final class EventLoops {
     public void start() {
         secondaryEventLoops.addAll(initializeSecondaryEventLoops());
         primaryEventLoop.start();
+        secondaryEventLoops.forEach(SecondaryNioEventLoop::start);
+        secondaryEventLoops.forEach(sel -> {
+            if(!sel.isStarted()) {
+                throw new IllegalStateException("The event loop is not started");
+            }
+        });
+
         propagateTask();
-        secondaryEventLoops.forEach(EventLoop::start);
     }
 
     public void registerHandler(final ChannelContextInBoundHandler inBoundHandler) {
@@ -77,10 +86,8 @@ public final class EventLoops {
 
     private void propagateTask() {
 
-        Thread.ofVirtual().name("EventBridgeThread", 1).start(() -> {
-            log.info("EventLoopBridge start!!");
-
-            while (primaryEventLoop.getLifeCycle().isStarting()) {
+        new Thread(() -> {
+            while (primaryEventLoop.isStarted()) {
 
                 try {
                     ChannelContext ctx = bridge.consume();
@@ -89,30 +96,25 @@ public final class EventLoops {
                     }
 
                     SecondaryNioEventLoop sel = propagator.next();
-                    sel.register(ctx, IOType.READ);
+                    sel.registerIoChannel(ctx, IOType.READ);
                 } catch (Exception e) {
                     log.error("Failed to register secondary event loop = {}", e.getMessage());
                 }
             }
-        });
+        }, "EventBridgeThread").start();
     }
 
-    public void shutdown() {
-        shutdown(10, TimeUnit.SECONDS);
+    public void gracefullyShutdown() {
+        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
     }
 
-    public void shutdown(final long timeout, final TimeUnit unit) {
+    public void gracefullyShutdown(final long timeout, final TimeUnit unit) {
         log.info("Shutting down EventLoop");
 
         primaryEventLoop.gracefullyShutdown(timeout, unit);
         secondaryEventLoops.forEach(
                 secondaryNioEventLoop -> secondaryNioEventLoop.gracefullyShutdown(timeout, unit)
         );
-    }
-
-    public void close() {
-        primaryEventLoop.close();
-        secondaryEventLoops.forEach(EventLoop::close);
     }
 
     public PrimaryNioEventLoop primary() {

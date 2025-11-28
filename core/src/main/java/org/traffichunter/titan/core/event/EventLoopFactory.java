@@ -34,21 +34,21 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
 @Slf4j
 public final class EventLoopFactory {
 
-    private static final int MAX_TASK_PENDING_CAPACITY = Configurations.taskPendingCapacity();
-
     public static PrimaryNioEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
         return new PrimaryNioEventLoop(
                 EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
-                MAX_TASK_PENDING_CAPACITY,
                 bridge
         );
     }
 
     public static SecondaryNioEventLoop createSecondaryEventLoop(final int eventLoopNameCount) {
         return new SecondaryNioEventLoop(
-                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount,
-                MAX_TASK_PENDING_CAPACITY
+                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount
         );
+    }
+
+    public static EventLoop createTaskEventLoop() {
+        return new TaskEventLoop();
     }
 
     private EventLoopFactory() {}

@@ -30,24 +30,21 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 
 @Slf4j
 public class PrimaryNioEventLoop extends AbstractNioEventLoop {
 
     private final EventLoopBridge<ChannelContext> bridge;
 
-    private Handler<Throwable> exceptionHandler;
-
-    public PrimaryNioEventLoop(final String eventLoopName,
-                               final int isPendingMaxTasksCapacity,
-                               final EventLoopBridge<ChannelContext> bridge) {
-
-        super(eventLoopName, isPendingMaxTasksCapacity);
+    public PrimaryNioEventLoop(final String eventLoopName, final EventLoopBridge<ChannelContext> bridge) {
+        super(eventLoopName);
         this.bridge = bridge;
     }
 
@@ -70,8 +67,13 @@ public class PrimaryNioEventLoop extends AbstractNioEventLoop {
     }
 
     @Override
-    public void exceptionHandler(final Handler<Throwable> exceptionHandler) {
-        this.exceptionHandler = exceptionHandler;
+    public <V> ScheduledPromise<V> schedule(final Runnable task, final long delay, final TimeUnit unit) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public <V> ScheduledPromise<V> schedule(final Callable<V> task, final long delay, final TimeUnit unit) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -97,7 +99,6 @@ public class PrimaryNioEventLoop extends AbstractNioEventLoop {
 
                     log.info("Accepted connection from {}", clientSocketChannel.getRemoteAddress());
                 } catch (Throwable e) {
-                    exceptionHandler.handle(e);
                     key.cancel();
                 }
             }

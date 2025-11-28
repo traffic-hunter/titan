@@ -49,7 +49,7 @@ public final class EventLoopBridge<T> {
                 throw new EventLoopException("Failed to produce event bridge");
             }
         } catch (InterruptedException ignore) {
-            log.warn("Event bridge interrupted");
+            Thread.currentThread().interrupt();
         }
     }
 

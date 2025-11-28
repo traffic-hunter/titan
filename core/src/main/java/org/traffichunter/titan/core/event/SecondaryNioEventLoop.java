@@ -28,13 +28,14 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 import org.traffichunter.titan.core.util.event.IOType;
 
@@ -46,20 +47,13 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
 
     private ChannelContextInBoundHandler inBoundHandler;
     private ChannelContextOutBoundHandler outBoundHandler;
-    private Handler<Throwable> exceptionHandler;
-    private final String eventLoopName;
 
     public SecondaryNioEventLoop() {
-        this(Configurations.taskPendingCapacity());
+        this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public SecondaryNioEventLoop(final int isPendingMaxTasksCapacity) {
-        this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME, isPendingMaxTasksCapacity);
-    }
-
-    public SecondaryNioEventLoop(final String eventLoopName, final int isPendingMaxTasksCapacity) {
-        super(eventLoopName, isPendingMaxTasksCapacity);
-        this.eventLoopName = eventLoopName;
+    public SecondaryNioEventLoop(final String eventLoopName) {
+        super(eventLoopName);
     }
 
     @Override
@@ -74,46 +68,52 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
         this.outBoundHandler = outBoundHandler;
     }
 
+    public void registerIoChannel(final ChannelContext ctx, final IOType ioType) {
+        Assert.checkNull(ctx, "ctx is null");
+        Assert.checkNull(ioType, "ioType is null");
+
+        register(() -> registerIoChannel(ctx, ioType.value()));
+    }
+
     @Override
-    public void exceptionHandler(final Handler<Throwable> exceptionHandler) {
-        this.exceptionHandler = exceptionHandler;
-    }
-
-    public void register(final ChannelContext ctx, final IOType ioType) {
-        register(() -> doRegister(ctx, ioType.value()));
-    }
-
     public void register(final Runnable runnable) {
-        registerPendingTask(runnable);
+        addTask(runnable);
         selector.wakeup();
     }
 
-    private void doRegister(final ChannelContext ctx, final int ops) {
-        if(inEventLoop(eventLoopName)) {
-            try {
-                SocketChannel channel = ctx.socketChannel();
-                SelectionKey selectionKey = channel.keyFor(selector);
+    private void registerIoChannel(final ChannelContext ctx, final int ops) {
+        try {
+            SocketChannel channel = ctx.socketChannel();
+            SelectionKey selectionKey = channel.keyFor(selector);
 
-                // First register
-                if(selectionKey == null) {
-                    channel.register(selector, ops, ctx);
-                } else {
-                    // Already registered
-                    int currentOps = selectionKey.interestOps();
-                    selectionKey.interestOps(currentOps | ops);
-                }
-            } catch (IOException e) {
-                log.error("Error registering channel", e);
-                try {
-                    ctx.close();
-                } catch (IOException ignored) { }
+            // First register
+            if(selectionKey == null) {
+                channel.register(selector, ops, ctx);
+            } else {
+                // Already registered
+                int currentOps = selectionKey.interestOps();
+                selectionKey.interestOps(currentOps | ops);
             }
+        } catch (IOException e) {
+            log.error("Error registering channel", e);
+            try {
+                ctx.close();
+            } catch (IOException ignored) { }
         }
     }
 
     @Override
-    protected void handleIO(final Set<SelectionKey> keySet) {
+    public <V> ScheduledPromise<V> schedule(final Runnable task, final long delay, final TimeUnit unit) {
+        throw new UnsupportedOperationException();
+    }
 
+    @Override
+    public <V> ScheduledPromise<V> schedule(final Callable<V> task, final long delay, final TimeUnit unit) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void handleIO(final Set<SelectionKey> keySet) {
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
             SelectionKey key = iter.next();
@@ -127,13 +127,13 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
 
             try {
                 if (key.isConnectable()) {
-                    if(ctx.socketChannel().isConnectionPending()) {
+                    if (ctx.socketChannel().isConnectionPending()) {
                         try {
-                            if(ctx.socketChannel().finishConnect()) {
+                            if (ctx.socketChannel().finishConnect()) {
                                 log.debug("completed connect: {}", ctx.socketChannel().getRemoteAddress());
                             }
                         } catch (IOException e) {
-                            exceptionHandler.handle(e);
+                            // Failed socket connection, try again.
                             continue;
                         }
                     }
@@ -146,8 +146,8 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
                     outBoundHandler.handleWrite(ctx);
                     outBoundHandler.handleCompletedWrite(ctx);
                 }
-            } catch (Throwable t) {
-                exceptionHandler.handle(t);
+            } catch (Exception e) {
+                log.error("Failed task", e);
             }
         }
     }

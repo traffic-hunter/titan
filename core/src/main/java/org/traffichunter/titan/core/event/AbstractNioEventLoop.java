@@ -23,167 +23,173 @@
  */
 package org.traffichunter.titan.core.event;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedTransferQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
+import org.traffichunter.titan.core.util.Time;
 
 /**
  * @author yungwang-o
  */
 @Slf4j
-public abstract class AbstractNioEventLoop extends AdvancedThreadPoolExecutor implements EventLoop {
-
-    @Getter
-    private final String eventLoopName;
+public abstract class AbstractNioEventLoop extends AbstractEventLoop implements IOEventLoop {
 
     protected final Selector selector;
-    private final EventLoopLifeCycle lifeCycle = new EventLoopLifeCycleImpl();
-    private final Queue<Runnable> pendingTasks = new ConcurrentLinkedQueue<>();
 
-    // Optimize atomicReference
-    private static final AtomicReferenceFieldUpdater<AbstractNioEventLoop, EventLoopStatus> STATUS_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(AbstractNioEventLoop.class, EventLoopStatus.class, "status");
-    private volatile EventLoopStatus status;
-
-    private static final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
-
-    public AbstractNioEventLoop(final String eventLoopName, final int isPendingMaxTasksCapacity) {
-        super(AdvancedThreadPoolExecutor.singleThreadExecutor(eventLoopName, isPendingMaxTasksCapacity));
-        this.eventLoopName = eventLoopName;
+    public AbstractNioEventLoop(final String eventLoopName) {
+        super(eventLoopName, new ConcurrentLinkedQueue<>());
         try {
             this.selector = Selector.open();
         } catch (IOException e) {
             throw new EventLoopException("Select open error!!", e);
         }
-        this.status = EventLoopStatus.INITIALIZED;
     }
 
-    public int size() {
-        return super.getQueue().size();
-    }
-
-    public boolean isEmpty() {
-        return super.getQueue().isEmpty();
-    }
-
-    public boolean inEventLoop(final String eventLoopName) {
-        return Thread.currentThread().getName().equals(eventLoopName);
-    }
-
-    protected void registerPendingTask(final Runnable task) {
-        pendingTasks.offer(task);
-    }
-
-    @Override
-    public void start() {
-        Assert.check(lifeCycle.isInitialized(), () -> new EventLoopException("EventLoop is not initialized"));
-
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
-        execute(this::runTask);
-    }
-
-    @Override
-    public void restart() {
-        Assert.check(lifeCycle.isSuspended(), () -> new EventLoopException("EventLoop is not suspended"));
-
-        log.info("Restarting event loop...");
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STARTING);
-        resume();
-    }
-
-    @Override
-    public EventLoopLifeCycle getLifeCycle() {
-        return lifeCycle;
-    }
-
-    @Override
-    public void suspend() {
-        Assert.check(lifeCycle.isStarting(), () -> new EventLoopException("EventLoop is not started"));
-
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.SUSPENDING);
-        pause();
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.SUSPENDED);
-    }
-
-    @Override
-    public void shutdown(final boolean isGraceful, final long timeout, final TimeUnit unit) {
-        Assert.check(lifeCycle.isStarting(), () -> new EventLoopException("EventLoop is not started"));
-
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPING);
-
-        if (isGraceful) {
-            shutdownHook.addShutdownCallback(() -> doShutdown(timeout, unit));
-        } else {
-            doShutdown(timeout, unit);
+    protected final void addTask(final Runnable task) {
+        Assert.checkNull(task, "task is null");
+        if(isShuttingDown()) {
+            throw new RejectedExecutionException("Event loop is shutdown!!");
         }
 
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPED);
+        if(!taskQueue.offer(task)) {
+            throw new RejectedExecutionException("Failed to add task!!");
+        }
     }
 
     @Override
-    public void close() {
-        Assert.check(lifeCycle.isStarting(), () -> new EventLoopException("EventLoop is not started"));
+    public boolean inEventLoop(final Thread thread) {
+        return this.thread == thread;
+    }
 
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPING);
-        super.close();
-        STATUS_UPDATER.compareAndSet(this, status, EventLoopStatus.STOPPED);
+    @Override
+    protected void run() {
+        if(thread != null) {
+            return;
+        }
+
+        execute(() -> {
+            thread = Thread.currentThread();
+            if (!selector.isOpen()) {
+                throw new IllegalStateException("Selector is not open");
+            }
+
+            log.info("Starting event loop");
+
+            try {
+                if (!inEventLoop()) {
+                    throw new IllegalStateException("Event loop is not in event loop");
+                }
+
+                while (!checkShutdown()) {
+                    runAllTasks();
+
+                    int selected = selector.select();
+                    if(selected == 0) {
+                        continue;
+                    }
+
+                    handleIO(selector.selectedKeys());
+                }
+            } catch (Exception e) {
+                log.error("An event loop terminated with unexpected exception. Exception:", e);
+            } finally {
+                while (true) {
+                    if(getStatus().compareTo(EventLoopStatus.SHUTTING_DOWN) >= 0
+                            || trySetStatus(getStatus(), EventLoopStatus.SHUTTING_DOWN)) {
+                        break;
+                    }
+                }
+                try {
+                    while (true) {
+                        if(checkShutdown()) {
+                            break;
+                        }
+                    }
+
+                    while (true) {
+                        if (getStatus().compareTo(EventLoopStatus.SHUTDOWN) >= 0
+                                || trySetStatus(getStatus(), EventLoopStatus.SHUTDOWN)) {
+                            break;
+                        }
+                    }
+                } finally {
+                    int countTask = runAllTasks();
+                    if (countTask > 0) {
+                        log.error("An event loop terminated with " + "non-empty task queue ({})", countTask);
+                    }
+                }
+            }
+        });
     }
 
     protected abstract void handleIO(Set<SelectionKey> keySet);
 
-    private void doShutdown(long timeout, TimeUnit unit) {
-        super.shutdown();
-        try {
-            if (!awaitTermination(timeout, unit)) {
-                super.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            try {
-                selector.close();
-            } catch (IOException e) {
-                log.error("Failed to close selector", e);
-            }
+    @Override
+    public void gracefullyShutdown(final long timeout, final TimeUnit unit) {
+        shutdownStartNanos = Time.currentNanos();
+
+        if(isShuttingDown()) {
+            return;
         }
-    }
+        final EventLoopStatus oldStatus = getStatus();
 
-    private void runTask() {
-        Assert.checkState(selector.isOpen(), "Selector is not open");
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
 
-        log.info("Starting event loop");
-
-        while (lifeCycle.isStarting() && !Thread.currentThread().isInterrupted()) {
-            try {
-                processPendingTasks();
-                int selected = selector.select();
-                if (selected == 0) {
-                    continue;
-                }
-            } catch (IOException e) {
-                Thread.currentThread().interrupt();
-                log.error("Selector failed: {}", e.getMessage());
+        for (;;) {
+            if(isShuttingDown()) {
                 break;
             }
+            if(!taskQueue.isEmpty()) {
+                continue;
+            }
 
-            handleIO(selector.selectedKeys());
+            long remaining = deadline - System.nanoTime();
+            if(remaining <= 0) {
+                log.warn("Graceful shutdown timed out, forcing immediate shutdown");
+                super.shutdownNow();
+
+                if(!trySetStatus(oldStatus, EventLoopStatus.SHUTDOWN)) {
+                    break;
+                }
+            }
+
+            if(!trySetStatus(oldStatus, EventLoopStatus.SHUTTING_DOWN)) {
+                break;
+            }
         }
+
+        shutdownTimeoutNanos = unit.toNanos(timeout);
     }
 
+    private boolean checkShutdown() {
+        if(!isShuttingDown()) {
+            return false;
+        }
+        if(!inEventLoop()) {
+            throw new IllegalStateException("Must be in event loop");
+        }
+
+        runAllTasks();
+        if(Time.currentNanos() - shutdownStartNanos > shutdownTimeoutNanos) {
+            return true;
+        }
+
+        return isShutdown();
+    }
+
+    @Deprecated
     private void processPendingTasks() {
         Runnable task;
 
-        while ((task = pendingTasks.poll()) != null) {
+        while ((task = taskQueue.poll()) != null) {
             try {
                 task.run();
             } catch (Exception e) {
@@ -192,24 +198,23 @@ public abstract class AbstractNioEventLoop extends AdvancedThreadPoolExecutor im
         }
     }
 
-    protected class EventLoopLifeCycleImpl implements EventLoopLifeCycle {
+    @CanIgnoreReturnValue
+    private int runAllTasks() {
+        int count = 0;
+        while (true) {
+            Runnable task = taskQueue.poll();
+            if(task == null) {
+                break;
+            }
 
-        @Override
-        public boolean isSuspending() { return status == EventLoopStatus.SUSPENDING; }
+            try {
+                count++;
+                task.run();
+            } catch (Exception e) {
+                log.error("Failed to run task! = {}", e.getMessage());
+            }
+        }
 
-        @Override
-        public boolean isSuspended() { return status == EventLoopStatus.SUSPENDED; }
-
-        @Override
-        public boolean isInitialized() { return status == EventLoopStatus.INITIALIZED; }
-
-        @Override
-        public boolean isStarting() { return status == EventLoopStatus.STARTING; }
-
-        @Override
-        public boolean isStopping() { return status == EventLoopStatus.STOPPING; }
-
-        @Override
-        public boolean isStopped() { return status == EventLoopStatus.STOPPED; }
+        return count;
     }
 }

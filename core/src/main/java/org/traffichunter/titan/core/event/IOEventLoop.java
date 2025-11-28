@@ -21,18 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.event;
+package org.traffichunter.titan.core.event;
+
+import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoopConstants {
+public interface IOEventLoop extends EventLoop {
 
-    long DEFAULT_SHUTDOWN_TIME_OUT = 15;
+    void registerChannelContextHandler(ChannelContextInBoundHandler inBoundHandler);
 
-    String TASK_EVENT_LOOP_THREAD_NAME = "TaskEventLoop";
-
-    String PRIMARY_EVENT_LOOP_THREAD_NAME = "PrimaryEventLoopThread";
-
-    String SECONDARY_EVENT_LOOP_THREAD_NAME = "SecondaryEventLoopThread";
+    void registerChannelContextHandler(ChannelContextOutBoundHandler outBoundHandler);
 }

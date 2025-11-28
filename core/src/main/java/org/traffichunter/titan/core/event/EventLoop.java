@@ -23,54 +23,40 @@
  */
 package org.traffichunter.titan.core.event;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.bootstrap.LifeCycle;
-import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoop {
+public interface EventLoop extends EventLoopLifeCycle {
 
     void start();
 
-    void restart();
+    void register(Runnable task);
 
-    EventLoopLifeCycle getLifeCycle();
+    <V> Promise<V> submit(Runnable task);
 
-    void registerChannelContextHandler(ChannelContextInBoundHandler inBoundHandler);
+    <V> Promise<V> submit(Callable<V> task);
 
-    void registerChannelContextHandler(ChannelContextOutBoundHandler outBoundHandler);
+    <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
 
-    void exceptionHandler(Handler<Throwable> exceptionHandler);
+    <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
 
-    void suspend();
-
-    default void gracefullyShutdown(long timeout, TimeUnit unit) {
-        shutdown(true, timeout, unit);
+    default boolean inEventLoop() {
+        return inEventLoop(Thread.currentThread());
     }
 
-    void shutdown(boolean isGraceful, long timeout, TimeUnit unit);
+    boolean inEventLoop(Thread thread);
+
+    default void gracefullyShutdown() {
+        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
+    }
+
+    void gracefullyShutdown(long timeout, TimeUnit unit);
 
     void close();
-
-    interface EventLoopLifeCycle extends LifeCycle {
-
-        boolean isSuspending();
-
-        boolean isSuspended();
-
-        @Override
-        boolean isInitialized();
-
-        @Override
-        boolean isStarting();
-
-        boolean isStopping();
-
-        @Override
-        boolean isStopped();
-    }
 }
