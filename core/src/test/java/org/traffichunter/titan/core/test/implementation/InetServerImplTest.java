@@ -67,7 +67,7 @@ class InetServerImplTest {
 
     @AfterAll
     static void tearDown() {
-        server.close();
+        server.shutdown();
     }
 
     @Test

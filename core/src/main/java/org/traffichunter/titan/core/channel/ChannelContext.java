@@ -40,7 +40,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yungwang-o
  */
 @Slf4j
-public class ChannelContext implements ChannelStream {
+public class ChannelContext implements Context {
 
     private final SocketChannel channel;
     private final Instant createdAt;

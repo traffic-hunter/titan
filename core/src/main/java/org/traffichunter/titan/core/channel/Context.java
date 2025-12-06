@@ -26,8 +26,14 @@ package org.traffichunter.titan.core.channel;
 import org.traffichunter.titan.core.util.inet.ReadStream;
 import org.traffichunter.titan.core.util.inet.WriteStream;
 
+import java.io.IOException;
+
 /**
  * @author yungwang-o
  */
-public interface ChannelStream extends ReadStream, WriteStream, Tunnel {
+public interface Context extends ReadStream, WriteStream {
+
+    boolean isOpen();
+
+    void close() throws IOException;
 }

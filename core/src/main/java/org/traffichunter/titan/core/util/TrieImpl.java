@@ -136,7 +136,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
         wLock.lock();
         try {
-            if(!remove(root, split, 0)) {
+            if(remove(root, split, 0)) {
                 throw new IllegalStateException("No such word: " + word);
             }
         } finally {

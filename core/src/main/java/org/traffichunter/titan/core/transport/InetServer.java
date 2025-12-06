@@ -67,9 +67,7 @@ public interface InetServer {
 
     boolean isClosed();
 
-    void shutdown(boolean isGraceful);
-
-    default void close() { shutdown(false); }
+    void shutdown();
 
     class ServerException extends TransportException {
 

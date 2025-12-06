@@ -71,6 +71,8 @@ public interface InetClient {
 
     int remotePort();
 
+    boolean isOpen();
+
     boolean isConnected();
 
     boolean isClosed();

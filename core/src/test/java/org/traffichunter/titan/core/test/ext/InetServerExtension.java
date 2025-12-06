@@ -79,7 +79,7 @@ public class InetServerExtension implements BeforeAllCallback, AfterAllCallback 
     @Override
     public void afterAll(final ExtensionContext extensionContext) throws Exception {
         if(server != null && server.isStart()) {
-            server.close();
+            server.shutdown();
         }
     }
 }

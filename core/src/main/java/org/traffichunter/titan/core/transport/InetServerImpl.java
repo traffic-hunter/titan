@@ -47,7 +47,6 @@ class InetServerImpl implements InetServer {
 
     private final ServerConnector connector;
     private final EventLoops eventLoops;
-    private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
     private final Object lock = new Object();
 
     private Handler<ChannelContext> connectHandler;
@@ -89,7 +88,7 @@ class InetServerImpl implements InetServer {
                         channelContext.close();
                     } catch (IOException e) {
                         log.info("Failed to close socket = {}", e.getMessage());
-                        doClose();
+                        shutdown();
                     } finally {
                         buffer.release();
                     }
@@ -168,15 +167,24 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public void shutdown(final boolean isGraceful) {
-        if(isGraceful) {
-            if(shutdownHook.isEnabled()) {
-                shutdownHook.addShutdownCallback(this::doClose);
-            }
+    public void shutdown() {
+        if(!listening) {
+            log.warn("Not listening");
             return;
         }
 
-        doClose();
+        log.info("Closing server...");
+        try {
+            synchronized (lock) {
+                listening = false;
+            }
+
+            eventLoops.gracefullyShutdown();
+            connector.close();
+            log.info("Closed server");
+        } catch (IOException e) {
+            throw new ServerException("Cannot close server", e);
+        }
     }
 
     private CompletableFuture<InetServer> bind() {
@@ -186,7 +194,7 @@ class InetServerImpl implements InetServer {
             eventLoops.primary().registerIoConcern(connector.serverSocketChannel());
         } catch (IOException e) {
             log.error("Failed to connect to {}.", connector.host(), e);
-            close();
+            shutdown();
         }
 
         return CompletableFuture.completedFuture(this);
@@ -215,27 +223,6 @@ class InetServerImpl implements InetServer {
             client.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE, channelContext);
         } catch (IOException e) {
             throw new ServerException("Failed accept", e);
-        }
-    }
-
-    @ThreadSafe
-    private void doClose() {
-        if(!listening) {
-            log.warn("Not listening");
-            return;
-        }
-
-        log.info("Closing server...");
-        try {
-            synchronized (lock) {
-                listening = false;
-            }
-
-            eventLoops.shutdown();
-            connector.close();
-            log.info("Closed server");
-        } catch (IOException e) {
-            throw new ServerException("Cannot close server", e);
         }
     }
 

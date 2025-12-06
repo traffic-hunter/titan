@@ -78,7 +78,7 @@ class InetClientImpl implements InetClient {
 
             @Override
             public void handleCompletedConnect(final ChannelContext channelContext) {
-                eventLoop.register(channelContext, IOType.READ);
+                eventLoop.registerIoChannel(channelContext, IOType.READ);
             }
 
             @Override
@@ -115,15 +115,14 @@ class InetClientImpl implements InetClient {
                     if(write == buffer.byteBuf().readableBytes()) {
                         buffer.release();
                     } else {
-                        eventLoop.register(channelContext, IOType.WRITE);
+                        eventLoop.registerIoChannel(channelContext, IOType.WRITE);
                         break;
                     }
                 }
             }
         });
 
-        eventLoop.exceptionHandler(exceptionHandler);
-        eventLoop.register(ctx, IOType.CONNECT);
+        eventLoop.registerIoChannel(ctx, IOType.CONNECT);
         eventLoop.start();
         return this;
     }
@@ -136,12 +135,12 @@ class InetClientImpl implements InetClient {
 
         try {
             connector.channel()
-                    .setOption(StandardSocketOptions.TCP_NODELAY, options.isTcpNoDelay())
-                    .setOption(StandardSocketOptions.SO_KEEPALIVE, options.isKeepAlive())
-                    .setOption(StandardSocketOptions.SO_SNDBUF, options.getSendBufferSize())
-                    .setOption(StandardSocketOptions.SO_RCVBUF, options.getReceiveBufferSize())
-                    .setOption(StandardSocketOptions.SO_REUSEADDR, options.isReuseAddr())
-                    .setOption(StandardSocketOptions.SO_REUSEPORT, options.isReusePort());
+                    .setOption(StandardSocketOptions.TCP_NODELAY, options.tcpNoDelay())
+                    .setOption(StandardSocketOptions.SO_KEEPALIVE, options.keepAlive())
+                    .setOption(StandardSocketOptions.SO_SNDBUF, options.sendBufferSize())
+                    .setOption(StandardSocketOptions.SO_RCVBUF, options.receiveBufferSize())
+                    .setOption(StandardSocketOptions.SO_REUSEADDR, options.reuseAddr())
+                    .setOption(StandardSocketOptions.SO_REUSEPORT, options.reusePort());
         } catch (IOException ignored) { }
 
         return this;
@@ -196,7 +195,7 @@ class InetClientImpl implements InetClient {
 
         return CompletableFuture.runAsync(() -> {
             writePendingTask.add(buffer);
-            eventLoop.register(ctx, IOType.WRITE);
+            eventLoop.registerIoChannel(ctx, IOType.WRITE);
         });
     }
 
@@ -247,7 +246,7 @@ class InetClientImpl implements InetClient {
         log.info("Closing client...");
 
         try {
-            eventLoop.shutdown(isGraceful, 30, TimeUnit.SECONDS);
+            eventLoop.gracefullyShutdown();
             eventLoop.close();
             connector.close();
             log.info("Closed client");
