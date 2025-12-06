@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.event;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
@@ -45,10 +44,6 @@ public final class EventLoopFactory {
         return new SecondaryNioEventLoop(
                 EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount
         );
-    }
-
-    public static EventLoop createTaskEventLoop() {
-        return new TaskEventLoop();
     }
 
     private EventLoopFactory() {}

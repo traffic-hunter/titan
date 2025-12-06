@@ -39,7 +39,7 @@ import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 
 @Slf4j
-public class PrimaryNioEventLoop extends AbstractNioEventLoop {
+public class PrimaryNioEventLoop extends SingleThreadIOEventLoop {
 
     private final EventLoopBridge<ChannelContext> bridge;
 
@@ -63,16 +63,6 @@ public class PrimaryNioEventLoop extends AbstractNioEventLoop {
 
     @Override
     public void registerChannelContextHandler(final ChannelContextOutBoundHandler outBoundHandler) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <V> ScheduledPromise<V> schedule(final Runnable task, final long delay, final TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <V> ScheduledPromise<V> schedule(final Callable<V> task, final long delay, final TimeUnit unit) {
         throw new UnsupportedOperationException();
     }
 

@@ -43,7 +43,7 @@ import org.traffichunter.titan.core.util.event.IOType;
  * @author yungwang-o
  */
 @Slf4j
-public class SecondaryNioEventLoop extends AbstractNioEventLoop {
+public class SecondaryNioEventLoop extends SingleThreadIOEventLoop {
 
     private ChannelContextInBoundHandler inBoundHandler;
     private ChannelContextOutBoundHandler outBoundHandler;
@@ -100,16 +100,6 @@ public class SecondaryNioEventLoop extends AbstractNioEventLoop {
                 ctx.close();
             } catch (IOException ignored) { }
         }
-    }
-
-    @Override
-    public <V> ScheduledPromise<V> schedule(final Runnable task, final long delay, final TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <V> ScheduledPromise<V> schedule(final Callable<V> task, final long delay, final TimeUnit unit) {
-        throw new UnsupportedOperationException();
     }
 
     @Override
