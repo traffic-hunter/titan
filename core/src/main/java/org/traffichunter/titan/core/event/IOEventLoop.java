@@ -23,15 +23,8 @@
  */
 package org.traffichunter.titan.core.event;
 
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
-
 /**
  * @author yungwang-o
  */
 public interface IOEventLoop extends EventLoop {
-
-    void registerChannelContextHandler(ChannelContextInBoundHandler inBoundHandler);
-
-    void registerChannelContextHandler(ChannelContextOutBoundHandler outBoundHandler);
 }

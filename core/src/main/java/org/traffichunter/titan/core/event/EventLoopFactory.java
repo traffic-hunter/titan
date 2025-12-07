@@ -25,6 +25,8 @@ package org.traffichunter.titan.core.event;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.PrimaryChannelEventLoop;
+import org.traffichunter.titan.core.channel.SecondaryChannelEventLoop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -33,15 +35,15 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
 @Slf4j
 public final class EventLoopFactory {
 
-    public static PrimaryNioEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
-        return new PrimaryNioEventLoop(
+    public static PrimaryChannelEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
+        return new PrimaryChannelEventLoop(
                 EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
                 bridge
         );
     }
 
-    public static SecondaryNioEventLoop createSecondaryEventLoop(final int eventLoopNameCount) {
-        return new SecondaryNioEventLoop(
+    public static SecondaryChannelEventLoop createSecondaryEventLoop(final int eventLoopNameCount) {
+        return new SecondaryChannelEventLoop(
                 EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount
         );
     }

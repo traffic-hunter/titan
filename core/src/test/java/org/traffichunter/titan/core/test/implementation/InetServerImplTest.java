@@ -21,12 +21,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.channel.ChannelInBoundFilter;
+import org.traffichunter.titan.core.channel.ChannelInboundFilterChain;
+import org.traffichunter.titan.core.channel.Context;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -40,22 +44,10 @@ class InetServerImplTest {
 
     @BeforeAll
     static void setUp() throws Exception {
-        server = InetServer.open("localhost", 7777);
-
-        server.listen().get()
-                .onRead(handle -> {
-                    final Message msg = Message.builder()
-                            .routingKey(RoutingKey.create("route.test"))
-                            .priority(Priority.DEFAULT)
-                            .body(handle.getBytes())
-                            .producerId(IdGenerator.uuid())
-                            .createdAt(Instant.now())
-                            .build();
-
-                    log.info("msg = {}", msg.toString());
-
-                    rq.enqueue(msg);
-                });
+        server = InetServer.open("localhost", 7777)
+                .listen()
+                .get()
+                .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()));
 
         server.start();
     }
@@ -98,5 +90,43 @@ class InetServerImplTest {
 
         es.shutdown();
         es.close();
+    }
+
+    private static class TestChannelInboundFilter implements ChannelInBoundFilter {
+
+        @Override
+        public void doFilter(Context context, ChannelInboundFilterChain chain) throws Exception {
+            Buffer buffer = Buffer.alloc(1024);
+
+            int recv = context.recv(buffer);
+            if(recv > 0) {
+                try {
+                    final Message msg = Message.builder()
+                            .routingKey(RoutingKey.create("route.test"))
+                            .priority(Priority.DEFAULT)
+                            .body(buffer.getBytes())
+                            .producerId(IdGenerator.uuid())
+                            .createdAt(Instant.now())
+                            .build();
+
+                    log.info("msg = {}", msg.toString());
+
+                    rq.enqueue(msg);
+                } finally {
+                    buffer.release();
+                }
+            } else if(recv < 0) {
+                try {
+                    context.close();
+                } catch (IOException e) {
+                    log.info("Failed to close socket = {}", e.getMessage());
+                    return;
+                } finally {
+                    buffer.release();
+                }
+            }
+
+            chain.doFilter(context);
+        }
     }
 }

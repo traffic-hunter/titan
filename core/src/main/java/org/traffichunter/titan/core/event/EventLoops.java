@@ -29,9 +29,9 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.RoundRobinChannelPropagator;
+import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 import org.traffichunter.titan.core.util.event.IOType;
 
@@ -41,17 +41,15 @@ import org.traffichunter.titan.core.util.event.IOType;
 @Slf4j
 public final class EventLoops {
 
-    private final PrimaryNioEventLoop primaryEventLoop;
-
-    private final List<SecondaryNioEventLoop> secondaryEventLoops;
-
-    private ChannelContextInBoundHandler inBoundHandler;
-
-    private final RoundRobinChannelPropagator<SecondaryNioEventLoop> propagator;
+    private final PrimaryChannelEventLoop primaryEventLoop;
+    private final List<SecondaryChannelEventLoop> secondaryEventLoops;
+    private final RoundRobinChannelPropagator<SecondaryChannelEventLoop> propagator;
 
     private final EventLoopBridge<ChannelContext> bridge;
 
     private final int nThread;
+
+    private Handler<ChannelContext> channelContextHandler;
 
     public EventLoops() {
         this(Runtime.getRuntime().availableProcessors() * 2);
@@ -68,7 +66,7 @@ public final class EventLoops {
     public void start() {
         secondaryEventLoops.addAll(initializeSecondaryEventLoops());
         primaryEventLoop.start();
-        secondaryEventLoops.forEach(SecondaryNioEventLoop::start);
+        secondaryEventLoops.forEach(SecondaryChannelEventLoop::start);
         secondaryEventLoops.forEach(sel -> {
             if(!sel.isStarted()) {
                 throw new IllegalStateException("The event loop is not started");
@@ -76,12 +74,6 @@ public final class EventLoops {
         });
 
         propagateTask();
-    }
-
-    public void registerHandler(final ChannelContextInBoundHandler inBoundHandler) {
-        Objects.requireNonNull(inBoundHandler, "inBoundHandler");
-
-        this.inBoundHandler = inBoundHandler;
     }
 
     private void propagateTask() {
@@ -95,13 +87,19 @@ public final class EventLoops {
                         continue;
                     }
 
-                    SecondaryNioEventLoop sel = propagator.next();
+                    channelContextHandler.handle(ctx);
+                    SecondaryChannelEventLoop sel = propagator.next();
                     sel.registerIoChannel(ctx, IOType.READ);
                 } catch (Exception e) {
                     log.error("Failed to register secondary event loop = {}", e.getMessage());
                 }
             }
         }, "EventBridgeThread").start();
+    }
+
+    public void registerChannel(final Handler<ChannelContext> handler) {
+        Assert.checkNull(handler, "Channel handler cannot be null");
+        this.channelContextHandler = handler;
     }
 
     public void gracefullyShutdown() {
@@ -113,30 +111,26 @@ public final class EventLoops {
 
         primaryEventLoop.gracefullyShutdown(timeout, unit);
         secondaryEventLoops.forEach(
-                secondaryNioEventLoop -> secondaryNioEventLoop.gracefullyShutdown(timeout, unit)
+                secondaryChannelEventLoop -> secondaryChannelEventLoop.gracefullyShutdown(timeout, unit)
         );
     }
 
-    public PrimaryNioEventLoop primary() {
+    public PrimaryChannelEventLoop primary() {
         return primaryEventLoop;
     }
 
-    public List<SecondaryNioEventLoop> secondaries() {
+    public List<SecondaryChannelEventLoop> secondaries() {
         return secondaryEventLoops;
     }
 
-    private List<SecondaryNioEventLoop> initializeSecondaryEventLoops() {
-        List<SecondaryNioEventLoop> secondaryEventLoops = new ArrayList<>();
+    private List<SecondaryChannelEventLoop> initializeSecondaryEventLoops() {
+        List<SecondaryChannelEventLoop> secondaryEventLoops = new ArrayList<>();
 
         for(int i = 0; i < nThread; i++) {
             secondaryEventLoops.add(
                     EventLoopFactory.createSecondaryEventLoop(i + 1)
             );
         }
-
-        secondaryEventLoops.forEach(secondaryNioEventLoop ->
-                secondaryNioEventLoop.registerChannelContextHandler(inBoundHandler)
-        );
 
         return secondaryEventLoops;
     }

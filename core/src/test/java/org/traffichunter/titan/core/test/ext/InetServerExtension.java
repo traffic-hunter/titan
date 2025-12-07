@@ -53,21 +53,21 @@ public class InetServerExtension implements BeforeAllCallback, AfterAllCallback 
 
     @Override
     public void beforeAll(final ExtensionContext extensionContext) throws Exception {
-        server.listen().get()
-                .onRead(handle -> {
-                    final Message msg = Message.builder()
-                            .routingKey(RoutingKey.create("route.test"))
-                            .priority(Priority.DEFAULT)
-                            .body(handle.getBytes())
-                            .producerId(IdGenerator.uuid())
-                            .createdAt(Instant.now())
-                            .build();
-
-                    log.info("msg = {}", msg.toString());
-
-                    rq.enqueue(msg);
-                });
-        server.start();
+//        server.listen().get()
+//                .onRead(handle -> {
+//                    final Message msg = Message.builder()
+//                            .routingKey(RoutingKey.create("route.test"))
+//                            .priority(Priority.DEFAULT)
+//                            .body(handle.getBytes())
+//                            .producerId(IdGenerator.uuid())
+//                            .createdAt(Instant.now())
+//                            .build();
+//
+//                    log.info("msg = {}", msg.toString());
+//
+//                    rq.enqueue(msg);
+//                });
+//        server.start();
 
         if(server.isStart()) {
             log.info("server is start");

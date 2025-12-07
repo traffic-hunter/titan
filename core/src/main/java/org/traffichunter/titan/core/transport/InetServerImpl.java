@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.event.EventLoops;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
@@ -49,8 +50,7 @@ class InetServerImpl implements InetServer {
     private final EventLoops eventLoops;
     private final Object lock = new Object();
 
-    private Handler<ChannelContext> connectHandler;
-    private Handler<Buffer> readHandler;
+    private Handler<ChannelContext> channelContextHandler;
 
     private volatile boolean listening = false;
 
@@ -65,37 +65,7 @@ class InetServerImpl implements InetServer {
             throw new IllegalStateException("Server is not listening");
         }
 
-        eventLoops.registerHandler(new ChannelContextInBoundHandler() {
-
-            @Override
-            public void handleConnect(final ChannelContext channelContext) {
-                connectHandler.handle(channelContext);
-            }
-
-            @Override
-            public void handleRead(final ChannelContext channelContext) {
-                Buffer buffer = Buffer.alloc(1024);
-
-                int recv = channelContext.recv(buffer);
-                if(recv > 0) {
-                    try {
-                        readHandler.handle(buffer);
-                    } finally {
-                        buffer.release();
-                    }
-                } else if(recv < 0) {
-                    try {
-                        channelContext.close();
-                    } catch (IOException e) {
-                        log.info("Failed to close socket = {}", e.getMessage());
-                        shutdown();
-                    } finally {
-                        buffer.release();
-                    }
-                }
-            }
-
-        });
+        eventLoops.registerChannel(channelContextHandler);
 
         log.info("launched server!!");
         eventLoops.start();
@@ -123,16 +93,8 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public InetServer onConnect(final Handler<ChannelContext> handler) {
-        Objects.requireNonNull(handler, "connectHandler");
-        this.connectHandler = handler;
-        return this;
-    }
-
-    @Override
-    public InetServer onRead(final ReadHandler readHandler) {
-        Objects.requireNonNull(readHandler, "readHandler");
-        this.readHandler = readHandler;
+    public InetServer invokeChannelHandler(final Handler<ChannelContext> channelContextHandler) {
+        this.channelContextHandler = channelContextHandler;
         return this;
     }
 
@@ -194,36 +156,10 @@ class InetServerImpl implements InetServer {
             eventLoops.primary().registerIoConcern(connector.serverSocketChannel());
         } catch (IOException e) {
             log.error("Failed to connect to {}.", connector.host(), e);
-            shutdown();
+            return CompletableFuture.failedFuture(e);
         }
 
         return CompletableFuture.completedFuture(this);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    @Deprecated
-    private void accept(final Selector selector) {
-        if(!connector.isOpen()) {
-            throw new ServerException("Connector is not open");
-        }
-
-        try {
-            log.info("Accepting inet server connection");
-            SocketChannel client = connector.serverSocketChannel().accept();
-
-            //connectHandler.handle(client);
-
-            if(client == null) {
-                log.error("Failed to accept inet server connection");
-                return;
-            }
-
-            client.configureBlocking(false);
-            ChannelContext channelContext = ChannelContext.create(client);
-            client.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE, channelContext);
-        } catch (IOException e) {
-            throw new ServerException("Failed accept", e);
-        }
     }
 
     private void configureKeepAlive(final boolean onOff) {

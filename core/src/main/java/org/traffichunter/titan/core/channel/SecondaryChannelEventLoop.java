@@ -21,21 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.channel;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.event.SingleThreadIOEventLoop;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
-import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 import org.traffichunter.titan.core.util.event.IOType;
 
@@ -43,29 +39,14 @@ import org.traffichunter.titan.core.util.event.IOType;
  * @author yungwang-o
  */
 @Slf4j
-public class SecondaryNioEventLoop extends SingleThreadIOEventLoop {
+public class SecondaryChannelEventLoop extends SingleThreadIOEventLoop {
 
-    private ChannelContextInBoundHandler inBoundHandler;
-    private ChannelContextOutBoundHandler outBoundHandler;
-
-    public SecondaryNioEventLoop() {
+    public SecondaryChannelEventLoop() {
         this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public SecondaryNioEventLoop(final String eventLoopName) {
+    public SecondaryChannelEventLoop(final String eventLoopName) {
         super(eventLoopName);
-    }
-
-    @Override
-    public void registerChannelContextHandler(final ChannelContextInBoundHandler inBoundHandler) {
-        Assert.checkNull(inBoundHandler, "inBoundHandler is null");
-        this.inBoundHandler = inBoundHandler;
-    }
-
-    @Override
-    public void registerChannelContextHandler(final ChannelContextOutBoundHandler outBoundHandler) {
-        Assert.checkNull(outBoundHandler, "outBoundHandler is null");
-        this.outBoundHandler = outBoundHandler;
     }
 
     public void registerIoChannel(final ChannelContext ctx, final IOType ioType) {
@@ -117,24 +98,13 @@ public class SecondaryNioEventLoop extends SingleThreadIOEventLoop {
 
             try {
                 if (key.isConnectable()) {
-                    if (ctx.socketChannel().isConnectionPending()) {
-                        try {
-                            if (ctx.socketChannel().finishConnect()) {
-                                log.debug("completed connect: {}", ctx.socketChannel().getRemoteAddress());
-                            }
-                        } catch (IOException e) {
-                            // Failed socket connection, try again.
-                            continue;
-                        }
+                    if (ctx.isConnected()) {
+                        log.debug("completed connect: {}", ctx.remoteAddress());
                     }
-                    inBoundHandler.handleConnect(ctx);
-                    inBoundHandler.handleCompletedConnect(ctx);
                 } else if (key.isReadable()) {
-                    inBoundHandler.handleRead(ctx);
-                    inBoundHandler.handleCompletedRead(ctx);
+                    ctx.chain().fireInboundChannel(ctx);
                 } else if (key.isWritable()) {
-                    outBoundHandler.handleWrite(ctx);
-                    outBoundHandler.handleCompletedWrite(ctx);
+                    ctx.chain().fireOutboundChannel(ctx);
                 }
             } catch (Exception e) {
                 log.error("Failed task", e);

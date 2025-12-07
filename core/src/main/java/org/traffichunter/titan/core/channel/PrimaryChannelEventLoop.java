@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.channel;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
@@ -30,22 +30,25 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
-import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.event.EventLoopBridge;
+import org.traffichunter.titan.core.event.EventLoopException;
+import org.traffichunter.titan.core.event.SingleThreadIOEventLoop;
+import org.traffichunter.titan.core.util.event.IOType;
 
 @Slf4j
-public class PrimaryNioEventLoop extends SingleThreadIOEventLoop {
+public class PrimaryChannelEventLoop extends SingleThreadIOEventLoop {
 
     private final EventLoopBridge<ChannelContext> bridge;
 
-    public PrimaryNioEventLoop(final String eventLoopName, final EventLoopBridge<ChannelContext> bridge) {
+    public PrimaryChannelEventLoop(final String eventLoopName, final EventLoopBridge<ChannelContext> bridge) {
         super(eventLoopName);
         this.bridge = bridge;
+    }
+
+    public void registerChannel(final ChannelContext context, final IOType ioType) {
+
     }
 
     public void registerIoConcern(final SelectableChannel channel) {
@@ -54,16 +57,6 @@ public class PrimaryNioEventLoop extends SingleThreadIOEventLoop {
         } catch (IOException e) {
             throw new EventLoopException("Failed to register server channel", e);
         }
-    }
-
-    @Override
-    public void registerChannelContextHandler(final ChannelContextInBoundHandler inBoundHandler) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void registerChannelContextHandler(final ChannelContextOutBoundHandler outBoundHandler) {
-        throw new UnsupportedOperationException();
     }
 
     @Override

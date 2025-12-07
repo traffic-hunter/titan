@@ -1,6 +1,6 @@
 package org.traffichunter.titan.core.event;
 
-class EventLoopException extends RuntimeException {
+public class EventLoopException extends RuntimeException {
 
     public EventLoopException() {}
 
