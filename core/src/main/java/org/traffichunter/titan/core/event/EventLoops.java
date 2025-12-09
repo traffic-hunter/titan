@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.event;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
@@ -41,9 +40,9 @@ import org.traffichunter.titan.core.util.event.IOType;
 @Slf4j
 public final class EventLoops {
 
-    private final PrimaryChannelEventLoop primaryEventLoop;
-    private final List<SecondaryChannelEventLoop> secondaryEventLoops;
-    private final RoundRobinChannelPropagator<SecondaryChannelEventLoop> propagator;
+    private final ChannelPrimaryIOEventLoop primaryEventLoop;
+    private final List<ChannelSecondaryIOEventLoop> secondaryEventLoops;
+    private final RoundRobinSelector<ChannelSecondaryIOEventLoop> propagator;
 
     private final EventLoopBridge<ChannelContext> bridge;
 
@@ -56,17 +55,17 @@ public final class EventLoops {
     }
 
     public EventLoops(final int nThread) {
-        this.bridge = EventLoopBridges.getInstance(Configurations.taskPendingCapacity());
-        this.primaryEventLoop = EventLoopFactory.createPrimaryEventLoop(bridge);
+        this.bridge = EventLoopBridges.getInstance();
+        this.primaryEventLoop = EventLoopFactory.createPrimaryIOEventLoop();
         this.nThread = nThread;
         this.secondaryEventLoops = new ArrayList<>();
-        this.propagator = new RoundRobinChannelPropagator<>(secondaryEventLoops);
+        this.propagator = new RoundRobinSelector<>(secondaryEventLoops);
     }
 
     public void start() {
         secondaryEventLoops.addAll(initializeSecondaryEventLoops());
         primaryEventLoop.start();
-        secondaryEventLoops.forEach(SecondaryChannelEventLoop::start);
+        secondaryEventLoops.forEach(ChannelSecondaryIOEventLoop::start);
         secondaryEventLoops.forEach(sel -> {
             if(!sel.isStarted()) {
                 throw new IllegalStateException("The event loop is not started");
@@ -88,7 +87,7 @@ public final class EventLoops {
                     }
 
                     channelContextHandler.handle(ctx);
-                    SecondaryChannelEventLoop sel = propagator.next();
+                    ChannelSecondaryIOEventLoop sel = propagator.next();
                     sel.registerIoChannel(ctx, IOType.READ);
                 } catch (Exception e) {
                     log.error("Failed to register secondary event loop = {}", e.getMessage());
@@ -110,25 +109,23 @@ public final class EventLoops {
         log.info("Shutting down EventLoop");
 
         primaryEventLoop.gracefullyShutdown(timeout, unit);
-        secondaryEventLoops.forEach(
-                secondaryChannelEventLoop -> secondaryChannelEventLoop.gracefullyShutdown(timeout, unit)
-        );
+        secondaryEventLoops.forEach(el -> el.gracefullyShutdown(timeout, unit));
     }
 
-    public PrimaryChannelEventLoop primary() {
+    public ChannelPrimaryIOEventLoop primary() {
         return primaryEventLoop;
     }
 
-    public List<SecondaryChannelEventLoop> secondaries() {
+    public List<ChannelSecondaryIOEventLoop> secondaries() {
         return secondaryEventLoops;
     }
 
-    private List<SecondaryChannelEventLoop> initializeSecondaryEventLoops() {
-        List<SecondaryChannelEventLoop> secondaryEventLoops = new ArrayList<>();
+    private List<ChannelSecondaryIOEventLoop> initializeSecondaryEventLoops() {
+        List<ChannelSecondaryIOEventLoop> secondaryEventLoops = new ArrayList<>();
 
         for(int i = 0; i < nThread; i++) {
             secondaryEventLoops.add(
-                    EventLoopFactory.createSecondaryEventLoop(i + 1)
+                    EventLoopFactory.createSecondaryIOEventLoop(i + 1)
             );
         }
 

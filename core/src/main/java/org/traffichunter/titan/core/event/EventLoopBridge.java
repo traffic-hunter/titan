@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,7 +40,7 @@ public final class EventLoopBridge<T> {
     private final BlockingQueue<T> bridge;
 
     public EventLoopBridge(final int capacity) {
-        this.bridge = new ArrayBlockingQueue<>(capacity);
+        this.bridge = new LinkedBlockingQueue<>(capacity);
     }
 
     public void produce(final T task) {

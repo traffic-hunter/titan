@@ -39,13 +39,13 @@ import org.traffichunter.titan.core.util.event.IOType;
  * @author yungwang-o
  */
 @Slf4j
-public class SecondaryChannelEventLoop extends SingleThreadIOEventLoop {
+public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
 
-    public SecondaryChannelEventLoop() {
+    public ChannelSecondaryIOEventLoop() {
         this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public SecondaryChannelEventLoop(final String eventLoopName) {
+    public ChannelSecondaryIOEventLoop(final String eventLoopName) {
         super(eventLoopName);
     }
 

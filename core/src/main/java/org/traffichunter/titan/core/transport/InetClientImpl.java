@@ -33,13 +33,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
-import org.traffichunter.titan.core.channel.SecondaryChannelEventLoop;
+import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.event.IOType;
 
@@ -50,7 +48,7 @@ import org.traffichunter.titan.core.util.event.IOType;
 class InetClientImpl implements InetClient {
 
     private final ClientConnector connector;
-    private final SecondaryChannelEventLoop eventLoop;
+    private final ChannelSecondaryIOEventLoop eventLoop;
     private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
     private final Queue<Buffer> writePendingTask = new ConcurrentLinkedQueue<>();
     private final ChannelContext ctx;
@@ -64,7 +62,7 @@ class InetClientImpl implements InetClient {
         Assert.checkNull(address, "Address is null");
 
         this.connector = ClientConnector.open(address);
-        this.eventLoop = new SecondaryChannelEventLoop();
+        this.eventLoop = new ChannelSecondaryIOEventLoop();
         this.ctx = ChannelContext.create(connector.channel());
     }
 

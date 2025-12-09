@@ -77,6 +77,8 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
             throw new IllegalStateException("Selector is not open");
         }
 
+        log.info("Event loop start!!");
+
         while (!checkShutdown()) {
             runAllTasks();
 
@@ -100,6 +102,11 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
         } catch (IOException e) {
             log.error("Failed to close selector: {}", e.getMessage());
         }
+    }
+
+    @Override
+    public IOHandler ioHandler() {
+        return new IOHandler(selector);
     }
 
     @Deprecated(forRemoval = true)

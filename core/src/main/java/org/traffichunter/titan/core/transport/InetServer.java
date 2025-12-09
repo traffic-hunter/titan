@@ -27,6 +27,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 
+import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
+import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
+import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
 
@@ -44,6 +47,10 @@ public interface InetServer {
     }
 
     void start();
+
+    @CanIgnoreReturnValue
+    InetServer group(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> acceptorGroup,
+                     ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> ioGroup);
 
     @CanIgnoreReturnValue
     CompletableFuture<InetServer> listen();

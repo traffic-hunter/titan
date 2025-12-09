@@ -33,22 +33,22 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.event.EventLoopBridge;
+import org.traffichunter.titan.core.event.EventLoopBridges;
 import org.traffichunter.titan.core.event.EventLoopException;
 import org.traffichunter.titan.core.event.SingleThreadIOEventLoop;
-import org.traffichunter.titan.core.util.event.IOType;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 @Slf4j
-public class PrimaryChannelEventLoop extends SingleThreadIOEventLoop {
+public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
-    private final EventLoopBridge<ChannelContext> bridge;
+    private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance();
 
-    public PrimaryChannelEventLoop(final String eventLoopName, final EventLoopBridge<ChannelContext> bridge) {
-        super(eventLoopName);
-        this.bridge = bridge;
+    public ChannelPrimaryIOEventLoop() {
+        this(EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public void registerChannel(final ChannelContext context, final IOType ioType) {
-
+    public ChannelPrimaryIOEventLoop(final String eventLoopName) {
+        super(eventLoopName);
     }
 
     public void registerIoConcern(final SelectableChannel channel) {

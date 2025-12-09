@@ -24,21 +24,20 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
+import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
+import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
+import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
+import org.traffichunter.titan.core.event.EventLoopBridge;
+import org.traffichunter.titan.core.event.EventLoopBridges;
 import org.traffichunter.titan.core.event.EventLoops;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.util.inet.ReadHandler;
+import org.traffichunter.titan.core.util.event.IOType;
 
 /**
  * @author yungwang-o
@@ -52,6 +51,10 @@ class InetServerImpl implements InetServer {
 
     private Handler<ChannelContext> channelContextHandler;
 
+    private volatile ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup;
+    private volatile ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup;
+
+    private volatile boolean running = false;
     private volatile boolean listening = false;
 
     InetServerImpl(final ServerConnector connector) {
@@ -61,27 +64,41 @@ class InetServerImpl implements InetServer {
 
     @Override
     public void start() {
-        if(!listening || !connector.isOpen()) {
-            throw new IllegalStateException("Server is not listening");
+        Assert.checkState(!running && connector.isOpen(), "Server is not listening");
+
+        synchronized (lock) {
+            running = true;
         }
 
-        eventLoops.registerChannel(channelContextHandler);
+        ServerChannelDispatcher dispatcher = new ServerChannelDispatcher(primaryGroup, secondaryGroup, channelContextHandler);
+        Thread channelDispathcerThread = new Thread(dispatcher, "ChannelDispatcherThread");
 
         log.info("launched server!!");
-        eventLoops.start();
+        channelDispathcerThread.start();
+    }
+
+    @Override
+    public InetServer group(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup,
+                            ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup) {
+        Assert.checkNull(primaryGroup, "Primary group is null");
+        Assert.checkNull(secondaryGroup, "Secondary group is null");
+
+        this.primaryGroup = primaryGroup;
+        this.secondaryGroup = secondaryGroup;
+        return this;
     }
 
     @Override
     public CompletableFuture<InetServer> listen() {
-        if(!connector.isOpen()) {
+        if(listening || !connector.isOpen()) {
             log.error("Connector is not open");
             return CompletableFuture.failedFuture(new IllegalStateException("Connector is not open"));
         }
 
         return bind().thenApply(server -> {
-                listening = true;
-                return server;
-            }).whenComplete(((server, ex) -> {
+                    listening = true;
+                    return server;
+                }).whenComplete(((server, ex) -> {
                 if(ex != null) {
                     log.error("Failed to listen on host = {}. port = {}, exception = {}",
                             connector.host(),
@@ -138,6 +155,7 @@ class InetServerImpl implements InetServer {
         log.info("Closing server...");
         try {
             synchronized (lock) {
+                running = false;
                 listening = false;
             }
 
@@ -153,7 +171,7 @@ class InetServerImpl implements InetServer {
 
         try {
             connector.bind();
-            eventLoops.primary().registerIoConcern(connector.serverSocketChannel());
+            primaryGroup.ioHandler().registerAccept(connector.serverSocketChannel());
         } catch (IOException e) {
             log.error("Failed to connect to {}.", connector.host(), e);
             return CompletableFuture.failedFuture(e);
@@ -162,7 +180,44 @@ class InetServerImpl implements InetServer {
         return CompletableFuture.completedFuture(this);
     }
 
-    private void configureKeepAlive(final boolean onOff) {
+    private static class ServerChannelDispatcher implements Runnable {
 
+        private final ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup;
+        private final ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup;
+        private final Handler<ChannelContext> channelContextHandler;
+        private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance();
+
+        private ServerChannelDispatcher(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup,
+                                        ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
+                                        Handler<ChannelContext> channelContextHandler) {
+
+            this.channelContextHandler = channelContextHandler;
+            this.primaryGroup = primaryGroup;
+            this.secondaryGroup = secondaryGroup;
+        }
+
+        @Override
+        public void run() {
+            primaryGroup.start();
+            secondaryGroup.start();
+
+            while (primaryGroup.isStarted() && secondaryGroup.isStarted()) {
+                try {
+                    ChannelContext ctx = bridge.consume();
+                    if(ctx == null) {
+                        continue;
+                    }
+
+                    dispatch(ctx);
+                } catch (Exception e) {
+                    log.error("Failed to dispatch channel", e);
+                }
+            }
+        }
+
+        private void dispatch(ChannelContext ctx) throws IOException {
+            channelContextHandler.handle(ctx);
+            secondaryGroup.ioHandler().registerRead(ctx.socketChannel());
+        }
     }
 }

@@ -21,25 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.channel.ChannelContext;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author yungwang-o
+ * @author yun
  */
-public final class EventLoopBridges {
+public class RoundRobinSelector<E> {
 
-    private static EventLoopBridge<ChannelContext> INSTANCE = null;
+    private final List<E> group;
+    private final AtomicInteger counter = new AtomicInteger();
 
-    public static EventLoopBridge<ChannelContext> getInstance() {
-        if(INSTANCE == null) {
-            INSTANCE = new EventLoopBridge<>(Math.max(16, Configurations.taskPendingCapacity()));
-        }
-
-        return INSTANCE;
+    public RoundRobinSelector(final List<E> group) {
+        this.group = group;
     }
 
-    private EventLoopBridges() { }
+    public E next() {
+        final int adjustIdx = adjustSignedArrayIndex(counter.getAndIncrement(), group.size());
+
+        E e = group.get(adjustIdx);
+        if(e == null) {
+            throw new NoSuchElementException("No more elements");
+        }
+
+        return e;
+    }
+
+    public List<E> group() {
+        return group;
+    }
+
+    public int currentIdx() {
+        return adjustSignedArrayIndex(counter.get(), group.size());
+    }
+
+    private static int adjustSignedArrayIndex(final int idx, final int size) {
+        return (idx & Integer.MAX_VALUE) % size;
+    }
 }
