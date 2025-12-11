@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.netty.util.internal.DefaultPriorityQueue;
@@ -39,7 +39,6 @@ import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * @author yungwang-o

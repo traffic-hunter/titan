@@ -21,25 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
-
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.channel.ChannelContext;
+package org.traffichunter.titan.core.concurrent;
 
 /**
  * @author yungwang-o
  */
-public final class EventLoopBridges {
+public interface IOEventLoop extends EventLoop {
 
-    private static EventLoopBridge<ChannelContext> INSTANCE = null;
-
-    public static EventLoopBridge<ChannelContext> getInstance() {
-        if(INSTANCE == null) {
-            INSTANCE = new EventLoopBridge<>(Math.max(16, Configurations.taskPendingCapacity()));
-        }
-
-        return INSTANCE;
-    }
-
-    private EventLoopBridges() { }
+    IOSelector ioHandler();
 }

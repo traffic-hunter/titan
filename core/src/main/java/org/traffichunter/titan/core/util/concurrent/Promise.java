@@ -28,7 +28,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.core.event.EventLoop;
+import org.traffichunter.titan.core.concurrent.EventLoop;
 
 /**
  * @author yungwang-o

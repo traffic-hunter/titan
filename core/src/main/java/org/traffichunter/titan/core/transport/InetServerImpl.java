@@ -31,13 +31,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
 import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
-import org.traffichunter.titan.core.event.EventLoopBridge;
-import org.traffichunter.titan.core.event.EventLoopBridges;
-import org.traffichunter.titan.core.event.EventLoops;
+import org.traffichunter.titan.core.concurrent.EventLoopBridge;
+import org.traffichunter.titan.core.concurrent.EventLoopBridges;
+import org.traffichunter.titan.core.concurrent.EventLoops;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.util.event.IOType;
 
 /**
  * @author yungwang-o

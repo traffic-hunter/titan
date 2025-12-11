@@ -23,8 +23,8 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.event.EventLoopGroup;
-import org.traffichunter.titan.core.event.IOEventLoop;
+import org.traffichunter.titan.core.concurrent.EventLoopGroup;
+import org.traffichunter.titan.core.concurrent.IOEventLoop;
 
 /**
  * @author yun

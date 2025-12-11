@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.util.concurrent;
 import io.netty.util.internal.PriorityQueueNode;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Delayed;
-import org.traffichunter.titan.core.event.EventLoop;
+import org.traffichunter.titan.core.concurrent.EventLoop;
 import org.traffichunter.titan.core.util.Time;
 
 /**

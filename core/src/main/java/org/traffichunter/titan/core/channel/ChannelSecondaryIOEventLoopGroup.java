@@ -23,10 +23,10 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.event.EventLoop;
-import org.traffichunter.titan.core.event.EventLoopFactory;
-import org.traffichunter.titan.core.event.IOEventLoop;
-import org.traffichunter.titan.core.event.IOSelector;
+import org.traffichunter.titan.core.concurrent.EventLoop;
+import org.traffichunter.titan.core.concurrent.EventLoopFactory;
+import org.traffichunter.titan.core.concurrent.IOEventLoop;
+import org.traffichunter.titan.core.concurrent.IOSelector;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 
