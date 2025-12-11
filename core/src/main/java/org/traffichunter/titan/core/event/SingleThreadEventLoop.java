@@ -189,7 +189,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         addTask(task);
     }
 
-    private void addTask(final Runnable task) {
+    protected void addTask(final Runnable task) {
         Assert.checkNull(task, "task is null");
         if(isShuttingDown()) {
             throw new RejectedExecutionException("Event loop is shutdown!!");
@@ -205,7 +205,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     @CanIgnoreReturnValue
-    private int runAllTasks() {
+    int runAllTasks() {
         if(!inEventLoop()) {
             return 0;
         }

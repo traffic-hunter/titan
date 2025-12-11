@@ -23,8 +23,6 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import java.io.IOException;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -34,7 +32,6 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.event.EventLoopBridge;
 import org.traffichunter.titan.core.event.EventLoopBridges;
-import org.traffichunter.titan.core.event.EventLoopException;
 import org.traffichunter.titan.core.event.SingleThreadIOEventLoop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
@@ -51,16 +48,8 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
         super(eventLoopName);
     }
 
-    public void registerIoConcern(final SelectableChannel channel) {
-        try {
-            channel.register(selector, SelectionKey.OP_ACCEPT);
-        } catch (IOException e) {
-            throw new EventLoopException("Failed to register server channel", e);
-        }
-    }
-
     @Override
-    protected void handleIO(final Set<SelectionKey> keySet) {
+    protected void processIO(final Set<SelectionKey> keySet) {
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
             SelectionKey key = iter.next();

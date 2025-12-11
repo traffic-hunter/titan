@@ -28,5 +28,5 @@ package org.traffichunter.titan.core.event;
  */
 public interface IOEventLoop extends EventLoop {
 
-    IOHandler ioHandler();
+    IOSelector ioHandler();
 }

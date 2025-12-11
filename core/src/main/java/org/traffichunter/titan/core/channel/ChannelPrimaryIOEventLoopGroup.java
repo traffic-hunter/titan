@@ -77,7 +77,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
-    public IOHandler ioHandler() {
+    public IOSelector ioHandler() {
         return selector.next().ioHandler();
     }
 

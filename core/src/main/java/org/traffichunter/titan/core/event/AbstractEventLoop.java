@@ -128,7 +128,7 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor imple
 
     protected abstract void run();
 
-    protected final void wakeUp() {
+    void wakeUp() {
         taskQueue.add(WAKEUP_TASK);
     }
 

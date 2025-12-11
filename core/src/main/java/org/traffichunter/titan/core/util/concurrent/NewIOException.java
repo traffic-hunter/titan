@@ -21,43 +21,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.event;
-
-import org.traffichunter.titan.core.util.event.IOType;
-
-import java.io.IOException;
-import java.nio.channels.SelectableChannel;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+package org.traffichunter.titan.core.util.concurrent;
 
 /**
  * @author yun
  */
-public final class IOHandler {
+public class NewIOException extends RuntimeException {
 
-    private final Selector selector;
-
-    IOHandler(Selector selector) {
-        this.selector = selector;
+    public NewIOException(String message) {
+        super(message);
     }
 
-    public void registerAccept(SelectableChannel channel) throws IOException {
-        channel.register(selector, SelectionKey.OP_ACCEPT);
+    public NewIOException() {
+        super();
     }
 
-    public void registerRead(SelectableChannel channel) throws IOException {
-        channel.register(selector, SelectionKey.OP_READ);
+    public NewIOException(String message, Throwable cause) {
+        super(message, cause);
     }
 
-    public void registerWrite(SelectableChannel channel) throws IOException {
-        channel.register(selector, SelectionKey.OP_WRITE);
+    public NewIOException(Throwable cause) {
+        super(cause);
     }
 
-    public void registerConnect(SelectableChannel channel) throws IOException {
-        channel.register(selector, SelectionKey.OP_CONNECT);
-    }
-
-    public void registerIo(SelectableChannel channel, int ops) throws IOException {
-        channel.register(selector, ops);
+    protected NewIOException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
     }
 }

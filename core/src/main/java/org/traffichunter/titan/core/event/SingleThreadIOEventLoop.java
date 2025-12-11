@@ -23,17 +23,13 @@
  */
 package org.traffichunter.titan.core.event;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.util.Time;
 
 /**
  * @author yungwang-o
@@ -41,26 +37,17 @@ import org.traffichunter.titan.core.util.Time;
 @Slf4j
 public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop implements IOEventLoop {
 
-    protected final Selector selector;
+    private final IOSelector ioSelector;
 
     public SingleThreadIOEventLoop(final String eventLoopName) {
         super(eventLoopName, new ConcurrentLinkedQueue<>());
-        try {
-            this.selector = Selector.open();
-        } catch (IOException e) {
-            throw new EventLoopException("Select open error!!", e);
-        }
+        this.ioSelector = IOSelector.open();
     }
 
+    @Override
     protected final void addTask(final Runnable task) {
-        Assert.checkNull(task, "task is null");
-        if(isShuttingDown()) {
-            throw new RejectedExecutionException("Event loop is shutdown!!");
-        }
-
-        if(!taskQueue.offer(task)) {
-            throw new RejectedExecutionException("Failed to add task!!");
-        }
+        super.addTask(task);
+        wakeUp();
     }
 
     @Override
@@ -70,43 +57,39 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
 
     @Override
     protected void doRun() throws IOException {
-        if (!inEventLoop()) {
-            throw new IllegalStateException("Event loop is not in event loop");
-        }
-        if(!selector.isOpen()) {
-            throw new IllegalStateException("Selector is not open");
-        }
+        Assert.checkState(inEventLoop(), "Event loop is not in event loop");
+        Assert.checkState(ioSelector.isOpen(), "IOHandler is not open");
 
         log.info("Event loop start!!");
 
         while (!checkShutdown()) {
             runAllTasks();
 
-            int selected = selector.select();
-            if(selected == 0) {
+            int ioEventCnt = ioSelector.invokeEvent();
+            if(ioEventCnt == 0) {
                 continue;
             }
 
             runAllTasks();
 
-            handleIO(selector.selectedKeys());
+            processIO(ioSelector.readyIOEvents());
         }
     }
 
-    protected abstract void handleIO(Set<SelectionKey> keySet);
+    protected abstract void processIO(Set<SelectionKey> keySet);
 
     @Override
     protected void cleanUp() {
         try {
-            selector.close();
+            ioSelector.close();
         } catch (IOException e) {
             log.error("Failed to close selector: {}", e.getMessage());
         }
     }
 
     @Override
-    public IOHandler ioHandler() {
-        return new IOHandler(selector);
+    public IOSelector ioHandler() {
+        return ioSelector;
     }
 
     @Deprecated(forRemoval = true)
@@ -122,23 +105,8 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
         }
     }
 
-    @CanIgnoreReturnValue
-    private int runAllTasks() {
-        int count = 0;
-        while (true) {
-            Runnable task = taskQueue.poll();
-            if(task == null) {
-                break;
-            }
-
-            try {
-                count++;
-                task.run();
-            } catch (Exception e) {
-                log.error("Failed to run task! = {}", e.getMessage());
-            }
-        }
-
-        return count;
+    @Override
+    void wakeUp() {
+        ioSelector.wakeUp();
     }
 }

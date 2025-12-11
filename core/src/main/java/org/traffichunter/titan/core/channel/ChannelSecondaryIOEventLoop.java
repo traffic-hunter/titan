@@ -23,17 +23,13 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.event.SingleThreadIOEventLoop;
-import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
-import org.traffichunter.titan.core.util.event.IOType;
 
 /**
  * @author yungwang-o
@@ -49,42 +45,13 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
         super(eventLoopName);
     }
 
-    public void registerIoChannel(final ChannelContext ctx, final IOType ioType) {
-        Assert.checkNull(ctx, "ctx is null");
-        Assert.checkNull(ioType, "ioType is null");
-
-        register(() -> registerIoChannel(ctx, ioType.value()));
-    }
-
     @Override
     public void register(final Runnable runnable) {
         addTask(runnable);
-        selector.wakeup();
-    }
-
-    private void registerIoChannel(final ChannelContext ctx, final int ops) {
-        try {
-            SocketChannel channel = ctx.socketChannel();
-            SelectionKey selectionKey = channel.keyFor(selector);
-
-            // First register
-            if(selectionKey == null) {
-                channel.register(selector, ops, ctx);
-            } else {
-                // Already registered
-                int currentOps = selectionKey.interestOps();
-                selectionKey.interestOps(currentOps | ops);
-            }
-        } catch (IOException e) {
-            log.error("Error registering channel", e);
-            try {
-                ctx.close();
-            } catch (IOException ignored) { }
-        }
     }
 
     @Override
-    protected void handleIO(final Set<SelectionKey> keySet) {
+    protected void processIO(final Set<SelectionKey> keySet) {
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
             SelectionKey key = iter.next();
