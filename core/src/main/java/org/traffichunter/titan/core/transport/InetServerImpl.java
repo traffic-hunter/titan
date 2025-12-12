@@ -33,7 +33,6 @@ import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.concurrent.EventLoopBridge;
 import org.traffichunter.titan.core.concurrent.EventLoopBridges;
-import org.traffichunter.titan.core.concurrent.EventLoops;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
@@ -45,7 +44,6 @@ import org.traffichunter.titan.core.channel.ChannelContext;
 class InetServerImpl implements InetServer {
 
     private final ServerConnector connector;
-    private final EventLoops eventLoops;
     private final Object lock = new Object();
 
     private Handler<ChannelContext> channelContextHandler;
@@ -58,7 +56,6 @@ class InetServerImpl implements InetServer {
 
     InetServerImpl(final ServerConnector connector) {
         this.connector = Objects.requireNonNull(connector, "connector");
-        this.eventLoops = new EventLoops();
     }
 
     @Override
@@ -110,6 +107,7 @@ class InetServerImpl implements InetServer {
 
     @Override
     public InetServer invokeChannelHandler(final Handler<ChannelContext> channelContextHandler) {
+        Assert.checkNull(channelContextHandler, "Channel context handler is null");
         this.channelContextHandler = channelContextHandler;
         return this;
     }
@@ -158,7 +156,8 @@ class InetServerImpl implements InetServer {
                 listening = false;
             }
 
-            eventLoops.gracefullyShutdown();
+            primaryGroup.gracefullyShutdown();
+            secondaryGroup.gracefullyShutdown();
             connector.close();
             log.info("Closed server");
         } catch (IOException e) {
@@ -170,7 +169,7 @@ class InetServerImpl implements InetServer {
 
         try {
             connector.bind();
-            primaryGroup.ioHandler().registerAccept(connector.serverSocketChannel());
+            primaryGroup.next().ioSelector().registerAccept(connector.serverSocketChannel());
         } catch (IOException e) {
             log.error("Failed to connect to {}.", connector.host(), e);
             return CompletableFuture.failedFuture(e);
@@ -201,22 +200,36 @@ class InetServerImpl implements InetServer {
             secondaryGroup.start();
 
             while (primaryGroup.isStarted() && secondaryGroup.isStarted()) {
-                try {
-                    ChannelContext ctx = bridge.consume();
-                    if(ctx == null) {
-                        continue;
-                    }
-
-                    dispatch(ctx);
-                } catch (Exception e) {
-                    log.error("Failed to dispatch channel", e);
+                ChannelContext ctx = bridge.consume();
+                if(ctx == null) {
+                    continue;
                 }
+
+                dispatch(ctx);
             }
         }
 
-        private void dispatch(ChannelContext ctx) throws IOException {
-            channelContextHandler.handle(ctx);
-            secondaryGroup.ioHandler().registerRead(ctx.socketChannel());
+        /**
+         * Dispatches the given context to a secondary event loop.
+         *
+         * <p>
+         * Selector operations must run on the event loop’s own thread; enqueuing ensures that {@code handle(ctx)}
+         * and {@code registerRead(ctx)} execute in the correct order and remain thread-safe.
+         * </p>
+         *
+         * @param ctx the channel context to process and register for read events
+         * @throws InetServer.ServerException if read registration fails
+         */
+        private void dispatch(ChannelContext ctx) {
+            ChannelSecondaryIOEventLoop eventLoop = secondaryGroup.next();
+            eventLoop.register(() -> {
+                channelContextHandler.handle(ctx);
+                try {
+                    eventLoop.ioSelector().registerRead(ctx);
+                } catch (IOException e) {
+                    throw new ServerException("Failed to register I/O event for channel = ", e);
+                }
+            });
         }
     }
 }

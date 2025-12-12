@@ -24,17 +24,21 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.util.concurrent.NewIOException;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
 import java.util.Set;
 
 /**
  * @author yun
  */
+@Slf4j
 public final class IOSelector {
 
     private final Selector selector;
@@ -81,38 +85,44 @@ public final class IOSelector {
 
     @CanIgnoreReturnValue
     public IOSelector registerAccept(SelectableChannel channel) throws IOException {
-        register(channel, SelectionKey.OP_ACCEPT);
+        if(channel instanceof ServerSocketChannel) {
+            register(channel, SelectionKey.OP_ACCEPT, null);
+        }
         return this;
     }
 
     @CanIgnoreReturnValue
-    public IOSelector registerRead(SelectableChannel channel) throws IOException {
-        register(channel, SelectionKey.OP_READ);
+    public IOSelector registerRead(ChannelContext channel) throws IOException {
+        register(channel.socketChannel(), SelectionKey.OP_READ, channel);
         return this;
     }
 
     @CanIgnoreReturnValue
-    public IOSelector registerWrite(SelectableChannel channel) throws IOException {
-        register(channel, SelectionKey.OP_WRITE);
+    public IOSelector registerWrite(ChannelContext channel) throws IOException {
+        register(channel.socketChannel(), SelectionKey.OP_WRITE, channel);
         return this;
     }
 
     @CanIgnoreReturnValue
-    public IOSelector registerConnect(SelectableChannel channel) throws IOException {
-        register(channel, SelectionKey.OP_CONNECT);
+    public IOSelector registerConnect(ChannelContext channel) throws IOException {
+        register(channel.socketChannel(), SelectionKey.OP_CONNECT, channel);
         return this;
     }
 
     @CanIgnoreReturnValue
-    public IOSelector register(SelectableChannel channel, int ops) throws IOException {
+    public IOSelector register(ChannelContext channel, int ops, Object attachment) throws IOException {
+        return register(channel.socketChannel(), ops, attachment);
+    }
+
+    @CanIgnoreReturnValue
+    public IOSelector register(SelectableChannel channel, int ops, Object attachment) throws IOException {
         SelectionKey key = channel.keyFor(selector);
 
         if(key == null) {
-            channel.register(selector, ops);
+            channel.register(selector, ops, attachment);
         } else {
             key.interestOps(key.interestOps() | ops);
         }
-        wakeUp();
         return this;
     }
 }

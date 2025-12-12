@@ -88,7 +88,7 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
     }
 
     @Override
-    public IOSelector ioHandler() {
+    public IOSelector ioSelector() {
         return ioSelector;
     }
 

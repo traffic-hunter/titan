@@ -120,7 +120,6 @@ class InetClientImpl implements InetClient {
 //            }
 //        });
 
-        eventLoop.registerIoChannel(ctx, IOType.CONNECT);
         eventLoop.start();
         return this;
     }
@@ -193,7 +192,6 @@ class InetClientImpl implements InetClient {
 
         return CompletableFuture.runAsync(() -> {
             writePendingTask.add(buffer);
-            eventLoop.registerIoChannel(ctx, IOType.WRITE);
         });
     }
 

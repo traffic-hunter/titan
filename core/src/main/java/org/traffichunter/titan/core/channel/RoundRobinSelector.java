@@ -50,6 +50,10 @@ public class RoundRobinSelector<E> {
         return e;
     }
 
+    public E peek() {
+        return group.get(currentIdx());
+    }
+
     public List<E> group() {
         return group;
     }

@@ -28,5 +28,5 @@ package org.traffichunter.titan.core.concurrent;
  */
 public interface IOEventLoop extends EventLoop {
 
-    IOSelector ioHandler();
+    IOSelector ioSelector();
 }

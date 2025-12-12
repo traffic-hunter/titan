@@ -115,8 +115,8 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     }
 
     @Override
-    public IOSelector ioHandler() {
-        return selector.next().ioHandler();
+    public IOSelector ioSelector() {
+        return selector.next().ioSelector();
     }
 
     @Override
