@@ -21,35 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.concurrent;
+package org.traffichunter.titan.core.concurrent;
 
-import io.netty.util.internal.PriorityQueueNode;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Delayed;
-import org.traffichunter.titan.core.concurrent.EventLoop;
-import org.traffichunter.titan.core.util.Time;
+import org.traffichunter.titan.bootstrap.Configurations;
+import org.traffichunter.titan.core.channel.ChannelContext;
 
 /**
  * @author yungwang-o
  */
-public interface ScheduledPromise<C> extends Promise<C>, Delayed, PriorityQueueNode {
+public final class EventLoopBridges {
 
-    static <C> ScheduledPromise<C> newPromise(EventLoop eventLoop, Runnable task, long deadlineNanos) {
-        return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos);
+    private static EventLoopBridge<ChannelContext> INSTANCE = null;
+
+    public static EventLoopBridge<ChannelContext> getInstance() {
+        if(INSTANCE == null) {
+            INSTANCE = new EventLoopBridge<>(Math.max(16, Configurations.taskPendingCapacity()));
+        }
+
+        return INSTANCE;
     }
 
-    static <C> ScheduledPromise<C> newPromise(EventLoop eventLoop, Callable<C> task, long deadlineNanos) {
-        return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos);
-    }
-
-    static long calculateDeadlineNanos(final long delay) {
-        long deadlineNanos = Time.currentNanos() + delay;
-        return deadlineNanos < 0 ? Long.MAX_VALUE : deadlineNanos;
-    }
-
-    long getId();
-
-    ScheduledPromise<C> setId(long id);
-
-    long getDeadlineNanos();
+    private EventLoopBridges() { }
 }

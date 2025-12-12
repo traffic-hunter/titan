@@ -21,42 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
-
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.core.util.concurrent.Promise;
-import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
+package org.traffichunter.titan.core.concurrent;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoop extends EventLoopLifeCycle {
+public interface IOEventLoop extends EventLoop {
 
-    void start();
-
-    void register(Runnable task);
-
-    <V> Promise<V> submit(Runnable task);
-
-    <V> Promise<V> submit(Callable<V> task);
-
-    <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
-
-    <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
-
-    default boolean inEventLoop() {
-        return inEventLoop(Thread.currentThread());
-    }
-
-    boolean inEventLoop(Thread thread);
-
-    default void gracefullyShutdown() {
-        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
-    }
-
-    void gracefullyShutdown(long timeout, TimeUnit unit);
-
-    void close();
+    IOSelector ioSelector();
 }

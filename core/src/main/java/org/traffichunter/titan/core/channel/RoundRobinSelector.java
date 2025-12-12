@@ -21,50 +21,48 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.channel;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author yungwang-o
+ * @author yun
  */
-@Slf4j
-public final class EventLoopBridge<T> {
+public class RoundRobinSelector<E> {
 
-    private final BlockingQueue<T> bridge;
+    private final List<E> group;
+    private final AtomicInteger counter = new AtomicInteger();
 
-    public EventLoopBridge(final int capacity) {
-        this.bridge = new ArrayBlockingQueue<>(capacity);
+    public RoundRobinSelector(final List<E> group) {
+        this.group = group;
     }
 
-    public void produce(final T task) {
-        try {
-            final boolean offer = bridge.offer(task, 10, TimeUnit.SECONDS);
-            if (!offer) {
-                throw new EventLoopException("Failed to produce event bridge");
-            }
-        } catch (InterruptedException ignore) {
-            Thread.currentThread().interrupt();
+    public E next() {
+        final int adjustIdx = adjustSignedArrayIndex(counter.getAndIncrement(), group.size());
+
+        E e = group.get(adjustIdx);
+        if(e == null) {
+            throw new NoSuchElementException("No more elements");
         }
+
+        return e;
     }
 
-    public T consume() {
-        try {
-            return bridge.take();
-        } catch (InterruptedException ignore) {
-            log.warn("Event bridge interrupted");
-            return null;
-        }
+    public E peek() {
+        return group.get(currentIdx());
     }
 
-    public List<T> pressure() {
-        List<T> tmp = new ArrayList<>(bridge.size());
-        bridge.drainTo(tmp);
-        return tmp;
+    public List<E> group() {
+        return group;
+    }
+
+    public int currentIdx() {
+        return adjustSignedArrayIndex(counter.get(), group.size());
+    }
+
+    private static int adjustSignedArrayIndex(final int idx, final int size) {
+        return (idx & Integer.MAX_VALUE) % size;
     }
 }

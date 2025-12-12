@@ -21,17 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
+import org.traffichunter.titan.core.concurrent.EventLoopGroup;
+import org.traffichunter.titan.core.concurrent.IOEventLoop;
 
 /**
- * @author yungwang-o
+ * @author yun
  */
-public interface IOEventLoop extends EventLoop {
+public interface ChannelEventLoopGroup<E extends IOEventLoop>
+        extends EventLoopGroup<E>, IOEventLoop {
 
-    void registerChannelContextHandler(ChannelContextInBoundHandler inBoundHandler);
-
-    void registerChannelContextHandler(ChannelContextOutBoundHandler outBoundHandler);
+    @Override
+    E next();
 }

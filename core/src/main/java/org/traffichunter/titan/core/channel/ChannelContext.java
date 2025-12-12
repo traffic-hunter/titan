@@ -26,13 +26,17 @@ package org.traffichunter.titan.core.channel;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -42,6 +46,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 @Slf4j
 public class ChannelContext implements Context {
 
+    private final ChannelChain chain = new ChannelChain();
     private final SocketChannel channel;
     private final Instant createdAt;
     private final String contextId;
@@ -56,9 +61,9 @@ public class ChannelContext implements Context {
     }
 
     private ChannelContext(final SocketChannel channel, final String contextId, final Instant createdAt) {
-        Objects.requireNonNull(channel, "socketChannel");
-        Objects.requireNonNull(contextId, "contextId");
-        Objects.requireNonNull(createdAt, "createdAt");
+        Assert.checkNull(channel, "socketChannel");
+        Assert.checkNull(contextId, "contextId");
+        Assert.checkNull(createdAt, "createdAt");
 
         this.channel = channel;
         this.contextId = contextId;
@@ -128,6 +133,33 @@ public class ChannelContext implements Context {
         }
     }
 
+    public ChannelChain chain() {
+        return chain;
+    }
+
+    @Override
+    public String id() {
+        return contextId;
+    }
+
+    @Override
+    public SelectableChannel channel() {
+        return socketChannel();
+    }
+
+    @Override
+    public SocketAddress remoteAddress() {
+        try {
+            return channel.getRemoteAddress();
+        } catch (IOException e) {
+            return new InetSocketAddress("unknown", 1);
+        }
+    }
+
+    public boolean isConnected() {
+        return channel.isConnected();
+    }
+
     public SocketChannel socketChannel() {
         return channel;
     }
@@ -135,8 +167,6 @@ public class ChannelContext implements Context {
     public Instant createdAt() {
         return createdAt;
     }
-
-    public String contextId() { return contextId; }
 
     public boolean isClosed() {
         return isClosed.get() || !channel.isOpen();

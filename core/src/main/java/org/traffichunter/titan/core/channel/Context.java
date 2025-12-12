@@ -27,6 +27,8 @@ import org.traffichunter.titan.core.util.inet.ReadStream;
 import org.traffichunter.titan.core.util.inet.WriteStream;
 
 import java.io.IOException;
+import java.net.SocketAddress;
+import java.nio.channels.SelectableChannel;
 
 /**
  * @author yungwang-o
@@ -34,6 +36,12 @@ import java.io.IOException;
 public interface Context extends ReadStream, WriteStream {
 
     boolean isOpen();
+
+    String id();
+
+    SocketAddress remoteAddress();
+
+    SelectableChannel channel();
 
     void close() throws IOException;
 }

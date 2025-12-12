@@ -34,7 +34,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.event.EventLoop;
+import org.traffichunter.titan.core.concurrent.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
 
 /**

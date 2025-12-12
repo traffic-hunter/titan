@@ -21,63 +21,35 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.channel;
 
-import java.io.IOException;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
-import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.concurrent.EventLoopBridge;
+import org.traffichunter.titan.core.concurrent.EventLoopBridges;
+import org.traffichunter.titan.core.concurrent.SingleThreadIOEventLoop;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 @Slf4j
-public class PrimaryNioEventLoop extends AbstractNioEventLoop {
+public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
-    private final EventLoopBridge<ChannelContext> bridge;
+    private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance();
 
-    public PrimaryNioEventLoop(final String eventLoopName, final EventLoopBridge<ChannelContext> bridge) {
+    public ChannelPrimaryIOEventLoop() {
+        this(EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME);
+    }
+
+    public ChannelPrimaryIOEventLoop(final String eventLoopName) {
         super(eventLoopName);
-        this.bridge = bridge;
-    }
-
-    public void registerIoConcern(final SelectableChannel channel) {
-        try {
-            channel.register(selector, SelectionKey.OP_ACCEPT);
-        } catch (IOException e) {
-            throw new EventLoopException("Failed to register server channel", e);
-        }
     }
 
     @Override
-    public void registerChannelContextHandler(final ChannelContextInBoundHandler inBoundHandler) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void registerChannelContextHandler(final ChannelContextOutBoundHandler outBoundHandler) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <V> ScheduledPromise<V> schedule(final Runnable task, final long delay, final TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <V> ScheduledPromise<V> schedule(final Callable<V> task, final long delay, final TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected void handleIO(final Set<SelectionKey> keySet) {
+    protected void processIO(final Set<SelectionKey> keySet) {
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {
             SelectionKey key = iter.next();

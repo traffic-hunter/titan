@@ -30,16 +30,14 @@ import java.nio.channels.SocketChannel;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
-import org.traffichunter.titan.core.event.SecondaryNioEventLoop;
+import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.channel.ChannelContextInBoundHandler;
-import org.traffichunter.titan.core.channel.ChannelContextOutBoundHandler;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 import org.traffichunter.titan.core.util.event.IOType;
 
@@ -50,7 +48,7 @@ import org.traffichunter.titan.core.util.event.IOType;
 class InetClientImpl implements InetClient {
 
     private final ClientConnector connector;
-    private final SecondaryNioEventLoop eventLoop;
+    private final ChannelSecondaryIOEventLoop eventLoop;
     private final GlobalShutdownHook shutdownHook = GlobalShutdownHook.INSTANCE;
     private final Queue<Buffer> writePendingTask = new ConcurrentLinkedQueue<>();
     private final ChannelContext ctx;
@@ -64,65 +62,64 @@ class InetClientImpl implements InetClient {
         Assert.checkNull(address, "Address is null");
 
         this.connector = ClientConnector.open(address);
-        this.eventLoop = new SecondaryNioEventLoop();
+        this.eventLoop = new ChannelSecondaryIOEventLoop();
         this.ctx = ChannelContext.create(connector.channel());
     }
 
     @Override
     public InetClient start() {
-        eventLoop.registerChannelContextHandler(new ChannelContextInBoundHandler() {
-            @Override
-            public void handleConnect(final ChannelContext channelContext) {
-                connectHandler.handle(channelContext.socketChannel());
-            }
+//        eventLoop.registerChannelContextHandler(new ChannelContextInBoundHandler() {
+//            @Override
+//            public void handleConnect(final ChannelContext channelContext) {
+//                connectHandler.handle(channelContext.socketChannel());
+//            }
+//
+//            @Override
+//            public void handleCompletedConnect(final ChannelContext channelContext) {
+//                eventLoop.registerIoChannel(channelContext, IOType.READ);
+//            }
+//
+//            @Override
+//            public void handleRead(final ChannelContext channelContext) {
+//                Buffer buffer = Buffer.alloc(1024);
+//
+//                int recv = channelContext.recv(buffer);
+//                if(recv > 0) {
+//                    try {
+//                        readHandler.handle(buffer);
+//                    } finally {
+//                        buffer.release();
+//                    }
+//                } else if(recv < 0) {
+//                    try {
+//                        channelContext.close();
+//                    } catch (IOException e) {
+//                        log.info("Failed to close socket = {}", e.getMessage());
+//                        doClose(false);
+//                    } finally {
+//                        buffer.release();
+//                    }
+//                }
+//            }
+//        });
+//
+//        eventLoop.registerChannelContextHandler(new ChannelContextOutBoundHandler() {
+//            @Override
+//            public void handleWrite(final ChannelContext channelContext) {
+//                Buffer buffer;
+//                while ((buffer = writePendingTask.poll()) != null) {
+//                    writeHandler.handle(buffer);
+//                    int write = channelContext.write(buffer);
+//                    if(write == buffer.byteBuf().readableBytes()) {
+//                        buffer.release();
+//                    } else {
+//                        eventLoop.registerIoChannel(channelContext, IOType.WRITE);
+//                        break;
+//                    }
+//                }
+//            }
+//        });
 
-            @Override
-            public void handleCompletedConnect(final ChannelContext channelContext) {
-                eventLoop.registerIoChannel(channelContext, IOType.READ);
-            }
-
-            @Override
-            public void handleRead(final ChannelContext channelContext) {
-                Buffer buffer = Buffer.alloc(1024);
-
-                int recv = channelContext.recv(buffer);
-                if(recv > 0) {
-                    try {
-                        readHandler.handle(buffer);
-                    } finally {
-                        buffer.release();
-                    }
-                } else if(recv < 0) {
-                    try {
-                        channelContext.close();
-                    } catch (IOException e) {
-                        log.info("Failed to close socket = {}", e.getMessage());
-                        doClose(false);
-                    } finally {
-                        buffer.release();
-                    }
-                }
-            }
-        });
-
-        eventLoop.registerChannelContextHandler(new ChannelContextOutBoundHandler() {
-            @Override
-            public void handleWrite(final ChannelContext channelContext) {
-                Buffer buffer;
-                while ((buffer = writePendingTask.poll()) != null) {
-                    writeHandler.handle(buffer);
-                    int write = channelContext.write(buffer);
-                    if(write == buffer.byteBuf().readableBytes()) {
-                        buffer.release();
-                    } else {
-                        eventLoop.registerIoChannel(channelContext, IOType.WRITE);
-                        break;
-                    }
-                }
-            }
-        });
-
-        eventLoop.registerIoChannel(ctx, IOType.CONNECT);
         eventLoop.start();
         return this;
     }
@@ -195,7 +192,6 @@ class InetClientImpl implements InetClient {
 
         return CompletableFuture.runAsync(() -> {
             writePendingTask.add(buffer);
-            eventLoop.registerIoChannel(ctx, IOType.WRITE);
         });
     }
 

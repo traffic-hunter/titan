@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Queue;
@@ -128,7 +128,7 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor imple
 
     protected abstract void run();
 
-    protected final void wakeUp() {
+    void wakeUp() {
         taskQueue.add(WAKEUP_TASK);
     }
 

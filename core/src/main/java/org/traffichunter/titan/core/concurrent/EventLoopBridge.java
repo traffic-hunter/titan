@@ -21,35 +21,50 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.concurrent;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * @author yungwang-o
  */
 @Slf4j
-public final class EventLoopFactory {
+public final class EventLoopBridge<T> {
 
-    public static PrimaryNioEventLoop createPrimaryEventLoop(final EventLoopBridge<ChannelContext> bridge) {
-        return new PrimaryNioEventLoop(
-                EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME,
-                bridge
-        );
+    private final BlockingQueue<T> bridge;
+
+    public EventLoopBridge(final int capacity) {
+        this.bridge = new LinkedBlockingQueue<>(capacity);
     }
 
-    public static SecondaryNioEventLoop createSecondaryEventLoop(final int eventLoopNameCount) {
-        return new SecondaryNioEventLoop(
-                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount
-        );
+    public void produce(final T task) {
+        try {
+            final boolean offer = bridge.offer(task, 10, TimeUnit.SECONDS);
+            if (!offer) {
+                throw new EventLoopException("Failed to produce event bridge");
+            }
+        } catch (InterruptedException ignore) {
+            Thread.currentThread().interrupt();
+        }
     }
 
-    public static EventLoop createTaskEventLoop() {
-        return new TaskEventLoop();
+    public T consume() {
+        try {
+            return bridge.take();
+        } catch (InterruptedException ignore) {
+            log.warn("Event bridge interrupted");
+            return null;
+        }
     }
 
-    private EventLoopFactory() {}
+    public List<T> pressure() {
+        List<T> tmp = new ArrayList<>(bridge.size());
+        bridge.drainTo(tmp);
+        return tmp;
+    }
 }

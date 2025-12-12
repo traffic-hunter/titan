@@ -21,35 +21,42 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.concurrent;
+package org.traffichunter.titan.core.concurrent;
 
-import io.netty.util.internal.PriorityQueueNode;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Delayed;
-import org.traffichunter.titan.core.concurrent.EventLoop;
-import org.traffichunter.titan.core.util.Time;
+import java.util.concurrent.TimeUnit;
+import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * @author yungwang-o
  */
-public interface ScheduledPromise<C> extends Promise<C>, Delayed, PriorityQueueNode {
+public interface EventLoop extends EventLoopLifeCycle {
 
-    static <C> ScheduledPromise<C> newPromise(EventLoop eventLoop, Runnable task, long deadlineNanos) {
-        return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos);
+    void start();
+
+    void register(Runnable task);
+
+    <V> Promise<V> submit(Runnable task);
+
+    <V> Promise<V> submit(Callable<V> task);
+
+    <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
+
+    <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
+
+    default boolean inEventLoop() {
+        return inEventLoop(Thread.currentThread());
     }
 
-    static <C> ScheduledPromise<C> newPromise(EventLoop eventLoop, Callable<C> task, long deadlineNanos) {
-        return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos);
+    boolean inEventLoop(Thread thread);
+
+    default void gracefullyShutdown() {
+        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
     }
 
-    static long calculateDeadlineNanos(final long delay) {
-        long deadlineNanos = Time.currentNanos() + delay;
-        return deadlineNanos < 0 ? Long.MAX_VALUE : deadlineNanos;
-    }
+    void gracefullyShutdown(long timeout, TimeUnit unit);
 
-    long getId();
-
-    ScheduledPromise<C> setId(long id);
-
-    long getDeadlineNanos();
+    void close();
 }

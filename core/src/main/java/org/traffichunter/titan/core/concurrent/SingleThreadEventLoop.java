@@ -21,14 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.event;
+package org.traffichunter.titan.core.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.netty.util.internal.DefaultPriorityQueue;
 import io.netty.util.internal.PriorityQueue;
 import java.util.Comparator;
 import java.util.Queue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -40,13 +39,12 @@ import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * @author yungwang-o
  */
 @Slf4j
-public class TaskEventLoop extends AbstractEventLoop {
+public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
     private static final int INITIAL_TASK_QUEUE_CAPACITY = 16;
     private static final Comparator<ScheduledPromise<?>> SCHEDULE_PROMISE_COMPARATOR = ScheduledPromise::compareTo;
@@ -54,12 +52,12 @@ public class TaskEventLoop extends AbstractEventLoop {
 
     private final PriorityQueue<ScheduledPromise<?>> scheduleQueue;
 
-    public TaskEventLoop() {
-        this(EventLoopConstants.TASK_EVENT_LOOP_THREAD_NAME);
+    public SingleThreadEventLoop(final String eventLoopName) {
+        this(eventLoopName, new BlockingArrayQueue<>(Math.max(INITIAL_TASK_QUEUE_CAPACITY, Configurations.taskPendingCapacity())));
     }
 
-    public TaskEventLoop(final String eventLoopName) {
-        super(eventLoopName, new BlockingArrayQueue<>(Math.max(INITIAL_TASK_QUEUE_CAPACITY, Configurations.taskPendingCapacity())));
+    protected SingleThreadEventLoop(final String eventLoopName, final Queue<Runnable> taskQueue) {
+        super(eventLoopName, taskQueue);
         this.scheduleQueue = new DefaultPriorityQueue<>(SCHEDULE_PROMISE_COMPARATOR, INITIAL_TASK_QUEUE_CAPACITY);
     }
 
@@ -77,6 +75,7 @@ public class TaskEventLoop extends AbstractEventLoop {
             } catch (Exception e) {
                 log.error("An event loop terminated with unexpected exception. Exception:", e);
             } finally {
+                // shutting down
                 while (true) {
                     if(getStatus().compareTo(EventLoopStatus.SHUTTING_DOWN) >= 0
                             || trySetStatus(getStatus(), EventLoopStatus.SHUTTING_DOWN)) {
@@ -84,12 +83,14 @@ public class TaskEventLoop extends AbstractEventLoop {
                     }
                 }
                 try {
+                    // process remaining task
                     while (true) {
                         if(checkShutdown()) {
                             break;
                         }
                     }
 
+                    // shutdown
                     while (true) {
                         if (getStatus().compareTo(EventLoopStatus.SHUTDOWN) >= 0
                                 || trySetStatus(getStatus(), EventLoopStatus.SHUTDOWN)) {
@@ -97,6 +98,8 @@ public class TaskEventLoop extends AbstractEventLoop {
                         }
                     }
                 } finally {
+                    cleanUp();
+
                     int countTask = runAllTasks();
                     if (countTask > 0) {
                         log.error("An event loop terminated with " + "non-empty task queue ({})", countTask);
@@ -106,18 +109,7 @@ public class TaskEventLoop extends AbstractEventLoop {
         });
     }
 
-    private void doRun() {
-        if(!inEventLoop()) {
-            throw new IllegalStateException("Event loop is not in event loop");
-        }
-
-        while (!checkShutdown()) {
-            final Runnable task = takeTask();
-            if(task != null) {
-                task.run();
-            }
-        }
-    }
+    protected abstract void doRun() throws Exception;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -196,7 +188,7 @@ public class TaskEventLoop extends AbstractEventLoop {
         addTask(task);
     }
 
-    private void addTask(final Runnable task) {
+    protected void addTask(final Runnable task) {
         Assert.checkNull(task, "task is null");
         if(isShuttingDown()) {
             throw new RejectedExecutionException("Event loop is shutdown!!");
@@ -212,7 +204,7 @@ public class TaskEventLoop extends AbstractEventLoop {
     }
 
     @CanIgnoreReturnValue
-    private int runAllTasks() {
+    int runAllTasks() {
         if(!inEventLoop()) {
             return 0;
         }
@@ -235,7 +227,7 @@ public class TaskEventLoop extends AbstractEventLoop {
         return count;
     }
 
-    private boolean checkShutdown() {
+    protected boolean checkShutdown() {
         if(!isShuttingDown()) {
             return false;
         }
@@ -252,7 +244,9 @@ public class TaskEventLoop extends AbstractEventLoop {
         return isShutdown();
     }
 
-    private Runnable takeTask() {
+    protected abstract void cleanUp();
+
+    protected Runnable takeTask() {
         if(!inEventLoop()) {
             return null;
         }

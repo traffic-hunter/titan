@@ -25,25 +25,23 @@ package org.traffichunter.titan.core.test.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.net.InetSocketAddress;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.channel.ChannelInBoundFilter;
+import org.traffichunter.titan.core.channel.ChannelInboundFilterChain;
+import org.traffichunter.titan.core.channel.Context;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
@@ -63,22 +61,10 @@ public class ClientToServerTest {
 
     @BeforeAll
     static void setUp() throws Exception {
-        server = InetServer.open("localhost", 7777);
-
-        server.listen().get()
-                .onRead(handle -> {
-                    final Message msg = Message.builder()
-                            .routingKey(RoutingKey.create("route.test"))
-                            .priority(Priority.DEFAULT)
-                            .body(handle.getBytes())
-                            .producerId(IdGenerator.uuid())
-                            .createdAt(Instant.now())
-                            .build();
-
-                    log.info("msg = {}", msg.toString());
-
-                    rq.enqueue(msg);
-                });
+        server = InetServer.open("localhost", 7777)
+                .listen()
+                .get()
+                .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()));
 
         server.start();
     }
@@ -144,5 +130,43 @@ public class ClientToServerTest {
 
         es.shutdown();
         es.close();
+    }
+
+    private static class TestChannelInboundFilter implements ChannelInBoundFilter {
+
+        @Override
+        public void doFilter(Context context, ChannelInboundFilterChain chain) throws Exception {
+            Buffer buffer = Buffer.alloc(1024);
+
+            int recv = context.recv(buffer);
+            if(recv > 0) {
+                try {
+                    final Message msg = Message.builder()
+                            .routingKey(RoutingKey.create("route.test"))
+                            .priority(Priority.DEFAULT)
+                            .body(buffer.getBytes())
+                            .producerId(IdGenerator.uuid())
+                            .createdAt(Instant.now())
+                            .build();
+
+                    log.info("msg = {}", msg.toString());
+
+                    rq.enqueue(msg);
+                } finally {
+                    buffer.release();
+                }
+            } else if(recv < 0) {
+                try {
+                    context.close();
+                } catch (IOException e) {
+                    log.info("Failed to close socket = {}", e.getMessage());
+                    return;
+                } finally {
+                    buffer.release();
+                }
+            }
+
+            chain.doFilter(context);
+        }
     }
 }
