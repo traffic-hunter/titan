@@ -23,26 +23,18 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
-import static org.traffichunter.titan.core.codec.stomp.StompFrame.*;
-
 import java.net.InetSocketAddress;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.codec.stomp.StompCommand;
-import org.traffichunter.titan.core.codec.stomp.StompException;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHandler;
 import org.traffichunter.titan.core.codec.stomp.StompHandlerImpl;
-import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.InetServer;
@@ -81,20 +73,12 @@ final class DefaultStompServer implements StompServer {
 
     @Override
     public Future<StompServer> listen() {
-        return inetServer.listen().thenApply(server -> {
-            server.onConnect(channel -> {
-                StompServerConnection ssc = new StompServerConnectionImpl(this, channel);
-                StompFrame frame = create(StompHeaders.create(), StompCommand.CONNECT);
-                handler.handle(frame, ssc);
-            });
-
-            return this;
-        });
+        return null;
     }
 
     @Override
     public StompServer onRead(final StompHandler handler) {
-        inetServer.onRead(data -> {});
+        //inetServer.onRead(data -> {});
         return this;
     }
 
@@ -150,7 +134,7 @@ final class DefaultStompServer implements StompServer {
 
     @Override
     public void close() {
-        inetServer.close();
+        //inetServer.close();
     }
 
     @Override

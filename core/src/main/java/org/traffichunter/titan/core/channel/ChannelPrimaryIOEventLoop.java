@@ -69,7 +69,6 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
                     bridge.produce(ctx);
 
-                    log.info("Accepted connection from {}", clientSocketChannel.getRemoteAddress());
                 } catch (Throwable e) {
                     key.cancel();
                 }

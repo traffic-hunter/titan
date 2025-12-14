@@ -23,13 +23,17 @@
  */
 package org.traffichunter.titan.core.util.concurrent;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
+
 /**
  * @author yungwang-o
  */
 @FunctionalInterface
 public interface Completion<C> {
 
-    default Promise<C> success(C result) {
+    @CanIgnoreReturnValue
+    default Promise<C> success(@Nullable C result) {
         return complete(result, null);
     }
 
@@ -37,7 +41,8 @@ public interface Completion<C> {
         return complete(null, null);
     }
 
-    default Promise<C> fail(Throwable err) {
+    @CanIgnoreReturnValue
+    default Promise<C> fail(@Nullable Throwable err) {
         return complete(null, err);
     }
 
@@ -45,5 +50,5 @@ public interface Completion<C> {
         return complete(null, new PromiseException(message));
     }
 
-    Promise<C> complete(C result, Throwable error);
+    Promise<C> complete(@Nullable C result, @Nullable Throwable error);
 }

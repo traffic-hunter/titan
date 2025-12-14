@@ -28,6 +28,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.EventLoop;
 
 /**
@@ -35,15 +38,25 @@ import org.traffichunter.titan.core.concurrent.EventLoop;
  */
 public interface Promise<C> extends RunnableFuture<C>, Completion<C> {
 
-    static <C> Promise<C> newPromise(EventLoop eventLoop, Runnable task) {
+    static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Runnable task) {
         return new PromiseImpl<>(eventLoop, task);
     }
 
-    static <C> Promise<C> newPromise(EventLoop eventLoop, Callable<C> task) {
+    static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Callable<C> task) {
         return new PromiseImpl<>(eventLoop, task);
+    }
+
+    static <C> Promise<C> failedPromise(EventLoop eventLoop, Throwable err) {
+        Promise<C> failedPromise = Promise.newPromise(eventLoop, () -> null);
+        failedPromise.fail(err);
+        return failedPromise;
     }
 
     boolean isSuccess();
+
+    default boolean isFailed() {
+        return !isSuccess();
+    }
 
     boolean isCancellable();
 
@@ -51,19 +64,13 @@ public interface Promise<C> extends RunnableFuture<C>, Completion<C> {
     Promise<C> addListener(AsyncListener listener);
 
     @CanIgnoreReturnValue
-    Promise<C> addListeners(AsyncListener... listeners);
-
-    @CanIgnoreReturnValue
     Promise<C> removeListener(AsyncListener listener);
-
-    @CanIgnoreReturnValue
-    Promise<C> removeListeners(AsyncListener... listeners);
 
     @CanIgnoreReturnValue
     Promise<C> await() throws InterruptedException;
 
     @CanIgnoreReturnValue
-    Promise<C> await(long timeout, TimeUnit timeUnit) throws InterruptedException;
+    Promise<C> await(long timeout, @NonNull TimeUnit timeUnit) throws InterruptedException;
 
     Future<C> future();
 

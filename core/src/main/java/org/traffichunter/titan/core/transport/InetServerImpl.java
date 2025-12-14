@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
@@ -36,6 +37,7 @@ import org.traffichunter.titan.core.concurrent.EventLoopBridges;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 
 /**
  * @author yungwang-o
@@ -59,18 +61,22 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public void start() {
+    public InetServer start() {
         Assert.checkState(!running && connector.isOpen(), "Server is not listening");
 
         synchronized (lock) {
             running = true;
         }
 
-        ServerChannelDispatcher dispatcher = new ServerChannelDispatcher(primaryGroup, secondaryGroup, channelContextHandler);
-        Thread channelDispathcerThread = new Thread(dispatcher, "ChannelDispatcherThread");
+        primaryGroup.start();
+        secondaryGroup.start();
 
-        log.info("launched server!!");
+        ServerChannelDispatcher dispatcher = new ServerChannelDispatcher(primaryGroup, secondaryGroup, channelContextHandler);
+
+        Thread channelDispathcerThread = new Thread(dispatcher, "ChannelDispatcherThread");
         channelDispathcerThread.start();
+
+        return this;
     }
 
     @Override
@@ -85,24 +91,18 @@ class InetServerImpl implements InetServer {
     }
 
     @Override
-    public CompletableFuture<InetServer> listen() {
+    public Promise<Void> listen() {
         if(listening || !connector.isOpen()) {
             log.error("Connector is not open");
-            return CompletableFuture.failedFuture(new IllegalStateException("Connector is not open"));
+
+            return Promise.failedPromise(primaryGroup.next(), new ServerException("Connector is not open"));
         }
 
-        return bind().thenApply(server -> {
-                    listening = true;
-                    return server;
-                }).whenComplete(((server, ex) -> {
-                if(ex != null) {
-                    log.error("Failed to listen on host = {}. port = {}, exception = {}",
-                            connector.host(),
-                            connector.host(),
-                            ex.getMessage()
-                    );
-                }
-            }));
+        synchronized (lock) {
+            listening = true;
+        }
+
+        return bind();
     }
 
     @Override
@@ -165,17 +165,17 @@ class InetServerImpl implements InetServer {
         }
     }
 
-    private CompletableFuture<InetServer> bind() {
-
-        try {
-            connector.bind();
-            primaryGroup.next().ioSelector().registerAccept(connector.serverSocketChannel());
-        } catch (IOException e) {
-            log.error("Failed to connect to {}.", connector.host(), e);
-            return CompletableFuture.failedFuture(e);
-        }
-
-        return CompletableFuture.completedFuture(this);
+    private Promise<Void> bind() {
+        ChannelPrimaryIOEventLoop eventLoop = primaryGroup.next();
+        return eventLoop.submit(() -> {
+            try {
+                connector.bind();
+                eventLoop.ioSelector().registerAccept(connector.serverSocketChannel());
+                return null;
+            } catch (IOException e) {
+                throw new ServerException("Failed to bind to " + connector.host(), e);
+            }
+        });
     }
 
     private static class ServerChannelDispatcher implements Runnable {
@@ -196,8 +196,6 @@ class InetServerImpl implements InetServer {
 
         @Override
         public void run() {
-            primaryGroup.start();
-            secondaryGroup.start();
 
             while (primaryGroup.isStarted() && secondaryGroup.isStarted()) {
                 ChannelContext ctx = bridge.consume();
@@ -227,7 +225,7 @@ class InetServerImpl implements InetServer {
                 try {
                     eventLoop.ioSelector().registerRead(ctx);
                 } catch (IOException e) {
-                    throw new ServerException("Failed to register I/O event for channel = ", e);
+                    throw new ServerException("Failed to register I/O event for channel", e);
                 }
             });
         }
