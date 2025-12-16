@@ -47,16 +47,17 @@ public class PromiseImpl<C> implements Promise<C> {
 
     private final EventLoop eventLoop;
 
-    private volatile C result;
-    private volatile Throwable error;
-    private volatile List<AsyncListener> listeners;
+    private volatile boolean isCompleted;
+    private C result;
+    private Throwable error;
+    private List<AsyncListener> listeners;
     private final Callable<C> task;
 
-    PromiseImpl(EventLoop eventLoop, Runnable task) {
+    protected PromiseImpl(EventLoop eventLoop, Runnable task) {
         this(eventLoop, Executors.callable(task, null));
     }
 
-    PromiseImpl(EventLoop eventLoop, Callable<C> task) {
+    protected PromiseImpl(EventLoop eventLoop, Callable<C> task) {
         this.eventLoop = eventLoop;
         this.listeners = new ArrayList<>();
         this.task = task;
@@ -77,7 +78,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> addListener(final AsyncListener listener) {
+    public Promise<C> addListener(@NonNull final AsyncListener listener) {
         Assert.checkNull(listener, "listener is null");
 
         synchronized (this) {
@@ -90,12 +91,13 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> removeListener(final AsyncListener listener) {
+    public Promise<C> removeListener(@NonNull final AsyncListener listener) {
         Assert.checkNull(listener, "listener is null");
 
         synchronized (this) {
             this.listeners.remove(listener);
         }
+
         return this;
     }
 
@@ -106,7 +108,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public boolean isSuccess() {
-        return result != null;
+        return isCompleted && error == null;
     }
 
     @Override
@@ -126,7 +128,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public boolean isDone() {
-        return result != null || error != null;
+        return isCompleted;
     }
 
     @Override
@@ -190,7 +192,7 @@ public class PromiseImpl<C> implements Promise<C> {
             return this;
         }
         if(Thread.interrupted()) {
-            throw new InterruptedException();
+            throw new InterruptedException("Interrupted while waiting for");
         }
 
         final long timeOutNanos = timeUnit.toNanos(timeout);
@@ -223,6 +225,7 @@ public class PromiseImpl<C> implements Promise<C> {
         synchronized (this) {
             this.result = result;
             this.error = error;
+            this.isCompleted = true;
             notifyAll();
             notifyListeners();
         }
