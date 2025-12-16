@@ -32,6 +32,7 @@ import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 
 /**
  * @author yungwang-o
@@ -46,14 +47,14 @@ public interface InetServer {
         return new InetServerImpl(ServerConnector.open(address));
     }
 
-    void start();
+    InetServer start();
 
     @CanIgnoreReturnValue
     InetServer group(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> acceptorGroup,
                      ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> ioGroup);
 
     @CanIgnoreReturnValue
-    CompletableFuture<InetServer> listen();
+    Promise<Void> listen();
 
     @CanIgnoreReturnValue
     InetServer exceptionHandler(Handler<Throwable> handler);

@@ -33,7 +33,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.traffichunter.titan.core.concurrent.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
 
@@ -45,24 +47,17 @@ public class PromiseImpl<C> implements Promise<C> {
 
     private final EventLoop eventLoop;
 
-    private volatile C result;
-    private volatile Throwable error;
+    private volatile boolean isCompleted;
+    private C result;
+    private Throwable error;
     private List<AsyncListener> listeners;
     private final Callable<C> task;
 
-    @SuppressWarnings("unchecked")
-    PromiseImpl(final EventLoop eventLoop, final Runnable task) {
-        this.eventLoop = eventLoop;
-        this.listeners = new ArrayList<>();
-
-        if(result == null) {
-            this.task = (Callable<C>) Executors.callable(task);
-        } else {
-            this.task = Executors.callable(task, result);
-        }
+    protected PromiseImpl(EventLoop eventLoop, Runnable task) {
+        this(eventLoop, Executors.callable(task, null));
     }
 
-    PromiseImpl(final EventLoop eventLoop, final Callable<C> task) {
+    protected PromiseImpl(EventLoop eventLoop, Callable<C> task) {
         this.eventLoop = eventLoop;
         this.listeners = new ArrayList<>();
         this.task = task;
@@ -83,7 +78,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> addListener(final AsyncListener listener) {
+    public Promise<C> addListener(@NonNull final AsyncListener listener) {
         Assert.checkNull(listener, "listener is null");
 
         synchronized (this) {
@@ -96,35 +91,13 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public final Promise<C> addListeners(final AsyncListener... listeners) {
-        Assert.checkNull(listeners, "listeners is null");
-
-        synchronized (this) {
-            this.listeners.addAll(Arrays.stream(listeners).toList());
-        }
-        if(isDone()) {
-            notifyListeners();
-        }
-        return this;
-    }
-
-    @Override
-    public Promise<C> removeListener(final AsyncListener listener) {
+    public Promise<C> removeListener(@NonNull final AsyncListener listener) {
         Assert.checkNull(listener, "listener is null");
 
         synchronized (this) {
             this.listeners.remove(listener);
         }
-        return this;
-    }
 
-    @Override
-    public final Promise<C> removeListeners(final AsyncListener... listeners) {
-        Assert.checkNull(listeners, "listeners is null");
-
-        synchronized (this) {
-            this.listeners.removeAll(Arrays.stream(listeners).toList());
-        }
         return this;
     }
 
@@ -135,7 +108,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public boolean isSuccess() {
-        return result != null;
+        return isCompleted && error == null;
     }
 
     @Override
@@ -155,7 +128,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public boolean isDone() {
-        return result != null || error != null;
+        return isCompleted;
     }
 
     @Override
@@ -172,7 +145,9 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public C get(final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    public C get(final long timeout, @NonNull final TimeUnit unit)
+            throws InterruptedException, ExecutionException, TimeoutException {
+
         if(!await(timeout, unit).isDone()) {
             throw new TimeoutException("Timed out waiting for " + timeout + " " + unit);
         }
@@ -210,14 +185,14 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> await(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
+    public Promise<C> await(final long timeout, @NonNull final TimeUnit timeUnit) throws InterruptedException {
         Assert.check(timeout >= 0, () -> new PromiseException("Timeout more than or equals 0"));
 
         if(isDone()) {
             return this;
         }
         if(Thread.interrupted()) {
-            throw new InterruptedException();
+            throw new InterruptedException("Interrupted while waiting for");
         }
 
         final long timeOutNanos = timeUnit.toNanos(timeout);
@@ -250,6 +225,7 @@ public class PromiseImpl<C> implements Promise<C> {
         synchronized (this) {
             this.result = result;
             this.error = error;
+            this.isCompleted = true;
             notifyAll();
             notifyListeners();
         }

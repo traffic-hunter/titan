@@ -4,19 +4,16 @@ import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.assertj.core.api.Assertions;
+
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
@@ -41,14 +38,17 @@ class InetServerImplTest {
     private static final Logger log = LoggerFactory.getLogger(InetServerImplTest.class);
 
     @BeforeAll
-    static void setUp() throws Exception {
+    static void setUp() {
         server = InetServer.open("localhost", 7777)
                 .group(new ChannelPrimaryIOEventLoopGroup(), new ChannelSecondaryIOEventLoopGroup())
                 .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()))
-                .listen()
-                .get();
+                .start();
 
-        server.start();
+        server.listen().addListener(future -> {
+            if(future.isSuccess()) {
+                log.info("Server started successfully");
+            }
+        });
     }
 
     @AfterEach
