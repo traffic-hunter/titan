@@ -25,14 +25,13 @@ package org.traffichunter.titan.core.transport;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
-import java.util.concurrent.CompletableFuture;
 
 import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
 import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
  * @author yungwang-o

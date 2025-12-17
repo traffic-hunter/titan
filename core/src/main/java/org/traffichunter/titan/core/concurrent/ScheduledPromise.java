@@ -21,12 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.concurrent;
+package org.traffichunter.titan.core.concurrent;
 
 import io.netty.util.internal.PriorityQueueNode;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Delayed;
-import org.traffichunter.titan.core.concurrent.EventLoop;
+
 import org.traffichunter.titan.core.util.Time;
 
 /**

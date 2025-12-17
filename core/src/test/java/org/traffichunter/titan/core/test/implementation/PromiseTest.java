@@ -5,9 +5,9 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.concurrent.EventLoop;
-import org.traffichunter.titan.core.util.concurrent.AsyncListener;
-import org.traffichunter.titan.core.util.concurrent.Promise;
-import org.traffichunter.titan.core.util.concurrent.PromiseImpl;
+import org.traffichunter.titan.core.concurrent.AsyncListener;
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.PromiseImpl;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;

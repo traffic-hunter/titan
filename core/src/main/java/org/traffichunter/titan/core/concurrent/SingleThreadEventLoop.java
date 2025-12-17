@@ -38,7 +38,6 @@ import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
-import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 
 /**
  * @author yungwang-o

@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.concurrent.EventLoop;
 import org.traffichunter.titan.core.concurrent.TaskEventLoop;
-import org.traffichunter.titan.core.util.concurrent.Promise;
-import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 
 /**
  * @author yungwang-o

@@ -25,8 +25,6 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
@@ -37,7 +35,7 @@ import org.traffichunter.titan.core.concurrent.EventLoopBridges;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.channel.ChannelContext;
-import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
  * @author yungwang-o
