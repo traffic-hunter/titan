@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.concurrent;
+package org.traffichunter.titan.core.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Callable;
@@ -30,9 +30,7 @@ import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.EventLoop;
 
 /**
  * @author yungwang-o

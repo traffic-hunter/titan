@@ -29,8 +29,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
-import org.traffichunter.titan.core.util.concurrent.Promise;
 
 /**
  * @author yungwang-o
