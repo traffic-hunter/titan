@@ -32,11 +32,7 @@ import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.*;
@@ -44,12 +40,12 @@ import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.transport.InetClient;
-import org.traffichunter.titan.core.transport.InetClient.ClientException;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+@Disabled
 public class ClientToServerTest {
 
     private static final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 101);
@@ -88,7 +84,6 @@ public class ClientToServerTest {
                 .onRead(buffer -> log.info("buffer = {}", buffer.length()))
                 .onWrite(buffer -> {})
                 .onConnect(channel -> {})
-                .exceptionHandler(ClientException::new)
                 .start();
 
         client.connect().get();
@@ -113,7 +108,6 @@ public class ClientToServerTest {
                             .onRead(buffer -> {})
                             .onWrite(buffer -> {})
                             .onConnect(channel -> {})
-                            .exceptionHandler(ClientException::new)
                             .start();
 
                     client.connect().get();

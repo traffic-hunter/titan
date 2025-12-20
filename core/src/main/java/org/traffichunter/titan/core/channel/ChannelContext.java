@@ -28,11 +28,14 @@ import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.SocketOption;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
@@ -154,6 +157,11 @@ public class ChannelContext implements Context {
         } catch (IOException e) {
             return new InetSocketAddress("unknown", 1);
         }
+    }
+
+    @Override
+    public <T> void setOption(SocketOption<T> option, T value) throws IOException {
+        channel.setOption(option, value);
     }
 
     public boolean isConnected() {

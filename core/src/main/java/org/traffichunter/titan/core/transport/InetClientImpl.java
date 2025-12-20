@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketOption;
 import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
 import java.util.Queue;
@@ -39,7 +40,6 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
-import org.traffichunter.titan.core.util.event.IOType;
 
 /**
  * @author yungwang-o
@@ -125,21 +125,7 @@ class InetClientImpl implements InetClient {
     }
 
     @Override
-    public InetClient setOption(ClientOptions options) {
-        if(options == null) {
-            options = ClientOptions.DEFAULT;
-        }
-
-        try {
-            connector.channel()
-                    .setOption(StandardSocketOptions.TCP_NODELAY, options.tcpNoDelay())
-                    .setOption(StandardSocketOptions.SO_KEEPALIVE, options.keepAlive())
-                    .setOption(StandardSocketOptions.SO_SNDBUF, options.sendBufferSize())
-                    .setOption(StandardSocketOptions.SO_RCVBUF, options.receiveBufferSize())
-                    .setOption(StandardSocketOptions.SO_REUSEADDR, options.reuseAddr())
-                    .setOption(StandardSocketOptions.SO_REUSEPORT, options.reusePort());
-        } catch (IOException ignored) { }
-
+    public <T> InetClient setOption(SocketOption<T> option, T value) {
         return this;
     }
 
@@ -221,19 +207,12 @@ class InetClientImpl implements InetClient {
     }
 
     @Override
-    public void shutdown(final boolean isGraceful) {
-        if(isGraceful) {
-            if(shutdownHook.isEnabled()) {
-                shutdownHook.addShutdownCallback(() -> doClose(true));
-            }
-            return;
-        }
-
-        doClose(false);
+    public void shutdown() {
+        doClose();
     }
 
     @ThreadSafe
-    private void doClose(final boolean isGraceful) {
+    private void doClose() {
         if(connector.isClosed()) {
             log.warn("Already closed");
             return;

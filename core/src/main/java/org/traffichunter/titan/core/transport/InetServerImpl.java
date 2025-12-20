@@ -24,17 +24,18 @@
 package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
+import java.net.SocketOption;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
-import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
-import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
+import org.jspecify.annotations.NonNull;
+import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.concurrent.EventLoopBridge;
 import org.traffichunter.titan.core.concurrent.EventLoopBridges;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
@@ -50,6 +51,8 @@ class InetServerImpl implements InetServer {
 
     private volatile ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup;
     private volatile ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup;
+
+    private final Map<SocketOption<?>, Object> childOptions = new HashMap<>();
 
     private volatile boolean running = false;
     private volatile boolean listening = false;
@@ -69,7 +72,8 @@ class InetServerImpl implements InetServer {
         primaryGroup.start();
         secondaryGroup.start();
 
-        ServerChannelDispatcher dispatcher = new ServerChannelDispatcher(primaryGroup, secondaryGroup, channelContextHandler);
+        ServerChannelDispatcher dispatcher =
+                new ServerChannelDispatcher(primaryGroup, secondaryGroup, childOptions, channelContextHandler);
 
         Thread channelDispathcerThread = new Thread(dispatcher, "ChannelDispatcherThread");
         channelDispathcerThread.start();
@@ -85,6 +89,25 @@ class InetServerImpl implements InetServer {
 
         this.primaryGroup = primaryGroup;
         this.secondaryGroup = secondaryGroup;
+        return this;
+    }
+
+    @Override
+    public <T> InetServer option(@NonNull SocketOption<T> option, @NonNull T value) {
+        try {
+            connector.setOption(option, value);
+        } catch (IOException e) {
+            throw new ServerException("Failed to set socket option", e);
+        }
+
+        return this;
+    }
+
+    @Override
+    public <T> InetServer childOption(@NonNull SocketOption<T> option, @NonNull T value) {
+        synchronized (lock) {
+            childOptions.put(option, value);
+        }
         return this;
     }
 
@@ -181,12 +204,15 @@ class InetServerImpl implements InetServer {
         private final ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup;
         private final ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup;
         private final Handler<ChannelContext> channelContextHandler;
+        private final Map<SocketOption<?>, Object> options;
         private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance();
 
         private ServerChannelDispatcher(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> primaryGroup,
                                         ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
+                                        Map<SocketOption<?>, Object> options,
                                         Handler<ChannelContext> channelContextHandler) {
 
+            this.options = options;
             this.channelContextHandler = channelContextHandler;
             this.primaryGroup = primaryGroup;
             this.secondaryGroup = secondaryGroup;
@@ -214,13 +240,18 @@ class InetServerImpl implements InetServer {
          * </p>
          *
          * @param ctx the channel context to process and register for read events
-         * @throws InetServer.ServerException if read registration fails
+         * @throws ServerException if read registration fails
          */
+        @SuppressWarnings("unchecked")
         private void dispatch(ChannelContext ctx) {
             ChannelSecondaryIOEventLoop eventLoop = secondaryGroup.next();
+
             eventLoop.register(() -> {
-                channelContextHandler.handle(ctx);
                 try {
+                    for(Map.Entry<SocketOption<?>, Object> option: options.entrySet()) {
+                        ctx.setOption((SocketOption<? super Object>) option.getKey(), option.getValue());
+                    }
+                    channelContextHandler.handle(ctx);
                     eventLoop.ioSelector().registerRead(ctx);
                 } catch (IOException e) {
                     throw new ServerException("Failed to register I/O event for channel", e);

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.net.StandardSocketOptions;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +42,7 @@ class InetServerImplTest {
     static void setUp() {
         server = InetServer.open("localhost", 7777)
                 .group(new ChannelPrimaryIOEventLoopGroup(), new ChannelSecondaryIOEventLoopGroup())
+                .option(StandardSocketOptions.SO_REUSEADDR, true)
                 .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()))
                 .start();
 

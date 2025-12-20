@@ -25,12 +25,10 @@ package org.traffichunter.titan.core.transport;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
+import java.net.SocketOption;
 
-import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
-import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
-import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
+import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
@@ -53,6 +51,12 @@ public interface InetServer {
                      ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> ioGroup);
 
     @CanIgnoreReturnValue
+    <T> InetServer option(SocketOption<T> option, T value);
+
+    @CanIgnoreReturnValue
+    <T> InetServer childOption(SocketOption<T> option, T value);
+
+    @CanIgnoreReturnValue
     Promise<Void> listen();
 
     @CanIgnoreReturnValue
@@ -72,27 +76,4 @@ public interface InetServer {
     boolean isClosed();
 
     void shutdown();
-
-    class ServerException extends TransportException {
-
-        public ServerException() {
-        }
-
-        public ServerException(final String message) {
-            super(message);
-        }
-
-        public ServerException(final String message, final Throwable cause) {
-            super(message, cause);
-        }
-
-        public ServerException(final Throwable cause) {
-            super(cause);
-        }
-
-        public ServerException(final String message, final Throwable cause, final boolean enableSuppression,
-                               final boolean writableStackTrace) {
-            super(message, cause, enableSuppression, writableStackTrace);
-        }
-    }
 }

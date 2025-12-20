@@ -25,8 +25,10 @@ package org.traffichunter.titan.core.transport;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
+import java.net.SocketOption;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.CompletableFuture;
+
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -44,7 +46,7 @@ public interface InetClient {
     }
 
     @CanIgnoreReturnValue
-    InetClient setOption(ClientOptions options);
+    <T> InetClient setOption(SocketOption<T> option, T value);
 
     @CanIgnoreReturnValue
     InetClient start();
@@ -77,22 +79,7 @@ public interface InetClient {
 
     boolean isClosed();
 
-    void shutdown(boolean isGraceful);
+    void shutdown();
 
-    default void close() { shutdown(false); }
-
-    class ClientException extends TransportException {
-
-        public ClientException() {}
-
-        public ClientException(String message) { super(message); }
-
-        public ClientException(String message, Throwable cause) { super(message, cause); }
-
-        public ClientException(Throwable cause) { super(cause); }
-
-        public ClientException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-            super(message, cause, enableSuppression, writableStackTrace);
-        }
-    }
+    default void close() { shutdown(); }
 }

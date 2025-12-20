@@ -23,13 +23,12 @@
  */
 package org.traffichunter.titan.core.transport;
 
+import org.jspecify.annotations.NonNull;
+
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+import java.net.SocketOption;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 
 /**
  * @author yungwang-o
@@ -43,6 +42,8 @@ public interface ServerConnector extends Connector {
     String host();
 
     int port();
+
+    <T> void setOption(@NonNull SocketOption<T> option, @NonNull T value) throws IOException;
 
     ServerSocketChannel serverSocketChannel();
 

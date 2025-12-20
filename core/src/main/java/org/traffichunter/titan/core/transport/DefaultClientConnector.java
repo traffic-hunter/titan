@@ -25,12 +25,9 @@ package org.traffichunter.titan.core.transport;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.transport.InetClient.ClientException;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
