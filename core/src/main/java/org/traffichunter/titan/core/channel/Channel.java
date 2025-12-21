@@ -23,26 +23,51 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.net.SocketAddress;
+import java.net.SocketOption;
 import java.time.Instant;
-import javax.net.ssl.SSLSession;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+import java.util.concurrent.Future;
+
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.NullUnmarked;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.concurrent.EventLoop;
 
 /**
  * @author yungwang-o
  */
 public interface Channel {
 
-    void send(Buffer buffer);
+    EventLoop eventLoop();
+
+    ChannelChain chain();
+
+    String id();
 
     String session();
 
-    SSLSession sslSession();
-
     @CanIgnoreReturnValue
+    <T> Channel setOption(SocketOption<T> option, T value);
+
+    @Nullable
+    <T> T getOption(SocketOption<T> option);
+
+    Instant lastActivatedAt();
+
     Instant setLastActivatedAt();
+
+    @Nullable
+    SocketAddress localAddress();
+
+    @Nullable
+    SocketAddress remoteAddress();
+
+    boolean isOpen();
+
+    boolean isActive();
 
     boolean isClosed();
 
-    void close();
+    Future<Void> close();
 }

@@ -249,7 +249,7 @@ public final class StompHandlerImpl implements StompHandler {
                                 headers.put(Elements.ACK, message.getUniqueId());
                             }
 
-                            subscription.channel().send(frame.toBuffer());
+                            //subscription.channel().send(frame.toBuffer());
                         }
                     );
                 });
@@ -278,7 +278,7 @@ public final class StompHandlerImpl implements StompHandler {
             ServerSubscription subscription = ServerSubscription.builder()
                     .id(id)
                     .ackMode(ack)
-                    .channel(sc)
+                //    .channel(sc)
                     .key(key)
                     .build();
 
