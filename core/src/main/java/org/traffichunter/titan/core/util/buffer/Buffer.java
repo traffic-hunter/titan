@@ -221,6 +221,10 @@ public interface Buffer extends Clearable {
     @CanIgnoreReturnValue
     Buffer accumulateBuffer(Buffer buffer, int offset, int length);
 
+    default boolean hasRemaining() {
+        return length() > 0;
+    }
+
     int length();
 
     String toString();

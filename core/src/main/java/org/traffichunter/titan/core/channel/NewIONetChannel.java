@@ -35,7 +35,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.SocketChannel;
 
 /**
@@ -44,7 +43,7 @@ import java.nio.channels.SocketChannel;
 @Slf4j
 public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
-    private final ChannelOutBoundBuffer outBoundBuffer;
+    private final ChannelWriteBuffer channelWriteBuffer;
 
     public NewIONetChannel(EventLoop eventLoop) throws IOException {
         this(eventLoop, SocketChannel.open());
@@ -52,7 +51,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     NewIONetChannel(EventLoop eventLoop, SocketChannel channel) {
         super(eventLoop, channel);
-        this.outBoundBuffer = new ChannelOutBoundBuffer();
+        this.channelWriteBuffer = new ChannelWriteBuffer(this);
     }
 
     @Override
@@ -98,17 +97,52 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public Promise<Void> write(Buffer buffer) {
-        return null;
+        return eventLoop().submit(() -> {
+            if(isClosed()) {
+                throw new ChannelException("Already channel is closed");
+            }
+
+            channelWriteBuffer.add(buffer);
+        });
     }
 
     @Override
     public Promise<Void> writeAndFlush(Buffer buffer) {
-        return null;
+        return eventLoop().submit(() -> writeAndFlush0(buffer));
     }
 
     @Override
     public Promise<Void> flush() {
-        return null;
+        return eventLoop().submit(() -> {
+            if(isClosed()) {
+                throw new ChannelException("Already channel is closed");
+            }
+
+            while (true) {
+                Buffer buffer = channelWriteBuffer.current();
+                if(buffer == null) {
+                    break;
+                }
+
+                ByteBuf byteBuf = buffer.byteBuf();
+                ByteBuffer nioBuffer = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+
+                int written = write0(nioBuffer);
+                if(written == 0) {
+                    break;
+                }
+
+                byteBuf.readerIndex(byteBuf.readerIndex() + written);
+
+                if(!byteBuf.isReadable()) {
+                    channelWriteBuffer.poll();
+                }
+            }
+
+            if(channelWriteBuffer.isEmpty()) {
+                // TODO: setWritability
+            }
+        });
     }
 
     @Override
@@ -165,5 +199,21 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private SocketChannel channel() {
         return (SocketChannel) super.getChannel();
+    }
+
+    private void writeAndFlush0(Buffer buffer) {
+        write(buffer);
+        flush();
+    }
+
+    private int write0(ByteBuffer byteBuffer) {
+        int written = -1;
+        try {
+            written = channel().write(byteBuffer);
+        } catch (IOException e) {
+            close();
+        }
+
+        return written;
     }
 }
