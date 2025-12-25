@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
@@ -34,6 +35,7 @@ import java.nio.channels.ServerSocketChannel;
 /**
  * @author yun
  */
+@NullMarked
 public class NewIONetServerChannel extends AbstractChannel implements NetServerChannel {
 
     public NewIONetServerChannel(EventLoop eventLoop) throws IOException {

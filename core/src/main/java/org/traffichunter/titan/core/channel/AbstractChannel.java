@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import lombok.Getter;
+import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.IdGenerator;
 
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 /**
  * @author yun
  */
+@NullMarked
 public abstract class AbstractChannel implements Channel {
 
     private final SelectableChannel channel;

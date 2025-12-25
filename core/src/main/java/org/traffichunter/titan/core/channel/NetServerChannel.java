@@ -23,7 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -32,9 +32,10 @@ import java.net.SocketOption;
 /**
  * @author yun
  */
+@NullMarked
 public interface NetServerChannel extends Channel {
 
-    static NetServerChannel open(@NonNull EventLoop eventLoop) throws IOException {
+    static NetServerChannel open(EventLoop eventLoop) throws IOException {
         return new NewIONetServerChannel(eventLoop);
     }
 

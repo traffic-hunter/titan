@@ -23,7 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import org.jspecify.annotations.NonNull;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -34,29 +35,36 @@ import java.net.SocketOption;
 /**
  * @author yun
  */
+@NullMarked
 public interface NetChannel extends Channel {
 
-    static NetChannel open(@NonNull EventLoop eventLoop) throws IOException {
+    static NetChannel open(EventLoop eventLoop) throws IOException {
         return new NewIONetChannel(eventLoop);
     }
 
     @Override
     <T> NetChannel setOption(SocketOption<T> option, T value);
 
-    default Promise<Void> connect(@NonNull String host, int port) {
+    default Promise<Void> connect(String host, int port) {
         return connect(new InetSocketAddress(host, port));
     }
 
+    @CanIgnoreReturnValue
     Promise<Void> connect(InetSocketAddress remote);
 
+    @CanIgnoreReturnValue
     Promise<Void> disconnect();
 
+    @CanIgnoreReturnValue
     Promise<Void> read(Buffer buffer);
 
+    @CanIgnoreReturnValue
     Promise<Void> write(Buffer buffer);
 
+    @CanIgnoreReturnValue
     Promise<Void> writeAndFlush(Buffer buffer);
 
+    @CanIgnoreReturnValue
     Promise<Void> flush();
 
     boolean isFinishConnected();
