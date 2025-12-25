@@ -24,7 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import lombok.Getter;
-import org.traffichunter.titan.core.concurrent.EventLoop;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.IdGenerator;
 

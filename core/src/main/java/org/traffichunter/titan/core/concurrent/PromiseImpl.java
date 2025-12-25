@@ -35,6 +35,7 @@ import java.util.concurrent.TimeoutException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
 
 /**

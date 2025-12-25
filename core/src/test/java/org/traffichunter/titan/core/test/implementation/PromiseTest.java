@@ -4,7 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.traffichunter.titan.core.concurrent.EventLoop;
+import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.concurrent.AsyncListener;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.PromiseImpl;

@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.channel;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 

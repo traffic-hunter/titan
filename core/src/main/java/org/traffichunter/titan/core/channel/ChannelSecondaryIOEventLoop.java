@@ -28,7 +28,6 @@ import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.SingleThreadIOEventLoop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**

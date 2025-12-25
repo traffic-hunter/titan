@@ -30,7 +30,6 @@ import java.util.concurrent.Future;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.EventLoop;
 
 /**
  * @author yungwang-o

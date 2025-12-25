@@ -21,28 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
-
-import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
-import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
+package org.traffichunter.titan.core.channel;
 
 /**
  * @author yungwang-o
  */
-@Slf4j
-public final class EventLoopFactory {
+public interface IOEventLoop extends EventLoop {
 
-    public static ChannelPrimaryIOEventLoop createPrimaryIOEventLoop() {
-        return new ChannelPrimaryIOEventLoop();
-    }
-
-    public static ChannelSecondaryIOEventLoop createSecondaryIOEventLoop(final int eventLoopNameCount) {
-        return new ChannelSecondaryIOEventLoop(
-                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount
-        );
-    }
-
-    private EventLoopFactory() {}
+    IOSelector ioSelector();
 }

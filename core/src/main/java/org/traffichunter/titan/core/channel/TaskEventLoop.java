@@ -1,4 +1,4 @@
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 

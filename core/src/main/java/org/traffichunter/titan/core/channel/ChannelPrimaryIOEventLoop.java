@@ -30,9 +30,6 @@ import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.EventLoopBridge;
-import org.traffichunter.titan.core.concurrent.EventLoopBridges;
-import org.traffichunter.titan.core.concurrent.SingleThreadIOEventLoop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 @Slf4j

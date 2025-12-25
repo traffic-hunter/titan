@@ -24,7 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.EventLoop;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

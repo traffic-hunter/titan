@@ -1,4 +1,4 @@
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
 public class EventLoopException extends RuntimeException {
 

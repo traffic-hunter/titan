@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.channel;
 import io.netty.buffer.ByteBuf;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.EventLoop;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 

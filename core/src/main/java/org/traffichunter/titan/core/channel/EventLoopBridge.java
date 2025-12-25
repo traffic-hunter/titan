@@ -21,41 +21,50 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
-import java.util.concurrent.Callable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoop extends EventLoopLifeCycle {
+@Slf4j
+public final class EventLoopBridge<T> {
 
-    void start();
+    private final BlockingQueue<T> bridge;
 
-    void register(Runnable task);
-
-    <V> Promise<V> submit(Runnable task);
-
-    <V> Promise<V> submit(Callable<V> task);
-
-    <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
-
-    <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
-
-    default boolean inEventLoop() {
-        return inEventLoop(Thread.currentThread());
+    public EventLoopBridge(final int capacity) {
+        this.bridge = new LinkedBlockingQueue<>(capacity);
     }
 
-    boolean inEventLoop(Thread thread);
-
-    default void gracefullyShutdown() {
-        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
+    public void produce(final T task) {
+        try {
+            final boolean offer = bridge.offer(task, 10, TimeUnit.SECONDS);
+            if (!offer) {
+                throw new EventLoopException("Failed to produce event bridge");
+            }
+        } catch (InterruptedException ignore) {
+            Thread.currentThread().interrupt();
+        }
     }
 
-    void gracefullyShutdown(long timeout, TimeUnit unit);
+    public T consume() {
+        try {
+            return bridge.take();
+        } catch (InterruptedException ignore) {
+            log.warn("Event bridge interrupted");
+            return null;
+        }
+    }
 
-    void close();
+    public List<T> pressure() {
+        List<T> tmp = new ArrayList<>(bridge.size());
+        bridge.drainTo(tmp);
+        return tmp;
+    }
 }

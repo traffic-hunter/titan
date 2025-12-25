@@ -21,50 +21,43 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
+
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * @author yungwang-o
  */
-@Slf4j
-public final class EventLoopBridge<T> {
+public interface EventLoop extends EventLoopLifeCycle {
 
-    private final BlockingQueue<T> bridge;
+    void start();
 
-    public EventLoopBridge(final int capacity) {
-        this.bridge = new LinkedBlockingQueue<>(capacity);
+    void register(Runnable task);
+
+    <V> Promise<V> submit(Runnable task);
+
+    <V> Promise<V> submit(Callable<V> task);
+
+    <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
+
+    <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
+
+    default boolean inEventLoop() {
+        return inEventLoop(Thread.currentThread());
     }
 
-    public void produce(final T task) {
-        try {
-            final boolean offer = bridge.offer(task, 10, TimeUnit.SECONDS);
-            if (!offer) {
-                throw new EventLoopException("Failed to produce event bridge");
-            }
-        } catch (InterruptedException ignore) {
-            Thread.currentThread().interrupt();
-        }
+    boolean inEventLoop(Thread thread);
+
+    default void gracefullyShutdown() {
+        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
     }
 
-    public T consume() {
-        try {
-            return bridge.take();
-        } catch (InterruptedException ignore) {
-            log.warn("Event bridge interrupted");
-            return null;
-        }
-    }
+    void gracefullyShutdown(long timeout, TimeUnit unit);
 
-    public List<T> pressure() {
-        List<T> tmp = new ArrayList<>(bridge.size());
-        bridge.drainTo(tmp);
-        return tmp;
-    }
+    void close();
 }

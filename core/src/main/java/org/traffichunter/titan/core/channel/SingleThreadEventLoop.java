@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.netty.util.internal.DefaultPriorityQueue;
@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.traffichunter.titan.bootstrap.Configurations;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 
