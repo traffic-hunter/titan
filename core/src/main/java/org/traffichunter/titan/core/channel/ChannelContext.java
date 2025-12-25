@@ -47,6 +47,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 public class ChannelContext implements Context {
 
     private final ChannelChain chain = new ChannelChain();

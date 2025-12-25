@@ -28,6 +28,7 @@ import org.traffichunter.titan.bootstrap.Configurations;
 /**
  * @author yungwang-o
  */
+@Deprecated
 public final class EventLoopBridges {
 
     private static EventLoopBridge<ChannelContext> INSTANCE = null;

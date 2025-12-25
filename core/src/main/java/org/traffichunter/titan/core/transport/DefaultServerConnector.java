@@ -38,6 +38,7 @@ import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 class DefaultServerConnector implements ServerConnector {
 
     private final ServerSocketChannel serverSocketChannel;

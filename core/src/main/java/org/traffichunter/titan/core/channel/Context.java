@@ -34,6 +34,7 @@ import java.nio.channels.SelectableChannel;
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface Context extends ReadStream, WriteStream {
 
     boolean isOpen();

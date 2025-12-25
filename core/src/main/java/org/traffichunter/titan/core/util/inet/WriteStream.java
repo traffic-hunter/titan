@@ -28,6 +28,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface WriteStream {
 
     int write(Buffer buffer);

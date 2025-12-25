@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 public final class EventLoopBridge<T> {
 
     private final BlockingQueue<T> bridge;

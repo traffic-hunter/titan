@@ -33,6 +33,7 @@ import java.nio.channels.ServerSocketChannel;
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface ServerConnector extends Connector {
 
     static ServerConnector open(InetSocketAddress address) {

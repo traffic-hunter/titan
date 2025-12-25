@@ -34,6 +34,7 @@ import org.traffichunter.titan.core.util.Assert;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 class DefaultClientConnector implements ClientConnector {
 
     private final SocketChannel socketChannel;

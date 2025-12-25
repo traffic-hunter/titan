@@ -29,6 +29,7 @@ import java.io.IOException;
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface Connector extends Closeable {
 
     boolean isOpen();
