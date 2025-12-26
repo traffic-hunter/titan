@@ -40,7 +40,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
         this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public ChannelSecondaryIOEventLoop(final String eventLoopName) {
+    public ChannelSecondaryIOEventLoop(String eventLoopName) {
         super(eventLoopName);
     }
 
@@ -60,17 +60,17 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 continue;
             }
 
-            ChannelContext ctx = ChannelContext.select(key);
+            org.traffichunter.titan.core.channel.NetChannel channel = (NetChannel) key.attachment();
 
             try {
                 if (key.isConnectable()) {
-                    if (ctx.isConnected()) {
-                        log.debug("completed connect: {}", ctx.remoteAddress());
+                    if (channel.isConnected()) {
+                        log.debug("completed connect: {}", channel.remoteAddress());
                     }
                 } else if (key.isReadable()) {
-                    ctx.chain().fireInboundChannel(ctx);
+                    channel.chain().fireInboundChannel(channel);
                 } else if (key.isWritable()) {
-                    ctx.chain().fireOutboundChannel(ctx);
+                    channel.chain().fireOutboundChannel(channel);
                 }
             } catch (Exception e) {
                 log.error("Failed task", e);

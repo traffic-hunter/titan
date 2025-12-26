@@ -23,49 +23,11 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NullMarked;
-import org.traffichunter.titan.core.util.buffer.Buffer;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.SocketOption;
-
 /**
  * @author yun
  */
-public interface NetChannel extends Channel {
+@FunctionalInterface
+public interface ChannelInitializer {
 
-    static NetChannel open() throws IOException {
-        return new NewIONetChannel();
-    }
-
-    @Override
-    <T> NetChannel setOption(SocketOption<T> option, T value);
-
-    default void connect(String host, int port) {
-        connect(new InetSocketAddress(host, port));
-    }
-
-    @CanIgnoreReturnValue
-    void connect(InetSocketAddress remote);
-
-    @CanIgnoreReturnValue
-    void disconnect();
-
-    @CanIgnoreReturnValue
-    int read(Buffer buffer);
-
-    @CanIgnoreReturnValue
-    void write(Buffer buffer);
-
-    @CanIgnoreReturnValue
-    void writeAndFlush(Buffer buffer);
-
-    @CanIgnoreReturnValue
-    void flush();
-
-    boolean isFinishConnected();
-
-    boolean isConnected();
+    void initChannel(Channel channel);
 }

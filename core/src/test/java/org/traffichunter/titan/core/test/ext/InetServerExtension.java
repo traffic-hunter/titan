@@ -48,7 +48,7 @@ public class InetServerExtension implements BeforeAllCallback, AfterAllCallback 
     private final InetServer server;
 
     public InetServerExtension() {
-        this.server = InetServer.open(new InetSocketAddress("localhost", 7777));
+        this.server = InetServer.open();
     }
 
     @Override

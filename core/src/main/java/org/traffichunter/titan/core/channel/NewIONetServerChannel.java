@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -31,29 +32,58 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
 /**
  * @author yun
  */
-@NullMarked
 public class NewIONetServerChannel extends AbstractChannel implements NetServerChannel {
 
-    public NewIONetServerChannel(EventLoop eventLoop) throws IOException {
-        this(eventLoop, ServerSocketChannel.open());
+    private volatile ChannelInitializer initializer;
+
+    public NewIONetServerChannel() throws IOException {
+        this(ServerSocketChannel.open());
     }
 
-    NewIONetServerChannel(EventLoop eventLoop, ServerSocketChannel channel) {
-        super(eventLoop, channel);
-    }
-
-    @Override
-    public void bind(String host, int port) throws IOException {
-        channel().bind(new InetSocketAddress(host, port));
-        setState(getState(), ChannelState.ACTIVE);
+    NewIONetServerChannel(ServerSocketChannel channel) {
+        super(channel);
     }
 
     @Override
-    public <T> NetServerChannel setOption(SocketOption<T> option, T value) {
+    public void init(ChannelInitializer initializer) {
+        this.initializer = initializer;
+    }
+
+    ChannelInitializer initializer() {
+        return initializer;
+    }
+
+    @Override
+    public void bind(@NonNull InetSocketAddress address) {
+        try {
+            channel().bind(address);
+            setState(getState(), ChannelState.ACTIVE);
+        } catch (IOException e) {
+            setState(getState(), ChannelState.INIT);
+        }
+    }
+
+    @Override
+    public @Nullable NetChannel accept() {
+        try {
+            SocketChannel accept = channel().accept();
+            if (accept == null) {
+                return null;
+            }
+
+            return new NewIONetChannel(accept);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public <T> NetServerChannel setOption(@NonNull SocketOption<T> option, @NonNull T value) {
         try {
             channel().setOption(option, value);
         } catch (IOException e) {
@@ -63,7 +93,7 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public @Nullable <T> T getOption(SocketOption<T> option) {
+    public @Nullable <T> T getOption(@NonNull SocketOption<T> option) {
         try {
             return channel().getOption(option);
         } catch (IOException e) {
@@ -86,6 +116,6 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     private ServerSocketChannel channel() {
-        return (ServerSocketChannel) super.getChannel();
+        return (ServerSocketChannel) super.selectableChannel();
     }
 }

@@ -26,19 +26,14 @@ package org.traffichunter.titan.core.channel;
 import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.time.Instant;
-import java.util.concurrent.Future;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
  * @author yungwang-o
  */
-@NullMarked
 public interface Channel {
-
-    EventLoop eventLoop();
 
     ChannelChain chain();
 
@@ -49,18 +44,15 @@ public interface Channel {
     @CanIgnoreReturnValue
     <T> Channel setOption(SocketOption<T> option, T value);
 
-    @Nullable
-    <T> T getOption(SocketOption<T> option);
+    @Nullable <T> T getOption(SocketOption<T> option);
 
     Instant lastActivatedAt();
 
     Instant setLastActivatedAt();
 
-    @Nullable
-    SocketAddress localAddress();
+    @Nullable SocketAddress localAddress();
 
-    @Nullable
-    SocketAddress remoteAddress();
+    @Nullable SocketAddress remoteAddress();
 
     boolean isOpen();
 
@@ -68,5 +60,5 @@ public interface Channel {
 
     boolean isClosed();
 
-    Future<Void> close();
+    void close();
 }

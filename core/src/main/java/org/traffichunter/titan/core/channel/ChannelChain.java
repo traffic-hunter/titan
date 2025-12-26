@@ -1,11 +1,14 @@
 package org.traffichunter.titan.core.channel;
 
-import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public final class ChannelChain {
 
+    private final List<ChannelInBoundFilter> acceptListenerFilters = new ArrayList<>();
     private final List<ChannelInBoundFilter> inBoundFilters = new ArrayList<>();
     private final List<ChannelOutBoundFilter> outBoundFilters = new ArrayList<>();
 
@@ -29,25 +32,35 @@ public final class ChannelChain {
         return this;
     }
 
-    void fireInboundChannel(Context context) {
+    public ChannelChain accept(ChannelInBoundFilter filter) {
+        acceptListenerFilters.add(filter);
+        return this;
+    }
+
+    void fireAcceptListener(NetChannel channel) {
         try {
-            ChannelInboundFilterChain chain = new ChannelInboundFilterChain(inBoundFilters);
-            chain.process(context);
+            ChannelInboundFilterChain chain = new ChannelInboundFilterChain(acceptListenerFilters);
+            chain.process(channel);
         } catch (Exception e) {
-            try {
-                context.close();
-            } catch (IOException ignored) { }
+            channel.close();
         }
     }
 
-    void fireOutboundChannel(Context context) {
+    void fireInboundChannel(NetChannel channel) {
+        try {
+            ChannelInboundFilterChain chain = new ChannelInboundFilterChain(inBoundFilters);
+            chain.process(channel);
+        } catch (Exception e) {
+            channel.close();
+        }
+    }
+
+    void fireOutboundChannel(NetChannel channel) {
         try {
             ChannelOutBoundFilterChain chain = new ChannelOutBoundFilterChain(outBoundFilters);
-            chain.process(context);
+            chain.process(channel);
         } catch (Exception e) {
-            try {
-                context.close();
-            } catch (IOException ignored) { }
+            channel.close();
         }
     }
 }

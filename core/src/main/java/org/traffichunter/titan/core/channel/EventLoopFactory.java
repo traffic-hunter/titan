@@ -36,10 +36,12 @@ public final class EventLoopFactory {
         return new ChannelPrimaryIOEventLoop();
     }
 
-    public static ChannelSecondaryIOEventLoop createSecondaryIOEventLoop(final int eventLoopNameCount) {
-        return new ChannelSecondaryIOEventLoop(
-                EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount
-        );
+    public static ChannelSecondaryIOEventLoop createSecondaryIOEventLoop(int eventLoopNameCount) {
+        return new ChannelSecondaryIOEventLoop(nameEventLoop(eventLoopNameCount));
+    }
+
+    private static String nameEventLoop(int eventLoopNameCount) {
+        return EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount;
     }
 
     private EventLoopFactory() {}

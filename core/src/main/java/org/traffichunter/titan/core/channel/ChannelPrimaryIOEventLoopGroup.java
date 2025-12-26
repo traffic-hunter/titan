@@ -45,7 +45,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
         this(1);
     }
 
-    public ChannelPrimaryIOEventLoopGroup(final int size) {
+    public ChannelPrimaryIOEventLoopGroup(int size) {
         List<ChannelPrimaryIOEventLoop> eventLoops = new ArrayList<>(size);
 
         try {

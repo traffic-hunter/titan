@@ -25,9 +25,7 @@ package org.traffichunter.titan.core.channel;
 
 import io.netty.buffer.ByteBuf;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.IOException;
@@ -41,109 +39,102 @@ import java.nio.channels.SocketChannel;
  * @author yun
  */
 @Slf4j
-@NullMarked
 public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private final ChannelWriteBuffer channelWriteBuffer;
 
-    public NewIONetChannel(EventLoop eventLoop) throws IOException {
-        this(eventLoop, SocketChannel.open());
+    public NewIONetChannel() throws IOException {
+        this(SocketChannel.open());
     }
 
-    NewIONetChannel(EventLoop eventLoop, SocketChannel channel) {
-        super(eventLoop, channel);
+    NewIONetChannel(SocketChannel channel) {
+        super(channel);
         this.channelWriteBuffer = new ChannelWriteBuffer(this);
     }
 
     @Override
-    public Promise<Void> connect(InetSocketAddress remote) {
-        return eventLoop().submit(() -> {
-            try {
-                channel().connect(remote);
-            } catch (IOException e) {
-                throw new ChannelException("Failed to connect to " + remote, e);
+    public void connect(InetSocketAddress remote) {
+        try {
+            channel().connect(remote);
+        } catch (IOException e) {
+            throw new ChannelException("Failed to connect to " + remote, e);
+        }
+    }
+
+    @Override
+    public void disconnect() {
+
+    }
+
+    @Override
+    public int read(Buffer buffer) {
+        if(isClosed()) {
+            return -1;
+        }
+
+        ByteBuf byteBuf = buffer.byteBuf();
+        ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
+
+        try {
+            int read = channel().read(dst);
+
+            if(read > 0) {
+                byteBuf.writerIndex(byteBuf.writerIndex() + read);
+            } else if(read < 0) {
+                close();
             }
-        });
+
+            return read;
+        } catch (IOException e) {
+            log.error("Error reading from socket = {}", e.getMessage());
+            return -1;
+        }
     }
 
     @Override
-    public Promise<Void> disconnect() {
-        return null;
+    public void write(Buffer buffer) {
+        if(isClosed()) {
+            throw new ChannelException("Already channel is closed");
+        }
+
+        channelWriteBuffer.add(buffer);
     }
 
     @Override
-    public Promise<Void> read(Buffer buffer) {
-        return eventLoop().submit(() -> {
-            if(isClosed()) {
-                throw new ChannelException("Already channel is closed");
+    public void writeAndFlush(Buffer buffer) {
+        writeAndFlush0(buffer);
+    }
+
+    @Override
+    public void flush() {
+        if(isClosed()) {
+            throw new ChannelException("Already channel is closed");
+        }
+
+        while (true) {
+            Buffer buffer = channelWriteBuffer.current();
+            if(buffer == null) {
+                break;
             }
 
             ByteBuf byteBuf = buffer.byteBuf();
-            ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
+            ByteBuffer nioBuffer = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
 
-            try {
-                int read = channel().read(dst);
-                if(read > 0) {
-                    byteBuf.writerIndex(byteBuf.writerIndex() + read);
-                } else if(read < 0) {
-                    throw new ChannelException("Failed to read from socket");
-                }
-
-            } catch (IOException e) {
-                log.error("Error reading from socket = {}", e.getMessage());
-                close();
-            }
-        });
-    }
-
-    @Override
-    public Promise<Void> write(Buffer buffer) {
-        return eventLoop().submit(() -> {
-            if(isClosed()) {
-                throw new ChannelException("Already channel is closed");
+            int written = write0(nioBuffer);
+            if(written == 0) {
+                break;
             }
 
-            channelWriteBuffer.add(buffer);
-        });
-    }
+            byteBuf.readerIndex(byteBuf.readerIndex() + written);
 
-    @Override
-    public Promise<Void> writeAndFlush(Buffer buffer) {
-        return eventLoop().submit(() -> writeAndFlush0(buffer));
-    }
-
-    @Override
-    public Promise<Void> flush() {
-        return eventLoop().submit(() -> {
-            if(isClosed()) {
-                throw new ChannelException("Already channel is closed");
+            if(!byteBuf.isReadable()) {
+                channelWriteBuffer.poll();
             }
+        }
 
-            while (true) {
-                Buffer buffer = channelWriteBuffer.current();
-                if(buffer == null) {
-                    break;
-                }
-
-                ByteBuf byteBuf = buffer.byteBuf();
-                ByteBuffer nioBuffer = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
-
-                int written = write0(nioBuffer);
-                if(written == 0) {
-                    break;
-                }
-
-                byteBuf.readerIndex(byteBuf.readerIndex() + written);
-
-                if(!byteBuf.isReadable()) {
-                    channelWriteBuffer.poll();
-                }
-            }
-
-            if(channelWriteBuffer.isEmpty()) {
-                // TODO: setWritability
-            }
-        });
+        if(channelWriteBuffer.isEmpty()) {
+            // TODO: setWritability
+        }
     }
 
     @Override
@@ -199,7 +190,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     private SocketChannel channel() {
-        return (SocketChannel) super.getChannel();
+        return (SocketChannel) super.selectableChannel();
     }
 
     private void writeAndFlush0(Buffer buffer) {

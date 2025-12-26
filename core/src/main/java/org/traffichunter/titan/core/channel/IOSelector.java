@@ -83,38 +83,40 @@ public final class IOSelector {
     }
 
     @CanIgnoreReturnValue
-    public IOSelector registerAccept(SelectableChannel channel) throws IOException {
-        if(channel instanceof ServerSocketChannel) {
-            register(channel, SelectionKey.OP_ACCEPT, null);
+    public IOSelector registerAccept(NetServerChannel channel) throws IOException {
+        register(channel, SelectionKey.OP_ACCEPT, channel);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public IOSelector registerRead(NetChannel channel) throws IOException {
+        register(channel, SelectionKey.OP_READ, channel);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public IOSelector registerWrite(NetChannel channel) throws IOException {
+        register(channel, SelectionKey.OP_WRITE, channel);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public IOSelector registerConnect(NetChannel channel) throws IOException {
+        register(channel, SelectionKey.OP_CONNECT, channel);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public IOSelector register(Channel channel, int ops, Object attachment) throws IOException {
+        if(channel instanceof AbstractChannel abstractChannel) {
+            return register(abstractChannel.selectableChannel(), ops, attachment);
         }
+
         return this;
     }
 
     @CanIgnoreReturnValue
-    public IOSelector registerRead(ChannelContext channel) throws IOException {
-        register(channel.socketChannel(), SelectionKey.OP_READ, channel);
-        return this;
-    }
-
-    @CanIgnoreReturnValue
-    public IOSelector registerWrite(ChannelContext channel) throws IOException {
-        register(channel.socketChannel(), SelectionKey.OP_WRITE, channel);
-        return this;
-    }
-
-    @CanIgnoreReturnValue
-    public IOSelector registerConnect(ChannelContext channel) throws IOException {
-        register(channel.socketChannel(), SelectionKey.OP_CONNECT, channel);
-        return this;
-    }
-
-    @CanIgnoreReturnValue
-    public IOSelector register(ChannelContext channel, int ops, Object attachment) throws IOException {
-        return register(channel.socketChannel(), ops, attachment);
-    }
-
-    @CanIgnoreReturnValue
-    public IOSelector register(SelectableChannel channel, int ops, Object attachment) throws IOException {
+    IOSelector register(SelectableChannel channel, int ops, Object attachment) throws IOException {
         SelectionKey key = channel.keyFor(selector);
 
         if(key == null) {

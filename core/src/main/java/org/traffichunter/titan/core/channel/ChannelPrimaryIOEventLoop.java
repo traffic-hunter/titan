@@ -35,13 +35,11 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
 @Slf4j
 public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
-    private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance();
-
     public ChannelPrimaryIOEventLoop() {
         this(EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public ChannelPrimaryIOEventLoop(final String eventLoopName) {
+    public ChannelPrimaryIOEventLoop(String eventLoopName) {
         super(eventLoopName);
     }
 
@@ -58,14 +56,12 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
             if(key.isAcceptable()) {
                 try {
-                    ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
-                    SocketChannel clientSocketChannel = serverChannel.accept();
-                    clientSocketChannel.configureBlocking(false);
+                    NetServerChannel serverChannel = (NetServerChannel) key.attachment();
+                    NetChannel channel = serverChannel.accept();
 
-                    ChannelContext ctx = ChannelContext.create(clientSocketChannel);
+                    ((NewIONetServerChannel) serverChannel).initializer().initChannel(channel);
 
-                    bridge.produce(ctx);
-
+                    log.debug("Accepted connection from {}", channel.remoteAddress());
                 } catch (Throwable e) {
                     key.cancel();
                 }

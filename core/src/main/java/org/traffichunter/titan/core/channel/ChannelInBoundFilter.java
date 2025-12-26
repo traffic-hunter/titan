@@ -2,5 +2,5 @@ package org.traffichunter.titan.core.channel;
 
 public interface ChannelInBoundFilter {
 
-    void doFilter(Context context, ChannelInboundFilterChain chain) throws Exception;
+    void doFilter(NetChannel channel, ChannelInboundFilterChain chain) throws Exception;
 }

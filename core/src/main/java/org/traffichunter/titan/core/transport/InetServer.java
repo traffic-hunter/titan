@@ -25,8 +25,12 @@ package org.traffichunter.titan.core.transport;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.SocketOption;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -36,16 +40,13 @@ import org.traffichunter.titan.core.concurrent.Promise;
  */
 public interface InetServer {
 
-    static InetServer open(String host, int port) {
-        return InetServer.open(new InetSocketAddress(host, port));
-    }
-
-    static InetServer open(InetSocketAddress address) {
-        return new InetServerImpl(ServerConnector.open(address));
+    static InetServer open() {
+        return new InetServerImpl();
     }
 
     InetServer start();
 
+    @NonNull
     @CanIgnoreReturnValue
     InetServer group(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> acceptorGroup,
                      ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> ioGroup);
@@ -57,17 +58,19 @@ public interface InetServer {
     <T> InetServer childOption(SocketOption<T> option, T value);
 
     @CanIgnoreReturnValue
-    Promise<Void> listen();
+    InetServer channelHandler(Handler<Channel> channelHandler);
+
+    default Promise<Void> listen(String host, int port) {
+        return listen(new InetSocketAddress(host, port));
+    }
+
+    @CanIgnoreReturnValue
+    Promise<Void> listen(InetSocketAddress localAddress);
 
     @CanIgnoreReturnValue
     InetServer exceptionHandler(Handler<Throwable> handler);
 
-    @CanIgnoreReturnValue
-    InetServer invokeChannelHandler(Handler<ChannelContext> handler);
-
-    String host();
-
-    int activePort();
+    @Nullable SocketAddress localAddress();
 
     boolean isStart();
 

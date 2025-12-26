@@ -16,22 +16,22 @@ public final class ChannelOutBoundFilterChain extends AbstractFilterChain {
     }
 
     @Override
-    public void doFilter(Context context) throws Exception {
+    public void doFilter(NetChannel channel) throws Exception {
         if(index >= filters.size()) {
             return;
         }
 
-        filters.get(index++).doFilter(context, this);
+        filters.get(index++).doFilter(channel, this);
     }
 
     @Override
-    void process(Context context) throws Exception {
+    void process(NetChannel channel) throws Exception {
         if(filters.isEmpty()) {
             return;
         }
 
         for(ChannelOutBoundFilter filter : filters) {
-            filter.doFilter(context, this);
+            filter.doFilter(channel, this);
         }
     }
 }

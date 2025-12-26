@@ -54,13 +54,13 @@ public class ClientToServerTest {
     private static final Logger log = LoggerFactory.getLogger(ClientToServerTest.class);
 
     @BeforeAll
-    static void setUp() throws Exception {
-        server = InetServer.open("localhost", 7777)
+    static void setUp() {
+        server = InetServer.open()
                 .group(new ChannelPrimaryIOEventLoopGroup(), new ChannelSecondaryIOEventLoopGroup())
-                .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()))
+                .channelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()))
                 .start();
 
-        server.listen().addListener(future -> {
+        server.listen("localhost", 7777).addListener(future -> {
             if(future.isSuccess()) {
                 log.info("Server started successfully");
             }
@@ -131,38 +131,27 @@ public class ClientToServerTest {
     private static class TestChannelInboundFilter implements ChannelInBoundFilter {
 
         @Override
-        public void doFilter(Context context, ChannelInboundFilterChain chain) throws Exception {
+        public void doFilter(NetChannel channel, ChannelInboundFilterChain chain) throws Exception {
             Buffer buffer = Buffer.alloc(1024);
 
-            int recv = context.recv(buffer);
-            if(recv > 0) {
-                try {
-                    final Message msg = Message.builder()
-                            .routingKey(RoutingKey.create("route.test"))
-                            .priority(Priority.DEFAULT)
-                            .body(buffer.getBytes())
-                            .producerId(IdGenerator.uuid())
-                            .createdAt(Instant.now())
-                            .build();
+            channel.read(buffer);
+            try {
+                final Message msg = Message.builder()
+                        .routingKey(RoutingKey.create("route.test"))
+                        .priority(Priority.DEFAULT)
+                        .body(buffer.getBytes())
+                        .producerId(IdGenerator.uuid())
+                        .createdAt(Instant.now())
+                        .build();
 
-                    log.info("msg = {}", msg.toString());
+                log.info("msg = {}", msg.toString());
 
-                    rq.enqueue(msg);
-                } finally {
-                    buffer.release();
-                }
-            } else if(recv < 0) {
-                try {
-                    context.close();
-                } catch (IOException e) {
-                    log.info("Failed to close socket = {}", e.getMessage());
-                    return;
-                } finally {
-                    buffer.release();
-                }
+                rq.enqueue(msg);
+            } finally {
+                buffer.release();
             }
 
-            chain.doFilter(context);
+            chain.doFilter(channel);
         }
     }
 }

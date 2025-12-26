@@ -40,13 +40,13 @@ class InetServerImplTest {
 
     @BeforeAll
     static void setUp() {
-        server = InetServer.open("localhost", 7777)
+        server = InetServer.open()
                 .group(new ChannelPrimaryIOEventLoopGroup(), new ChannelSecondaryIOEventLoopGroup())
                 .option(StandardSocketOptions.SO_REUSEADDR, true)
-                .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()))
+                .channelHandler(channel -> channel.chain().add(new TestChannelInboundFilter()))
                 .start();
 
-        server.listen().addListener(future -> {
+        server.listen("localhost", 7777).addListener(future -> {
             if(future.isSuccess()) {
                 log.info("Server started successfully");
             }
@@ -96,11 +96,11 @@ class InetServerImplTest {
     private static class TestChannelInboundFilter implements ChannelInBoundFilter {
 
         @Override
-        public void doFilter(Context context, ChannelInboundFilterChain chain) throws Exception {
+        public void doFilter(NetChannel channel, ChannelInboundFilterChain chain) throws Exception {
             Buffer buffer = Buffer.alloc(1024);
 
-            int recv = context.recv(buffer);
-            if(recv > 0) {
+            int read = channel.read(buffer);
+            if(read > 0) {
                 try {
                     final Message msg = Message.builder()
                             .routingKey(RoutingKey.create("route.test"))
@@ -116,18 +116,15 @@ class InetServerImplTest {
                 } finally {
                     buffer.release();
                 }
-            } else if(recv < 0) {
+            } else {
                 try {
-                    context.close();
-                } catch (IOException e) {
-                    log.info("Failed to close socket = {}", e.getMessage());
-                    return;
+                    channel.close();
                 } finally {
                     buffer.release();
                 }
             }
 
-            chain.doFilter(context);
+            chain.doFilter(channel);
         }
     }
 }

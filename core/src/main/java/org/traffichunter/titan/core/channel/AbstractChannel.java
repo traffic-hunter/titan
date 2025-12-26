@@ -24,24 +24,21 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import lombok.Getter;
-import org.jspecify.annotations.NullMarked;
-import org.traffichunter.titan.core.concurrent.Promise;
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.IdGenerator;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.time.Instant;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
  * @author yun
  */
-@NullMarked
+@Slf4j
 public abstract class AbstractChannel implements Channel {
 
-    private final SelectableChannel channel;
-    private final EventLoop eventLoop;
+    private final SelectableChannel sc;
     private final ChannelChain chain = new ChannelChain();
     private volatile Instant lastActiveAt = Instant.now();
     private final String channelId = IdGenerator.uuid();
@@ -50,13 +47,18 @@ public abstract class AbstractChannel implements Channel {
             AtomicReferenceFieldUpdater.newUpdater(AbstractChannel.class, ChannelState.class, "state");
     private volatile ChannelState state = ChannelState.INIT;
 
-    public AbstractChannel(EventLoop eventLoop, SelectableChannel channel) {
-        this.channel = channel;
-        this.eventLoop = eventLoop;
+    public AbstractChannel(SelectableChannel sc) {
+        this.sc = sc;
 
         try {
-            this.channel.configureBlocking(false);
+            this.sc.configureBlocking(false);
         } catch (IOException e) {
+            try {
+                this.sc.close();
+            } catch (IOException ex) {
+                log.error("Failed to close channel", ex);
+            }
+
             throw new ChannelException("Failed to configure channel blocking", e);
         }
     }
@@ -73,11 +75,6 @@ public abstract class AbstractChannel implements Channel {
         ChannelState(int value) {
             this.value = value;
         }
-    }
-
-    @Override
-    public EventLoop eventLoop() {
-        return eventLoop;
     }
 
     @Override
@@ -107,12 +104,12 @@ public abstract class AbstractChannel implements Channel {
 
     @Override
     public boolean isOpen() {
-        return channel.isOpen();
+        return sc.isOpen();
     }
 
     @Override
     public boolean isActive() {
-        return channel.isOpen() && state == ChannelState.ACTIVE;
+        return sc.isOpen() && state == ChannelState.ACTIVE;
     }
 
     @Override
@@ -121,30 +118,28 @@ public abstract class AbstractChannel implements Channel {
     }
 
     @Override
-    public Future<Void> close() {
+    public void close() {
         if(isClosed()) {
-            return Promise.failedPromise(eventLoop, new ChannelException("Channel is already closed"));
+            return;
         }
 
-        return eventLoop.submit(() -> {
-            if (!setState(ChannelState.ACTIVE, ChannelState.CLOSED)
-                    && !setState(ChannelState.INIT, ChannelState.CLOSED)) {
-                return;
-            }
-            try {
-                channel.close();
-            } catch (IOException e) {
-                throw new ChannelException("Failed to close channel");
-            }
-        });
+        if (!setState(ChannelState.ACTIVE, ChannelState.CLOSED)
+                && !setState(ChannelState.INIT, ChannelState.CLOSED)) {
+            return;
+        }
+        try {
+            sc.close();
+        } catch (IOException e) {
+            throw new ChannelException("Failed to close channel");
+        }
     }
 
     protected final boolean setState(ChannelState oldState, ChannelState newState) {
         return STATE_UPDATER.compareAndSet(this, oldState, newState);
     }
 
-    protected final SelectableChannel getChannel() {
-        return channel;
+    protected final SelectableChannel selectableChannel() {
+        return sc;
     }
 
     protected final ChannelState getState() {
