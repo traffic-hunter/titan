@@ -1,6 +1,7 @@
 package org.traffichunter.titan.core.channel;
 
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,57 +9,70 @@ import java.util.List;
 @Slf4j
 public final class ChannelChain {
 
-    private final List<ChannelInBoundFilter> acceptListenerFilters = new ArrayList<>();
-    private final List<ChannelInBoundFilter> inBoundFilters = new ArrayList<>();
-    private final List<ChannelOutBoundFilter> outBoundFilters = new ArrayList<>();
+    private final Channel channel;
 
-    public ChannelChain add(ChannelInBoundFilter filter) {
+    private final List<ChannelInBoundHandler> inBoundFilters = new ArrayList<>();
+    private final List<ChannelOutBoundHandler> outBoundFilters = new ArrayList<>();
+
+    public ChannelChain(Channel channel) {
+        this.channel = channel;
+    }
+
+    public ChannelChain add(ChannelInBoundHandler filter) {
         inBoundFilters.add(filter);
         return this;
     }
 
-    public ChannelChain add(ChannelInBoundFilter... filters) {
+    public ChannelChain add(ChannelInBoundHandler... filters) {
         inBoundFilters.addAll(List.of(filters));
         return this;
     }
 
-    public ChannelChain add(ChannelOutBoundFilter filter) {
+    public ChannelChain add(ChannelOutBoundHandler filter) {
         outBoundFilters.add(filter);
         return this;
     }
 
-    public ChannelChain add(ChannelOutBoundFilter... filters) {
+    public ChannelChain add(ChannelOutBoundHandler... filters) {
         outBoundFilters.addAll(List.of(filters));
         return this;
     }
 
-    public ChannelChain accept(ChannelInBoundFilter filter) {
-        acceptListenerFilters.add(filter);
-        return this;
-    }
-
-    void fireAcceptListener(NetChannel channel) {
+    void processChannelConnecting(NetChannel channel) {
         try {
-            ChannelInboundFilterChain chain = new ChannelInboundFilterChain(acceptListenerFilters);
-            chain.process(channel);
+            inBoundFilters.forEach(
+                    filter -> filter.sparkChannelConnecting(channel)
+            );
         } catch (Exception e) {
             channel.close();
         }
     }
 
-    void fireInboundChannel(NetChannel channel) {
+    void processChannelAfterConnected(NetChannel channel) {
         try {
-            ChannelInboundFilterChain chain = new ChannelInboundFilterChain(inBoundFilters);
-            chain.process(channel);
+            inBoundFilters.forEach(
+                    filter -> filter.sparkChannelAfterConnected(channel)
+            );
         } catch (Exception e) {
             channel.close();
         }
     }
 
-    void fireOutboundChannel(NetChannel channel) {
+    void processChannelRead(NetChannel channel) {
         try {
-            ChannelOutBoundFilterChain chain = new ChannelOutBoundFilterChain(outBoundFilters);
-            chain.process(channel);
+            inBoundFilters.forEach(
+                    filter -> filter.sparkChannelRead(channel, Buffer.alloc(4096))
+            );
+        } catch (Exception e) {
+            channel.close();
+        }
+    }
+
+    void processChannelWrite(NetChannel channel) {
+        try {
+            outBoundFilters.forEach(
+                    filter -> filter.sparkChannelWrite(channel, Buffer.alloc(4096))
+            );
         } catch (Exception e) {
             channel.close();
         }
