@@ -24,8 +24,6 @@
 package org.traffichunter.titan.core.channel;
 
 import java.nio.channels.SelectionKey;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -59,7 +57,7 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
                     NetServerChannel serverChannel = (NetServerChannel) key.attachment();
                     NetChannel channel = serverChannel.accept();
 
-                    ((NewIONetServerChannel) serverChannel).initializer().initChannel(channel);
+                    ((AbstractChannel) serverChannel).accept(channel);
 
                     log.debug("Accepted connection from {}", channel.remoteAddress());
                 } catch (Throwable e) {

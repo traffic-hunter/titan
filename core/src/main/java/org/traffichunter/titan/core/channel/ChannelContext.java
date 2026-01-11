@@ -50,7 +50,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 @Deprecated
 public class ChannelContext implements Context {
 
-    private final ChannelChain chain = new ChannelChain();
+    //private final ChannelChain chain = new ChannelChain(this);
     private final SocketChannel channel;
     private final Instant createdAt;
     private final String contextId;
@@ -137,9 +137,9 @@ public class ChannelContext implements Context {
         }
     }
 
-    public ChannelChain chain() {
-        return chain;
-    }
+//    public ChannelChain chain() {
+//        return chain;
+//    }
 
     @Override
     public String id() {

@@ -27,7 +27,7 @@ package org.traffichunter.titan.core.channel;
  * @author yun
  */
 @FunctionalInterface
-public interface ChannelInitializer {
+public interface ChannelHandShakeEventListener {
 
-    void initChannel(Channel channel);
+    void accept(Channel channel);
 }

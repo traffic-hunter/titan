@@ -25,6 +25,8 @@ package org.traffichunter.titan.core.channel;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.IdGenerator;
 
 import java.io.IOException;
@@ -39,7 +41,8 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 public abstract class AbstractChannel implements Channel {
 
     private final SelectableChannel sc;
-    private final ChannelChain chain = new ChannelChain();
+    private final ChannelHandShakeEventListener initializer;
+    private final ChannelChain chain;
     private volatile Instant lastActiveAt = Instant.now();
     private final String channelId = IdGenerator.uuid();
 
@@ -47,18 +50,18 @@ public abstract class AbstractChannel implements Channel {
             AtomicReferenceFieldUpdater.newUpdater(AbstractChannel.class, ChannelState.class, "state");
     private volatile ChannelState state = ChannelState.INIT;
 
-    public AbstractChannel(SelectableChannel sc) {
+    private volatile IOEventLoop eventLoop;
+    private volatile boolean registered;
+
+    public AbstractChannel(SelectableChannel sc, ChannelHandShakeEventListener initializer) {
         this.sc = sc;
+        this.initializer = initializer;
+        this.chain = new ChannelChain(this);
 
         try {
             this.sc.configureBlocking(false);
         } catch (IOException e) {
-            try {
-                this.sc.close();
-            } catch (IOException ex) {
-                log.error("Failed to close channel", ex);
-            }
-
+            close();
             throw new ChannelException("Failed to configure channel blocking", e);
         }
     }
@@ -80,6 +83,44 @@ public abstract class AbstractChannel implements Channel {
     @Override
     public ChannelChain chain() {
         return chain;
+    }
+
+    @Override
+    public ChannelPromise register(@NonNull IOEventLoop eventLoop, @NonNull ChannelPromise promise) {
+        if(isClosed()) {
+            return promise.fail(new IllegalStateException("Channel is closed"));
+        }
+        if(isRegistered()) {
+            return promise.fail(new IllegalStateException("Channel is already registered"));
+        }
+
+        this.eventLoop = eventLoop;
+
+        if(eventLoop.inEventLoop()) {
+            registered = true;
+            promise.success();
+        } else {
+            eventLoop.register(() -> {
+                registered = true;
+                promise.success();
+            });
+        }
+
+        return promise;
+    }
+
+    @Override
+    public IOEventLoop eventLoop() {
+        if(this.eventLoop == null) {
+            throw new IllegalStateException("Event loop is not set");
+        }
+
+        return eventLoop;
+    }
+
+    @Override
+    public boolean isRegistered() {
+        return registered;
     }
 
     @Override
@@ -109,12 +150,12 @@ public abstract class AbstractChannel implements Channel {
 
     @Override
     public boolean isActive() {
-        return sc.isOpen() && state == ChannelState.ACTIVE;
+        return state == ChannelState.ACTIVE;
     }
 
     @Override
     public boolean isClosed() {
-        return state.compareTo(ChannelState.CLOSED) >= 0;
+        return state == ChannelState.CLOSED;
     }
 
     @Override
@@ -132,6 +173,18 @@ public abstract class AbstractChannel implements Channel {
         } catch (IOException e) {
             throw new ChannelException("Failed to close channel");
         }
+    }
+
+    void accept(Channel channel) {
+        if(!setState(ChannelState.INIT, ChannelState.ACTIVE)) {
+            return;
+        }
+
+        initializer.accept(channel);
+    }
+
+    protected ChannelHandShakeEventListener initializer() {
+        return initializer;
     }
 
     protected final boolean setState(ChannelState oldState, ChannelState newState) {

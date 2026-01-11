@@ -71,6 +71,11 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
+    public void register(Channel channel) {
+        selector.next().register(channel);
+    }
+
+    @Override
     public void register(Runnable task) {
         selector.next().register(task);
     }

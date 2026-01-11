@@ -35,11 +35,9 @@ import java.net.SocketOption;
  */
 public interface NetServerChannel extends Channel {
 
-    static NetServerChannel open() throws IOException {
-        return new NewIONetServerChannel();
+    static NetServerChannel open(ChannelHandShakeEventListener initializer) throws IOException {
+        return new NewIONetServerChannel(initializer);
     }
-
-    void init(ChannelInitializer initializer);
 
     @Override
     <T> NetServerChannel setOption(@NonNull SocketOption<T> option, @NonNull T value);

@@ -69,13 +69,18 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     }
 
     @Override
+    public void register(Channel channel) {
+        selector.next().register(channel);
+    }
+
+    @Override
     public void register(Runnable task) {
         selector.next().register(task);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public Promise<?> submit(Runnable task) {
+    public Promise<Void> submit(Runnable task) {
         return selector.next().submit(task);
     }
 

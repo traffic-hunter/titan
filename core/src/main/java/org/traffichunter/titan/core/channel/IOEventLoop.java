@@ -23,10 +23,18 @@
  */
 package org.traffichunter.titan.core.channel;
 
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
+
 /**
  * @author yungwang-o
  */
 public interface IOEventLoop extends EventLoop {
 
+    void register(Channel channel);
+
     IOSelector ioSelector();
+
+    default ChannelPromise newPromise(Channel channel) {
+        return ChannelPromise.newPromise(this, channel);
+    }
 }

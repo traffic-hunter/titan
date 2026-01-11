@@ -24,7 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
@@ -39,30 +38,18 @@ import java.nio.channels.SocketChannel;
  */
 public class NewIONetServerChannel extends AbstractChannel implements NetServerChannel {
 
-    private volatile ChannelInitializer initializer;
-
-    public NewIONetServerChannel() throws IOException {
-        this(ServerSocketChannel.open());
+    NewIONetServerChannel(ChannelHandShakeEventListener initializer) throws IOException {
+        this(ServerSocketChannel.open(), initializer);
     }
 
-    NewIONetServerChannel(ServerSocketChannel channel) {
-        super(channel);
-    }
-
-    @Override
-    public void init(ChannelInitializer initializer) {
-        this.initializer = initializer;
-    }
-
-    ChannelInitializer initializer() {
-        return initializer;
+    NewIONetServerChannel(ServerSocketChannel channel, ChannelHandShakeEventListener initializer) {
+        super(channel, initializer);
     }
 
     @Override
     public void bind(@NonNull InetSocketAddress address) {
         try {
             channel().bind(address);
-            setState(getState(), ChannelState.ACTIVE);
         } catch (IOException e) {
             setState(getState(), ChannelState.INIT);
         }
@@ -76,8 +63,9 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
                 return null;
             }
 
-            return new NewIONetChannel(accept);
+            return new NewIONetChannel(accept, super.initializer());
         } catch (IOException e) {
+            setState(getState(), ChannelState.INIT);
             return null;
         }
     }

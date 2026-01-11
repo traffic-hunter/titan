@@ -31,6 +31,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.channels.SelectionKey;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -38,7 +39,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 /**
  * @author yun
  */
-public final class ChannelWriteBuffer implements Closeable {
+public final class ChannelWriteBuffer {
 
     /**
      * default upperPoint and lowerPoint
@@ -83,15 +84,15 @@ public final class ChannelWriteBuffer implements Closeable {
         int pendingBytes = PENDING_BYTES_UPDATER.addAndGet(this, buffer.length());
         if(isWritable && pendingBytes > upperPoint) {
             isWritable = false;
-            notifyWritable(false);
         }
+
     }
 
     public boolean isEmpty() {
         return writeBuffer.isEmpty();
     }
 
-    public Buffer current() {
+    public @Nullable Buffer current() {
         return writeBuffer.peek();
     }
 
@@ -109,24 +110,24 @@ public final class ChannelWriteBuffer implements Closeable {
         int pendingBytes = PENDING_BYTES_UPDATER.addAndGet(this, -buffer.length());
         if(!isWritable && pendingBytes < lowerPoint) {
             isWritable = true;
-            notifyWritable(true);
         }
 
         return buffer;
     }
 
-    private boolean isWritable() {
+    public boolean isWritable() {
         return isWritable;
     }
 
-    private void notifyWritable(boolean isWritable) {
+    public void close() {
+        if(!writeBuffer.isEmpty()) {
+            writeBuffer.forEach(Buffer::release);
+        }
 
-    }
-
-    @Override
-    public void close() throws IOException {
         writeBuffer.clear();
         PENDING_BYTES_UPDATER.set(this, 0);
         isWritable = false;
+
+        channel.onWritabilityChanged(false);
     }
 }

@@ -28,7 +28,9 @@ import java.net.SocketOption;
 import java.time.Instant;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 
 /**
  * @author yungwang-o
@@ -36,6 +38,14 @@ import org.jspecify.annotations.Nullable;
 public interface Channel {
 
     ChannelChain chain();
+
+    default ChannelPromise register(@NonNull IOEventLoop eventLoop) {
+        return register(eventLoop, eventLoop.newPromise(this));
+    }
+
+    ChannelPromise register(@NonNull IOEventLoop eventLoop, @NonNull ChannelPromise promise);
+
+    IOEventLoop eventLoop();
 
     String id();
 
@@ -55,6 +65,8 @@ public interface Channel {
     @Nullable SocketAddress remoteAddress();
 
     boolean isOpen();
+
+    boolean isRegistered();
 
     boolean isActive();
 

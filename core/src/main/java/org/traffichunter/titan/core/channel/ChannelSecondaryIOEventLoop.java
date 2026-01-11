@@ -60,20 +60,26 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 continue;
             }
 
-            org.traffichunter.titan.core.channel.NetChannel channel = (NetChannel) key.attachment();
+            NetChannel channel = (NetChannel) key.attachment();
 
-            try {
-                if (key.isConnectable()) {
-                    if (channel.isConnected()) {
-                        log.debug("completed connect: {}", channel.remoteAddress());
+            if (key.isConnectable()) {
+                try {
+                    if(channel.finishConnect()) {
+                        log.debug("finish connect = {}", channel.remoteAddress());
+
+                        this.ioSelector()
+                                .unregisterConnect(channel)
+                                .registerRead(channel);
+
+                        ((AbstractChannel) channel).accept(channel);
                     }
-                } else if (key.isReadable()) {
-                    channel.chain().fireInboundChannel(channel);
-                } else if (key.isWritable()) {
-                    channel.chain().fireOutboundChannel(channel);
+                } catch (Exception e) {
+                    log.error("Failed connect", e);
                 }
-            } catch (Exception e) {
-                log.error("Failed task", e);
+            } else if (key.isReadable()) {
+                channel.chain().processChannelRead(channel);
+            } else if (key.isWritable()) {
+                channel.chain().processChannelWrite(channel);
             }
         }
     }

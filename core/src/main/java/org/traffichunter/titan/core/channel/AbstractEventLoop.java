@@ -78,7 +78,7 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor imple
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<?> submit(final Runnable task) {
+    public Promise<Void> submit(final Runnable task) {
         Promise<Void> promise = Promise.newPromise(this, task);
         register(promise);
         return promise;

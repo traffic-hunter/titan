@@ -24,48 +24,51 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.NonNull;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yun
  */
 public interface NetChannel extends Channel {
 
-    static NetChannel open() throws IOException {
-        return new NewIONetChannel();
+    static NetChannel open(ChannelHandShakeEventListener initializer) throws IOException {
+        return new NewIONetChannel(initializer);
     }
 
     @Override
     <T> NetChannel setOption(SocketOption<T> option, T value);
 
-    default void connect(String host, int port) {
-        connect(new InetSocketAddress(host, port));
+    default void connect(String host, int port, long timeOut, TimeUnit timeUnit) throws IOException {
+        connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
     @CanIgnoreReturnValue
-    void connect(InetSocketAddress remote);
+    void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException;
 
     @CanIgnoreReturnValue
     void disconnect();
 
     @CanIgnoreReturnValue
-    int read(Buffer buffer);
+    int read(@NonNull Buffer buffer);
 
     @CanIgnoreReturnValue
-    void write(Buffer buffer);
+    void write(@NonNull Buffer buffer);
 
     @CanIgnoreReturnValue
-    void writeAndFlush(Buffer buffer);
+    void writeAndFlush(@NonNull Buffer buffer);
 
     @CanIgnoreReturnValue
     void flush();
 
-    boolean isFinishConnected();
+    void onWritabilityChanged(boolean isWritable);
+
+    boolean finishConnect();
 
     boolean isConnected();
 }

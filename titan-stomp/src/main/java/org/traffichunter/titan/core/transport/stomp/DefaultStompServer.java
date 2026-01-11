@@ -37,7 +37,6 @@ import org.traffichunter.titan.core.codec.stomp.StompHandler;
 import org.traffichunter.titan.core.codec.stomp.StompHandlerImpl;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.dispatcher.Dispatcher;
-import org.traffichunter.titan.core.transport.InetServer;
 
 /**
  * @author yungwang-o

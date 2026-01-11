@@ -45,6 +45,11 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
     }
 
     @Override
+    public void register(Channel channel) {
+        channel.register(this);
+    }
+
+    @Override
     protected final void addTask(final Runnable task) {
         super.addTask(task);
         wakeUp();
