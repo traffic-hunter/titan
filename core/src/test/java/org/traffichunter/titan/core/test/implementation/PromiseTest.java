@@ -122,6 +122,15 @@ class PromiseTest {
         assertTrue(promise.isFailed());
     }
 
+    @Test
+    void cancel_test() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+
+        promise.cancel();
+
+        assertTrue(promise.isCancelled());
+    }
+
     private static final class TestPromiseImpl<V> extends PromiseImpl<V> {
 
         public TestPromiseImpl(EventLoop eventLoop, Runnable task) {
