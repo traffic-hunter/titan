@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.channel;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 
@@ -46,7 +45,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
         this(1);
     }
 
-    public ChannelPrimaryIOEventLoopGroup(final int size) {
+    public ChannelPrimaryIOEventLoopGroup(int size) {
         List<ChannelPrimaryIOEventLoop> eventLoops = new ArrayList<>(size);
 
         try {
@@ -69,6 +68,11 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     @Override
     public void start() {
         group.forEach(ChannelPrimaryIOEventLoop::start);
+    }
+
+    @Override
+    public void register(Channel channel) {
+        selector.next().register(channel);
     }
 
     @Override

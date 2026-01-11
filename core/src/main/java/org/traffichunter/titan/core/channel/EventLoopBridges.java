@@ -21,33 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport;
+package org.traffichunter.titan.core.channel;
 
-import lombok.Builder;
+import org.traffichunter.titan.bootstrap.Configurations;
 
 /**
  * @author yungwang-o
  */
-@Builder
-public record ClientOptions(
-        boolean tcpNoDelay,
-        boolean keepAlive,
-        int sendBufferSize,
-        int receiveBufferSize,
-        long connectTimeoutMillis,
-        boolean autoReconnect,
-        boolean reuseAddr,
-        boolean reusePort
-) {
+@Deprecated
+public final class EventLoopBridges {
 
-    public static final ClientOptions DEFAULT = ClientOptions.builder()
-            .tcpNoDelay(true)
-            .keepAlive(false)
-            .sendBufferSize(64 * 1024)
-            .receiveBufferSize(64 * 1024)
-            .connectTimeoutMillis(30_000)
-            .autoReconnect(false)
-            .reuseAddr(false)
-            .reusePort(false)
-            .build();
+    private static EventLoopBridge<ChannelContext> INSTANCE = null;
+
+    public static EventLoopBridge<ChannelContext> getInstance() {
+        if(INSTANCE == null) {
+            INSTANCE = new EventLoopBridge<>(Math.max(16, Configurations.taskPendingCapacity()));
+        }
+
+        return INSTANCE;
+    }
+
+    private EventLoopBridges() { }
 }

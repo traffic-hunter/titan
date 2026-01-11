@@ -23,8 +23,26 @@
  */
 package org.traffichunter.titan.core.channel;
 
+import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
+
 /**
  * @author yungwang-o
  */
-public final class NoopChannelContextOutBoundHandler implements ChannelContextInBoundHandler {
+@Slf4j
+public final class EventLoopFactory {
+
+    public static ChannelPrimaryIOEventLoop createPrimaryIOEventLoop() {
+        return new ChannelPrimaryIOEventLoop();
+    }
+
+    public static ChannelSecondaryIOEventLoop createSecondaryIOEventLoop(int eventLoopNameCount) {
+        return new ChannelSecondaryIOEventLoop(nameEventLoop(eventLoopNameCount));
+    }
+
+    private static String nameEventLoop(int eventLoopNameCount) {
+        return EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME + "-" + eventLoopNameCount;
+    }
+
+    private EventLoopFactory() {}
 }

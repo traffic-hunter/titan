@@ -23,10 +23,6 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.concurrent.EventLoop;
-import org.traffichunter.titan.core.concurrent.EventLoopFactory;
-import org.traffichunter.titan.core.concurrent.IOEventLoop;
-import org.traffichunter.titan.core.concurrent.IOSelector;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 
@@ -73,13 +69,18 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     }
 
     @Override
+    public void register(Channel channel) {
+        selector.next().register(channel);
+    }
+
+    @Override
     public void register(Runnable task) {
         selector.next().register(task);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public Promise<?> submit(Runnable task) {
+    public Promise<Void> submit(Runnable task) {
         return selector.next().submit(task);
     }
 

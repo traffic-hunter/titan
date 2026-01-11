@@ -4,7 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.traffichunter.titan.core.concurrent.EventLoop;
+import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.concurrent.AsyncListener;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.PromiseImpl;
@@ -120,6 +120,15 @@ class PromiseTest {
         promise.await(50, TimeUnit.MILLISECONDS);
 
         assertTrue(promise.isFailed());
+    }
+
+    @Test
+    void cancel_test() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+
+        promise.cancel();
+
+        assertTrue(promise.isCancelled());
     }
 
     private static final class TestPromiseImpl<V> extends PromiseImpl<V> {

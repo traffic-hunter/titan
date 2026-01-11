@@ -26,9 +26,11 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.SocketOption;
 import java.nio.channels.ServerSocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 
@@ -36,6 +38,7 @@ import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 class DefaultServerConnector implements ServerConnector {
 
     private final ServerSocketChannel serverSocketChannel;
@@ -74,6 +77,11 @@ class DefaultServerConnector implements ServerConnector {
     @Override
     public void bind() throws IOException {
         serverSocketChannel.bind(address);
+    }
+
+    @Override
+    public <T> void setOption(@NonNull SocketOption<T> option, @NonNull T value) throws IOException {
+        serverSocketChannel.setOption(option, value);
     }
 
     @Override

@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Queue;
@@ -29,6 +29,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.Configurations;
+import org.traffichunter.titan.core.concurrent.AdvancedThreadPoolExecutor;
+import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
  * @author yungwang-o
@@ -76,7 +78,7 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor imple
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<?> submit(final Runnable task) {
+    public Promise<Void> submit(final Runnable task) {
         Promise<Void> promise = Promise.newPromise(this, task);
         register(promise);
         return promise;

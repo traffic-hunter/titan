@@ -25,18 +25,14 @@ package org.traffichunter.titan.core.test.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
+import java.net.StandardSocketOptions;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.*;
@@ -44,7 +40,6 @@ import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.transport.InetClient;
-import org.traffichunter.titan.core.transport.InetClient.ClientException;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
@@ -52,23 +47,28 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 public class ClientToServerTest {
 
-    private static final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 101);
+    private static final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 1001);
     private static InetServer server;
 
     private static final Logger log = LoggerFactory.getLogger(ClientToServerTest.class);
 
     @BeforeAll
-    static void setUp() throws Exception {
-        server = InetServer.open("localhost", 7777)
-                .group(new ChannelPrimaryIOEventLoopGroup(), new ChannelSecondaryIOEventLoopGroup())
-                .invokeChannelHandler(ctx -> ctx.chain().add(new TestChannelInboundFilter()))
-                .start();
+    static void setUp() throws InterruptedException {
+        server = InetServer.builder()
+                .group(EventLoopGroups.group(1))
+                .option(StandardSocketOptions.SO_REUSEADDR, true)
+                .channelHandler(ctx -> ctx.chain().add(new TestChannelInboundHandler()))
+                .build();
 
-        server.listen().addListener(future -> {
+        server.start();
+
+        server.listen("localhost", 7777).addListener(future -> {
             if(future.isSuccess()) {
                 log.info("Server started successfully");
             }
         });
+
+        Thread.sleep(100);
     }
 
     @AfterEach
@@ -82,66 +82,87 @@ public class ClientToServerTest {
     }
 
     @Test
-    @Timeout(10)
-    void single_client_to_server_test() throws Exception {
-        InetClient client = InetClient.open("localhost", 7777)
-                .onRead(buffer -> log.info("buffer = {}", buffer.length()))
-                .onWrite(buffer -> {})
-                .onConnect(channel -> {})
-                .exceptionHandler(ClientException::new)
-                .start();
+    void single_client_to_server_test() {
 
-        client.connect().get();
+        InetClient client = InetClient.builder()
+                .group(EventLoopGroups.group())
+                .option(StandardSocketOptions.SO_REUSEADDR, true)
+                .option(StandardSocketOptions.SO_REUSEPORT, true)
+                .channelHandler(channel -> channel.chain().add(new TestChannelInboundHandler()))
+                .build();
 
-        client.send(Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8)));
+        client.start();
+        try {
+            client.connect("localhost", 7777).get();
+            client.send(Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
+                if(future.isSuccess()) {
+                    log.info("Send successfully");
+                }
+            });
+        } catch (Exception e) {
+            log.error("Error sending");
+        } finally {
+            Awaitility.await().atMost(Duration.ofSeconds(1))
+                    .until(() -> rq.size() == 1);
+        }
 
-        Awaitility.await().atMost(Duration.ofSeconds(1))
-                .until(() -> rq.size() == 1);
+        client.shutdown();
     }
 
     @Test
-    @Timeout(10)
-    void multi_client_to_server_test() {
+    void client_to_server_send_test() throws Exception {
         int count = 100;
 
         ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2, r -> new Thread(r, "TestThread"));
 
+        InetClient client = InetClient.builder()
+                .group(EventLoopGroups.group())
+                .option(StandardSocketOptions.SO_REUSEADDR, true)
+                .option(StandardSocketOptions.SO_REUSEPORT, true)
+                .channelHandler(channel -> channel.chain().add(new TestChannelInboundHandler()))
+                .build();
+
+        client.start();
+        client.connect("localhost", 7777).get();
+
         for (int i = 0; i < count; i++) {
             es.execute(() -> {
                 try {
-                    InetClient client = InetClient.open("localhost", 7777)
-                            .onRead(buffer -> {})
-                            .onWrite(buffer -> {})
-                            .onConnect(channel -> {})
-                            .exceptionHandler(ClientException::new)
-                            .start();
-
-                    client.connect().get();
-
-                    client.send(Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8))).get();
-                    Thread.sleep(50);
-                    client.close();
+                    client.send(Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
+                        if(future.isSuccess()) {
+                            log.info("Send successfully");
+                        }
+                    });
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             });
         }
 
-        Awaitility.await().atMost(Duration.ofSeconds(10))
+        Awaitility.await().atMost(Duration.ofSeconds(5))
                 .untilAsserted(() -> assertThat(rq.size()).isEqualTo(count));
 
+        client.shutdown();
         es.shutdown();
         es.close();
     }
 
-    private static class TestChannelInboundFilter implements ChannelInBoundFilter {
+    private static class TestChannelInboundHandler implements ChannelInBoundHandler {
 
         @Override
-        public void doFilter(Context context, ChannelInboundFilterChain chain) throws Exception {
-            Buffer buffer = Buffer.alloc(1024);
+        public void sparkChannelConnecting(NetChannel channel) {
 
-            int recv = context.recv(buffer);
-            if(recv > 0) {
+        }
+
+        @Override
+        public void sparkChannelAfterConnected(NetChannel channel) {
+
+        }
+
+        @Override
+        public void sparkChannelRead(NetChannel channel, Buffer buffer) {
+            int read = channel.read(buffer);
+            if(read > 0) {
                 try {
                     final Message msg = Message.builder()
                             .routingKey(RoutingKey.create("route.test"))
@@ -157,18 +178,18 @@ public class ClientToServerTest {
                 } finally {
                     buffer.release();
                 }
-            } else if(recv < 0) {
+            } else {
                 try {
-                    context.close();
-                } catch (IOException e) {
-                    log.info("Failed to close socket = {}", e.getMessage());
-                    return;
+                    channel.close();
                 } finally {
                     buffer.release();
                 }
             }
+        }
 
-            chain.doFilter(context);
+        @Override
+        public void sparkExceptionCaught(Throwable error) {
+
         }
     }
 }

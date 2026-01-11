@@ -23,76 +23,202 @@
  */
 package org.traffichunter.titan.core.transport;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketOption;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-import org.traffichunter.titan.core.channel.ChannelPrimaryIOEventLoop;
-import org.traffichunter.titan.core.channel.ChannelEventLoopGroup;
-import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
+import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.channel.ChannelContext;
 import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
  * @author yungwang-o
  */
-public interface InetServer {
+@Slf4j
+public class InetServer extends AbstractTransport<NetServerChannel>{
 
-    static InetServer open(String host, int port) {
-        return InetServer.open(new InetSocketAddress(host, port));
+    private final Object lock = new Object();
+
+    private volatile boolean listening;
+
+    private InetServer(NetServerChannel channel, EventLoopGroups groups) {
+        super(channel, groups);
     }
 
-    static InetServer open(InetSocketAddress address) {
-        return new InetServerImpl(ServerConnector.open(address));
+    public static Builder builder() {
+        return new Builder();
     }
 
-    InetServer start();
+    @Override
+    public void start() {
+        groups().primaryGroup().register(channel());
+        groups().start();
+    }
 
-    @CanIgnoreReturnValue
-    InetServer group(ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> acceptorGroup,
-                     ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> ioGroup);
+    public Promise<Void> listen(String host, int port) {
+        return listen(new InetSocketAddress(host, port));
+    }
 
-    @CanIgnoreReturnValue
-    Promise<Void> listen();
+    public Promise<Void> listen(InetSocketAddress address) {
+        if(listening || !channel().isOpen()) {
+            log.error("Connector is not open");
 
-    @CanIgnoreReturnValue
-    InetServer exceptionHandler(Handler<Throwable> handler);
-
-    @CanIgnoreReturnValue
-    InetServer invokeChannelHandler(Handler<ChannelContext> handler);
-
-    String host();
-
-    int activePort();
-
-    boolean isStart();
-
-    boolean isListening();
-
-    boolean isClosed();
-
-    void shutdown();
-
-    class ServerException extends TransportException {
-
-        public ServerException() {
+            return Promise.failedPromise(groups().primaryGroup().next(), new ServerException("Connector is not open"));
         }
 
-        public ServerException(final String message) {
-            super(message);
+        synchronized (lock) {
+            listening = true;
         }
 
-        public ServerException(final String message, final Throwable cause) {
-            super(message, cause);
+        return bind(address).addListener(future -> {
+            if(future.isSuccess()) {
+                ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
+                eventLoop.register(() -> {
+                    try {
+                        eventLoop.ioSelector().registerAccept(channel());
+                    } catch (IOException e) {
+                        throw new ServerException("Failed to register accept event", e);
+                    }
+                });
+            }
+        });
+    }
+
+    public void shutdown() {
+        shutdown(30, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public void shutdown(long timeOut, TimeUnit timeUnit) {
+        synchronized (lock) {
+            if (!listening) {
+                log.warn("Server is not listening");
+                return;
+            }
+            listening = false;
         }
 
-        public ServerException(final Throwable cause) {
-            super(cause);
+        log.info("Closing server...");
+        try {
+            synchronized (lock) {
+                listening = false;
+            }
+
+            super.close(timeOut, timeUnit);
+            log.info("Closed server");
+        } catch (Exception e) {
+            throw new ServerException("Cannot close server", e);
+        }
+    }
+
+    private Promise<Void> bind(InetSocketAddress address) {
+        ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
+        return eventLoop.submit(() -> {
+            try {
+                channel().bind(address);
+                return null;
+            } catch (IOException e) {
+                throw new ServerException("Failed to bind to " + channel().localAddress(), e);
+            }
+        });
+    }
+
+    public static final class Builder {
+
+        private EventLoopGroups groups;
+        private Handler<Channel> channelHandler;
+        private final Map<SocketOption<?>, Object> options = new HashMap<>();
+        private final Map<SocketOption<?>, Object> childOptions = new HashMap<>();
+
+        public Builder group(EventLoopGroups groups) {
+            this.groups = groups;
+            return this;
         }
 
-        public ServerException(final String message, final Throwable cause, final boolean enableSuppression,
-                               final boolean writableStackTrace) {
-            super(message, cause, enableSuppression, writableStackTrace);
+        public Builder channelHandler(Handler<Channel> handler) {
+            this.channelHandler = handler;
+            return this;
+        }
+
+        public <T> Builder option(SocketOption<T> option, T value) {
+            options.put(option, value);
+            return this;
+        }
+
+        public <T> Builder childOption(SocketOption<T> option, T value) {
+            childOptions.put(option, value);
+            return this;
+        }
+
+        @SuppressWarnings("unchecked")
+        public InetServer build() {
+            Assert.checkNull(groups, "eventLoopGroups");
+            Assert.checkNull(channelHandler, "childHandler");
+
+            NetServerChannel serverChannel;
+            try {
+                serverChannel = NetServerChannel.open(
+                        new ServerChannelAcceptor(
+                                channelHandler,
+                                childOptions,
+                                groups.secondaryGroup()
+                        )
+                );
+            } catch (IOException e) {
+                throw new ServerException("Failed to open server channel", e);
+            }
+
+            options.forEach((k, v) ->
+                    serverChannel.setOption((SocketOption<Object>) k, v)
+            );
+
+            groups.register(serverChannel);
+            return new InetServer(serverChannel, groups);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static final class ServerChannelAcceptor implements ChannelHandShakeEventListener {
+
+        private final Handler<Channel> childHandler;
+        private final Map<SocketOption<?>, Object> childOptions;
+        private final ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup;
+
+        ServerChannelAcceptor(
+                Handler<Channel> childHandler,
+                Map<SocketOption<?>, Object> childOptions,
+                ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup
+        ) {
+            this.childHandler = childHandler;
+            this.childOptions = childOptions;
+            this.secondaryGroup = secondaryGroup;
+        }
+
+        @Override
+        public void accept(Channel channel) {
+            if (!(channel instanceof NetChannel netChannel)) {
+                throw new IllegalArgumentException("Unsupported channel: " + channel);
+            }
+
+            childOptions.forEach((k, v) ->
+                    netChannel.setOption((SocketOption<Object>) k, v)
+            );
+
+            ChannelSecondaryIOEventLoop loop = secondaryGroup.next();
+            loop.register(() -> {
+                try {
+                    loop.ioSelector().registerRead(netChannel);
+                    loop.register(netChannel);
+                    childHandler.handle(netChannel);
+                } catch (IOException e) {
+                    throw new ServerException("Failed to init child channel", e);
+                }
+            });
         }
     }
 }

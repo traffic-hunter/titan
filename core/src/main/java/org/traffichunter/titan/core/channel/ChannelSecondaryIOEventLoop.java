@@ -28,7 +28,6 @@ import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.SingleThreadIOEventLoop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -41,7 +40,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
         this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public ChannelSecondaryIOEventLoop(final String eventLoopName) {
+    public ChannelSecondaryIOEventLoop(String eventLoopName) {
         super(eventLoopName);
     }
 
@@ -61,20 +60,26 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 continue;
             }
 
-            ChannelContext ctx = ChannelContext.select(key);
+            NetChannel channel = (NetChannel) key.attachment();
 
-            try {
-                if (key.isConnectable()) {
-                    if (ctx.isConnected()) {
-                        log.debug("completed connect: {}", ctx.remoteAddress());
+            if (key.isConnectable()) {
+                try {
+                    if(channel.finishConnect()) {
+                        log.debug("finish connect = {}", channel.remoteAddress());
+
+                        this.ioSelector()
+                                .unregisterConnect(channel)
+                                .registerRead(channel);
+
+                        ((AbstractChannel) channel).accept(channel);
                     }
-                } else if (key.isReadable()) {
-                    ctx.chain().fireInboundChannel(ctx);
-                } else if (key.isWritable()) {
-                    ctx.chain().fireOutboundChannel(ctx);
+                } catch (Exception e) {
+                    log.error("Failed connect", e);
                 }
-            } catch (Exception e) {
-                log.error("Failed task", e);
+            } else if (key.isReadable()) {
+                channel.chain().processChannelRead(channel);
+            } else if (key.isWritable()) {
+                channel.chain().processChannelWrite(channel);
             }
         }
     }

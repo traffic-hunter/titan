@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 public final class EventLoopBridge<T> {
 
     private final BlockingQueue<T> bridge;

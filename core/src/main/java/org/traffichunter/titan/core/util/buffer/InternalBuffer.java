@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.util.Assert;
  * @author yungwang-o
  */
 @Slf4j
-class InternalBuffer implements Buffer {
+public class InternalBuffer implements Buffer {
 
     private ByteBuf buf;
 
@@ -421,9 +421,12 @@ class InternalBuffer implements Buffer {
         return this;
     }
 
+    /**
+     * @return number of readable bytes (writerIndex - readerIndex)
+     */
     @Override
     public int length() {
-        return buf.writerIndex();
+        return buf.readableBytes();
     }
 
     @Override

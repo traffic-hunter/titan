@@ -29,6 +29,7 @@ import java.nio.channels.SocketChannel;
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface ClientConnector extends Connector {
 
     static ClientConnector open(String ip, int port) {

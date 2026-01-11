@@ -28,11 +28,14 @@ import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.SocketOption;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
@@ -44,9 +47,10 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yungwang-o
  */
 @Slf4j
+@Deprecated
 public class ChannelContext implements Context {
 
-    private final ChannelChain chain = new ChannelChain();
+    //private final ChannelChain chain = new ChannelChain(this);
     private final SocketChannel channel;
     private final Instant createdAt;
     private final String contextId;
@@ -133,9 +137,9 @@ public class ChannelContext implements Context {
         }
     }
 
-    public ChannelChain chain() {
-        return chain;
-    }
+//    public ChannelChain chain() {
+//        return chain;
+//    }
 
     @Override
     public String id() {
@@ -154,6 +158,11 @@ public class ChannelContext implements Context {
         } catch (IOException e) {
             return new InetSocketAddress("unknown", 1);
         }
+    }
+
+    @Override
+    public <T> void setOption(SocketOption<T> option, T value) throws IOException {
+        channel.setOption(option, value);
     }
 
     public boolean isConnected() {

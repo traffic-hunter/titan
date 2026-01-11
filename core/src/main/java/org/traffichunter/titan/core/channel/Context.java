@@ -28,11 +28,13 @@ import org.traffichunter.titan.core.util.inet.WriteStream;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.net.SocketOption;
 import java.nio.channels.SelectableChannel;
 
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface Context extends ReadStream, WriteStream {
 
     boolean isOpen();
@@ -40,6 +42,8 @@ public interface Context extends ReadStream, WriteStream {
     String id();
 
     SocketAddress remoteAddress();
+
+    <T> void setOption(SocketOption<T> option, T value) throws IOException;
 
     SelectableChannel channel();
 

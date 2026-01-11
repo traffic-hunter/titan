@@ -23,16 +23,41 @@
  */
 package org.traffichunter.titan.core.channel;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.event.EventLoopConstants;
+
 /**
  * @author yungwang-o
  */
-public interface ChannelContextInBoundHandler {
+public interface EventLoop extends EventLoopLifeCycle {
 
-    default void handleConnect(ChannelContext channelContext) { }
+    void start();
 
-    default void handleCompletedConnect(ChannelContext channelContext) { }
+    void register(Runnable task);
 
-    default void handleRead(ChannelContext channelContext) { }
+    <V> Promise<V> submit(Runnable task);
 
-    default void handleCompletedRead(ChannelContext channelContext) { }
+    <V> Promise<V> submit(Callable<V> task);
+
+    <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
+
+    <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
+
+    default boolean inEventLoop() {
+        return inEventLoop(Thread.currentThread());
+    }
+
+    boolean inEventLoop(Thread thread);
+
+    default void gracefullyShutdown() {
+        gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
+    }
+
+    void gracefullyShutdown(long timeout, TimeUnit unit);
+
+    void close();
 }

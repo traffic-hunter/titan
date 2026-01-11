@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
@@ -42,6 +42,11 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
     public SingleThreadIOEventLoop(final String eventLoopName) {
         super(eventLoopName, new ConcurrentLinkedQueue<>());
         this.ioSelector = IOSelector.open();
+    }
+
+    @Override
+    public void register(Channel channel) {
+        channel.register(this);
     }
 
     @Override

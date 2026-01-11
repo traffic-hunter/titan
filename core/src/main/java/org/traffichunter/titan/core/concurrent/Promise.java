@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.EventLoop;
 
 /**
  * @author yungwang-o
@@ -53,11 +54,19 @@ public interface Promise<C> extends RunnableFuture<C>, Completion<C> {
 
     boolean isSuccess();
 
+    default boolean cancel() {
+        return cancel(false);
+    }
+
+    /**
+     * @param mayInterruptIfRunning Cancellation does not interrupt underlying task execution.
+     */
+    @Override
+    boolean cancel(boolean mayInterruptIfRunning);
+
     default boolean isFailed() {
         return !isSuccess();
     }
-
-    boolean isCancellable();
 
     @CanIgnoreReturnValue
     Promise<C> addListener(@NonNull AsyncListener listener);

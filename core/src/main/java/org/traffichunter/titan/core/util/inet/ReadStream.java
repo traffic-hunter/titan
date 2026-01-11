@@ -23,11 +23,13 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
+@Deprecated
 public interface ReadStream {
 
     int recv(Buffer buffer);

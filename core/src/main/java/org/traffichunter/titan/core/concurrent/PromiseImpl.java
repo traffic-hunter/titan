@@ -35,6 +35,7 @@ import java.util.concurrent.TimeoutException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
@@ -50,6 +51,9 @@ public class PromiseImpl<C> implements Promise<C> {
     private Throwable error;
     private List<AsyncListener> listeners;
     private final Callable<C> task;
+
+    private int waiter;
+    private boolean isCancelled;
 
     protected PromiseImpl(EventLoop eventLoop, Runnable task) {
         this(eventLoop, Executors.callable(task, null));
@@ -110,18 +114,32 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public boolean isCancellable() {
-        return false;
-    }
-
-    @Override
     public boolean cancel(final boolean mayInterruptIfRunning) {
-        throw new UnsupportedOperationException();
+        if(isCancelled) {
+            return true;
+        }
+
+        synchronized (this) {
+            if(isDone()) {
+                return false;
+            }
+
+            isCancelled = true;
+            error = new CancellationException("Cancelled result");
+            isCompleted = true;
+
+            if(waiter > 0) {
+                notifyAll();
+            }
+        }
+
+        notifyListeners();
+        return true;
     }
 
     @Override
     public boolean isCancelled() {
-        return false;
+        return isCancelled;
     }
 
     @Override
@@ -175,7 +193,12 @@ public class PromiseImpl<C> implements Promise<C> {
 
         synchronized (this) {
             while (!isDone()) {
-                wait();
+                waiter++;
+                try {
+                    wait();
+                } finally {
+                    waiter--;
+                }
             }
         }
 
@@ -199,14 +222,19 @@ public class PromiseImpl<C> implements Promise<C> {
 
         synchronized (this) {
             while (!isDone()) {
-                long timeoutMillis = remainingNanos / 1_000_000;
-                int nanos = (int) (remainingNanos % 1_000_000);
+                waiter++;
+                try {
+                    long timeoutMillis = remainingNanos / 1_000_000;
+                    int nanos = (int) (remainingNanos % 1_000_000);
 
-                wait(timeoutMillis, nanos);
+                    wait(timeoutMillis, nanos);
 
-                remainingNanos = deadline - System.nanoTime();
-                if(remainingNanos <= 0) {
-                    break;
+                    remainingNanos = deadline - System.nanoTime();
+                    if (remainingNanos <= 0) {
+                        break;
+                    }
+                } finally {
+                    waiter--;
                 }
             }
         }
@@ -217,17 +245,20 @@ public class PromiseImpl<C> implements Promise<C> {
     @Override
     public Promise<C> complete(final C result, final Throwable error) {
         if(isDone()) {
-            throw new IllegalStateException("Already completed task");
+            return this;
         }
 
         synchronized (this) {
             this.result = result;
             this.error = error;
             this.isCompleted = true;
-            notifyAll();
-            notifyListeners();
+
+            if(waiter > 0) {
+                notifyAll();
+            }
         }
 
+        notifyListeners();
         return this;
     }
 
