@@ -21,48 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec;
+package org.traffichunter.titan.core.codec.frame;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * @author yungwang-o
  */
-public final class Codec {
+public abstract class Headers<K, V, H extends Headers<K, V, H>> {
 
-    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder().withoutPadding();
-    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
+    protected final Map<K, V> map;
 
-    public static byte[] encode(final byte[] src) {
-        return BASE64_ENCODER.encode(src);
+    protected Headers(final Map<K, V> map) {
+        this.map = map;
     }
 
-    public static byte[] encode(final String src) {
-        return encode(src, StandardCharsets.UTF_8);
-    }
+    public abstract void put(K key, V value);
 
-    public static byte[] encode(final String src, final Charset charset) {
-        return BASE64_ENCODER.encode(src.getBytes(charset));
-    }
+    public abstract void putIfAbsent(K key, V value);
 
-    public static byte[] encode(final ByteBuffer src) {
-        return BASE64_ENCODER.encode(src).array();
-    }
+    public abstract Optional<V> get(K key);
 
-    public static byte[] decode(final byte[] src) {
-        return BASE64_DECODER.decode(src);
-    }
+    public abstract boolean containsKey(K key);
 
-    public static byte[] decode(final String src) {
-        return BASE64_DECODER.decode(src);
-    }
+    public abstract Set<K> keySet();
 
-    public static byte[] decode(final ByteBuffer src) {
-        return BASE64_DECODER.decode(src).array();
-    }
+    public abstract Set<Map.Entry<K, V>> entrySet();
 
-    private Codec() { }
+    public abstract Iterator<Map.Entry<K, V>> iterator();
+
+    public abstract H getHeader();
 }

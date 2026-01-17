@@ -31,7 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Getter;
-import org.traffichunter.titan.core.codec.Headers;
+import org.traffichunter.titan.core.codec.frame.Headers;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 
 /**
