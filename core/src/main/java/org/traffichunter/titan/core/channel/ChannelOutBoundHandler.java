@@ -4,5 +4,5 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 public interface ChannelOutBoundHandler {
 
-    void sparkChannelWrite(Channel channel, Buffer buffer);
+    void sparkChannelWrite(NetChannel channel, Buffer buffer);
 }
