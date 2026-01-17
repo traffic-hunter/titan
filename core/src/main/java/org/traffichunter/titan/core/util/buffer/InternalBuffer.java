@@ -421,9 +421,47 @@ public class InternalBuffer implements Buffer {
         return this;
     }
 
-    /**
-     * @return number of readable bytes (writerIndex - readerIndex)
-     */
+    @Override
+    public Buffer copy() {
+        return buf.isReadOnly() ? this : new InternalBuffer(buf.copy());
+    }
+
+    @Override
+    public Buffer slice() {
+        return new InternalBuffer(buf.slice());
+    }
+
+    @Override
+    public Buffer slice(int start, int length) {
+        return new InternalBuffer(buf.slice(start, length));
+    }
+
+    @Override
+    public Buffer readSlice(int length) {
+        return new InternalBuffer(buf.readSlice(length));
+    }
+
+    @Override
+    public Buffer skipBytes(int length) {
+        buf.skipBytes(length);
+        return this;
+    }
+
+    @Override
+    public boolean isReadable() {
+        return buf.isReadable();
+    }
+
+    @Override
+    public boolean isWritable() {
+        return buf.isWritable();
+    }
+
+    @Override
+    public int indexOf(int fromIndex, int toIndex, byte value) {
+        return buf.indexOf(fromIndex, toIndex, value);
+    }
+
     @Override
     public int length() {
         return buf.readableBytes();

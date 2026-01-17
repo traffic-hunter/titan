@@ -28,7 +28,7 @@ import io.netty.buffer.ByteBuf;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Objects;
-import org.traffichunter.titan.core.codec.Codec;
+import org.traffichunter.titan.core.codec.base64.Base64Codec;
 
 /**
  * @author yungwang-o
@@ -60,7 +60,7 @@ public interface Buffer extends Clearable {
 
     static Buffer allocAfterDecode(final String data) {
         Objects.requireNonNull(data);
-        byte[] decode = Codec.decode(data);
+        byte[] decode = Base64Codec.decode(data);
         return new InternalBuffer(decode);
     }
 
@@ -225,6 +225,36 @@ public interface Buffer extends Clearable {
         return length() > 0;
     }
 
+    Buffer copy();
+
+    Buffer slice();
+
+    Buffer slice(int start, int length);
+
+    /**
+     * slice(readerIndex, length)
+     * @param length length of slice
+     * @return new buffer
+     */
+    Buffer readSlice(int length);
+
+    Buffer skipBytes(int length);
+
+    /**
+     * @return {@code true} if and only if {@code (this.writerIndex - this.readerIndex)} is greater than {@code 0}.
+     */
+    boolean isReadable();
+
+    /**
+     * @return {@code true} if and only if {@code (this.capacity - this.writerIndex)} is greater than {@code 0}.
+     */
+    boolean isWritable();
+
+    int indexOf(int fromIndex, int toIndex, byte value);
+
+    /**
+     * @return Number of readable bytes {@code (writerIndex - readerIndex)}
+     */
     int length();
 
     String toString();
