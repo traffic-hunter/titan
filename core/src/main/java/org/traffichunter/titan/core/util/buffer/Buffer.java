@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import org.traffichunter.titan.core.codec.base64.Base64Codec;
+import org.traffichunter.titan.core.util.Assert;
 
 /**
  * @author yungwang-o
@@ -37,6 +38,10 @@ public interface Buffer extends Clearable {
 
     static Buffer alloc() {
        return new InternalBuffer();
+    }
+
+    static Buffer alloc(final int initialCapacity, final int maxCapacity) {
+        return new InternalBuffer(initialCapacity, maxCapacity);
     }
 
     static Buffer alloc(final int initialCapacity) {
@@ -58,7 +63,7 @@ public interface Buffer extends Clearable {
         return new InternalBuffer(data);
     }
 
-    static Buffer allocAfterDecode(final String data) {
+    static Buffer allocAfterBase64Decode(final String data) {
         Objects.requireNonNull(data);
         byte[] decode = Base64Codec.decode(data);
         return new InternalBuffer(decode);
@@ -225,19 +230,33 @@ public interface Buffer extends Clearable {
         return length() > 0;
     }
 
+    @CanIgnoreReturnValue
     Buffer copy();
 
+    @CanIgnoreReturnValue
     Buffer slice();
 
+    @CanIgnoreReturnValue
+    Buffer retainSlice();
+
+    @CanIgnoreReturnValue
     Buffer slice(int start, int length);
+
+    @CanIgnoreReturnValue
+    Buffer retainSlice(int start, int length);
 
     /**
      * slice(readerIndex, length)
      * @param length length of slice
      * @return new buffer
      */
+    @CanIgnoreReturnValue
     Buffer readSlice(int length);
 
+    @CanIgnoreReturnValue
+    Buffer readRetainedSlice(int length);
+
+    @CanIgnoreReturnValue
     Buffer skipBytes(int length);
 
     /**
@@ -260,4 +279,6 @@ public interface Buffer extends Clearable {
     String toString();
 
     String toString(Charset charset);
+
+    boolean canAllocate();
 }

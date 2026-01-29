@@ -29,6 +29,7 @@ import java.net.StandardSocketOptions;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.awaitility.Awaitility;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
@@ -57,7 +59,9 @@ public class ClientToServerTest {
         server = InetServer.builder()
                 .group(EventLoopGroups.group(1))
                 .option(StandardSocketOptions.SO_REUSEADDR, true)
-                .channelHandler(ctx -> ctx.chain().add(new TestChannelInboundHandler()))
+                .channelHandler(ctx -> ctx.chain()
+                        .add(new LineFrameChannelDecoder())
+                        .add(new TestChannelInboundHandler()))
                 .build();
 
         server.start();
@@ -82,35 +86,32 @@ public class ClientToServerTest {
     }
 
     @Test
-    void single_client_to_server_test() {
+    void client_to_server_single_send_test() throws ExecutionException, InterruptedException {
 
         InetClient client = InetClient.builder()
                 .group(EventLoopGroups.group())
                 .option(StandardSocketOptions.SO_REUSEADDR, true)
                 .option(StandardSocketOptions.SO_REUSEPORT, true)
-                .channelHandler(channel -> channel.chain().add(new TestChannelInboundHandler()))
+                .channelHandler(channel -> channel.chain())
                 .build();
 
         client.start();
-        try {
-            client.connect("localhost", 7777).get();
-            client.send(Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
-                if(future.isSuccess()) {
-                    log.info("Send successfully");
-                }
-            });
-        } catch (Exception e) {
-            log.error("Error sending");
-        } finally {
-            Awaitility.await().atMost(Duration.ofSeconds(1))
-                    .until(() -> rq.size() == 1);
-        }
+        client.connect("localhost", 7777).get();
+
+        client.send(Buffer.alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
+            if(future.isSuccess()) {
+                log.info("Send successfully");
+            }
+        });
+
+        Awaitility.await().atMost(Duration.ofSeconds(1))
+                .until(() -> rq.size() == 1);
 
         client.shutdown();
     }
 
     @Test
-    void client_to_server_send_test() throws Exception {
+    void client_to_server_multiple_send_test() throws Exception {
         int count = 100;
 
         ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2, r -> new Thread(r, "TestThread"));
@@ -119,7 +120,7 @@ public class ClientToServerTest {
                 .group(EventLoopGroups.group())
                 .option(StandardSocketOptions.SO_REUSEADDR, true)
                 .option(StandardSocketOptions.SO_REUSEPORT, true)
-                .channelHandler(channel -> channel.chain().add(new TestChannelInboundHandler()))
+                .channelHandler(channel -> channel.chain())
                 .build();
 
         client.start();
@@ -128,7 +129,7 @@ public class ClientToServerTest {
         for (int i = 0; i < count; i++) {
             es.execute(() -> {
                 try {
-                    client.send(Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
+                    client.send(Buffer.alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
                         if(future.isSuccess()) {
                             log.info("Send successfully");
                         }
@@ -150,46 +151,18 @@ public class ClientToServerTest {
     private static class TestChannelInboundHandler implements ChannelInBoundHandler {
 
         @Override
-        public void sparkChannelConnecting(NetChannel channel) {
+        public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
+            final Message msg = Message.builder()
+                    .routingKey(RoutingKey.create("route.test"))
+                    .priority(Priority.DEFAULT)
+                    .body(buffer.getBytes())
+                    .producerId(IdGenerator.uuid())
+                    .createdAt(Instant.now())
+                    .build();
 
-        }
+            log.info("msg = {}", msg.toString());
 
-        @Override
-        public void sparkChannelAfterConnected(NetChannel channel) {
-
-        }
-
-        @Override
-        public void sparkChannelRead(NetChannel channel, Buffer buffer) {
-            int read = channel.read(buffer);
-            if(read > 0) {
-                try {
-                    final Message msg = Message.builder()
-                            .routingKey(RoutingKey.create("route.test"))
-                            .priority(Priority.DEFAULT)
-                            .body(buffer.getBytes())
-                            .producerId(IdGenerator.uuid())
-                            .createdAt(Instant.now())
-                            .build();
-
-                    log.info("msg = {}", msg.toString());
-
-                    rq.enqueue(msg);
-                } finally {
-                    buffer.release();
-                }
-            } else {
-                try {
-                    channel.close();
-                } finally {
-                    buffer.release();
-                }
-            }
-        }
-
-        @Override
-        public void sparkExceptionCaught(Throwable error) {
-
+            rq.enqueue(msg);
         }
     }
 }

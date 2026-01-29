@@ -4,11 +4,15 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 public interface ChannelInBoundHandler {
 
-    void sparkChannelConnecting(NetChannel channel);
+    default void sparkChannelConnecting(NetChannel channel, ChannelInBoundHandlerChain chain) {
+    }
 
-    void sparkChannelAfterConnected(NetChannel channel);
+    default void sparkChannelAfterConnected(NetChannel channel, ChannelInBoundHandlerChain chain) {
+    }
 
-    void sparkChannelRead(NetChannel channel, Buffer buffer);
+    default void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
+    }
 
-    void sparkExceptionCaught(Throwable error);
+    default void sparkExceptionCaught(Throwable error, ChannelInBoundHandlerChain chain) {
+    }
 }

@@ -23,21 +23,17 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec;
 
-import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+
+import java.util.List;
 
 /**
  * @author yun
  */
-public abstract class ChannelEncoder implements ChannelOutBoundHandler {
+public class LengthFieldFrameChannelDecoder extends ChannelDecoder {
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
-
-    }
-
-    @Override
-    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChainImpl chain) {
-
+    protected List<Buffer> decode(Buffer buffer) {
+        return List.of();
     }
 }

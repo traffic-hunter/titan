@@ -28,6 +28,8 @@ import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.buffer.BufferUtils;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -61,11 +63,13 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
             }
 
             NetChannel channel = (NetChannel) key.attachment();
+            ChannelHandlerChain chain = channel.chain();
 
             if (key.isConnectable()) {
+                chain.processChannelConnecting(channel);
                 try {
                     if(channel.finishConnect()) {
-                        log.debug("finish connect = {}", channel.remoteAddress());
+                        chain.processChannelAfterConnected(channel);
 
                         this.ioSelector()
                                 .unregisterConnect(channel)
@@ -77,9 +81,18 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                     log.error("Failed connect", e);
                 }
             } else if (key.isReadable()) {
-                channel.chain().processChannelRead(channel);
+                Buffer buffer = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY);
+                int read = channel.read(buffer);
+                if (read > 0) {
+                    chain.processChannelRead(channel, buffer);
+                } else {
+                    buffer.release();
+                }
             } else if (key.isWritable()) {
-                channel.chain().processChannelWrite(channel);
+                chain.processChannelWrite(
+                        channel,
+                        Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY)
+                );
             }
         }
     }

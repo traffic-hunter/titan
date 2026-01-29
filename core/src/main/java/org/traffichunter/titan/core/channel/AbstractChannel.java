@@ -42,7 +42,7 @@ public abstract class AbstractChannel implements Channel {
 
     private final SelectableChannel sc;
     private final ChannelHandShakeEventListener initializer;
-    private final ChannelChain chain;
+    private final ChannelHandlerChain chain;
     private volatile Instant lastActiveAt = Instant.now();
     private final String channelId = IdGenerator.uuid();
 
@@ -56,7 +56,7 @@ public abstract class AbstractChannel implements Channel {
     public AbstractChannel(SelectableChannel sc, ChannelHandShakeEventListener initializer) {
         this.sc = sc;
         this.initializer = initializer;
-        this.chain = new ChannelChain(this);
+        this.chain = new ChannelHandlerChain();
 
         try {
             this.sc.configureBlocking(false);
@@ -81,7 +81,7 @@ public abstract class AbstractChannel implements Channel {
     }
 
     @Override
-    public ChannelChain chain() {
+    public ChannelHandlerChain chain() {
         return chain;
     }
 

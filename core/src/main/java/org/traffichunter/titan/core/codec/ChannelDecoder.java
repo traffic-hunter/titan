@@ -23,11 +23,12 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec;
 
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+
+import java.util.List;
 
 /**
  * @author yun
@@ -35,23 +36,11 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 public abstract class ChannelDecoder implements ChannelInBoundHandler {
 
     @Override
-    public void sparkChannelRead(NetChannel channel, Buffer buffer) {
-        int read = channel.read(buffer);
-        if(read > 0) {
-            while (buffer.isReadable()) {
-                decode(buffer);
-            }
-        }
+    public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
+        final List<Buffer> frames = decode(buffer);
+
+        frames.forEach(frame -> chain.sparkChannelRead(channel, frame));
     }
 
-    protected abstract @Nullable Buffer decode(@NonNull Buffer buffer);
-
-    @Override
-    public void sparkChannelConnecting(NetChannel channel) {}
-
-    @Override
-    public void sparkChannelAfterConnected(NetChannel channel) {}
-
-    @Override
-    public void sparkExceptionCaught(Throwable error) {}
+    protected abstract List<Buffer> decode(Buffer buffer);
 }

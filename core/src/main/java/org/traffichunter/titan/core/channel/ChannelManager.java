@@ -23,54 +23,27 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import java.net.SocketAddress;
-import java.net.SocketOption;
-import java.time.Instant;
-
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author yungwang-o
  */
-public interface Channel {
+@Slf4j
+public final class ChannelManager {
 
-    ChannelHandlerChain chain();
+    private final Channel channel;
 
-    default ChannelPromise register(@NonNull IOEventLoop eventLoop) {
-        return register(eventLoop, eventLoop.newPromise(this));
+    private ChannelManager(Channel channel) {
+        this.channel = channel;
     }
 
-    ChannelPromise register(@NonNull IOEventLoop eventLoop, @NonNull ChannelPromise promise);
+    public static ChannelManager create(Channel channel) {
+        return new ChannelManager(channel);
+    }
 
-    IOEventLoop eventLoop();
 
-    String id();
 
-    String session();
-
-    @CanIgnoreReturnValue
-    <T> Channel setOption(SocketOption<T> option, T value);
-
-    @Nullable <T> T getOption(SocketOption<T> option);
-
-    Instant lastActivatedAt();
-
-    Instant setLastActivatedAt();
-
-    @Nullable SocketAddress localAddress();
-
-    @Nullable SocketAddress remoteAddress();
-
-    boolean isOpen();
-
-    boolean isRegistered();
-
-    boolean isActive();
-
-    boolean isClosed();
-
-    void close();
+    public Channel channel() {
+        return channel;
+    }
 }

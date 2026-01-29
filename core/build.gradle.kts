@@ -40,7 +40,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:${logbackVersion}")
 
     // assertJ
-    testImplementation("org.assertj:assertj-core:3.27.3")
+    testImplementation("org.assertj:assertj-core:3.27.7")
 
     // awaitility
     testImplementation("org.awaitility:awaitility:4.3.0")

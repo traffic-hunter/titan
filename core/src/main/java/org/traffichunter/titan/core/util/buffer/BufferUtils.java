@@ -21,23 +21,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.codec;
-
-import org.traffichunter.titan.core.channel.*;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+package org.traffichunter.titan.core.util.buffer;
 
 /**
  * @author yun
  */
-public abstract class ChannelEncoder implements ChannelOutBoundHandler {
+public final class BufferUtils {
 
-    @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
+    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
+    public static final int DEFAULT_MAX_CAPACITY = 65536;
 
-    }
-
-    @Override
-    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChainImpl chain) {
-
-    }
+    private BufferUtils() {}
 }

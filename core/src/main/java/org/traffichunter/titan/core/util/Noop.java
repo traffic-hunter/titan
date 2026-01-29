@@ -21,23 +21,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.codec;
+package org.traffichunter.titan.core.util;
 
-import org.traffichunter.titan.core.channel.*;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+import java.lang.annotation.*;
 
 /**
  * @author yun
  */
-public abstract class ChannelEncoder implements ChannelOutBoundHandler {
-
-    @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
-
-    }
-
-    @Override
-    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChainImpl chain) {
-
-    }
+@Retention(RetentionPolicy.SOURCE)
+@Target(value = { ElementType.METHOD, ElementType.TYPE })
+public @interface Noop {
 }

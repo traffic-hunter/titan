@@ -23,9 +23,12 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec;
 
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author yun
@@ -40,6 +43,10 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
 
     private boolean reSync;
 
+    public LineFrameChannelDecoder() {
+        this(1024);
+    }
+
     public LineFrameChannelDecoder(int maxLength) {
         this(maxLength, true);
     }
@@ -52,7 +59,20 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
     }
 
     @Override
-    protected Buffer decode(@NonNull Buffer buffer) {
+    protected List<Buffer> decode(Buffer buffer) {
+        List<Buffer> result = new ArrayList<>();
+
+        while (buffer.isReadable()) {
+            Buffer decode = decode0(buffer);
+            if (decode != null) {
+                result.add(decode);
+            }
+        }
+
+        return result;
+    }
+
+    private @Nullable Buffer decode0(Buffer buffer) {
         final int eol = findEol(buffer);
         int length = eol - buffer.byteBuf().readerIndex();
         if(!reSync) {
@@ -60,9 +80,9 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
                 length = buffer.length();
                 if (length > maxLength) {
                     reSync = true;
-                    buffer.skipBytes(length);
-                    buffer.byteBuf().readerIndex(buffer.byteBuf().writerIndex());
                 }
+                buffer.skipBytes(length);
+                buffer.byteBuf().readerIndex(buffer.byteBuf().writerIndex());
                 return null;
             }
 
@@ -75,11 +95,10 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
 
             Buffer frame;
             if (stripDelimiter) {
-                // readSlice -> readRetainedSlice ??
-                frame = buffer.readSlice(length);
+                frame = buffer.readRetainedSlice(length);
                 buffer.skipBytes(delimiterLength);
             } else {
-                frame = buffer.readSlice(length + delimiterLength);
+                frame = buffer.readRetainedSlice(length + delimiterLength);
             }
 
             return frame;
@@ -98,7 +117,6 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
 
     /**
      * Eol (end of line)
-     * @param buffer
      * @return -1 if not found
      */
     private int findEol(final Buffer buffer) {

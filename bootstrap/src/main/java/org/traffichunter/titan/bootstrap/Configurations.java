@@ -106,4 +106,6 @@ public final class Configurations {
             this.value = value;
         }
     }
+
+    private Configurations() {}
 }

@@ -54,6 +54,10 @@ public class InternalBuffer implements Buffer {
         this(src.getBytes(charset));
     }
 
+    public InternalBuffer(final int initialCapacity, final int maxCapacity) {
+        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
+    }
+
     public InternalBuffer(final int initialCapacity) {
         this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(initialCapacity);
     }
@@ -78,12 +82,13 @@ public class InternalBuffer implements Buffer {
 
     @Override
     public void release() {
-        if(buf.refCnt() == 0) {
+        if(!canAllocate()) {
             throw new IllegalStateException("Buffer has been released!");
         }
 
+        log.debug("Debug release buf refCount = {}", buf.refCnt());
         boolean isRelease = buf.release();
-        Assert.checkState(isRelease, "Buffer not fully released");
+        log.debug("Debug release buf isRelease = {}, refCount = {}", isRelease, buf.refCnt());
     }
 
     @Override
@@ -432,13 +437,28 @@ public class InternalBuffer implements Buffer {
     }
 
     @Override
+    public Buffer retainSlice() {
+        return new InternalBuffer(buf.retainedSlice());
+    }
+
+    @Override
     public Buffer slice(int start, int length) {
         return new InternalBuffer(buf.slice(start, length));
     }
 
     @Override
+    public Buffer retainSlice(int start, int length) {
+        return new InternalBuffer(buf.retainedSlice(start, length));
+    }
+
+    @Override
     public Buffer readSlice(int length) {
         return new InternalBuffer(buf.readSlice(length));
+    }
+
+    @Override
+    public Buffer readRetainedSlice(int length) {
+        return new InternalBuffer(buf.readRetainedSlice(length));
     }
 
     @Override
@@ -480,6 +500,11 @@ public class InternalBuffer implements Buffer {
     @Override
     public void clear() {
         buf.clear();
+    }
+
+    @Override
+    public boolean canAllocate() {
+        return buf.refCnt() > 0;
     }
 
     @Override
