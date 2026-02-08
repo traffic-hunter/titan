@@ -47,7 +47,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private final ChannelWriteBuffer channelWriteBuffer;
 
-    private volatile ChannelPromise connectPromise;
+    private @Nullable volatile ChannelPromise connectPromise;
 
     public NewIONetChannel(ChannelHandShakeEventListener initializer) throws IOException {
         this(SocketChannel.open(), initializer);
@@ -95,7 +95,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public int read(@NonNull Buffer buffer) {
+    public int read(Buffer buffer) {
         if(isClosed()) {
             throw new ChannelException("Channel is closed");
         }
@@ -120,7 +120,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public void write(@NonNull Buffer buffer) {
+    public void write(Buffer buffer) {
         if(isClosed()) {
             throw new ChannelException("Already channel is closed");
         }
@@ -129,7 +129,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public void writeAndFlush(@NonNull Buffer buffer) {
+    public void writeAndFlush(Buffer buffer) {
         writeAndFlush0(buffer);
     }
 

@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.concurrent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -34,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
 
@@ -46,20 +47,20 @@ public class PromiseImpl<C> implements Promise<C> {
 
     private final EventLoop eventLoop;
 
-    private volatile boolean isCompleted;
-    private C result;
-    private Throwable error;
+    private boolean isCompleted;
+    private @Nullable C result;
+    private @Nullable Throwable error;
     private List<AsyncListener> listeners;
-    private final Callable<C> task;
+    private final @Nullable Callable<C> task;
 
     private int waiter;
     private boolean isCancelled;
 
-    protected PromiseImpl(EventLoop eventLoop, Runnable task) {
-        this(eventLoop, Executors.callable(task, null));
+    protected PromiseImpl(EventLoop eventLoop, @Nullable Runnable task) {
+        this(eventLoop, Executors.callable(Objects.requireNonNull(task), null));
     }
 
-    protected PromiseImpl(EventLoop eventLoop, Callable<C> task) {
+    protected PromiseImpl(EventLoop eventLoop, @Nullable Callable<C> task) {
         this.eventLoop = eventLoop;
         this.listeners = new ArrayList<>();
         this.task = task;
@@ -80,9 +81,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> addListener(@NonNull final AsyncListener listener) {
-        Assert.checkNull(listener, "listener is null");
-
+    public Promise<C> addListener(final AsyncListener listener) {
         synchronized (this) {
             listeners.add(listener);
         }
@@ -93,9 +92,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> removeListener(@NonNull final AsyncListener listener) {
-        Assert.checkNull(listener, "listener is null");
-
+    public Promise<C> removeListener(final AsyncListener listener) {
         synchronized (this) {
             this.listeners.remove(listener);
         }
@@ -161,7 +158,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public C get(final long timeout, @NonNull final TimeUnit unit)
+    public C get(final long timeout, final TimeUnit unit)
             throws InterruptedException, ExecutionException, TimeoutException {
 
         if(!await(timeout, unit).isDone()) {
@@ -178,7 +175,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Throwable error() {
+    public @Nullable Throwable error() {
         return this.error;
     }
 
@@ -206,7 +203,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> await(final long timeout, @NonNull final TimeUnit timeUnit) throws InterruptedException {
+    public Promise<C> await(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         Assert.check(timeout >= 0, () -> new PromiseException("Timeout more than or equals 0"));
 
         if(isDone()) {
@@ -243,7 +240,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> complete(final C result, final Throwable error) {
+    public Promise<C> complete(@Nullable final C result, @Nullable final Throwable error) {
         if(isDone()) {
             return this;
         }

@@ -23,9 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec;
 
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-
-import java.util.List;
 
 /**
  * @author yun
@@ -33,7 +32,7 @@ import java.util.List;
 public class LengthFieldFrameChannelDecoder extends ChannelDecoder {
 
     @Override
-    protected List<Buffer> decode(Buffer buffer) {
-        return List.of();
+    protected @Nullable Buffer decode(Buffer buffer) {
+        return null;
     }
 }

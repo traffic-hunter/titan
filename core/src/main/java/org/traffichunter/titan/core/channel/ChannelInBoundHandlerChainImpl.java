@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
@@ -33,7 +34,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 public final class ChannelInBoundHandlerChainImpl implements ChannelInBoundHandlerChain {
 
     final ChannelInBoundHandler handler;
-    ChannelInBoundHandlerChainImpl next;
+    @Nullable ChannelInBoundHandlerChainImpl next;
 
     public ChannelInBoundHandlerChainImpl(ChannelInBoundHandler handler) {
         this.handler = handler;

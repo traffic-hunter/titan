@@ -26,12 +26,11 @@ package org.traffichunter.titan.core.codec.stomp;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.helpers.MessageFormatter;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.Pair;
@@ -46,32 +45,40 @@ import org.traffichunter.titan.core.util.inet.Frame;
 public class StompFrame implements Frame<Elements, String> {
 
     public static final StompFrame ERR_STOMP_FRAME =
-            StompFrame.create(new StompHeaders(new HashMap<>(), "stomp", "1.2"), StompCommand.ERROR);
+            new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.ERROR);
 
     public static final StompFrame PING =
-            StompFrame.create(StompHeaders.create(), null, new byte[] {StompDelimiter.LF.getHex()});
+            new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.UNKNOWN, Buffer.alloc(StompDelimiter.LF.getHex()));
 
     private final StompHeaders headers;
 
     private final StompCommand command;
 
-    private final Buffer body;
+    private final @Nullable Buffer body;
 
     private StompFrame(final StompHeaders headers, final StompCommand command) {
         this(headers, command, new byte[] {});
     }
 
-    private StompFrame(final StompHeaders headers, final StompCommand command, final byte[] body) {
-        Objects.requireNonNull(headers);
-        Objects.requireNonNull(command);
-        Objects.requireNonNull(body);
+    private StompFrame(final StompHeaders headers, final StompCommand command, final byte @Nullable [] body) {
+        this(headers, command, Buffer.alloc(body));
+    }
+
+    private StompFrame(final StompHeaders headers, final StompCommand command, @Nullable final Buffer body) {
         this.headers = headers;
         this.command = command;
-        this.body = Buffer.alloc(body);
+        this.body = body;
     }
 
     public static StompFrame create(final StompHeaders headers, final StompCommand command) {
         return new StompFrame(headers, command);
+    }
+
+    public static StompFrame create(final StompHeaders headers,
+                                    final StompCommand command,
+                                    final Buffer body) {
+
+        return new StompFrame(headers, command, body);
     }
 
     public static StompFrame create(final StompHeaders headers,
@@ -88,18 +95,25 @@ public class StompFrame implements Frame<Elements, String> {
 
     @Override
     public String getHeader(final Elements key) {
-        return headers.get(key).orElseThrow(() -> new StompFrameException("Missing header " + key));
+        String value = headers.get(key);
+        if(value == null) {
+            throw new StompFrameException("Missing header " + key);
+        }
+
+        return value;
     }
 
     @Override
     public Buffer toBuffer() {
-        Buffer buffer = Buffer.alloc(command.name() + StompDelimiter.LF.getString());
+        Buffer buffer = Buffer.alloc(command.name());
+        buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
 
         Set<Entry<Elements, String>> entries = headers.entrySet();
         entries.forEach(entry ->
-                buffer.accumulateString(encode(entry.getKey().getName(), command) + " : " + encode(entry.getValue(), command) + "\n")
+                buffer.accumulateString(encode(entry.getKey().getName(), command) + ":" + encode(entry.getValue(), command))
+                        .accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString())
         );
-        buffer.accumulateString(StompDelimiter.LF.getString());
+        buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
 
         if(body != null) {
             buffer.accumulateBuffer(body);
@@ -139,16 +153,14 @@ public class StompFrame implements Frame<Elements, String> {
         }
         sb.append(StompDelimiter.CR.getCharacter()).append(StompDelimiter.LF.getCharacter());
 
-        if(body != null) {
-            if(isLogging && body.length() >= 100) {
-                String loggingStr = body.toString();
+        if (isLogging && body.length() >= 100) {
+            String loggingStr = body.toString();
 
-                String pre = loggingStr.substring(0, 30);
-                String post = loggingStr.substring(body.length() - 30);
-                sb.append(pre).append(".............").append(post);
-            } else {
-                sb.append(body);
-            }
+            String pre = loggingStr.substring(0, 30);
+            String post = loggingStr.substring(body.length() - 30);
+            sb.append(pre).append(".............").append(post);
+        } else {
+            sb.append(body);
         }
 
         sb.append(StompDelimiter.NUL.getCharacter());
@@ -170,7 +182,7 @@ public class StompFrame implements Frame<Elements, String> {
         /**
          * Header is null (x: 0, y: 0)
          */
-        public static HeartBeat doParse(final String header) {
+        public static HeartBeat doParse(@Nullable final String header) {
             if (header == null) {
                 return new HeartBeat(0, 0);
             }
@@ -237,7 +249,7 @@ public class StompFrame implements Frame<Elements, String> {
             String key = splitFrameDatum.substring(0, idx);
             String value = splitFrameDatum.substring(idx + 1);
 
-            headers.put(Elements.valueOf(key.toUpperCase()), value);
+            headers.put(Elements.convertToElements(key), value);
         }
 
         final byte[] body = splitFrameData[splitFrameData.length - 1].getBytes(StandardCharsets.UTF_8);

@@ -23,9 +23,10 @@
  */
 package org.traffichunter.titan.core.codec.frame;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -43,7 +44,7 @@ public abstract class Headers<K, V, H extends Headers<K, V, H>> {
 
     public abstract void putIfAbsent(K key, V value);
 
-    public abstract Optional<V> get(K key);
+    public abstract @Nullable V get(K key);
 
     public abstract boolean containsKey(K key);
 

@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
@@ -130,8 +131,8 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
 
     public static final class Builder {
 
-        private EventLoopGroups groups;
-        private Handler<Channel> channelHandler;
+        private @Nullable EventLoopGroups groups;
+        private @Nullable Handler<Channel> channelHandler;
         private final Map<SocketOption<?>, Object> options = new HashMap<>();
         private final Map<SocketOption<?>, Object> childOptions = new HashMap<>();
 

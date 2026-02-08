@@ -28,7 +28,6 @@ import java.net.SocketOption;
 import java.time.Instant;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 
@@ -39,13 +38,13 @@ public interface Channel {
 
     ChannelHandlerChain chain();
 
-    default ChannelPromise register(@NonNull IOEventLoop eventLoop) {
+    default ChannelPromise register(IOEventLoop eventLoop) {
         return register(eventLoop, eventLoop.newPromise(this));
     }
 
-    ChannelPromise register(@NonNull IOEventLoop eventLoop, @NonNull ChannelPromise promise);
+    ChannelPromise register(IOEventLoop eventLoop, ChannelPromise promise);
 
-    IOEventLoop eventLoop();
+    @Nullable IOEventLoop eventLoop();
 
     String id();
 

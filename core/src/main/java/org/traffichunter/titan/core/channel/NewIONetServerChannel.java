@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
@@ -47,7 +46,7 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public void bind(@NonNull InetSocketAddress address) {
+    public void bind(InetSocketAddress address) {
         try {
             channel().bind(address);
         } catch (IOException e) {
@@ -71,7 +70,7 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public <T> NetServerChannel setOption(@NonNull SocketOption<T> option, @NonNull T value) {
+    public <T> NetServerChannel setOption(SocketOption<T> option, T value) {
         try {
             channel().setOption(option, value);
         } catch (IOException e) {
@@ -81,7 +80,7 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public @Nullable <T> T getOption(@NonNull SocketOption<T> option) {
+    public @Nullable <T> T getOption(SocketOption<T> option) {
         try {
             return channel().getOption(option);
         } catch (IOException e) {

@@ -27,9 +27,6 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * @author yun
  */
@@ -59,17 +56,8 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
     }
 
     @Override
-    protected List<Buffer> decode(Buffer buffer) {
-        List<Buffer> result = new ArrayList<>();
-
-        while (buffer.isReadable()) {
-            Buffer decode = decode0(buffer);
-            if (decode != null) {
-                result.add(decode);
-            }
-        }
-
-        return result;
+    protected @Nullable Buffer decode(Buffer buffer) {
+        return decode0(buffer);
     }
 
     private @Nullable Buffer decode0(Buffer buffer) {
