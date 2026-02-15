@@ -1,5 +1,6 @@
 package org.traffichunter.titan.core.channel;
 
+import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 public class TaskEventLoop extends SingleThreadEventLoop {
@@ -26,6 +27,7 @@ public class TaskEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    @Noop
     @Override
     protected void cleanUp() {
         // NOOP

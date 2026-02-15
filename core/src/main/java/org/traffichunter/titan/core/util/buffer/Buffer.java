@@ -36,10 +36,6 @@ import org.traffichunter.titan.core.util.Assert;
  */
 public interface Buffer extends Clearable {
 
-    static Buffer alloc() {
-       return new InternalBuffer();
-    }
-
     static Buffer alloc(final int initialCapacity, final int maxCapacity) {
         return new InternalBuffer(initialCapacity, maxCapacity);
     }
@@ -67,6 +63,10 @@ public interface Buffer extends Clearable {
         Objects.requireNonNull(data);
         byte[] decode = Base64Codec.decode(data);
         return new InternalBuffer(decode);
+    }
+
+    static Buffer empty() {
+        return new InternalBuffer();
     }
 
     static Buffer buffer(final ByteBuf buffer) {
@@ -269,6 +269,20 @@ public interface Buffer extends Clearable {
      */
     boolean isWritable();
 
+    boolean isWriteable(int size);
+
+    /**
+     * @return The maximum allowed capacity of this buffer. This value provides an upper bound on capacity().
+     */
+    int maxCapacity();
+
+    /**
+     * @return The number of bytes (octets) this buffer can contain.
+     */
+    int capacity();
+
+    int indexOf(int fromIndex, int toIndex, char value);
+
     int indexOf(int fromIndex, int toIndex, byte value);
 
     /**
@@ -280,5 +294,5 @@ public interface Buffer extends Clearable {
 
     String toString(Charset charset);
 
-    boolean canAllocate();
+    boolean canAllocate(int size);
 }

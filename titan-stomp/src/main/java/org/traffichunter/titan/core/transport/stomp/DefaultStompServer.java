@@ -37,6 +37,7 @@ import org.traffichunter.titan.core.codec.stomp.StompHandler;
 import org.traffichunter.titan.core.codec.stomp.StompHandlerImpl;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.dispatcher.Dispatcher;
+import org.traffichunter.titan.core.transport.InetServer;
 
 /**
  * @author yungwang-o
@@ -44,10 +45,6 @@ import org.traffichunter.titan.core.dispatcher.Dispatcher;
 @Slf4j
 final class DefaultStompServer implements StompServer {
 
-    private final InetServer inetServer;
-
-    // Considering event loop..
-    private final ScheduledExecutorService schedule;
 
     private final StompVersion version = StompVersion.STOMP_1_2;
     private final StompHandler handler = new StompHandlerImpl(Dispatcher.getDefault());
@@ -57,17 +54,17 @@ final class DefaultStompServer implements StompServer {
     private final AtomicLong timer = new AtomicLong();
 
     public DefaultStompServer(final InetSocketAddress address) {
-        this(InetServer.open(address));
+        //this(InetServer.open(address));
     }
 
     public DefaultStompServer(final InetServer inetServer) {
-        this.inetServer = inetServer;
-        this.schedule = Executors.newSingleThreadScheduledExecutor();
+//        this.inetServer = inetServer;
+//        this.schedule = Executors.newSingleThreadScheduledExecutor();
     }
 
     @Override
     public void start() {
-        inetServer.start();
+        //inetServer.start();
     }
 
     @Override
@@ -83,27 +80,32 @@ final class DefaultStompServer implements StompServer {
 
     @Override
     public String host() {
-        return inetServer.host();
+        //return inetServer.host();
+        return "unknown";
     }
 
     @Override
     public int activePort() {
-        return inetServer.activePort();
+        //return inetServer.activePort();
+        return 0;
     }
 
     @Override
     public boolean isStart() {
-        return inetServer.isStart();
+        //return inetServer.isStart();
+        return true;
     }
 
     @Override
     public boolean isListening() {
-        return inetServer.isListening();
+        //return inetServer.isListening();
+        return false;
     }
 
     @Override
     public boolean isClosed() {
-        return inetServer.isClosed();
+        //return inetServer.isClosed();
+        return false;
     }
 
     @Override
@@ -121,12 +123,12 @@ final class DefaultStompServer implements StompServer {
 
         ScheduledFuture<?> task;
         if(fixedRate) {
-            task = schedule.scheduleAtFixedRate(handler, delay, delay, TimeUnit.MILLISECONDS);
+            //task = schedule.scheduleAtFixedRate(handler, delay, delay, TimeUnit.MILLISECONDS);
         } else {
-            task = schedule.schedule(handler, delay, TimeUnit.MILLISECONDS);
+            //task = schedule.schedule(handler, delay, TimeUnit.MILLISECONDS);
         }
 
-        tasks.put(timerId, task);
+        //tasks.put(timerId, task);
 
         return timerId;
     }

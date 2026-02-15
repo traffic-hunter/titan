@@ -73,7 +73,8 @@ public class StompServerChannelImpl implements StompServerChannel {
 
     @Override
     public void send(final Buffer buffer) {
-        channel.write(buffer);
+        //channel.write(buffer);
+        return;
     }
 
     @Override
@@ -118,9 +119,6 @@ public class StompServerChannelImpl implements StompServerChannel {
     }
 
     @Override
-    public boolean isClosed() { return closed.get(); }
-
-    @Override
     public synchronized void setHeartbeat(final long ping, final long pong, final Runnable handler) {
         if (ping > 0) {
             pingTimer = server.setInterval(ping, handler);
@@ -139,12 +137,8 @@ public class StompServerChannelImpl implements StompServerChannel {
     @Override
     public void close() {
         if(closed.compareAndSet(false, true)) {
-            try {
-                cancelHeartbeat();
-                channel.close();
-            } catch (IOException e) {
-                log.error("Error closing socket = {}", e.getMessage());
-            }
+            cancelHeartbeat();
+            //channel.close();
         }
     }
 

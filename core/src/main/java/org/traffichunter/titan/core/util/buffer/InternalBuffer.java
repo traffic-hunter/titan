@@ -82,7 +82,7 @@ public class InternalBuffer implements Buffer {
 
     @Override
     public void release() {
-        if(!canAllocate()) {
+        if(buf.refCnt() == 0) {
             throw new IllegalStateException("Buffer has been released!");
         }
 
@@ -478,6 +478,26 @@ public class InternalBuffer implements Buffer {
     }
 
     @Override
+    public boolean isWriteable(int size) {
+        return buf.isWritable(size);
+    }
+
+    @Override
+    public int maxCapacity() {
+        return buf.maxCapacity();
+    }
+
+    @Override
+    public int capacity() {
+        return buf.capacity();
+    }
+
+    @Override
+    public int indexOf(int fromIndex, int toIndex, char value) {
+        return buf.indexOf(fromIndex, toIndex, (byte) value);
+    }
+
+    @Override
     public int indexOf(int fromIndex, int toIndex, byte value) {
         return buf.indexOf(fromIndex, toIndex, value);
     }
@@ -503,8 +523,8 @@ public class InternalBuffer implements Buffer {
     }
 
     @Override
-    public boolean canAllocate() {
-        return buf.refCnt() > 0;
+    public boolean canAllocate(int size) {
+        return buf.writerIndex() > buf.maxCapacity() - size;
     }
 
     @Override

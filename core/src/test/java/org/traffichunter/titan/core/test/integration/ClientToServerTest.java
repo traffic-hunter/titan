@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.awaitility.Awaitility;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,7 +152,7 @@ public class ClientToServerTest {
     private static class TestChannelInboundHandler implements ChannelInBoundHandler {
 
         @Override
-        public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
+        public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer, @NonNull ChannelInBoundHandlerChain chain) {
             final Message msg = Message.builder()
                     .routingKey(RoutingKey.create("route.test"))
                     .priority(Priority.DEFAULT)

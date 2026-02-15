@@ -23,24 +23,74 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec;
 
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.util.List;
-
 /**
  * @author yun
  */
+@Slf4j
 public abstract class ChannelDecoder implements ChannelInBoundHandler {
+
+    /**
+     *
+     */
+    public static final KeepingBuffer EXPANDING_AFTER_COPY_BUFFER = ((keepBuffer, in) -> {
+        final Buffer newBuffer = Buffer.alloc(keepBuffer.length() + in.length());
+        boolean isExpanding = false;
+        try {
+            newBuffer.accumulateBuffer(keepBuffer);
+            newBuffer.accumulateBuffer(in);
+            isExpanding = true;
+            return newBuffer;
+        } finally {
+            if(!isExpanding) {
+                newBuffer.release();
+            }
+            keepBuffer.release();
+            in.release();
+        }
+    });
+
+    private @Nullable Buffer keepingBuffer;
 
     @Override
     public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
-        final List<Buffer> frames = decode(buffer);
 
-        frames.forEach(frame -> chain.sparkChannelRead(channel, frame));
+        if(keepingBuffer == null) {
+            keepingBuffer = buffer;
+        } else {
+            keepingBuffer = EXPANDING_AFTER_COPY_BUFFER.keep(keepingBuffer, buffer);
+        }
+
+        while (keepingBuffer.isReadable()) {
+            int beforeReaderIndex = keepingBuffer.byteBuf().readerIndex();
+
+            Buffer decode = decode(keepingBuffer);
+            if (decode != null) {
+                chain.sparkChannelRead(channel, decode);
+            }
+
+            int afterReaderIndex = keepingBuffer.byteBuf().readerIndex();
+            if (afterReaderIndex == beforeReaderIndex) {
+                break;
+            }
+        }
+
+        if (!keepingBuffer.isReadable()) {
+            keepingBuffer.release();
+            keepingBuffer = null;
+        }
     }
 
-    protected abstract List<Buffer> decode(Buffer buffer);
+    protected abstract @Nullable Buffer decode(Buffer buffer);
+
+    public interface KeepingBuffer {
+
+        Buffer keep(Buffer keepBuffer, Buffer in);
+    }
 }
