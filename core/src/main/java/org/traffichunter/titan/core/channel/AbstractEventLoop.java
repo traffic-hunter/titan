@@ -28,6 +28,7 @@ import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.concurrent.AdvancedThreadPoolExecutor;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -41,7 +42,7 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor imple
     private static final Runnable WAKEUP_TASK = () -> {};
 
     protected final Queue<Runnable> taskQueue;
-    protected volatile Thread thread;
+    protected @Nullable volatile Thread thread;
 
     // Optimize atomicReference
     private static final AtomicReferenceFieldUpdater<AbstractEventLoop, EventLoopStatus> STATUS_UPDATER =

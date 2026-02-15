@@ -48,6 +48,10 @@ public final class Assert {
         check(expression, BufferUnderflowException::new);
     }
 
+    public static void checkNotNull(final Object obj, final String exceptionMessage) {
+        check(obj == null, () -> new NullPointerException(exceptionMessage));
+    }
+
     public static void checkNull(final Object obj, final String exceptionMessage) {
         check(obj != null, () -> new NullPointerException(exceptionMessage));
     }

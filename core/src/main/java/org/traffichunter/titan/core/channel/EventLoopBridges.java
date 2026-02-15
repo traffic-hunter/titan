@@ -31,9 +31,9 @@ import org.traffichunter.titan.bootstrap.Configurations;
 @Deprecated
 public final class EventLoopBridges {
 
-    private static EventLoopBridge<ChannelContext> INSTANCE = null;
+    private static EventLoopBridge<ChannelManager> INSTANCE = null;
 
-    public static EventLoopBridge<ChannelContext> getInstance() {
+    public static EventLoopBridge<ChannelManager> getInstance() {
         if(INSTANCE == null) {
             INSTANCE = new EventLoopBridge<>(Math.max(16, Configurations.taskPendingCapacity()));
         }

@@ -28,7 +28,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompVersion.*;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.codec.Json;
+import org.traffichunter.titan.core.codec.json.Json;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;

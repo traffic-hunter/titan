@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Handler;
@@ -77,7 +78,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
         });
     }
 
-    public Promise<Void> send(@NonNull Buffer buffer) {
+    public Promise<Void> send(Buffer buffer) {
         if(channel().isClosed()) {
             log.error("Not ready to connect");
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
@@ -115,8 +116,8 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     public static class Builder {
 
-        private EventLoopGroups groups;
-        private Handler<Channel> channelHandler;
+        private @Nullable EventLoopGroups groups;
+        private @Nullable Handler<Channel> channelHandler;
         private final Map<SocketOption<?>, Object> options = new HashMap<>();
 
         public Builder group(EventLoopGroups groups) {

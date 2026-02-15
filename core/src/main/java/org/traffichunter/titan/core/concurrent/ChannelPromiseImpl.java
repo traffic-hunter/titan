@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.concurrent;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoop;
@@ -48,7 +47,7 @@ final class ChannelPromiseImpl extends PromiseImpl<Void> implements ChannelPromi
     }
 
     @Override
-    public ChannelPromise addListener(@NonNull AsyncListener listener) {
+    public ChannelPromise addListener(AsyncListener listener) {
         super.addListener(listener);
         return this;
     }

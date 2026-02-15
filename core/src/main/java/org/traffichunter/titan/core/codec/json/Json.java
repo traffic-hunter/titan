@@ -21,13 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec;
+package org.traffichunter.titan.core.codec.json;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
 import java.io.InputStream;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author yungwang-o
@@ -35,12 +34,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class Json {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final JsonMapper mapper = new JsonMapper();
 
     public static <T> String serialize(final T object) {
         try {
             return mapper.writeValueAsString(object);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Failed serialize = {} ", e.getMessage());
             return "";
         }
@@ -49,7 +48,7 @@ public final class Json {
     public static <T> byte[] serializeToBytes(final T object) {
         try {
             return mapper.writeValueAsBytes(object);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Failed serializeToBytes = {} ", e.getMessage());
             return new byte[0];
         }
@@ -58,7 +57,7 @@ public final class Json {
     public static <T> T deserialize(final String json, final Class<T> type) {
         try {
             return mapper.readValue(json, type);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             log.error("Failed deserialize = {} ", e.getMessage());
             return null;
         }
@@ -67,7 +66,7 @@ public final class Json {
     public static <T> T deserialize(final InputStream is, final Class<T> type) {
         try {
             return mapper.readValue(is, type);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             log.error("Failed deserialize = {} ", e.getMessage());
             return null;
         }
@@ -76,7 +75,7 @@ public final class Json {
     public static <T> T deserialize(final byte[] json, final Class<T> type) {
         try {
             return mapper.readValue(json, type);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             log.error("Failed deserialize = {} ", e.getMessage());
             return null;
         }

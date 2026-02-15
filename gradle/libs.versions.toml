@@ -1,0 +1,29 @@
+[versions]
+lombok = "1.18.38"
+slf4j = "2.0.17"
+google-guava = "33.4.8-jre"
+netty-buffer = "4.2.2.Final"
+assertj = "3.27.7"
+mokito = "5.21.0"
+jetty = "12.0.19"
+jackson = "3.0.4"
+apache-commons-pool = "2.12.1"
+logback = "1.5.27"
+awaitility = "4.3.0"
+snakeyaml = "2.3"
+
+[libraries]
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+mokito = { module = "org.mockito:mockito-core", version.ref = "mokito" }
+slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+google-guava = { module = "com.google.guava:guava", version.ref = "google-guava" }
+netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty-buffer" }
+assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+jetty-server = { module = "org.eclipse.jetty:jetty-server", version.ref = "jetty" }
+jetty-servlet = { module = "org.eclipse.jetty.ee10:jetty-ee10-servlet", version.ref = "jetty"}
+jetty-http = { module = "org.eclipse.jetty:jetty-http", version.ref = "jetty" }
+jackson-databind = { module = "tools.jackson.core:jackson-databind", version.ref = "jackson" }
+apache-commons-pool = { module = "org.apache.commons:commons-pool2", version.ref = "apache-commons-pool"}
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml"}

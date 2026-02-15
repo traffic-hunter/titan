@@ -23,36 +23,35 @@
  */
 package org.traffichunter.titan.core.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.io.InputStream;
 
 /**
  * @author yungwang-o
  */
-@Deprecated
+@Deprecated(forRemoval = true)
 public class SerializeUtils {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final JsonMapper mapper = new JsonMapper();
 
-    public static <T> String serialize(final T object) throws JsonProcessingException {
+    public static <T> String serialize(final T object) {
         return mapper.writeValueAsString(object);
     }
 
-    public static <T> byte[] serializeToBytes(final T object) throws JsonProcessingException {
+    public static <T> byte[] serializeToBytes(final T object) {
         return mapper.writeValueAsBytes(object);
     }
 
-    public static <T> T deserialize(final String json, final Class<T> type) throws JsonProcessingException {
+    public static <T> T deserialize(final String json, final Class<T> type) {
         return mapper.readValue(json, type);
     }
 
-    public static <T> T deserialize(final InputStream is, final Class<T> type) throws IOException {
+    public static <T> T deserialize(final InputStream is, final Class<T> type) {
         return mapper.readValue(is, type);
     }
 
-    public static <T> T deserialize(final byte[] json, final Class<T> type) throws IOException {
+    public static <T> T deserialize(final byte[] json, final Class<T> type) {
         return mapper.readValue(json, type);
     }
 

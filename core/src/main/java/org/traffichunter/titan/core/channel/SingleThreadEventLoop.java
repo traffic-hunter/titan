@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.util.BlockingArrayQueue;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.Assert;
@@ -246,7 +247,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
     protected abstract void cleanUp();
 
-    protected Runnable takeTask() {
+    protected @Nullable Runnable takeTask() {
         if(!inEventLoop()) {
             return null;
         }
@@ -281,7 +282,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         }
     }
 
-    private Runnable pollScheduledTask(final long nanos) {
+    private @Nullable Runnable pollScheduledTask(final long nanos) {
         if(!inEventLoop()) {
             return null;
         }

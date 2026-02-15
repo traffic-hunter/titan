@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.channel.ChannelContext;
+import org.traffichunter.titan.core.channel.ChannelManager;
 
 /**
  * @author yungwang-o
@@ -49,7 +49,7 @@ public class StompServerChannelImpl implements StompServerChannel {
     private static final int MAX_SUBSCRIBER = 100;
 
     private final StompServer server;
-    private final ChannelContext channel;
+    private final ChannelManager channel;
     private final String sessionId = IdGenerator.uuid();
 
     private final Map<String, ServerSubscription> subscriptions = new ConcurrentHashMap<>(MAX_SUBSCRIBER);
@@ -61,7 +61,7 @@ public class StompServerChannelImpl implements StompServerChannel {
     private long pingTimer = -1;
     private long pongTimer = -1;
 
-    public StompServerChannelImpl(final StompServer server, final ChannelContext channel) {
+    public StompServerChannelImpl(final StompServer server, final ChannelManager channel) {
         this.channel = channel;
         this.server = server;
     }
@@ -73,7 +73,8 @@ public class StompServerChannelImpl implements StompServerChannel {
 
     @Override
     public void send(final Buffer buffer) {
-        channel.write(buffer);
+        //channel.write(buffer);
+        return;
     }
 
     @Override
@@ -118,9 +119,6 @@ public class StompServerChannelImpl implements StompServerChannel {
     }
 
     @Override
-    public boolean isClosed() { return closed.get(); }
-
-    @Override
     public synchronized void setHeartbeat(final long ping, final long pong, final Runnable handler) {
         if (ping > 0) {
             pingTimer = server.setInterval(ping, handler);
@@ -139,12 +137,8 @@ public class StompServerChannelImpl implements StompServerChannel {
     @Override
     public void close() {
         if(closed.compareAndSet(false, true)) {
-            try {
-                cancelHeartbeat();
-                channel.close();
-            } catch (IOException e) {
-                log.error("Error closing socket = {}", e.getMessage());
-            }
+            cancelHeartbeat();
+            //channel.close();
         }
     }
 

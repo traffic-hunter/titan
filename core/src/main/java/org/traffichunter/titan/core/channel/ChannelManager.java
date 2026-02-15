@@ -21,48 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec;
+package org.traffichunter.titan.core.channel;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author yungwang-o
  */
-public final class Codec {
+@Slf4j
+public final class ChannelManager {
 
-    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder().withoutPadding();
-    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
+    private final Channel channel;
 
-    public static byte[] encode(final byte[] src) {
-        return BASE64_ENCODER.encode(src);
+    private ChannelManager(Channel channel) {
+        this.channel = channel;
     }
 
-    public static byte[] encode(final String src) {
-        return encode(src, StandardCharsets.UTF_8);
+    public static ChannelManager create(Channel channel) {
+        return new ChannelManager(channel);
     }
 
-    public static byte[] encode(final String src, final Charset charset) {
-        return BASE64_ENCODER.encode(src.getBytes(charset));
-    }
 
-    public static byte[] encode(final ByteBuffer src) {
-        return BASE64_ENCODER.encode(src).array();
-    }
 
-    public static byte[] decode(final byte[] src) {
-        return BASE64_DECODER.decode(src);
+    public Channel channel() {
+        return channel;
     }
-
-    public static byte[] decode(final String src) {
-        return BASE64_DECODER.decode(src);
-    }
-
-    public static byte[] decode(final ByteBuffer src) {
-        return BASE64_DECODER.decode(src).array();
-    }
-
-    private Codec() { }
 }

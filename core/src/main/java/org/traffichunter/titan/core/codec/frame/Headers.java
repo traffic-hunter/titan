@@ -21,10 +21,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.codec.frame;
+
+import org.jspecify.annotations.Nullable;
+
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author yungwang-o
  */
-public class StompParser {
+public abstract class Headers<K, V, H extends Headers<K, V, H>> {
+
+    protected final Map<K, V> map;
+
+    protected Headers(final Map<K, V> map) {
+        this.map = map;
+    }
+
+    public abstract void put(K key, V value);
+
+    public abstract void putIfAbsent(K key, V value);
+
+    public abstract @Nullable V get(K key);
+
+    public abstract boolean containsKey(K key);
+
+    public abstract Set<K> keySet();
+
+    public abstract Set<Map.Entry<K, V>> entrySet();
+
+    public abstract Iterator<Map.Entry<K, V>> iterator();
+
+    public abstract H getHeader();
 }

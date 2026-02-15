@@ -55,13 +55,13 @@ public interface NetChannel extends Channel {
     void disconnect();
 
     @CanIgnoreReturnValue
-    int read(@NonNull Buffer buffer);
+    int read(Buffer buffer);
 
     @CanIgnoreReturnValue
-    void write(@NonNull Buffer buffer);
+    void write(Buffer buffer);
 
     @CanIgnoreReturnValue
-    void writeAndFlush(@NonNull Buffer buffer);
+    void writeAndFlush(Buffer buffer);
 
     @CanIgnoreReturnValue
     void flush();
