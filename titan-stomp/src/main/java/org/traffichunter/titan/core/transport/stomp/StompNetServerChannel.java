@@ -23,43 +23,33 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Set;
-import javax.net.ssl.SSLSession;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
+
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
+import org.traffichunter.titan.core.channel.NetServerChannel;
 import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
-public interface StompServerChannel {
+public interface StompNetServerChannel extends NetServerChannel {
 
-    void send(StompFrame frame);
-
-    void send(Buffer buffer);
-
-    String session();
-
-    SSLSession sslSession();
-
-    Set<String> ids();
+    static StompNetServerChannel open(ChannelHandShakeEventListener channelHandShakeEventListener) {
+        return new StompNetServerChannelImpl(channelHandShakeEventListener);
+    }
 
     void subscribe(String id, ServerSubscription subscription);
 
     void unsubscribe(String id);
+
+    @Override
+    @Nullable StompNetChannel accept();
 
     /**
      * read-only
      */
     List<ServerSubscription> subscriptions();
 
-    StompServer server();
-
-    Instant setLastActivatedAt();
-
     void setHeartbeat(long ping, long pong, Runnable handler);
-
-    void close();
 }

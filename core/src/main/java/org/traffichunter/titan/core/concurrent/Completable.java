@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @author yungwang-o
  */
 @FunctionalInterface
-public interface Completion<C> {
+public interface Completable<C> {
 
     @CanIgnoreReturnValue
     default Promise<C> success(@Nullable C result) {

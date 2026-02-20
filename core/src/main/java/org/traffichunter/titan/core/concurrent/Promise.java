@@ -29,14 +29,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
 
 /**
  * @author yungwang-o
  */
-public interface Promise<C> extends RunnableFuture<C>, Completion<C> {
+public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
     static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Runnable task) {
         return new PromiseImpl<>(eventLoop, task);

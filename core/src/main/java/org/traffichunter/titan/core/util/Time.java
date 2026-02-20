@@ -7,4 +7,6 @@ public class Time {
   public static long currentNanos() {
     return System.nanoTime() - START_TIME;
   }
+
+  private Time() {}
 }

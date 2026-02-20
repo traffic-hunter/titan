@@ -34,7 +34,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
-import org.traffichunter.titan.core.transport.stomp.StompServerChannel;
+import org.traffichunter.titan.core.transport.stomp.StompNetServerChannel;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
 
@@ -51,7 +51,7 @@ public final class StompHandlerImpl implements StompHandler {
     }
 
     @Override
-    public void handle(final StompFrame sf, final StompServerChannel sc) {
+    public void handle(final StompFrame sf, final StompNetServerChannel sc) {
         sc.setLastActivatedAt();
 
         switch (sf.getCommand()) {
@@ -69,7 +69,7 @@ public final class StompHandlerImpl implements StompHandler {
         }
     }
 
-    private void doBegin(final StompFrame sf, final StompServerChannel sc) {
+    private void doBegin(final StompFrame sf, final StompNetServerChannel sc) {
 
         String txId = sf.getHeader(Elements.TRANSACTION);
         if (txId == null) {
@@ -87,7 +87,7 @@ public final class StompHandlerImpl implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doAbort(final StompFrame sf, final StompServerChannel sc) {
+    private void doAbort(final StompFrame sf, final StompNetServerChannel sc) {
 
         String txId = sf.getHeader(Elements.TRANSACTION);
         if (txId == null) {
@@ -105,7 +105,7 @@ public final class StompHandlerImpl implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doAck(final StompFrame sf, final StompServerChannel sc) {
+    private void doAck(final StompFrame sf, final StompNetServerChannel sc) {
 
         String id = sf.getHeader(Elements.ID);
         if(id == null) {
@@ -133,7 +133,7 @@ public final class StompHandlerImpl implements StompHandler {
         }
     }
 
-    private void doCommit(final StompFrame sf, final StompServerChannel sc) {
+    private void doCommit(final StompFrame sf, final StompNetServerChannel sc) {
 
         String txId = sf.getHeader(Elements.TRANSACTION);
         if(txId == null) {
@@ -157,7 +157,7 @@ public final class StompHandlerImpl implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doConnect(final StompFrame sf, final StompServerChannel sc) {
+    private void doConnect(final StompFrame sf, final StompNetServerChannel sc) {
 
         String accept = Optional.ofNullable(sf.getHeader(Elements.ACCEPT_VERSION))
                 .orElse(STOMP_1_0.getVersion());
@@ -191,13 +191,13 @@ public final class StompHandlerImpl implements StompHandler {
         sc.send(frame.toBuffer());
     }
 
-    private void doDisconnect(final StompFrame sf, final StompServerChannel sc) {
+    private void doDisconnect(final StompFrame sf, final StompNetServerChannel sc) {
 
         doReceipt(sf, sc);
         sc.close();
     }
 
-    private void doNack(final StompFrame sf, final StompServerChannel sc) {
+    private void doNack(final StompFrame sf, final StompNetServerChannel sc) {
 
         String id = sf.getHeader(Elements.ID);
         if(id == null) {
@@ -225,7 +225,7 @@ public final class StompHandlerImpl implements StompHandler {
         }
     }
 
-    private void doSend(final StompFrame sf, final StompServerChannel sc) {
+    private void doSend(final StompFrame sf, final StompNetServerChannel sc) {
 
         String destination = sf.getHeader(Elements.DESTINATION);
         if(destination == null) {
@@ -257,7 +257,7 @@ public final class StompHandlerImpl implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doSubscribe(final StompFrame sf, final StompServerChannel sc) {
+    private void doSubscribe(final StompFrame sf, final StompNetServerChannel sc) {
 
         String destination = sf.getHeader(Elements.DESTINATION);
         String id = sf.getHeader(Elements.ID);
@@ -299,7 +299,7 @@ public final class StompHandlerImpl implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doUnsubscribe(final StompFrame sf, final StompServerChannel sc) {
+    private void doUnsubscribe(final StompFrame sf, final StompNetServerChannel sc) {
 
         String id = sf.getHeader(Elements.ID);
         if(id == null) {
@@ -320,7 +320,7 @@ public final class StompHandlerImpl implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doReceipt(final StompFrame sf, final StompServerChannel sc) {
+    private void doReceipt(final StompFrame sf, final StompNetServerChannel sc) {
 
         String receipt = sf.getHeader(Elements.RECEIPT);
         if(receipt != null) {

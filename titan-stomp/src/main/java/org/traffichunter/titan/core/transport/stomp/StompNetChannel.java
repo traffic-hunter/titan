@@ -23,11 +23,21 @@
  */
 package org.traffichunter.titan.core.transport.stomp;
 
-import org.traffichunter.titan.core.channel.Channel;
+import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
+import org.traffichunter.titan.core.channel.NetChannel;
+
+import java.io.IOException;
 
 /**
  * @author yungwang-o
  */
-public interface StompClientChannel {
+public interface StompNetChannel extends NetChannel {
 
+    static StompNetChannel open(ChannelHandShakeEventListener channelHandShakeEventListener) throws IOException {
+        return new StompNetChannelImpl(channelHandShakeEventListener);
+    }
+
+    static StompNetChannel open(NetChannel netChannel) {
+        return new StompNetChannelImpl(netChannel);
+    }
 }
