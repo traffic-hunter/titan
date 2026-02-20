@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
@@ -32,7 +33,7 @@ public interface Frame<K, V> {
 
     void addHeader(K key, V value);
 
-    V getHeader(K key);
+    @Nullable V getHeader(K key);
 
     Buffer toBuffer();
 }

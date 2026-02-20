@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport;
 
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 
@@ -52,11 +53,11 @@ public abstract class AbstractTransport<C extends Channel> {
         return channel.isClosed() && eventLoopGroups.isShuttingDown();
     }
 
-    public SocketAddress remoteAddress() {
+    public @Nullable SocketAddress remoteAddress() {
         return channel.remoteAddress();
     }
 
-    public SocketAddress localAddress() {
+    public @Nullable SocketAddress localAddress() {
         return channel.localAddress();
     }
 

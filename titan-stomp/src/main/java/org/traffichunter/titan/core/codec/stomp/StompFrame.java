@@ -94,13 +94,8 @@ public class StompFrame implements Frame<Elements, String> {
     }
 
     @Override
-    public String getHeader(final Elements key) {
-        String value = headers.get(key);
-        if(value == null) {
-            throw new StompFrameException("Missing header " + key);
-        }
-
-        return value;
+    public @Nullable String getHeader(final Elements key) {
+        return headers.get(key);
     }
 
     @Override

@@ -23,6 +23,9 @@
  */
 package org.traffichunter.titan.core.channel;
 
+import org.jspecify.annotations.NullUnmarked;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author yun
  */
+@NullUnmarked
 public class RoundRobinSelector<E> {
 
     private final List<E> group;
@@ -50,7 +54,7 @@ public class RoundRobinSelector<E> {
         return e;
     }
 
-    public E peek() {
+    public @Nullable E peek() {
         return group.get(currentIdx());
     }
 
