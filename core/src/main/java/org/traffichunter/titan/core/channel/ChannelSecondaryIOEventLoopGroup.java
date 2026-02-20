@@ -100,6 +100,16 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     }
 
     @Override
+    public <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
+        return selector.next().scheduleAtFixedRate(task, initialDelay, period, unit);
+    }
+
+    @Override
+    public <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
+        return selector.next().scheduleWithFixedDelay(task, initialDelay, period, unit);
+    }
+
+    @Override
     public boolean inEventLoop(Thread thread) {
         for(EventLoop el : group) {
             if(el.inEventLoop(thread)) {

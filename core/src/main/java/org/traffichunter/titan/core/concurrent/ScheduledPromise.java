@@ -43,6 +43,10 @@ public interface ScheduledPromise<C> extends Promise<C>, Delayed, PriorityQueueN
         return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos);
     }
 
+    static <C> ScheduledPromise<C> newPromise(EventLoop eventLoop, Runnable task, long deadlineNanos, long period) {
+        return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos, period);
+    }
+
     static long calculateDeadlineNanos(final long delay) {
         long deadlineNanos = Time.currentNanos() + delay;
         return deadlineNanos < 0 ? Long.MAX_VALUE : deadlineNanos;

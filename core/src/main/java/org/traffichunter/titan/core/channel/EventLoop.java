@@ -47,6 +47,10 @@ public interface EventLoop extends EventLoopLifeCycle {
 
     <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
 
+    <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit);
+
+    <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit);
+
     default boolean inEventLoop() {
         return inEventLoop(Thread.currentThread());
     }

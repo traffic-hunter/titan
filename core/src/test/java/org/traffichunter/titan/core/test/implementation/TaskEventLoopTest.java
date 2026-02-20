@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.awaitility.Awaitility;
@@ -117,6 +118,50 @@ class TaskEventLoopTest {
             assertThat(task1.count).isEqualTo(2);
             assertThat(task2.count).isEqualTo(1);
             assertThat(task3.count).isEqualTo(3);
+        }
+
+        @Test
+        void scheduledAtFixedRateTest() throws InterruptedException {
+            CountDownLatch countDownLatch = new CountDownLatch(3);
+            AtomicInteger counter = new AtomicInteger(0);
+
+            ScheduledPromise<?> f = eventLoop.scheduleAtFixedRate(
+                    () -> {
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException ignore) {
+                        }
+
+                        counter.incrementAndGet();
+                        countDownLatch.countDown();
+                    }, 0, 100, TimeUnit.MILLISECONDS);
+
+            assertTrue(countDownLatch.await(500, TimeUnit.MILLISECONDS));
+            f.cancel(true);
+            assertTrue(f.isCancelled());
+            assertThat(counter.get()).isEqualTo(3);
+        }
+
+        @Test
+        void scheduledWithFixedDelayTest() throws InterruptedException {
+            CountDownLatch countDownLatch = new CountDownLatch(3);
+            AtomicInteger counter = new AtomicInteger(0);
+
+            ScheduledPromise<?> f = eventLoop.scheduleWithFixedDelay(
+                    () -> {
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException ignore) {
+                        }
+
+                        counter.incrementAndGet();
+                        countDownLatch.countDown();
+                    }, 0, 100, TimeUnit.MILLISECONDS);
+
+            assertTrue(countDownLatch.await(500, TimeUnit.MILLISECONDS));
+            f.cancel(true);
+            assertTrue(f.isCancelled());
+            assertThat(counter.get()).isEqualTo(3);
         }
     }
 
