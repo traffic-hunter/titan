@@ -21,45 +21,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.channel.stomp;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
-import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.util.IdGenerator;
+import org.traffichunter.titan.core.dispatcher.Dispatcher;
 
 /**
  * @author yungwang-o
  */
-@Slf4j
 public class StompNetServerChannelImpl implements StompNetServerChannel {
 
-    private static final int MAX_SUBSCRIBER = 100;
-
-    private final String sessionId = IdGenerator.uuid();
-    private final Map<String, ServerSubscription> subscriptions = new ConcurrentHashMap<>(MAX_SUBSCRIBER);
-
     private final NetServerChannel serverChannel;
+    private final StompVersion stompVersion;
+    private final StompServerHandler stompServerHandler;
 
-    private long pingTimer = -1;
-    private long pongTimer = -1;
-
-    StompNetServerChannelImpl(ChannelHandShakeEventListener channelHandShakeEventListener) {
+    StompNetServerChannelImpl(
+            ChannelHandShakeEventListener channelHandShakeEventListener,
+            StompVersion version
+    ) {
         try {
+            this.stompServerHandler = new StompServerHandler(Dispatcher.getDefault());
             this.serverChannel = NetServerChannel.open(channelHandShakeEventListener);
+            this.stompVersion = version;
         } catch (IOException e) {
-            throw new StompServerException("Not open channel", e);
+            throw new StompNetServeChannelException("Not open channel", e);
         }
     }
 
@@ -74,7 +67,7 @@ public class StompNetServerChannelImpl implements StompNetServerChannel {
     }
 
     @Override
-    public @Nullable IOEventLoop eventLoop() {
+    public IOEventLoop eventLoop() {
         return serverChannel.eventLoop();
     }
 
@@ -85,22 +78,7 @@ public class StompNetServerChannelImpl implements StompNetServerChannel {
 
     @Override
     public String session() {
-        return sessionId;
-    }
-
-    @Override
-    public void subscribe(final String id, final ServerSubscription subscription) {
-        subscriptions.put(id, subscription);
-    }
-
-    @Override
-    public void unsubscribe(final String id) {
-        subscriptions.remove(id);
-    }
-
-    @Override
-    public List<ServerSubscription> subscriptions() {
-        return subscriptions.values().stream().toList();
+        return serverChannel.session();
     }
 
     @Override
@@ -115,34 +93,12 @@ public class StompNetServerChannelImpl implements StompNetServerChannel {
             return null;
         }
 
-        return new StompNetChannelImpl(channel);
+        return new StompNetChannelImpl(channel, stompVersion);
     }
 
     @Override
-    public synchronized void setHeartbeat(final long ping, final long pong, final Runnable handler) {
-        if (ping > 0) {
-//            pingTimer = server.setInterval(ping, handler);
-        }
-        if (pong > 0) {
-//            pongTimer = server.setInterval(pong, () -> {
-//                long d = Duration.between(lastActivatedTime, Instant.now()).toMillis();
-//                if(d > pong * 2) {
-//                    log.warn("Connection closed due to heartbeat timeout. = {} ms", d);
-//                    close();
-//                }
-//            });
-        }
-    }
-
-    private void cancelHeartbeat() {
-        if (pingTimer >= 0) {
-            //server.cancelInterval(pingTimer);
-            pingTimer = -1;
-        }
-        if (pongTimer >= 0) {
-            //server.cancelInterval(pongTimer);
-            pongTimer = -1;
-        }
+    public String version() {
+        return stompVersion.getVersion();
     }
 
     @Override
@@ -162,7 +118,7 @@ public class StompNetServerChannelImpl implements StompNetServerChannel {
 
     @Override
     public Instant setLastActivatedAt() {
-        return serverChannel.lastActivatedAt();
+        return serverChannel.setLastActivatedAt();
     }
 
     @Override
@@ -173,6 +129,11 @@ public class StompNetServerChannelImpl implements StompNetServerChannel {
     @Override
     public @Nullable SocketAddress remoteAddress() {
         return serverChannel.remoteAddress();
+    }
+
+    @Override
+    public StompHandler handler() {
+        return stompServerHandler;
     }
 
     @Override

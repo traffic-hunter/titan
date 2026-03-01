@@ -21,9 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.channel.stomp;
 
-import org.traffichunter.titan.core.transport.stomp.StompNetServerChannel;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
 
 /**
  * @author yungwang-o
@@ -31,5 +31,5 @@ import org.traffichunter.titan.core.transport.stomp.StompNetServerChannel;
 @FunctionalInterface
 public interface StompHandler {
 
-    void handle(StompFrame sf, StompNetServerChannel sc);
+    void handle(StompFrame sf, StompNetChannel sc);
 }

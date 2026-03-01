@@ -21,35 +21,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport.stomp;
-
-import java.util.List;
+package org.traffichunter.titan.core.channel.stomp;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
-import org.traffichunter.titan.core.channel.NetServerChannel;
-import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
 /**
  * @author yungwang-o
  */
-public interface StompNetServerChannel extends NetServerChannel {
+public interface StompNetServerChannel extends Channel {
 
-    static StompNetServerChannel open(ChannelHandShakeEventListener channelHandShakeEventListener) {
-        return new StompNetServerChannelImpl(channelHandShakeEventListener);
+    static StompNetServerChannel open(
+            ChannelHandShakeEventListener channelHandShakeEventListener,
+            StompVersion version
+    ) {
+        return new StompNetServerChannelImpl(channelHandShakeEventListener, version);
     }
 
-    void subscribe(String id, ServerSubscription subscription);
+    void bind(InetSocketAddress address) throws IOException;
 
-    void unsubscribe(String id);
-
-    @Override
     @Nullable StompNetChannel accept();
 
-    /**
-     * read-only
-     */
-    List<ServerSubscription> subscriptions();
+    String version();
 
-    void setHeartbeat(long ping, long pong, Runnable handler);
+    StompHandler handler();
 }
