@@ -44,7 +44,7 @@ public interface Channel {
 
     ChannelPromise register(IOEventLoop eventLoop, ChannelPromise promise);
 
-    @Nullable IOEventLoop eventLoop();
+    IOEventLoop eventLoop();
 
     String id();
 
@@ -57,6 +57,7 @@ public interface Channel {
 
     Instant lastActivatedAt();
 
+    @CanIgnoreReturnValue
     Instant setLastActivatedAt();
 
     @Nullable SocketAddress localAddress();

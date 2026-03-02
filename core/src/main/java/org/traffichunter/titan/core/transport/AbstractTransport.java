@@ -26,6 +26,8 @@ package org.traffichunter.titan.core.transport;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
@@ -60,6 +62,8 @@ public abstract class AbstractTransport<C extends Channel> {
     public @Nullable SocketAddress localAddress() {
         return channel.localAddress();
     }
+
+    public abstract Promise<Void> send(Buffer buffer);
 
     public abstract void shutdown(long timeout, TimeUnit unit);
 

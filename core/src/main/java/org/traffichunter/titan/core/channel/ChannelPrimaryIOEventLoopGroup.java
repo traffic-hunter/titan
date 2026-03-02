@@ -87,7 +87,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
 
     @SuppressWarnings("unchecked")
     @Override
-    public Promise<?> submit(Runnable task) {
+    public Promise<Void> submit(Runnable task) {
         return selector.next().submit(task);
     }
 
