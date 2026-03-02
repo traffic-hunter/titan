@@ -26,15 +26,15 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.transport.option.InetClientOption;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -78,6 +78,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
         });
     }
 
+    @Override
     public Promise<Void> send(Buffer buffer) {
         if(channel().isClosed()) {
             log.error("Not ready to connect");
@@ -114,11 +115,12 @@ public class InetClient extends AbstractTransport<NetChannel> {
         log.info("Closed client");
     }
 
+    @SuppressWarnings("unchecked")
     public static class Builder {
 
         private @Nullable EventLoopGroups groups;
         private @Nullable Handler<Channel> channelHandler;
-        private final Map<SocketOption<?>, Object> options = new HashMap<>();
+        private Consumer<NetChannel> optionApplier = channel -> { };
 
         public Builder group(EventLoopGroups groups) {
             this.groups = groups;
@@ -131,13 +133,34 @@ public class InetClient extends AbstractTransport<NetChannel> {
         }
 
         public Builder option(SocketOption<?> option, Object value) {
-            options.put(option, value);
+            optionApplier = optionApplier.andThen(channel ->
+                    channel.setOption((SocketOption<Object>) option, value)
+            );
+            return this;
+        }
+
+        public Builder option(Consumer<NetChannel> optionApplier) {
+            this.optionApplier = this.optionApplier.andThen(optionApplier);
+            return this;
+        }
+
+        @SuppressWarnings("unchecked")
+        public Builder options(InetClientOption option) {
+            optionApplier = optionApplier.andThen(channel ->
+                    option.socketOptions().forEach((k, v) ->
+                            channel.setOption((SocketOption<Object>) k, v)
+                    )
+            );
             return this;
         }
 
         public InetClient build() {
+            Assert.checkNotNull(groups, "groups cannot be null");
+            Assert.checkNotNull(channelHandler, "channelHandler cannot be null");
+
             try {
-                NetChannel channel = NetChannel.open(new ClientChannelConnector());
+                NetChannel channel = NetChannel.open(new ClientChannelConnector(channelHandler));
+                optionApplier.accept(channel);
                 groups.register(channel);
                 return new InetClient(channel, groups);
             } catch (IOException e) {
@@ -148,8 +171,15 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     private static class ClientChannelConnector implements ChannelHandShakeEventListener {
 
+        private final Handler<Channel> channelHandler;
+
+        private ClientChannelConnector(Handler<Channel> channelHandler) {
+            this.channelHandler = channelHandler;
+        }
+
         @Override
         public void accept(Channel channel) {
+            channelHandler.handle(channel);
         }
     }
 }
