@@ -21,19 +21,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.codec;
+package org.traffichunter.titan.core.codec.stomp;
 
-import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+import lombok.Builder;
+import org.traffichunter.titan.core.channel.stomp.StompNetChannel;
+import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
  * @author yun
  */
-public class LengthFieldFrameChannelDecoder extends ChannelDecoder {
-
-    @Override
-    protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
-        return null;
-    }
+@Builder
+public record Subscription(
+        RoutingKey key,
+        String id,
+        String ackMode,
+        Handler<StompFrame> handler,
+        StompNetChannel channel
+) {
 }

@@ -5,6 +5,8 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.core.channel.InMemoryNetChannel;
+import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -163,7 +165,7 @@ class LineFrameChannelDecoderTest {
         List<Buffer> decodes(Buffer buffer) {
             List<Buffer> buffers = new LinkedList<>();
             while (buffer.isReadable()) {
-                Buffer decode = decode(buffer);
+                Buffer decode = decode(new InMemoryNetChannel(), buffer);
                 if (decode != null) {
                     buffers.add(decode);
                 }
@@ -173,8 +175,8 @@ class LineFrameChannelDecoderTest {
         }
 
         @Override
-        protected @Nullable Buffer decode(@NonNull Buffer buffer) {
-            return super.decode(buffer);
+        protected @Nullable Buffer decode(@NonNull NetChannel channel, @NonNull Buffer buffer) {
+            return super.decode(channel, buffer);
         }
     }
 }

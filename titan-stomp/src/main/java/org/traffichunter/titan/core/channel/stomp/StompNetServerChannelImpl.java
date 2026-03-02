@@ -56,6 +56,12 @@ public class StompNetServerChannelImpl implements StompNetServerChannel {
         }
     }
 
+    StompNetServerChannelImpl(NetServerChannel serverChannel, StompVersion version) {
+        this.serverChannel = serverChannel;
+        this.stompVersion = version;
+        this.stompServerHandler = new StompServerHandler(Dispatcher.getDefault());
+    }
+
     @Override
     public ChannelHandlerChain chain() {
         return serverChannel.chain();

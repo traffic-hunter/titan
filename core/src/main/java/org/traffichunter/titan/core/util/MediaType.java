@@ -21,19 +21,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.codec;
-
-import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+package org.traffichunter.titan.core.util;
 
 /**
  * @author yun
  */
-public class LengthFieldFrameChannelDecoder extends ChannelDecoder {
+public final class MediaType {
 
-    @Override
-    protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
-        return null;
-    }
+    public static final String APPLICATION_JSON = "application/json";
+
+    public static final String APPLICATION_XML = "application/xml";
+
+    public static final String TEXT_PLAIN = "text/plain";
+
+    public static final String TEXT_HTML = "text/html";
+
+    public static final String TEXT_XML = "text/xml";
+
+    public static final String TEXT_STREAM = "application/octet-stream";
+
+    public static final String TEXT_STREAM_GZ = "application/x-gzip";
+
+    public static final String APPLICATION_OCTET_STREAM = "application/octet-stream";
+
+    public static final String APPLICATION_OCTET_STREAM_GZ = "application/x-gzip-compressed";
+
+    public static final String APPLICATION_OCTET_STREAM_GZG = "application/x-gzip-compressed";
 }

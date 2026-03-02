@@ -28,11 +28,13 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Map.Entry;
 import java.util.Set;
+
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.helpers.MessageFormatter;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.util.MediaType;
 import org.traffichunter.titan.core.util.Pair;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.inet.Frame;
@@ -42,13 +44,13 @@ import org.traffichunter.titan.core.util.inet.Frame;
  */
 @Getter
 @Slf4j
-public class StompFrame implements Frame<Elements, String> {
+public final class StompFrame implements Frame<Elements, String> {
 
     public static final StompFrame ERR_STOMP_FRAME =
             new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.ERROR);
 
     public static final StompFrame PING =
-            new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.UNKNOWN, Buffer.alloc(StompDelimiter.LF.getHex()));
+            new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.PING, Buffer.alloc(StompDelimiter.LF.getString()));
 
     private final StompHeaders headers;
 
@@ -100,6 +102,10 @@ public class StompFrame implements Frame<Elements, String> {
 
     @Override
     public Buffer toBuffer() {
+        if(command == StompCommand.PING) {
+            return Buffer.alloc(StompDelimiter.LF.getString());
+        }
+
         Buffer buffer = Buffer.alloc(command.name());
         buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
 
@@ -148,14 +154,16 @@ public class StompFrame implements Frame<Elements, String> {
         }
         sb.append(StompDelimiter.CR.getCharacter()).append(StompDelimiter.LF.getCharacter());
 
-        if (isLogging && body.length() >= 100) {
-            String loggingStr = body.toString();
+        if(body != null) {
+            if (isLogging && body.length() >= 100) {
+                String loggingStr = body.toString();
 
-            String pre = loggingStr.substring(0, 30);
-            String post = loggingStr.substring(body.length() - 30);
-            sb.append(pre).append(".............").append(post);
-        } else {
-            sb.append(body);
+                String pre = loggingStr.substring(0, 30);
+                String post = loggingStr.substring(body.length() - 30);
+                sb.append(pre).append(".............").append(post);
+            } else {
+                sb.append(body);
+            }
         }
 
         sb.append(StompDelimiter.NUL.getCharacter());
@@ -165,6 +173,8 @@ public class StompFrame implements Frame<Elements, String> {
     public record HeartBeat(long x, long y) {
 
         public static final HeartBeat DEFAULT = new HeartBeat(1_000, 1_000);
+
+        public static final HeartBeat ZERO = new HeartBeat(0, 0);
 
         public static HeartBeat create(final long x, final long y) {
             return new HeartBeat(x, y);
@@ -182,8 +192,16 @@ public class StompFrame implements Frame<Elements, String> {
                 return new HeartBeat(0, 0);
             }
 
-            String[] token = header.split(StompDelimiter.COMMA.getString());
-            return new HeartBeat(Long.parseLong(token[0]), Long.parseLong(token[1]));
+            final String[] token = header.split(StompDelimiter.COMMA.getString());
+            if (token.length != 2) {
+                throw new StompFrameException("Invalid heartbeat: " + header);
+            }
+
+            return new HeartBeat(Long.parseLong(token[0].trim()), Long.parseLong(token[1].trim()));
+        }
+
+        public String value() {
+            return x + "," + y;
         }
 
         @Override
@@ -208,12 +226,25 @@ public class StompFrame implements Frame<Elements, String> {
         }
     }
 
+    public static StompFrame errorFrame(final String message, final String body) {
+        return errorFrame(StompHeaders.create(), message, body);
+    }
+
+    public static StompFrame errorFrame(final StompHeaders headers, final String message, final String body) {
+        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, Buffer.alloc(body));
+        errorFrame.addHeader(Elements.MESSAGE, message);
+        errorFrame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
+        errorFrame.addHeader(Elements.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+
+        return errorFrame;
+    }
+
     public static Buffer errorFrame(final String message) {
         return Buffer.alloc(message);
     }
 
-    public static Buffer errorFrame(final String message, final Object... obj) {
-        return Buffer.alloc(MessageFormatter.basicArrayFormat(message, obj));
+    public static String formatString(final String message, final Object... obj) {
+        return MessageFormatter.basicArrayFormat(message, obj);
     }
 
     public static StompFrame doParse(final String stomp, final StompHeaders headers) {
@@ -251,7 +282,7 @@ public class StompFrame implements Frame<Elements, String> {
         return StompFrame.create(headers, command, body);
     }
 
-    interface AckMode {
+    public interface AckMode {
         String AUTO = "auto";
         String CLIENT = "client";
         String CLIENT_INDIVIDUAL = "client-individual";

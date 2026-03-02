@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -56,7 +57,7 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
     }
 
     @Override
-    protected @Nullable Buffer decode(Buffer buffer) {
+    protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
         return decode0(buffer);
     }
 

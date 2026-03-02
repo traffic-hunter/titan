@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.channel.stomp;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
+import org.traffichunter.titan.core.channel.NetServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
 
 import java.io.IOException;
@@ -35,6 +36,10 @@ import java.net.InetSocketAddress;
  * @author yungwang-o
  */
 public interface StompNetServerChannel extends Channel {
+
+    static StompNetServerChannel open(NetServerChannel serverChannel, StompVersion version) {
+        return new StompNetServerChannelImpl(serverChannel, version);
+    }
 
     static StompNetServerChannel open(
             ChannelHandShakeEventListener channelHandShakeEventListener,
