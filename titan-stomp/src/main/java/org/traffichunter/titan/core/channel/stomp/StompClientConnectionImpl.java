@@ -34,18 +34,16 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
-import org.traffichunter.titan.core.channel.ChannelHandlerChain;
-import org.traffichunter.titan.core.channel.EventLoop;
-import org.traffichunter.titan.core.channel.IOEventLoop;
-import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.codec.stomp.Subscription;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Completable;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
@@ -58,59 +56,42 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 /**
  * @author yun
  */
-public class StompNetChannelImpl implements StompNetChannel {
+public class StompClientConnectionImpl implements StompClientConnection {
 
     private static final int MAX_SUBSCRIBER = 100;
 
     private final String sessionId = IdGenerator.uuid();
     private final NetChannel netChannel;
-    private final StompVersion stompVersion;
     private final StompClientHandler stompClientHandler;
+    private final StompClientOption option;
 
     private final Map<String, Subscription> subscriptions = new HashMap<>(MAX_SUBSCRIBER);
     private final Map<Long, ScheduledPromise<?>> pingPongTaskMap = new HashMap<>();
-    private final Map<String, ChannelPromise> receiptMap = new HashMap<>();
+    private final Map<String, Promise<Void>> receiptMap = new HashMap<>();
     private final AtomicLong timer = new AtomicLong();
+
+    private @Nullable Promise<Void> connectPromise;
+    private boolean stompConnected;
 
     private long pingTimer = -1;
     private long pongTimer = -1;
 
-    StompNetChannelImpl(
+    StompClientConnectionImpl(
             ChannelHandShakeEventListener channelHandShakeEventListener,
-            StompVersion stompVersion
+            StompClientOption option
     ) throws IOException {
-        this(NetChannel.open(channelHandShakeEventListener), stompVersion);
+        this(NetChannel.open(channelHandShakeEventListener), option);
     }
 
-    StompNetChannelImpl(NetChannel netChannel, StompVersion stompVersion) {
+    StompClientConnectionImpl(NetChannel netChannel, StompClientOption option) {
         this.netChannel = netChannel;
-        this.stompVersion = stompVersion;
         this.stompClientHandler = new StompClientHandler();
+        this.option = option;
     }
 
     @Override
-    public <T> NetChannel setOption(SocketOption<T> option, T value) {
-        return netChannel.setOption(option, value);
-    }
-
-    @Override
-    public ChannelHandlerChain chain() {
-        return netChannel.chain();
-    }
-
-    @Override
-    public ChannelPromise register(IOEventLoop eventLoop, ChannelPromise promise) {
-        return netChannel.register(eventLoop, promise);
-    }
-
-    @Override
-    public IOEventLoop eventLoop() {
-        return netChannel.eventLoop();
-    }
-
-    @Override
-    public String id() {
-        return netChannel.id();
+    public Channel channel() {
+        return netChannel;
     }
 
     @Override
@@ -119,8 +100,8 @@ public class StompNetChannelImpl implements StompNetChannel {
     }
 
     @Override
-    public @Nullable <T> T getOption(SocketOption<T> option) {
-        return netChannel.getOption(option);
+    public Instant setLastActivatedAt() {
+        return netChannel.setLastActivatedAt();
     }
 
     @Override
@@ -129,182 +110,147 @@ public class StompNetChannelImpl implements StompNetChannel {
     }
 
     @Override
-    public Instant setLastActivatedAt() {
-        return netChannel.setLastActivatedAt();
-    }
-
-    @Override
-    public @Nullable SocketAddress localAddress() {
-        return netChannel.localAddress();
-    }
-
-    @Override
-    public @Nullable SocketAddress remoteAddress() {
-        return netChannel.remoteAddress();
-    }
-
-    @Override
-    public boolean isOpen() {
-        return netChannel.isOpen();
-    }
-
-    @Override
-    public boolean isRegistered() {
-        return netChannel.isRegistered();
-    }
-
-    @Override
-    public boolean isActive() {
-        return netChannel.isActive();
-    }
-
-    @Override
-    public boolean isClosed() {
-        return netChannel.isClosed();
-    }
-
-    @Override
     public String version() {
-        return stompVersion.getVersion();
+        return option.stompVersion().getVersion();
     }
 
     @Override
-    public ChannelPromise disconnect() {
+    public Promise<StompFrame> disconnect() {
         StompFrame frame = create(StompHeaders.create(), StompCommand.DISCONNECT);
         frame.addHeader(Elements.RECEIPT, IdGenerator.uuid());
         return disconnect(frame);
     }
 
     @Override
-    public ChannelPromise disconnect(StompFrame frame) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
-        if (isActive()) {
-            send(frame, channelPromise);
-            channelPromise.addListener(f -> close());
+    public Promise<StompFrame> disconnect(StompFrame frame) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
+        if (netChannel.isActive()) {
+            send(frame, framePromise);
+            framePromise.addListener(f -> close());
         } else {
-            return channelPromise.fail(new IllegalStateException("Channel is not active"));
+            return framePromise.fail(new IllegalStateException("Channel is not active"));
         }
 
-        return channelPromise;
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise begin(String id) {
+    public Promise<StompFrame> begin(String id) {
         return begin(id, StompHeaders.create());
     }
 
     @Override
-    public ChannelPromise begin(String id, StompHeaders headers) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
+    public Promise<StompFrame> begin(String id, StompHeaders headers) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
         headers.put(Elements.TRANSACTION, id);
-        send(create(headers, StompCommand.BEGIN), channelPromise);
-        return channelPromise;
+        send(create(headers, StompCommand.BEGIN), framePromise);
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise commit(String id) {
+    public Promise<StompFrame> commit(String id) {
         return commit(id, StompHeaders.create());
     }
 
     @Override
-    public ChannelPromise commit(String id, StompHeaders headers) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
+    public Promise<StompFrame> commit(String id, StompHeaders headers) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
         headers.put(Elements.TRANSACTION, id);
-        send(create(headers, StompCommand.COMMIT), channelPromise);
-        return channelPromise;
+        send(create(headers, StompCommand.COMMIT), framePromise);
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise abort(String id) {
+    public Promise<StompFrame> abort(String id) {
         return abort(id, StompHeaders.create());
     }
 
     @Override
-    public ChannelPromise abort(String id, StompHeaders headers) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
+    public Promise<StompFrame> abort(String id, StompHeaders headers) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
         headers.put(Elements.TRANSACTION, id);
-        send(create(headers, StompCommand.ABORT), channelPromise);
-        return channelPromise;
+        send(create(headers, StompCommand.ABORT), framePromise);
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise ack(String id) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
+    public Promise<StompFrame> ack(String id) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
         StompHeaders headers = StompHeaders.create();
         headers.put(Elements.ID, id);
-        send(create(headers, StompCommand.ACK), channelPromise);
-        return channelPromise;
+        send(create(headers, StompCommand.ACK), framePromise);
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise ack(String id, String txId) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
-        StompHeaders headers = StompHeaders.create();
-        headers.put(Elements.ID, id);
-        headers.put(Elements.TRANSACTION, txId);
-        send(create(headers, StompCommand.ACK), channelPromise);
-        return channelPromise;
-    }
-
-    @Override
-    public ChannelPromise nack(String id) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
-        StompHeaders headers = StompHeaders.create();
-        headers.put(Elements.ID, id);
-        send(create(headers, StompCommand.NACK), channelPromise);
-        return channelPromise;
-    }
-
-    @Override
-    public ChannelPromise nack(String id, String txId) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
+    public Promise<StompFrame> ack(String id, String txId) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
         StompHeaders headers = StompHeaders.create();
         headers.put(Elements.ID, id);
         headers.put(Elements.TRANSACTION, txId);
-        send(create(headers, StompCommand.NACK), channelPromise);
-        return channelPromise;
+        send(create(headers, StompCommand.ACK), framePromise);
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise send(StompFrame frame) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(netChannel.eventLoop(), this);
-        send(frame, channelPromise);
-        return channelPromise;
+    public Promise<StompFrame> nack(String id) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
+        StompHeaders headers = StompHeaders.create();
+        headers.put(Elements.ID, id);
+        send(create(headers, StompCommand.NACK), framePromise);
+        return framePromise;
     }
 
     @Override
-    public ChannelPromise send(String destination, Buffer body) {
+    public Promise<StompFrame> nack(String id, String txId) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
+        StompHeaders headers = StompHeaders.create();
+        headers.put(Elements.ID, id);
+        headers.put(Elements.TRANSACTION, txId);
+        send(create(headers, StompCommand.NACK), framePromise);
+        return framePromise;
+    }
+
+    @Override
+    public Promise<StompFrame> send(StompFrame frame) {
+        Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
+        send(frame, framePromise);
+        return framePromise;
+    }
+
+    @Override
+    public Promise<StompFrame> send(String destination, Buffer body) {
         return send(destination, body, StompHeaders.create());
     }
 
     @Override
-    public ChannelPromise send(String destination, Buffer body, StompHeaders headers) {
+    public Promise<StompFrame> send(String destination, Buffer body, StompHeaders headers) {
         return send(destination, create(headers, StompCommand.SEND, body));
     }
 
     @Override
-    public ChannelPromise send(String destination, StompFrame body) {
+    public Promise<StompFrame> send(String destination, StompFrame body) {
         body.addHeader(Elements.DESTINATION, destination);
         return send(body);
     }
 
     @Override
-    public ChannelPromise subscribe(String destination) {
+    public Promise<StompFrame> subscribe(String destination) {
         return subscribe(destination, StompHeaders.create());
     }
 
     @Override
-    public ChannelPromise subscribe(String destination, StompHeaders headers) {
+    public Promise<StompFrame> subscribe(String destination, StompHeaders headers) {
         return subscribe(destination, headers, frame -> { });
     }
 
     @Override
-    public ChannelPromise subscribe(String destination, Handler<StompFrame> handler) {
+    public Promise<StompFrame> subscribe(String destination, Handler<StompFrame> handler) {
         return subscribe(destination, StompHeaders.create(), handler);
     }
 
     @Override
-    public ChannelPromise subscribe(String destination, StompHeaders headers, Handler<StompFrame> handler) {
+    public Promise<StompFrame> subscribe(String destination, StompHeaders headers, Handler<StompFrame> handler) {
         String id = headers.getOrDefault(Elements.ID, IdGenerator.uuid());
 
         String ackMode = headers.get(Elements.ACK);
@@ -313,7 +259,7 @@ public class StompNetChannelImpl implements StompNetChannel {
         }
 
         if (subscriptions.containsKey(id)) {
-            return ChannelPromise.failedPromise(netChannel.eventLoop(), this, new StompNetChannelException("Subscription already exists"));
+            return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Subscription already exists"));
         }
 
         Subscription subscription = Subscription.builder()
@@ -333,20 +279,20 @@ public class StompNetChannelImpl implements StompNetChannel {
     }
 
     @Override
-    public ChannelPromise unsubscribe(String destination) {
+    public Promise<StompFrame> unsubscribe(String destination) {
         return unsubscribe(destination, StompHeaders.create());
     }
 
     @Override
-    public ChannelPromise unsubscribe(String destination, StompHeaders headers) {
+    public Promise<StompFrame> unsubscribe(String destination, StompHeaders headers) {
         String id = headers.get(Elements.ID);
         if (id == null) {
-            return ChannelPromise.failedPromise(netChannel.eventLoop(), this, new StompNetChannelException("Missing id header"));
+            return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Missing id header"));
         }
 
         Subscription subscription = subscriptions.get(id);
         if (subscription == null) {
-            return ChannelPromise.failedPromise(netChannel.eventLoop(), this, new StompNetChannelException("Subscription already not exists"));
+            return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Subscription already not exists"));
         }
 
         subscriptions.remove(id);
@@ -354,7 +300,7 @@ public class StompNetChannelImpl implements StompNetChannel {
     }
 
     @Override
-    public ChannelPromise error(StompFrame frame) {
+    public Promise<StompFrame> error(StompFrame frame) {
         return send(frame);
     }
 
@@ -372,7 +318,7 @@ public class StompNetChannelImpl implements StompNetChannel {
         }
         if (pong > 0) {
             pongTimer = setInterval(pong, pong, () -> {
-                long d = Duration.between(lastActivatedAt(), Instant.now()).toMillis();
+                long d = Duration.between(netChannel.lastActivatedAt(), Instant.now()).toMillis();
                 if (d > pong * 2) {
                     close();
                 }
@@ -403,9 +349,42 @@ public class StompNetChannelImpl implements StompNetChannel {
             return;
         }
 
-        ChannelPromise promise = receiptMap.remove(receiptId);
-        if (promise != null) {
+        Promise<Void> resultPromise = receiptMap.remove(receiptId);
+        if (resultPromise != null) {
+            resultPromise.success();
+        }
+    }
+
+    @Override
+    public Promise<Void> awaitConnected() {
+        if (stompConnected) {
+            return Promise.<Void>newPromise(eventLoop()).success();
+        }
+
+        Promise<Void> promise = connectPromise;
+        if (promise == null) {
+            promise = Promise.newPromise(eventLoop());
+            connectPromise = promise;
+        }
+
+        return promise;
+    }
+
+    @Override
+    public void connected() {
+        stompConnected = true;
+
+        Promise<Void> promise = connectPromise;
+        if (promise != null && !promise.isDone()) {
             promise.success();
+        }
+    }
+
+    @Override
+    public void failConnect(Throwable error) {
+        Promise<Void> promise = connectPromise;
+        if (promise != null && !promise.isDone()) {
+            promise.fail(error);
         }
     }
 
@@ -415,15 +394,23 @@ public class StompNetChannelImpl implements StompNetChannel {
     }
 
     @Override
+    public boolean isConnected() {
+        return netChannel.isConnected();
+    }
+
+    @Override
     public void close() {
         cancelHeartbeat();
+        failConnect(new StompNetChannelException("Channel closed before STOMP connect completed"));
+        receiptMap.values().forEach(promise ->
+                promise.fail(new StompNetChannelException("Channel closed before receipt received")));
         receiptMap.clear();
         pingPongTaskMap.clear();
         subscriptions.clear();
         netChannel.close();
     }
 
-    private void send(StompFrame frame, ChannelPromise receiptPromise) {
+    private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
         Buffer body = frame.getBody();
         if (body != null && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
             frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
@@ -431,12 +418,29 @@ public class StompNetChannelImpl implements StompNetChannel {
 
         String receiptId = frame.getHeader(Elements.RECEIPT);
         if (receiptId != null && !receiptId.isBlank()) {
-            receiptMap.put(receiptId, receiptPromise);
-        } else {
-            receiptPromise.success();
+            Promise<Void> resultPromise = Promise.newPromise(eventLoop());
+            resultPromise.addListener(future -> {
+                if (future.isSuccess()) {
+                    receiptPromise.success(frame);
+                } else {
+                    receiptPromise.fail(new StompNetChannelException("Failed to receive receipt"));
+                }
+            });
+            receiptMap.put(receiptId, resultPromise);
         }
 
-        netChannel.writeAndFlush(frame.toBuffer());
+        try {
+            netChannel.writeAndFlush(frame.toBuffer());
+            if (receiptId == null || receiptId.isBlank()) {
+                receiptPromise.success(frame);
+            }
+        } catch (Exception e) {
+            if (receiptId != null && !receiptId.isBlank()) {
+                receiptMap.remove(receiptId);
+            }
+            close();
+            receiptPromise.fail(new StompNetChannelException("Failed to write STOMP frame", e));
+        }
     }
 
     private void cancelHeartbeat() {
@@ -472,12 +476,16 @@ public class StompNetChannelImpl implements StompNetChannel {
         }
     }
 
+    private IOEventLoop eventLoop() {
+        return netChannel.eventLoop();
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
             return true;
         }
-        if (!(other instanceof StompNetChannelImpl that)) {
+        if (!(other instanceof StompClientConnectionImpl that)) {
             return false;
         }
         return this.netChannel.id().equals(that.netChannel.id());

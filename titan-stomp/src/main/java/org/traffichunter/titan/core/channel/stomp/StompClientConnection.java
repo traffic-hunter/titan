@@ -28,101 +28,107 @@ import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
 /**
  * @author yungwang-o
  */
-public interface StompNetChannel extends Channel{
+public interface StompClientConnection extends StompConnection {
 
-    static StompNetChannel open(ChannelHandShakeEventListener handShakeEventListener, StompVersion stompVersion) throws IOException {
-        return new StompNetChannelImpl(handShakeEventListener, stompVersion);
+    static StompClientConnection open(
+            ChannelHandShakeEventListener handShakeEventListener,
+            StompClientOption option
+    ) throws IOException {
+        return new StompClientConnectionImpl(handShakeEventListener, option);
     }
 
-    static StompNetChannel open(NetChannel netChannel, StompVersion stompVersion) {
-        return new StompNetChannelImpl(netChannel, stompVersion);
+    static StompClientConnection wrap(
+            NetChannel netChannel,
+            StompClientOption option
+    ) {
+        return new StompClientConnectionImpl(netChannel, option);
     }
 
     @CanIgnoreReturnValue
-    ChannelPromise disconnect();
+    Promise<StompFrame> disconnect();
 
     @CanIgnoreReturnValue
-    ChannelPromise disconnect(StompFrame frame);
+    Promise<StompFrame> disconnect(StompFrame frame);
 
     @CanIgnoreReturnValue
-    ChannelPromise begin(String id);
+    Promise<StompFrame> begin(String id);
 
     @CanIgnoreReturnValue
-    ChannelPromise begin(String id, StompHeaders headers);
+    Promise<StompFrame> begin(String id, StompHeaders headers);
 
     @CanIgnoreReturnValue
-    ChannelPromise commit(String id);
+    Promise<StompFrame> commit(String id);
 
     @CanIgnoreReturnValue
-    ChannelPromise commit(String id, StompHeaders headers);
+    Promise<StompFrame> commit(String id, StompHeaders headers);
 
     @CanIgnoreReturnValue
-    ChannelPromise abort(String id);
+    Promise<StompFrame> abort(String id);
 
     @CanIgnoreReturnValue
-    ChannelPromise abort(String id, StompHeaders headers);
+    Promise<StompFrame> abort(String id, StompHeaders headers);
 
     @CanIgnoreReturnValue
-    ChannelPromise ack(String id);
+    Promise<StompFrame> ack(String id);
 
     @CanIgnoreReturnValue
-    ChannelPromise ack(String id, String txId);
+    Promise<StompFrame> ack(String id, String txId);
 
     @CanIgnoreReturnValue
-    ChannelPromise nack(String id);
+    Promise<StompFrame> nack(String id);
 
     @CanIgnoreReturnValue
-    ChannelPromise nack(String id, String txId);
+    Promise<StompFrame> nack(String id, String txId);
 
     @CanIgnoreReturnValue
-    ChannelPromise send(String destination, Buffer body);
+    Promise<StompFrame> send(String destination, Buffer body);
 
     @CanIgnoreReturnValue
-    ChannelPromise send(String destination, Buffer body, StompHeaders headers);
+    Promise<StompFrame> send(String destination, Buffer body, StompHeaders headers);
 
     @CanIgnoreReturnValue
-    ChannelPromise send(StompFrame frame);
+    Promise<StompFrame> send(StompFrame frame);
 
     @CanIgnoreReturnValue
-    ChannelPromise send(String destination, StompFrame body);
+    Promise<StompFrame> send(String destination, StompFrame body);
 
     @CanIgnoreReturnValue
-    ChannelPromise subscribe(String destination);
+    Promise<StompFrame> subscribe(String destination);
 
     @CanIgnoreReturnValue
-    ChannelPromise subscribe(String destination, StompHeaders headers);
+    Promise<StompFrame> subscribe(String destination, StompHeaders headers);
 
     @CanIgnoreReturnValue
-    ChannelPromise subscribe(String destination, Handler<StompFrame> handler);
+    Promise<StompFrame> subscribe(String destination, Handler<StompFrame> handler);
 
     @CanIgnoreReturnValue
-    ChannelPromise subscribe(String destination, StompHeaders headers, Handler<StompFrame> handler);
+    Promise<StompFrame> subscribe(String destination, StompHeaders headers, Handler<StompFrame> handler);
 
     @CanIgnoreReturnValue
-    ChannelPromise unsubscribe(String destination);
+    Promise<StompFrame> unsubscribe(String destination);
 
     @CanIgnoreReturnValue
-    ChannelPromise unsubscribe(String destination, StompHeaders headers);
+    Promise<StompFrame> unsubscribe(String destination, StompHeaders headers);
 
     @CanIgnoreReturnValue
-    ChannelPromise error(StompFrame frame);
+    Promise<StompFrame> error(StompFrame frame);
 
     /**
      * @return read-only list
      */
     List<Subscription> subscriptions();
-
-    StompHandler handler();
 
     void setHeartbeat(long ping, long pong, Runnable handler);
 
@@ -132,5 +138,11 @@ public interface StompNetChannel extends Channel{
 
     void receipt(String receiptId);
 
-    String version();
+    Promise<Void> awaitConnected();
+
+    void connected();
+
+    void failConnect(Throwable error);
+
+    boolean isConnected();
 }
