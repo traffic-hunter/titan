@@ -67,7 +67,11 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         connectPromise = eventLoop().newPromise(this);
 
         if(connect0(remoteAddress)) {
+            chain().processChannelConnecting(this);
             completeConnect();
+            chain().processChannelAfterConnected(this);
+            eventLoop().ioSelector().registerRead(this);
+            accept(this);
             return;
         }
 
@@ -81,11 +85,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                     close();
                 }, timeOut, timeUnit);
 
-            connectPromise.addListener(f -> {
-                if(timeoutPromise != null) {
-                    timeoutPromise.cancel();
-                }
-            });
+            connectPromise.addListener(f -> timeoutPromise.cancel());
         }
     }
 
@@ -114,7 +114,6 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
             return read;
         } catch (IOException e) {
-            log.error("Error reading from socket = {}", e.getMessage());
             return -1;
         }
     }
@@ -281,7 +280,6 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         try {
             written = channel().write(byteBuffer);
         } catch (IOException e) {
-            log.error("Error writing to socket = {}", e.getMessage());
             return -1;
         }
 

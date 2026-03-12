@@ -100,5 +100,9 @@ public final class ChannelRegistry<C extends Channel> {
         public int size() {
             return registry.getChannelMap().size();
         }
+
+        public boolean isEmpty() {
+            return registry.getChannelMap().isEmpty();
+        }
     }
 }

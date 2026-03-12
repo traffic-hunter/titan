@@ -47,6 +47,7 @@ public abstract class AbstractChannel implements Channel {
     private final ChannelHandlerChain chain;
     private volatile Instant lastActiveAt = Instant.now();
     private final String channelId = IdGenerator.uuid();
+    private final String sessionId = IdGenerator.uuid();
 
     private static final AtomicReferenceFieldUpdater<AbstractChannel, ChannelState> STATE_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(AbstractChannel.class, ChannelState.class, "state");
@@ -132,7 +133,7 @@ public abstract class AbstractChannel implements Channel {
 
     @Override
     public String session() {
-        return "";
+        return sessionId;
     }
 
     @Override

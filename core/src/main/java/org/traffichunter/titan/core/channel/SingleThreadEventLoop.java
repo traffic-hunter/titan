@@ -117,9 +117,6 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
     @Override
     public <V> ScheduledPromise<V> schedule(final Callable<V> task, final long delay, final TimeUnit unit) {
-        Assert.checkNull(task, "task is null");
-        Assert.checkNull(unit, "unit is null");
-
         final long calculatedDeadlineNanos = ScheduledPromise.calculateDeadlineNanos(unit.toNanos(delay));
 
         ScheduledPromise<V> scheduledTask = ScheduledPromise.newPromise(this, task, calculatedDeadlineNanos);
@@ -129,9 +126,6 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
     @Override
     public <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
-        Assert.checkNull(task, "task is null");
-        Assert.checkNull(unit, "unit is null");
-
         Assert.checkArgument(initialDelay >= 0L, "initial delay must be >= 0");
         Assert.checkArgument(period >= 0L, "period must be >= 0");
 
@@ -149,9 +143,6 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
     @Override
     public <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
-        Assert.checkNull(task, "task is null");
-        Assert.checkNull(unit, "unit is null");
-
         Assert.checkArgument(initialDelay >= 0L, "initial delay must be >= 0");
         Assert.checkArgument(period >= 0L, "period must be >= 0");
 
@@ -177,6 +168,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         shutdownStartNanos = Time.currentNanos();
 
         if(isShuttingDown()) {
+            wakeUp();
             return;
         }
         final EventLoopStatus oldStatus = getStatus();
@@ -204,19 +196,19 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             if(!trySetStatus(oldStatus, EventLoopStatus.SHUTTING_DOWN)) {
                 break;
             }
+
+            wakeUp();
+            break;
         }
         shutdownTimeoutNanos = unit.toNanos(timeout);
     }
 
     @Override
     public void register(final Runnable task) {
-        Assert.checkNull(task, "task is null");
         addTask(task);
     }
 
     public void removeScheduledTask(final ScheduledPromise<?> scheduledTask) {
-        Assert.checkNull(scheduledTask, "scheduledTask is null");
-
         if(inEventLoop()) {
             scheduleQueue.removeTyped(scheduledTask);
         } else {
@@ -225,7 +217,6 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     protected void addTask(final Runnable task) {
-        Assert.checkNull(task, "task is null");
         if(isShuttingDown()) {
             throw new RejectedExecutionException("Event loop is shutdown!!");
         }
@@ -281,6 +272,15 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     protected abstract void cleanUp();
+
+    protected long delayNanosUntilNextScheduledTask() {
+        ScheduledPromise<?> scheduleTask = scheduleQueue.peek();
+        if (scheduleTask == null) {
+            return -1L;
+        }
+
+        return scheduleTask.getDeadlineNanos() - Time.currentNanos();
+    }
 
     protected @Nullable Runnable takeTask() {
         if(!inEventLoop()) {

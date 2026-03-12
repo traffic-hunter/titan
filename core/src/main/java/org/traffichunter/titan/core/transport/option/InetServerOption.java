@@ -33,6 +33,8 @@ import java.util.Map;
  */
 public class InetServerOption extends InetOption {
 
+    public static final InetServerOption DEFAULT_INET_SERVER_OPTION = InetServerOption.builder().build();
+
     private final Map<SocketOption<?>, Object> childSocketOptions;
 
     private InetServerOption(

@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
@@ -70,7 +71,17 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
         while (!checkShutdown()) {
             runAllTasks();
 
-            int ioEventCnt = ioSelector.invokeEvent();
+            long delayNanos = delayNanosUntilNextScheduledTask();
+            int ioEventCnt;
+            if (delayNanos < 0) {
+                ioEventCnt = ioSelector.invokeEvent();
+            } else if (delayNanos <= 0) {
+                ioEventCnt = ioSelector.invokeNowEvent();
+            } else {
+                long timeoutMillis = Math.max(1L, TimeUnit.NANOSECONDS.toMillis(delayNanos));
+                ioEventCnt = ioSelector.invokeEvent(timeoutMillis);
+            }
+
             if(ioEventCnt == 0) {
                 continue;
             }

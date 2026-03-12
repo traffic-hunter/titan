@@ -29,10 +29,13 @@ import java.net.SocketOption;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
@@ -58,29 +61,74 @@ public class InetClient extends AbstractTransport<NetChannel> {
     }
 
     public Promise<Void> connect(String host, int port) {
-        return connect(new InetSocketAddress(host, port));
+        return connect(host, port, 30, TimeUnit.SECONDS);
     }
 
-    public Promise<Void> connect(InetSocketAddress remoteAddress) {
+    public Promise<Void> connect(String host, int port, long timeout, TimeUnit unit) {
+        return connect(new InetSocketAddress(host, port), timeout, unit);
+    }
+
+    public Promise<Void> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
         if(channel().isClosed()) {
             log.error("Already connected or closed, cannot connect");
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Already connected or closed, cannot connect"));
         }
 
         IOEventLoop loop = channel().eventLoop();
+        ChannelPromise connectResult = loop.newPromise(channel());
 
-        return loop.submit(() -> {
+        Promise<Void> connectRequest = loop.submit(() -> {
             try {
-                channel().connect(remoteAddress, 5, TimeUnit.SECONDS);
+                channel().connect(remoteAddress, timeOut, timeUnit);
             } catch (IOException e) {
                 throw new ClientException("Failed to connect to " + remoteAddress, e);
             }
         });
+
+        connectRequest.addListener(promise -> {
+            if (!promise.isSuccess()) {
+                connectResult.fail(promise.error());
+                return;
+            }
+
+            if (channel().isConnected()) {
+                connectResult.success();
+                return;
+            }
+
+            ScheduledPromise<?> activeCheck = loop.scheduleAtFixedRate(() -> {
+                if (connectResult.isDone()) {
+                    return;
+                }
+
+                if (channel().isClosed()) {
+                    connectResult.fail(new ClientException("Channel closed before connect completed"));
+                    return;
+                }
+
+                if (channel().isConnected()) {
+                    connectResult.success();
+                }
+            }, 1, 10, TimeUnit.MILLISECONDS);
+
+            ScheduledPromise<?> timeoutCheck = loop.schedule(() -> {
+                if (!connectResult.isDone()) {
+                    connectResult.fail(new ClientException("Connect completion timeout"));
+                }
+            }, timeOut, timeUnit);
+
+            connectResult.addListener(done -> {
+                activeCheck.cancel();
+                timeoutCheck.cancel();
+            });
+        });
+
+        return connectResult;
     }
 
     @Override
     public Promise<Void> send(Buffer buffer) {
-        if(channel().isClosed()) {
+        if(channel().isClosed() || !channel().isConnected()) {
             log.error("Not ready to connect");
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
         }
@@ -122,28 +170,25 @@ public class InetClient extends AbstractTransport<NetChannel> {
         private @Nullable Handler<Channel> channelHandler;
         private Consumer<NetChannel> optionApplier = channel -> { };
 
+        @CanIgnoreReturnValue
         public Builder group(EventLoopGroups groups) {
             this.groups = groups;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder channelHandler(Handler<Channel> channelHandler) {
             this.channelHandler = channelHandler;
             return this;
         }
 
-        public Builder option(SocketOption<?> option, Object value) {
-            optionApplier = optionApplier.andThen(channel ->
-                    channel.setOption((SocketOption<Object>) option, value)
-            );
-            return this;
-        }
-
+        @CanIgnoreReturnValue
         public Builder option(Consumer<NetChannel> optionApplier) {
             this.optionApplier = this.optionApplier.andThen(optionApplier);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @SuppressWarnings("unchecked")
         public Builder options(InetClientOption option) {
             optionApplier = optionApplier.andThen(channel ->

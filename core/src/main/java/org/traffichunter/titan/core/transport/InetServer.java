@@ -29,9 +29,11 @@ import java.net.SocketOption;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -73,26 +75,36 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
     public Promise<Void> listen(InetSocketAddress address) {
         if (listening || !channel().isOpen()) {
             log.error("Connector is not open");
-            return Promise.failedPromise(groups().primaryGroup(), new ServerException("Connector is not open"));
+            return ChannelPromise.failedPromise(channel(), new ServerException("Connector is not open"));
         }
 
-        return bind(address).addListener(future -> {
-            if(future.isSuccess()) {
-                ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
-                eventLoop.register(() -> {
-                    try {
-                        eventLoop.ioSelector().registerAccept(channel());
-                        synchronized (lock) {
-                            listening = true;
-                        }
-                    } catch (IOException e) {
-                        synchronized (lock) {
-                            listening = false;
-                        }
-                        throw new ServerException("Failed to register accept event", e);
-                    }
-                });
+        ChannelPromise resultPromise = ChannelPromise.newPromise(channel());
+        listen(address, resultPromise);
+        return resultPromise;
+    }
+
+    private void listen(InetSocketAddress address, ChannelPromise resultPromise) {
+        bind(address).addListener(future -> {
+            if (!future.isSuccess()) {
+                resultPromise.fail(future.error());
+                return;
             }
+
+            ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
+            eventLoop.register(() -> {
+                try {
+                    eventLoop.ioSelector().registerAccept(channel());
+                    synchronized (lock) {
+                        listening = true;
+                    }
+                    resultPromise.success();
+                } catch (IOException e) {
+                    synchronized (lock) {
+                        listening = false;
+                    }
+                    resultPromise.fail(new ServerException("Failed to register accept event", e));
+                }
+            });
         });
     }
 
@@ -102,6 +114,10 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
 
         final Promise<Void> result;
         while (true) {
+            if(selector.isEmpty()) {
+                return ChannelPromise.failedPromise(channel(), new ServerException("Channel is empty"));
+            }
+
             boolean hasNext = selector.hasNext();
             if (hasNext) {
                 final NetChannel netChannel = selector.next();
@@ -157,42 +173,33 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
         private @Nullable Handler<Channel> channelHandler;
         private Consumer<NetServerChannel> serverOptionApplier = channel -> { };
         private Consumer<NetChannel> childOptionApplier = channel -> { };
-        ChannelRegistry<NetChannel> channelRegistry = new ChannelRegistry<>();
+        private final ChannelRegistry<NetChannel> channelRegistry = new ChannelRegistry<>();
 
+        @CanIgnoreReturnValue
         public Builder group(EventLoopGroups groups) {
             this.groups = groups;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder channelHandler(Handler<Channel> handler) {
             this.channelHandler = handler;
             return this;
         }
 
-        public <T> Builder option(SocketOption<T> option, T value) {
-            serverOptionApplier = serverOptionApplier.andThen(channel ->
-                    channel.setOption(option, value)
-            );
-            return this;
-        }
-
-        public <T> Builder childOption(SocketOption<T> option, T value) {
-            childOptionApplier = childOptionApplier.andThen(channel ->
-                    channel.setOption(option, value)
-            );
-            return this;
-        }
-
+        @CanIgnoreReturnValue
         public Builder option(Consumer<NetServerChannel> optionApplier) {
             this.serverOptionApplier = this.serverOptionApplier.andThen(optionApplier);
             return this;
         }
 
-        public Builder channelOption(Consumer<NetChannel> optionApplier) {
+        @CanIgnoreReturnValue
+        public Builder childOption(Consumer<NetChannel> optionApplier) {
             this.childOptionApplier = this.childOptionApplier.andThen(optionApplier);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @SuppressWarnings("unchecked")
         public Builder options(InetServerOption option) {
             serverOptionApplier = serverOptionApplier.andThen(channel ->

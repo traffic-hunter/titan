@@ -37,6 +37,10 @@ import org.traffichunter.titan.core.channel.EventLoop;
  */
 public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
+    static <C> Promise<C> newPromise(EventLoop eventLoop) {
+        return new PromiseImpl<>(eventLoop, () -> {});
+    }
+
     static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Runnable task) {
         return new PromiseImpl<>(eventLoop, task);
     }

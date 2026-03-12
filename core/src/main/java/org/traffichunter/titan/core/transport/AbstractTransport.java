@@ -23,18 +23,21 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport;
 
+import java.net.SocketAddress;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
+
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.net.SocketAddress;
-import java.util.concurrent.TimeUnit;
-
 /**
  * @author yun
  */
+@Slf4j
 public abstract class AbstractTransport<C extends Channel> {
 
     private final C channel;
@@ -67,18 +70,41 @@ public abstract class AbstractTransport<C extends Channel> {
 
     public abstract void shutdown(long timeout, TimeUnit unit);
 
+    public String version() {
+        return "1.0";
+    }
+
+    public C channel() {
+        return channel;
+    }
+
     void close(long timeout, TimeUnit unit) {
         channel.close();
 
         if(channel.isClosed()) {
             eventLoopGroups.gracefullyShutdown(timeout, unit);
+            //waitForShutdown(timeout, unit);
         } else {
             throw new IllegalStateException("Failed to close channel");
         }
     }
 
-    protected C channel() {
-        return channel;
+    private void waitForShutdown(long timeout, TimeUnit unit) {
+        long waitNanos = Math.min(unit.toNanos(timeout), TimeUnit.SECONDS.toNanos(1));
+        long deadlineNanos = System.nanoTime() + waitNanos;
+
+        while (!eventLoopGroups.isShutdown()) {
+            if (System.nanoTime() >= deadlineNanos) {
+                log.warn("Timed out waiting for event loop groups to shutdown");
+                return;
+            }
+
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+        }
+    }
+
+    public boolean isClosed() {
+        return channel.isClosed();
     }
 
     protected EventLoopGroups groups() {

@@ -32,8 +32,16 @@ import org.traffichunter.titan.core.channel.EventLoop;
  */
 public interface ChannelPromise extends Promise<Void> {
 
+    static ChannelPromise newPromise(Channel channel) {
+        return newPromise(channel.eventLoop(), channel);
+    }
+
     static ChannelPromise newPromise(EventLoop eventLoop, Channel channel) {
         return new ChannelPromiseImpl(eventLoop, channel);
+    }
+
+    static ChannelPromise failedPromise(Channel channel, Throwable error) {
+        return failedPromise(channel.eventLoop(), channel, error);
     }
 
     static ChannelPromise failedPromise(EventLoop eventLoop, Channel channel, Throwable error) {

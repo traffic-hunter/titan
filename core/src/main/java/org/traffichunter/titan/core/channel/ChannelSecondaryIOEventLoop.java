@@ -69,6 +69,10 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 chain.processChannelConnecting(channel);
                 try {
                     if(channel.finishConnect()) {
+                        if (channel instanceof NewIONetChannel nioNetChannel) {
+                            nioNetChannel.completeConnect();
+                        }
+
                         chain.processChannelAfterConnected(channel);
 
                         this.ioSelector()
