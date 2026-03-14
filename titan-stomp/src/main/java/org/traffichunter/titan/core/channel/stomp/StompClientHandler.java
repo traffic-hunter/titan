@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
+import org.traffichunter.titan.core.codec.stomp.StompException;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
@@ -34,7 +35,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 public class StompClientHandler implements StompHandler {
 
     @Override
-    public void handle(StompFrame sf, StompNetChannel sc) {
+    public void handle(StompFrame sf, StompClientConnection sc) {
         sc.setLastActivatedAt();
 
         switch (sf.getCommand()) {
@@ -47,7 +48,9 @@ public class StompClientHandler implements StompHandler {
         }
     }
 
-    private void doConnected(StompFrame sf, StompNetChannel sc) {
+    private void doConnected(StompFrame sf, StompClientConnection sc) {
+        sc.connected();
+
         String heartbeat = sf.getHeader(Elements.HEART_BEAT);
         if (heartbeat != null) {
             HeartBeat server = HeartBeat.doParse(heartbeat);
@@ -57,7 +60,7 @@ public class StompClientHandler implements StompHandler {
         }
     }
 
-    private void doMessage(StompFrame sf, StompNetChannel sc) {
+    private void doMessage(StompFrame sf, StompClientConnection sc) {
         String id = sf.getHeader(Elements.SUBSCRIPTION);
         sc.subscriptions()
                 .stream()
@@ -65,14 +68,15 @@ public class StompClientHandler implements StompHandler {
                 .forEach(subscription -> subscription.handler().handle(sf));
     }
 
-    private void doReceipt(StompFrame sf, StompNetChannel sc) {
+    private void doReceipt(StompFrame sf, StompClientConnection sc) {
         String header = sf.getHeader(Elements.RECEIPT_ID);
         if (header != null) {
             sc.receipt(header);
         }
     }
 
-    private void doError(StompFrame sf, StompNetChannel sc) {
+    private void doError(StompFrame sf, StompClientConnection sc) {
+        sc.failConnect(new StompException("Received ERROR frame from server"));
         sc.error(sf);
     }
 

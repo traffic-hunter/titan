@@ -27,13 +27,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
-import org.traffichunter.titan.core.channel.stomp.StompNetChannel;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -48,18 +46,22 @@ public class StompChannelDecoder extends ChannelDecoder {
     private static final int DEFAULT_MAX_LENGTH = 65536;
 
     private final StompParser stompParser;
-    private final StompNetChannel stompChannel;
+    private final StompClientConnection stompChannel;
     private final StompHandler handler;
 
-    public StompChannelDecoder(StompNetChannel stompChannel) {
+    public StompChannelDecoder(StompClientConnection stompChannel) {
         this(stompChannel, stompChannel.handler());
     }
 
-    public StompChannelDecoder(StompNetChannel stompChannel, StompHandler handler) {
+    public StompChannelDecoder(StompClientConnection stompChannel, StompHandler handler) {
         this(DEFAULT_MAX_LENGTH, stompChannel, handler);
     }
 
-    public StompChannelDecoder(int maxLength, StompNetChannel stompChannel, StompHandler handler) {
+    public StompChannelDecoder(int maxLength, StompClientConnection stompChannel) {
+        this(maxLength, stompChannel, stompChannel.handler());
+    }
+
+    public StompChannelDecoder(int maxLength, StompClientConnection stompChannel, StompHandler handler) {
         this.stompParser = new StompParser(maxLength);
         this.stompChannel = stompChannel;
         this.handler = handler;
@@ -77,13 +79,10 @@ public class StompChannelDecoder extends ChannelDecoder {
         return frame.toBuffer();
     }
 
-    private static class StompParser {
+    static class StompParser {
 
-        private static final String CARRIAGE_RETURN = StompDelimiter.CR.getString();
-        private static final String LINE_FEED = StompDelimiter.LF.getString();
         private static final String NULL = StompDelimiter.NUL.getString();
         private static final String COLON = StompDelimiter.COLON.getString();
-        private static final String COMMA = StompDelimiter.COMMA.getString();
 
         private static final String CONTENT_LENGTH = "content-length";
 
@@ -136,7 +135,10 @@ public class StompChannelDecoder extends ChannelDecoder {
                 if(header.isBlank()) {
                     break;
                 } else {
-                    String[] keyValue = header.split(COLON);
+                    String[] keyValue = header.split(COLON, 2);
+                    if (keyValue.length != 2) {
+                        return StompFrame.ERR_STOMP_FRAME;
+                    }
 
                     String key = keyValue[0].trim();
                     String value = keyValue[1].trim();
@@ -148,12 +150,13 @@ public class StompChannelDecoder extends ChannelDecoder {
                 }
             }
 
-            String body = frames.getLast().toString();
-            if(bodyLength > -1 && bodyLength != body.length()) {
+            Buffer bodyBuffer = frames.getLast();
+            byte[] body = bodyBuffer.getBytes();
+            if(bodyLength > -1 && bodyLength != body.length) {
                 return StompFrame.ERR_STOMP_FRAME;
             }
 
-            return StompFrame.create(headers, stompCommand, body.getBytes(StandardCharsets.UTF_8));
+            return StompFrame.create(headers, stompCommand, body);
         }
 
         private int findEol(Buffer buffer) {

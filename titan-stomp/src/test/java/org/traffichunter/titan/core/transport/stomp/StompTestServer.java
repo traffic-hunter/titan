@@ -21,22 +21,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.transport.stomp;
 
-import lombok.Builder;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
-import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.RoutingKey;
-
-/**
- * @author yun
- */
-@Builder
-public record Subscription(
-        RoutingKey key,
-        String id,
-        String ackMode,
-        Handler<StompFrame> handler,
-        StompClientConnection channel
-) {
-}
+public record StompTestServer(
+        String host,
+        int port,
+        StompServer server
+) { }

@@ -21,22 +21,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.transport.stomp;
 
-import lombok.Builder;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
-import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.RoutingKey;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-/**
- * @author yun
- */
-@Builder
-public record Subscription(
-        RoutingKey key,
-        String id,
-        String ackMode,
-        Handler<StompFrame> handler,
-        StompClientConnection channel
-) {
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
+
+import static org.junit.jupiter.api.DisplayNameGenerator.*;
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@ExtendWith(StompServerExtension.class)
+@DisplayNameGeneration(ReplaceUnderscores.class)
+public @interface EnableStompServer {
+
+    String host() default "127.0.0.1";
+
+    int port() default 61613;
+
+    int primaryThreads() default 1;
+
+    int secondaryThreads() default 2;
+
+    StompVersion version() default StompVersion.STOMP_1_2;
+
+    int maxFrameLength() default 65536;
 }

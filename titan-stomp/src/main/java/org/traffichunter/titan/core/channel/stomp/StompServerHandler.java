@@ -27,8 +27,11 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.*;
 import static org.traffichunter.titan.core.codec.stomp.StompVersion.*;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
@@ -45,13 +48,23 @@ import org.traffichunter.titan.core.util.RoutingKey;
 public final class StompServerHandler implements StompHandler {
 
     private final Dispatcher dispatcher;
+    private @Nullable StompServerConnection serverConnection;
 
     public StompServerHandler(final Dispatcher dispatcher) {
         this.dispatcher = dispatcher;
     }
 
+    public StompServerHandler(final Dispatcher dispatcher, final StompServerConnection serverConnection) {
+        this.dispatcher = dispatcher;
+        this.serverConnection = serverConnection;
+    }
+
+    public void bind(StompServerConnection serverConnection) {
+        this.serverConnection = serverConnection;
+    }
+
     @Override
-    public void handle(final StompFrame sf, final StompNetChannel sc) {
+    public void handle(final StompFrame sf, final StompClientConnection sc) {
         sc.setLastActivatedAt();
 
         switch (sf.getCommand()) {
@@ -70,7 +83,7 @@ public final class StompServerHandler implements StompHandler {
         }
     }
 
-    private void doBegin(final StompFrame sf, final StompNetChannel sc) {
+    private void doBegin(final StompFrame sf, final StompClientConnection sc) {
 
         String txId = sf.getHeader(Elements.TRANSACTION);
         if (txId == null) {
@@ -88,7 +101,7 @@ public final class StompServerHandler implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doAbort(final StompFrame sf, final StompNetChannel sc) {
+    private void doAbort(final StompFrame sf, final StompClientConnection sc) {
 
         String txId = sf.getHeader(Elements.TRANSACTION);
         if (txId == null) {
@@ -106,7 +119,7 @@ public final class StompServerHandler implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doAck(final StompFrame sf, final StompNetChannel sc) {
+    private void doAck(final StompFrame sf, final StompClientConnection sc) {
 
         String id = sf.getHeader(Elements.ID);
         if(id == null) {
@@ -134,7 +147,7 @@ public final class StompServerHandler implements StompHandler {
         }
     }
 
-    private void doCommit(final StompFrame sf, final StompNetChannel sc) {
+    private void doCommit(final StompFrame sf, final StompClientConnection sc) {
 
         String txId = sf.getHeader(Elements.TRANSACTION);
         if(txId == null) {
@@ -162,7 +175,7 @@ public final class StompServerHandler implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doConnect(final StompFrame sf, final StompNetChannel sc) {
+    private void doConnect(final StompFrame sf, final StompClientConnection sc) {
 
         String accept = Optional.ofNullable(sf.getHeader(Elements.ACCEPT_VERSION))
                 .orElse(STOMP_1_0.getVersion());
@@ -194,15 +207,17 @@ public final class StompServerHandler implements StompHandler {
         frame.addHeader(Elements.HEART_BEAT, HeartBeat.DEFAULT.value());
 
         sc.send(frame);
+
+        doReceipt(sf, sc);
     }
 
-    private void doDisconnect(final StompFrame sf, final StompNetChannel sc) {
+    private void doDisconnect(final StompFrame sf, final StompClientConnection sc) {
 
         doReceipt(sf, sc);
         sc.close();
     }
 
-    private void doNack(final StompFrame sf, final StompNetChannel sc) {
+    private void doNack(final StompFrame sf, final StompClientConnection sc) {
 
         String id = sf.getHeader(Elements.ID);
         if(id == null) {
@@ -230,7 +245,7 @@ public final class StompServerHandler implements StompHandler {
         }
     }
 
-    private void doSend(final StompFrame sf, final StompNetChannel sc) {
+    private void doSend(final StompFrame sf, final StompClientConnection sc) {
         String txId = sf.getHeader(Elements.TRANSACTION);
         if (txId != null) {
             Transaction transaction = Transactions.getInstance().getTransaction(sc, txId);
@@ -249,8 +264,7 @@ public final class StompServerHandler implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void send(final StompFrame sf, final StompNetChannel sc) {
-
+    private void send(final StompFrame sf, final StompClientConnection sc) {
         String destination = sf.getHeader(Elements.DESTINATION);
         if(destination == null) {
             sc.send(errorFrame("Wrong send.", "Wrong send destination id, Id is required."));
@@ -258,33 +272,40 @@ public final class StompServerHandler implements StompHandler {
             return;
         }
 
+        StompServerConnection rootConnection = serverConnection;
+        if (rootConnection == null) {
+            sc.send(errorFrame("Server connection is not initialized.", "Server connection is not initialized."));
+            sc.close();
+            return;
+        }
+
+        RoutingKey routingKey = RoutingKey.create(destination);
         List<DispatcherQueue> dispatch = dispatcher.dispatch(RoutingKey.create(destination));
         dispatch.stream()
                 .map(DispatcherQueue::dispatch)
+                .filter(Objects::nonNull)
                 .forEach(message -> {
+                    for (StompClientConnection connection : rootConnection.connections()) {
+                        connection.subscriptions().stream()
+                                .filter(subscription -> subscription.key().equals(routingKey))
+                                .forEach(subscription -> {
+                                    StompHeaders headers = StompHeaders.create();
+                                    headers.put(Elements.SUBSCRIPTION, subscription.id());
+                                    headers.put(Elements.MESSAGE_ID, message.getUniqueId());
+                                    headers.put(Elements.DESTINATION, destination);
 
-                    final StompHeaders headers = StompHeaders.create();
-                    String header = sf.getHeader(Elements.ID);
-                    if(header == null) {
-                        header = "null";
+                                    if (!AckMode.AUTO.equals(subscription.ackMode())) {
+                                        headers.put(Elements.ACK, message.getUniqueId());
+                                    }
+
+                                    StompFrame frame = create(headers, StompCommand.MESSAGE, message.getBody());
+                                    connection.send(frame);
+                                });
                     }
-
-                    headers.put(Elements.SUBSCRIPTION, header);
-                    headers.put(Elements.MESSAGE_ID, message.getUniqueId());
-
-                    final StompFrame frame = create(headers, StompCommand.MESSAGE, message.getBody());
-                    sc.subscriptions().forEach(subscription -> {
-                            if (!AckMode.AUTO.equals(subscription.ackMode())) {
-                                headers.put(Elements.ACK, message.getUniqueId());
-                            }
-
-                            subscription.channel().send(frame);
-                        }
-                    );
                 });
     }
 
-    private void doSubscribe(final StompFrame sf, final StompNetChannel sc) {
+    private void doSubscribe(final StompFrame sf, final StompClientConnection sc) {
 
         String destination = sf.getHeader(Elements.DESTINATION);
         String id = sf.getHeader(Elements.ID);
@@ -302,6 +323,12 @@ public final class StompServerHandler implements StompHandler {
 
         // TODO Enforce a maximum subscriber limit. default size 100.
         final RoutingKey key = RoutingKey.create(destination);
+        if(!dispatcher.exists(key)) {
+            sc.send(errorFrame("Not found dispatcher.", formatString("Not found dispatcher. destination = {}", destination)));
+            sc.close();
+            return;
+        }
+
         try {
             sc.registerInboundSubscription(id, destination, ack);
         } catch (Exception e) {
@@ -311,16 +338,10 @@ public final class StompServerHandler implements StompHandler {
             return;
         }
 
-        if(!dispatcher.exists(key)) {
-            sc.send(errorFrame("Not found dispatcher.", formatString("Not found dispatcher. destination = {}", destination)));
-            sc.close();
-            return;
-        }
-
         doReceipt(sf, sc);
     }
 
-    private void doUnsubscribe(final StompFrame sf, final StompNetChannel sc) {
+    private void doUnsubscribe(final StompFrame sf, final StompClientConnection sc) {
 
         String id = sf.getHeader(Elements.ID);
         if(id == null) {
@@ -341,7 +362,7 @@ public final class StompServerHandler implements StompHandler {
         doReceipt(sf, sc);
     }
 
-    private void doReceipt(final StompFrame sf, final StompNetChannel sc) {
+    private void doReceipt(final StompFrame sf, final StompClientConnection sc) {
 
         String receipt = sf.getHeader(Elements.RECEIPT);
         if(receipt != null) {
