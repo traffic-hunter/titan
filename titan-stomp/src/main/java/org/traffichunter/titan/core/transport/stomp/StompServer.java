@@ -37,8 +37,8 @@ import org.traffichunter.titan.core.codec.stomp.StompChannelDecoder;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
@@ -120,7 +120,8 @@ public final class StompServer {
         private @Nullable StompServerOption option;
         private InetServerOption inetServerOption = InetServerOption.DEFAULT_INET_SERVER_OPTION;
         private StompClientOption childOption = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
-        private Handler<Channel> channelHandler = channel -> { };
+        private Handler<Channel> channelHandler = channel -> {
+        };
 
         @CanIgnoreReturnValue
         public Builder group(EventLoopGroups groups) {
@@ -159,11 +160,9 @@ public final class StompServer {
             Assert.checkNotNull(groups, "groups cannot be null");
             Assert.checkNotNull(option, "option cannot be null");
 
-            StompServerHandler stompServerHandler = new StompServerHandler(Dispatcher.getDefault());
-            StompServerConnection stompServerConnection =
-                    StompServerConnection.create(option, stompServerHandler);
-            stompServerHandler.bind(stompServerConnection);
+            StompServerConnection stompServerConnection = StompServerConnection.create(option);
             StompClientOption acceptedConnectionOption = serverChildSessionOption();
+            StompServerHandler stompServerHandler = new StompServerHandler(Dispatcher.getDefault(), stompServerConnection);
 
             InetServer inetServer = InetServer.builder()
                     .group(groups)

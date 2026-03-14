@@ -356,21 +356,6 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public Promise<Void> awaitConnected() {
-        if (stompConnected) {
-            return Promise.<Void>newPromise(eventLoop()).success();
-        }
-
-        Promise<Void> promise = connectPromise;
-        if (promise == null) {
-            promise = Promise.newPromise(eventLoop());
-            connectPromise = promise;
-        }
-
-        return promise;
-    }
-
-    @Override
     public void connected() {
         stompConnected = true;
 

@@ -42,8 +42,6 @@ public interface StompConnection {
 
     Instant lastActivatedAt();
 
-    StompHandler handler();
-
     String version();
 
     void close();

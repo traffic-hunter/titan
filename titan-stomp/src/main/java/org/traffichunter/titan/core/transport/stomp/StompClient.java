@@ -36,6 +36,7 @@ import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientHandler;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -230,7 +231,7 @@ public final class StompClient {
             NetChannel netChannel = inetClient.channel();
             StompClientConnection stompClientConnection = StompClientConnection.wrap(netChannel, option);
             netChannel.chain()
-                    .add(new StompChannelDecoder(option.maxFrameLength(), stompClientConnection));
+                    .add(new StompChannelDecoder(option.maxFrameLength(), stompClientConnection, new StompClientHandler()));
 
             return new StompClient(inetClient, stompClientConnection, option);
         }

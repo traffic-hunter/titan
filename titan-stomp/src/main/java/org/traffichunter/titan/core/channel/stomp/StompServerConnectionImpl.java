@@ -43,18 +43,15 @@ import org.jspecify.annotations.Nullable;
 public class StompServerConnectionImpl implements StompServerConnection {
 
     private @Nullable NetServerChannel serverChannel;
-    private final StompServerHandler handler;
     private final StompServerOption option;
     private final Map<String, StompClientConnection> connections = new ConcurrentHashMap<>();
     private final AtomicInteger roundRobinSequence = new AtomicInteger();
 
     StompServerConnectionImpl(
             ChannelHandShakeEventListener channelHandShakeEventListener,
-            StompServerOption option,
-            StompServerHandler handler
+            StompServerOption option
     ) {
         try {
-            this.handler = handler;
             this.serverChannel = NetServerChannel.open(channelHandShakeEventListener);
             this.option = option;
         } catch (IOException e) {
@@ -62,21 +59,12 @@ public class StompServerConnectionImpl implements StompServerConnection {
         }
     }
 
-    StompServerConnectionImpl(
-            StompServerOption option,
-            StompServerHandler handler
-    ) {
+    StompServerConnectionImpl(StompServerOption option) {
         this.option = option;
-        this.handler = handler;
     }
 
-    StompServerConnectionImpl(
-            NetServerChannel serverChannel,
-            StompServerOption option,
-            StompServerHandler handler
-    ) {
+    StompServerConnectionImpl(NetServerChannel serverChannel, StompServerOption option) {
         this.serverChannel = serverChannel;
-        this.handler = handler;
         this.option = option;
     }
 
@@ -140,11 +128,6 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public StompHandler handler() {
-        return handler;
-    }
-
-    @Override
     public String version() {
         return option.stompVersion().getVersion();
     }
@@ -159,6 +142,11 @@ public class StompServerConnectionImpl implements StompServerConnection {
     @Override
     public void bind(NetServerChannel serverChannel) {
         this.serverChannel = serverChannel;
+    }
+
+    @Override
+    public StompServerOption option() {
+        return option;
     }
 
     private @Nullable StompClientConnection nextConnection() {
