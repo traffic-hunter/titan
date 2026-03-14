@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.concurrent;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoop;
@@ -33,14 +32,26 @@ import org.traffichunter.titan.core.channel.EventLoop;
  */
 public interface ChannelPromise extends Promise<Void> {
 
-    static @NonNull ChannelPromise newPromise(@NonNull EventLoop eventLoop, @NonNull Channel channel) {
+    static ChannelPromise newPromise(Channel channel) {
+        return newPromise(channel.eventLoop(), channel);
+    }
+
+    static ChannelPromise newPromise(EventLoop eventLoop, Channel channel) {
         return new ChannelPromiseImpl(eventLoop, channel);
+    }
+
+    static ChannelPromise failedPromise(Channel channel, Throwable error) {
+        return failedPromise(channel.eventLoop(), channel, error);
+    }
+
+    static ChannelPromise failedPromise(EventLoop eventLoop, Channel channel, Throwable error) {
+        return new ChannelPromiseImpl(eventLoop, channel).fail(error);
     }
 
     Channel channel();
 
     @Override
-    ChannelPromise addListener(@NonNull AsyncListener listener);
+    ChannelPromise addListener(AsyncListener listener);
 
     @Override
     ChannelPromise await() throws InterruptedException;

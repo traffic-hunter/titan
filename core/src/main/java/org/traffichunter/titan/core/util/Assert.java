@@ -27,6 +27,10 @@ import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.util.function.Supplier;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * @author yungwang-o
  */
@@ -48,12 +52,20 @@ public final class Assert {
         check(expression, BufferUnderflowException::new);
     }
 
-    public static void checkNotNull(final Object obj, final String exceptionMessage) {
-        check(obj == null, () -> new NullPointerException(exceptionMessage));
+    @Contract("null, _ -> fail")
+    @CanIgnoreReturnValue
+    public static <T> T checkNotNull(@Nullable final T obj, final String exceptionMessage) {
+        if (obj == null) {
+            throw new NullPointerException(exceptionMessage);
+        }
+        return obj;
     }
 
-    public static void checkNull(final Object obj, final String exceptionMessage) {
-        check(obj != null, () -> new NullPointerException(exceptionMessage));
+    @Contract("!null, _ -> fail")
+    public static void checkNull(@Nullable final Object obj, final String exceptionMessage) {
+        if (obj != null) {
+            throw new NullPointerException(exceptionMessage);
+        }
     }
 
     public static void check(final boolean expression, final Supplier<? extends Throwable> throwable) {

@@ -45,13 +45,13 @@ import org.traffichunter.titan.core.util.Assert;
 @Slf4j
 public class PromiseImpl<C> implements Promise<C> {
 
-    private final EventLoop eventLoop;
+    protected final EventLoop eventLoop;
 
     private boolean isCompleted;
     private @Nullable C result;
     private @Nullable Throwable error;
     private List<AsyncListener> listeners;
-    private final @Nullable Callable<C> task;
+    protected final @Nullable Callable<C> task;
 
     private int waiter;
     private boolean isCancelled;
@@ -73,6 +73,10 @@ public class PromiseImpl<C> implements Promise<C> {
         }
 
         try {
+            if (task == null) {
+                success(null);
+                return;
+            }
             C result = task.call();
             success(result);
         } catch (Exception e) {
@@ -145,7 +149,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public C get() throws InterruptedException, ExecutionException {
+    public @Nullable C get() throws InterruptedException, ExecutionException {
         await();
         if(error == null) {
             return result;
@@ -158,7 +162,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public C get(final long timeout, final TimeUnit unit)
+    public @Nullable C get(final long timeout, final TimeUnit unit)
             throws InterruptedException, ExecutionException, TimeoutException {
 
         if(!await(timeout, unit).isDone()) {

@@ -41,7 +41,7 @@ class ChannelDecoderTest {
         CollectingChain chain = new CollectingChain();
         ChannelDecoder decoder = new ChannelDecoder() {
             @Override
-            protected Buffer decode(@NonNull Buffer buffer) {
+            protected Buffer decode(@NonNull NetChannel channel, @NonNull Buffer buffer) {
                 buffer.skipBytes(buffer.length());
                 return null;
             }

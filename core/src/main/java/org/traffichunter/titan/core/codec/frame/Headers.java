@@ -44,6 +44,8 @@ public abstract class Headers<K, V, H extends Headers<K, V, H>> {
 
     public abstract void putIfAbsent(K key, V value);
 
+    public abstract V getOrDefault(K key, V defaultValue);
+
     public abstract @Nullable V get(K key);
 
     public abstract boolean containsKey(K key);

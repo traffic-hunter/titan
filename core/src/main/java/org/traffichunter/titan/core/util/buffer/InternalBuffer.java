@@ -86,9 +86,7 @@ public class InternalBuffer implements Buffer {
             throw new IllegalStateException("Buffer has been released!");
         }
 
-        log.debug("Debug release buf refCount = {}", buf.refCnt());
-        boolean isRelease = buf.release();
-        log.debug("Debug release buf isRelease = {}, refCount = {}", isRelease, buf.refCnt());
+        buf.release();
     }
 
     @Override

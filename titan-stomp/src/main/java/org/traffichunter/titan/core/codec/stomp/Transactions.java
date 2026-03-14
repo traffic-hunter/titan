@@ -26,7 +26,9 @@ package org.traffichunter.titan.core.codec.stomp;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
-import org.traffichunter.titan.core.transport.stomp.StompServerChannel;
+
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 
 /**
  * @author yungwang-o
@@ -41,14 +43,14 @@ public final class Transactions {
         return INSTANCE;
     }
 
-    public synchronized Transaction getTransaction(final StompServerChannel sc, final String txId) {
+    public synchronized @Nullable Transaction getTransaction(final StompClientConnection sc, final String txId) {
         return transactions.stream()
-                .filter(tx -> tx.getTxId().equals(txId) && tx.getServerConnection().equals(sc))
+                .filter(tx -> tx.getTxId().equals(txId) && tx.getStompClientConnection().equals(sc))
                 .findFirst()
                 .orElse(null);
     }
 
-    public synchronized boolean registerTransaction(final StompServerChannel sc, final String txId) {
+    public synchronized boolean registerTransaction(final StompClientConnection sc, final String txId) {
         if(getTransaction(sc, txId) != null) {
             return false;
         }
@@ -56,7 +58,7 @@ public final class Transactions {
         return transactions.add(Transaction.create(sc, txId));
     }
 
-    public synchronized boolean removeTransaction(final StompServerChannel sc, final String txId) {
+    public synchronized boolean removeTransaction(final StompClientConnection sc, final String txId) {
         if(getTransaction(sc, txId) == null) {
             return false;
         }
@@ -65,12 +67,12 @@ public final class Transactions {
     }
 
     @CanIgnoreReturnValue
-    public synchronized boolean removeTransactions(final StompServerChannel sc) {
+    public synchronized boolean removeTransactions(@Nullable final StompClientConnection sc) {
         if (sc == null) {
             return false;
         }
 
-        return transactions.removeIf(transaction -> transaction.getServerConnection().equals(sc));
+        return transactions.removeIf(transaction -> transaction.getStompClientConnection().equals(sc));
     }
 
     public synchronized int size() {

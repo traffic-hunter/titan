@@ -56,10 +56,13 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
                 try {
                     NetServerChannel serverChannel = (NetServerChannel) key.attachment();
                     NetChannel channel = serverChannel.accept();
+                    if(channel != null) {
+                        ((AbstractChannel) serverChannel).accept(channel);
 
-                    ((AbstractChannel) serverChannel).accept(channel);
-
-                    log.debug("Accepted connection from {}", channel.remoteAddress());
+                        if(log.isDebugEnabled()) {
+                            log.debug("Accepted connection from {}", channel.remoteAddress());
+                        }
+                    }
                 } catch (Throwable e) {
                     key.cancel();
                 }

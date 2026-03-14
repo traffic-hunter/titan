@@ -21,45 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.channel.stomp;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Set;
-import javax.net.ssl.SSLSession;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
-import org.traffichunter.titan.core.codec.stomp.ServerSubscription;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
-public interface StompServerChannel {
+@FunctionalInterface
+public interface StompHandler {
 
-    void send(StompFrame frame);
-
-    void send(Buffer buffer);
-
-    String session();
-
-    SSLSession sslSession();
-
-    Set<String> ids();
-
-    void subscribe(String id, ServerSubscription subscription);
-
-    void unsubscribe(String id);
-
-    /**
-     * read-only
-     */
-    List<ServerSubscription> subscriptions();
-
-    StompServer server();
-
-    Instant setLastActivatedAt();
-
-    void setHeartbeat(long ping, long pong, Runnable handler);
-
-    void close();
+    void handle(StompFrame sf, StompClientConnection sc);
 }

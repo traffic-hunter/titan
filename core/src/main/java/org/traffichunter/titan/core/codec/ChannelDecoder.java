@@ -70,7 +70,7 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
         while (keepingBuffer.isReadable()) {
             int beforeReaderIndex = keepingBuffer.byteBuf().readerIndex();
 
-            Buffer decode = decode(keepingBuffer);
+            Buffer decode = decode(channel, keepingBuffer);
             if (decode != null) {
                 chain.sparkChannelRead(channel, decode);
             }
@@ -87,7 +87,7 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
         }
     }
 
-    protected abstract @Nullable Buffer decode(Buffer buffer);
+    protected abstract @Nullable Buffer decode(NetChannel channel, Buffer buffer);
 
     public interface KeepingBuffer {
 

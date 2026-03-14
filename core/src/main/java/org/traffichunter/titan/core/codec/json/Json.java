@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.codec.json;
 
 import java.io.InputStream;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -36,25 +37,25 @@ public final class Json {
 
     private static final JsonMapper mapper = new JsonMapper();
 
-    public static <T> String serialize(final T object) {
+    public static @Nullable <T> String serialize(final T object) {
         try {
             return mapper.writeValueAsString(object);
         } catch (JacksonException e) {
             log.error("Failed serialize = {} ", e.getMessage());
-            return "";
+            return null;
         }
     }
 
-    public static <T> byte[] serializeToBytes(final T object) {
+    public static <T> byte @Nullable [] serializeToBytes(final T object) {
         try {
             return mapper.writeValueAsBytes(object);
         } catch (JacksonException e) {
             log.error("Failed serializeToBytes = {} ", e.getMessage());
-            return new byte[0];
+            return null;
         }
     }
 
-    public static <T> T deserialize(final String json, final Class<T> type) {
+    public static @Nullable <T> T deserialize(final String json, final Class<T> type) {
         try {
             return mapper.readValue(json, type);
         } catch (JacksonException e) {
@@ -63,7 +64,7 @@ public final class Json {
         }
     }
 
-    public static <T> T deserialize(final InputStream is, final Class<T> type) {
+    public static @Nullable <T> T deserialize(final InputStream is, final Class<T> type) {
         try {
             return mapper.readValue(is, type);
         } catch (JacksonException e) {
@@ -72,7 +73,7 @@ public final class Json {
         }
     }
 
-    public static <T> T deserialize(final byte[] json, final Class<T> type) {
+    public static @Nullable <T> T deserialize(final byte[] json, final Class<T> type) {
         try {
             return mapper.readValue(json, type);
         } catch (JacksonException e) {

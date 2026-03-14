@@ -1,10 +1,14 @@
 package org.traffichunter.titan.core.codec.stomp;
 
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.stomp.StompHandler;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -31,8 +35,8 @@ class StompChannelDecoderTest {
         Buffer frames = stompFrame.toBuffer();
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
-            Buffer result = decoder.decode(frames);
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), frames);
 
             assertThat(result).isEqualTo(stompFrame.toBuffer());
         } finally {
@@ -52,9 +56,9 @@ class StompChannelDecoderTest {
         Buffer notEofFrame = frame.readSlice(frame.length() - 1);
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
 
-            Buffer decode = decoder.decode(notEofFrame);
+            Buffer decode = decoder.decode(new InMemoryNetChannel(), notEofFrame);
 
             assertThat(decode).isNull();
         } finally {
@@ -71,8 +75,8 @@ class StompChannelDecoderTest {
         Buffer buf = frame.toBuffer();
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
-            Buffer result = decoder.decode(buf);
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), buf);
 
             assertThat(result).isEqualTo(StompFrame.ERR_STOMP_FRAME.toBuffer());
         } finally {
@@ -90,8 +94,8 @@ class StompChannelDecoderTest {
         Buffer buf = frame.toBuffer();
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
-            Buffer result = decoder.decode(buf);
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), buf);
 
             assertThat(result).isEqualTo(frame.toBuffer());
         } finally {
@@ -108,8 +112,8 @@ class StompChannelDecoderTest {
         Buffer buf = frame.toBuffer();
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
-            Buffer result = decoder.decode(buf);
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), buf);
 
             assertThat(result).isEqualTo(frame.toBuffer());
         } finally {
@@ -127,8 +131,8 @@ class StompChannelDecoderTest {
         Buffer stompFrames = Buffer.alloc(stompFrame + "CONNECT\r\nid:1\r");
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
-            Buffer result = decoder.decode(stompFrames);
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), stompFrames);
 
             assertThat(result).isEqualTo(stompFrame.toBuffer());
         }  finally {
@@ -150,7 +154,7 @@ class StompChannelDecoderTest {
         Buffer part2 = Buffer.alloc(Arrays.copyOfRange(bytes, split, bytes.length));
 
         CollectingChain chain = new CollectingChain();
-        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64);
+        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
 
         NetChannel channel = new InMemoryNetChannel();
 
@@ -169,8 +173,8 @@ class StompChannelDecoderTest {
 
     private static class TestStompChannelDecoder extends StompChannelDecoder {
 
-        public TestStompChannelDecoder(int maxLength) {
-            super(maxLength);
+        public TestStompChannelDecoder(int maxLength, StompHandler handler) {
+            super(maxLength, StompClientConnection.wrap(new InMemoryNetChannel(), StompClientOption.builder().build()), handler);
         }
     }
 
@@ -178,20 +182,20 @@ class StompChannelDecoderTest {
         private final List<Buffer> frames = new ArrayList<>();
 
         @Override
-        public void sparkChannelConnecting(NetChannel channel) {
+        public void sparkChannelConnecting(@NonNull NetChannel channel) {
         }
 
         @Override
-        public void sparkChannelAfterConnected(NetChannel channel) {
+        public void sparkChannelAfterConnected(@NonNull NetChannel channel) {
         }
 
         @Override
-        public void sparkChannelRead(NetChannel channel, Buffer buffer) {
+        public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer) {
             frames.add(buffer);
         }
 
         @Override
-        public void sparkExceptionCaught(Throwable error) {
+        public void sparkExceptionCaught(@NonNull Throwable error) {
         }
 
         private void releaseAll() {

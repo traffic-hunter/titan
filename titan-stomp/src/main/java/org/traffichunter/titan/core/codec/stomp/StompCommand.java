@@ -42,5 +42,5 @@ public enum StompCommand {
     MESSAGE,
     RECEIPT,
     ERROR,
-    UNKNOWN
+    PING
 }

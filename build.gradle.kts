@@ -26,6 +26,9 @@ subprojects {
         // netty buffer
         implementation(rootProject.libs.netty.buffer)
 
+        // IntelliJ nullability contracts
+        implementation(rootProject.libs.jetbrains.annotations)
+
         // assertJ
         testImplementation(rootProject.libs.assertj)
     }

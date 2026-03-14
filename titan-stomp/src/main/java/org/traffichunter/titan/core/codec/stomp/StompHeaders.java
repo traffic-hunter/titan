@@ -131,6 +131,13 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
     }
 
     @Override
+    public String getOrDefault(Elements key, String defaultValue) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(defaultValue, "defaultValue");
+        return map.getOrDefault(key, defaultValue);
+    }
+
+    @Override
     public @Nullable String get(final Elements key) {
         Objects.requireNonNull(key, "key");
         return map.get(key);

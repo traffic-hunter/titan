@@ -25,12 +25,13 @@ package org.traffichunter.titan.core.codec.stomp;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.stomp.StompHandler;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -45,31 +46,43 @@ public class StompChannelDecoder extends ChannelDecoder {
     private static final int DEFAULT_MAX_LENGTH = 65536;
 
     private final StompParser stompParser;
+    private final StompClientConnection stompChannel;
+    private final StompHandler handler;
 
-    public StompChannelDecoder() {
-        this(DEFAULT_MAX_LENGTH);
+    public StompChannelDecoder(StompClientConnection stompChannel) {
+        this(stompChannel, stompChannel.handler());
     }
 
-    public StompChannelDecoder(int maxLength) {
+    public StompChannelDecoder(StompClientConnection stompChannel, StompHandler handler) {
+        this(DEFAULT_MAX_LENGTH, stompChannel, handler);
+    }
+
+    public StompChannelDecoder(int maxLength, StompClientConnection stompChannel) {
+        this(maxLength, stompChannel, stompChannel.handler());
+    }
+
+    public StompChannelDecoder(int maxLength, StompClientConnection stompChannel, StompHandler handler) {
         this.stompParser = new StompParser(maxLength);
+        this.stompChannel = stompChannel;
+        this.handler = handler;
     }
 
     @Override
-    protected @Nullable Buffer decode(Buffer buffer) {
-        StompFrame frame = stompParser.parse(buffer);
+    protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
+        StompFrame frame = stompParser.parse(channel, buffer);
         if (frame == null) {
             return null;
         }
+
+        handler.handle(frame, stompChannel);
+
         return frame.toBuffer();
     }
 
-    private static class StompParser {
+    static class StompParser {
 
-        private static final String CARRIAGE_RETURN = StompDelimiter.CR.getString();
-        private static final String LINE_FEED = StompDelimiter.LF.getString();
         private static final String NULL = StompDelimiter.NUL.getString();
         private static final String COLON = StompDelimiter.COLON.getString();
-        private static final String COMMA = StompDelimiter.COMMA.getString();
 
         private static final String CONTENT_LENGTH = "content-length";
 
@@ -79,13 +92,24 @@ public class StompChannelDecoder extends ChannelDecoder {
             this.lineFrameDecoder = new LineFrameChannelDecoderWrapper(maxLength);
         }
 
-        private @Nullable StompFrame parse(Buffer buffer) {
+        private @Nullable StompFrame parse(NetChannel channel, Buffer buffer) {
+            if (!buffer.isReadable()) {
+                return null;
+            }
+
+            // STOMP heartbeat can be a single LF byte without NUL.
+            int readerIndex = buffer.byteBuf().readerIndex();
+            if (buffer.getByte(readerIndex) == StompDelimiter.LF.getHex()) {
+                buffer.skipBytes(1);
+                return StompFrame.PING;
+            }
+
             final int eol = findEol(buffer);
             if(eol == -1) {
                 return null;
             }
 
-            int readerIndex = buffer.byteBuf().readerIndex();
+            readerIndex = buffer.byteBuf().readerIndex();
             int length = eol - readerIndex;
             if (length < 0) {
                 return null;
@@ -100,7 +124,7 @@ public class StompChannelDecoder extends ChannelDecoder {
             stompFrame.accumulateBuffer(sliceBuffer)
                     .accumulateByte(StompDelimiter.LF.getHex());
 
-            List<Buffer> frames = lineFrameDecoder.decodes(stompFrame);
+            List<Buffer> frames = lineFrameDecoder.decodes(channel, stompFrame);
 
             StompCommand stompCommand = StompCommand.valueOf(frames.getFirst().toString());
 
@@ -111,7 +135,10 @@ public class StompChannelDecoder extends ChannelDecoder {
                 if(header.isBlank()) {
                     break;
                 } else {
-                    String[] keyValue = header.split(COLON);
+                    String[] keyValue = header.split(COLON, 2);
+                    if (keyValue.length != 2) {
+                        return StompFrame.ERR_STOMP_FRAME;
+                    }
 
                     String key = keyValue[0].trim();
                     String value = keyValue[1].trim();
@@ -123,12 +150,13 @@ public class StompChannelDecoder extends ChannelDecoder {
                 }
             }
 
-            String body = frames.getLast().toString();
-            if(bodyLength > -1 && bodyLength != body.length()) {
+            Buffer bodyBuffer = frames.getLast();
+            byte[] body = bodyBuffer.getBytes();
+            if(bodyLength > -1 && bodyLength != body.length) {
                 return StompFrame.ERR_STOMP_FRAME;
             }
 
-            return StompFrame.create(headers, stompCommand, body.getBytes(StandardCharsets.UTF_8));
+            return StompFrame.create(headers, stompCommand, body);
         }
 
         private int findEol(Buffer buffer) {
@@ -153,10 +181,10 @@ public class StompChannelDecoder extends ChannelDecoder {
             super(maxLength);
         }
 
-        List<Buffer> decodes(Buffer buffer) {
+        List<Buffer> decodes(NetChannel channel, Buffer buffer) {
             List<Buffer> buffers = new LinkedList<>();
             while (buffer.isReadable()) {
-                Buffer decode = decode(buffer);
+                Buffer decode = decode(channel, buffer);
                 if (decode != null) {
                     buffers.add(decode);
                 }
@@ -166,8 +194,8 @@ public class StompChannelDecoder extends ChannelDecoder {
         }
 
         @Override
-        protected @Nullable Buffer decode(Buffer buffer) {
-            return super.decode(buffer);
+        protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
+            return super.decode(channel, buffer);
         }
     }
 }

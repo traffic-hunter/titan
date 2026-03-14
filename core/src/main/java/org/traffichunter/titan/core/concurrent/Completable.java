@@ -21,19 +21,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.codec.stomp;
+package org.traffichunter.titan.core.concurrent;
 
-import lombok.Builder;
-import org.traffichunter.titan.core.util.RoutingKey;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author yungwang-o
  */
-@Builder
-public record ServerSubscription(
-        RoutingKey key,
-        //Channel channel,
-        String id,
-        String ackMode
-) {
+@FunctionalInterface
+public interface Completable<C> {
+
+    @CanIgnoreReturnValue
+    default Promise<C> success(@Nullable C result) {
+        return complete(result, null);
+    }
+
+    default Promise<C> success() {
+        return complete(null, null);
+    }
+
+    @CanIgnoreReturnValue
+    default Promise<C> fail(@Nullable Throwable err) {
+        return complete(null, err);
+    }
+
+    default Promise<C> fail(String message) {
+        return complete(null, new PromiseException(message));
+    }
+
+    Promise<C> complete(@Nullable C result, @Nullable Throwable error);
 }

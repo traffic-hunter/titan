@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.channel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
+import org.jspecify.annotations.NullUnmarked;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.IdGenerator;
 
@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  * @author yun
  */
 @Slf4j
+@NullUnmarked
 public abstract class AbstractChannel implements Channel {
 
     private final SelectableChannel sc;
@@ -46,12 +47,13 @@ public abstract class AbstractChannel implements Channel {
     private final ChannelHandlerChain chain;
     private volatile Instant lastActiveAt = Instant.now();
     private final String channelId = IdGenerator.uuid();
+    private final String sessionId = IdGenerator.uuid();
 
     private static final AtomicReferenceFieldUpdater<AbstractChannel, ChannelState> STATE_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(AbstractChannel.class, ChannelState.class, "state");
     private volatile ChannelState state = ChannelState.INIT;
 
-    private @Nullable volatile IOEventLoop eventLoop;
+    private volatile IOEventLoop eventLoop;
     private volatile boolean registered;
 
     public AbstractChannel(SelectableChannel sc, ChannelHandShakeEventListener initializer) {
@@ -111,7 +113,7 @@ public abstract class AbstractChannel implements Channel {
     }
 
     @Override
-    public @Nullable IOEventLoop eventLoop() {
+    public IOEventLoop eventLoop() {
         if(this.eventLoop == null) {
             throw new IllegalStateException("Event loop is not set");
         }
@@ -131,7 +133,7 @@ public abstract class AbstractChannel implements Channel {
 
     @Override
     public String session() {
-        return "";
+        return sessionId;
     }
 
     @Override

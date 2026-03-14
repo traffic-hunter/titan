@@ -24,14 +24,10 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.nio.channels.SelectionKey;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -74,7 +70,7 @@ public final class ChannelWriteBuffer {
         this.lowerPoint = lowerPoint;
     }
 
-    public void add(@NonNull Buffer buffer) {
+    public void add(Buffer buffer) {
         if(!buffer.hasRemaining()) {
             return;
         }
@@ -103,9 +99,6 @@ public final class ChannelWriteBuffer {
         }
 
         Buffer buffer = writeBuffer.poll();
-        if(buffer == null) {
-            return null;
-        }
 
         int pendingBytes = PENDING_BYTES_UPDATER.addAndGet(this, -buffer.length());
         if(!isWritable && pendingBytes < lowerPoint) {

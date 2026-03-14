@@ -58,6 +58,10 @@ public record EventLoopGroups(
         );
     }
 
+    public static EventLoopGroups singleGroup() {
+        return group(1, 1);
+    }
+
     public void start() {
         primaryGroup.start();
         secondaryGroup.start();

@@ -46,7 +46,6 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
     }
 
     public AutoManagedByteBufAllocator(final ByteBufAllocator delegate) {
-        Assert.checkNull(delegate, "allocate delegator is null!!");
         this.delegate = delegate;
     }
 
@@ -80,7 +79,7 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
         }
 
         public static ByteBuf byteBuf(final ByteBuf buffer) {
-            Assert.checkNull(buffer, "buffer is null!");
+            Assert.checkNotNull(buffer, "buffer is null!");
 
             if(buffer instanceof AutoReleaseByteBuf) {
                 return buffer;
