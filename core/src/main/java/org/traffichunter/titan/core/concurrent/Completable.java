@@ -29,7 +29,6 @@ import org.jspecify.annotations.Nullable;
 /**
  * @author yungwang-o
  */
-@FunctionalInterface
 public interface Completable<C> {
 
     @CanIgnoreReturnValue
@@ -51,4 +50,18 @@ public interface Completable<C> {
     }
 
     Promise<C> complete(@Nullable C result, @Nullable Throwable error);
+
+    boolean tryComplete(@Nullable C result, @Nullable Throwable error);
+
+    default boolean trySuccess(@Nullable C result) {
+        return tryComplete(result, null);
+    }
+
+    default boolean trySuccess() {
+        return tryComplete(null, null);
+    }
+
+    default boolean tryFail(@Nullable Throwable error) {
+        return tryComplete(null, error);
+    }
 }

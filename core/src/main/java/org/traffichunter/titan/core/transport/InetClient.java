@@ -60,22 +60,22 @@ public class InetClient extends AbstractTransport<NetChannel> {
         groups().start();
     }
 
-    public Promise<Void> connect(String host, int port) {
+    public Promise<NetChannel> connect(String host, int port) {
         return connect(host, port, 30, TimeUnit.SECONDS);
     }
 
-    public Promise<Void> connect(String host, int port, long timeout, TimeUnit unit) {
+    public Promise<NetChannel> connect(String host, int port, long timeout, TimeUnit unit) {
         return connect(new InetSocketAddress(host, port), timeout, unit);
     }
 
-    public Promise<Void> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
+    public Promise<NetChannel> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
         if(channel().isClosed()) {
             log.error("Already connected or closed, cannot connect");
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Already connected or closed, cannot connect"));
         }
 
         IOEventLoop loop = channel().eventLoop();
-        ChannelPromise connectResult = loop.newPromise(channel());
+        Promise<NetChannel> connectResult = Promise.newPromise(loop);
 
         Promise<Void> connectRequest = loop.submit(() -> {
             try {
@@ -92,7 +92,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
             }
 
             if (channel().isConnected()) {
-                connectResult.success();
+                connectResult.success(channel());
                 return;
             }
 
@@ -107,7 +107,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
                 }
 
                 if (channel().isConnected()) {
-                    connectResult.success();
+                    connectResult.success(channel());
                 }
             }, 1, 10, TimeUnit.MILLISECONDS);
 

@@ -28,6 +28,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
@@ -72,10 +74,13 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
     }
 
     @CanIgnoreReturnValue
-    Promise<C> addListener(AsyncListener listener);
+    Promise<C> addListener(AsyncListener<C> listener);
 
     @CanIgnoreReturnValue
-    Promise<C> removeListener(AsyncListener listener);
+    Promise<C> removeListener(AsyncListener<C> listener);
+
+    @CanIgnoreReturnValue
+    <R> Promise<R> map(Function<? super C, ? extends R> mapper);
 
     @CanIgnoreReturnValue
     Promise<C> await() throws InterruptedException;
@@ -83,9 +88,20 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
     @CanIgnoreReturnValue
     Promise<C> await(long timeout, TimeUnit timeUnit) throws InterruptedException;
 
+    @CanIgnoreReturnValue
+    <R> Promise<R> thenCompose(Function<? super C, ? extends Promise<R>> mapper);
+
+    @CanIgnoreReturnValue
+    Promise<C> onSuccess(Consumer<? super C> success);
+
+    @CanIgnoreReturnValue
+    Promise<C> onFailure(Consumer<? super Throwable> failure);
+
     Future<C> future();
 
     boolean isDone();
+
+    @Nullable C getNow();
 
     @Nullable Throwable error();
 }

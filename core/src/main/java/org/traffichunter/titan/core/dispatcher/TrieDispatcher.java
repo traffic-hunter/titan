@@ -24,6 +24,8 @@
 package org.traffichunter.titan.core.dispatcher;
 
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
@@ -40,9 +42,8 @@ public class TrieDispatcher implements Dispatcher {
      * @return null
      */
     @Override
-    public DispatcherQueue find(final RoutingKey key) {
-        return trie.search(key.getKey())
-                .orElse(null);
+    public @Nullable DispatcherQueue find(final RoutingKey key) {
+        return trie.get(key.getKey());
     }
 
     @Override

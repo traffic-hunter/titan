@@ -24,6 +24,8 @@
 package org.traffichunter.titan.core.dispatcher;
 
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.RoutingKey;
 
 /**
@@ -39,7 +41,7 @@ public interface Dispatcher {
      * @param key routing key
      * @return null
      */
-    DispatcherQueue find(RoutingKey key);
+    @Nullable DispatcherQueue find(RoutingKey key);
 
     boolean exists(RoutingKey key);
 

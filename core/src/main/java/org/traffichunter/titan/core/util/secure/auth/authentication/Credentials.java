@@ -21,13 +21,23 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.util.secure.auth.authentication;
 
-import org.traffichunter.titan.core.dispatcher.Dispatcher;
+import org.traffichunter.titan.core.codec.json.Json;
 
-public record StompTestServer(
-        String host,
-        int port,
-        StompServer server,
-        Dispatcher dispatcher
-) { }
+/**
+ * @author yun
+ */
+public interface Credentials {
+
+    void apply();
+
+    default String toJsonString() {
+        final String json = Json.serialize(this);
+        if(json == null) {
+            throw new CredentialsException("Unable to serialize credentials to JSON");
+        }
+
+        return json;
+    }
+}

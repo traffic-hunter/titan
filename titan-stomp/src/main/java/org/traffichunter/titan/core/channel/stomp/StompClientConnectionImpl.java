@@ -71,7 +71,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
     private final AtomicLong timer = new AtomicLong();
 
     private @Nullable Promise<Void> connectPromise;
-    private boolean stompConnected;
+    private volatile boolean stompConnected;
 
     private long pingTimer = -1;
     private long pongTimer = -1;
@@ -127,6 +127,11 @@ public class StompClientConnectionImpl implements StompClientConnection {
         if (netChannel.isActive()) {
             send(frame, framePromise);
             framePromise.addListener(f -> close());
+            eventLoop().schedule(() -> {
+                if (framePromise.trySuccess(frame)) {
+                    close();
+                }
+            }, 100, TimeUnit.MILLISECONDS);
         } else {
             return framePromise.fail(new IllegalStateException("Channel is not active"));
         }
@@ -356,23 +361,10 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public Promise<Void> awaitConnected() {
-        if (stompConnected) {
-            return Promise.<Void>newPromise(eventLoop()).success();
-        }
-
-        Promise<Void> promise = connectPromise;
-        if (promise == null) {
-            promise = Promise.newPromise(eventLoop());
-            connectPromise = promise;
-        }
-
-        return promise;
-    }
-
-    @Override
     public void connected() {
-        stompConnected = true;
+        if(netChannel.isConnected()) {
+            stompConnected = true;
+        }
 
         Promise<Void> promise = connectPromise;
         if (promise != null && !promise.isDone()) {

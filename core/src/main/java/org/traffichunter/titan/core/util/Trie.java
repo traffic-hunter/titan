@@ -23,8 +23,9 @@
  */
 package org.traffichunter.titan.core.util;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
-import java.util.Optional;
 
 /**
  * @author yungwang-o
@@ -33,7 +34,7 @@ public interface Trie<T> {
 
     void insert(String word, T value);
 
-    Optional<T> search(String word);
+    @Nullable T get(String word);
 
     List<T> searchAll();
 

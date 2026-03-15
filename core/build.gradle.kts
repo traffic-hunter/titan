@@ -20,7 +20,4 @@ dependencies {
 
     // logback
     implementation(project.libs.logback)
-
-    // awaitility
-    testImplementation(project.libs.awaitility)
 }

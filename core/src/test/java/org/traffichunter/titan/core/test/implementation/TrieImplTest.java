@@ -3,7 +3,6 @@ package org.traffichunter.titan.core.test.implementation;
 import static org.assertj.core.api.Assertions.*;
 
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -19,10 +18,10 @@ import org.traffichunter.titan.core.util.TrieImpl;
 class TrieImplTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"a", "a.b", "a.b.c", "a.b.d"})
+    @ValueSource(strings = {"/a", "/a/b", "/a/b/c", "/a/b/d"})
     void startWith_success_test(String path) {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
-        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 100);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("/a/b/d"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -35,10 +34,10 @@ class TrieImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"c", "c.b", "aaa.bbb.c", "ac.bd.d"})
+    @ValueSource(strings = {"/c", "/c/b", "/aaa/bbb/c", "/ac/bd/d"})
     void startWith_failed_test(String path) {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
-        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 100);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("/a/b/d"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -52,39 +51,41 @@ class TrieImplTest {
 
     @Test
     void get_success_test() {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
         trie.insert(dq1.route().getKey(), dq1);
 
-        DispatcherQueue resultDq = trie.search("a.b.c")
-                .orElseThrow(() -> new IllegalArgumentException("Not found route"));
+        DispatcherQueue resultDq = trie.get("/a/b/c");
+        if(resultDq == null) {
+            throw new IllegalArgumentException("No such trie path: " + dq1.route().getKey());
+        }
 
         assertThat(resultDq.route().getKey()).isEqualTo(dq1.route().getKey());
     }
 
     @Test
     void get_failed_test() {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 100);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 100);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
         trie.insert(dq1.route().getKey(), dq1);
 
-        Optional<DispatcherQueue> resultDq = trie.search("a.b");
+        DispatcherQueue resultDq = trie.get("/a/b");
 
-        assertThat(resultDq.isPresent()).isFalse();
+        assertThat(resultDq).isNull();
     }
 
     @ParameterizedTest
-    @CsvSource({"*, 5", "a.*, 4", "a.b.*, 4", "b.*, 1"})
-    void search_all_success_test(String path, int result) {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("b.b.a"), 1);
-        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.b"), 1);
-        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 1);
-        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 1);
-        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("a.b.e"), 1);
+    @CsvSource({"/*, 5", "/a/*, 4", "/a/b/*, 4", "/b/*, 1"})
+    void get_all_success_test(String path, int result) {
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/b/b/a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("/a/b/b"), 1);
+        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 1);
+        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("/a/b/d"), 1);
+        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("/a/b/e"), 1);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -103,13 +104,13 @@ class TrieImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"*.a", "*.*.a", "a.*.a"})
-    void searchAll_failed_test(String path) {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.a"), 1);
-        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.b"), 1);
-        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 1);
-        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 1);
-        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("a.b.e"), 1);
+    @ValueSource(strings = {"/*/a", "/*/*/a", "/a/*/a", "/a/bc*", "abc*"})
+    void getAll_failed_test(String path) {
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("/a/b/b"), 1);
+        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 1);
+        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("/a/b/d"), 1);
+        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("/a/b/e"), 1);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -121,16 +122,16 @@ class TrieImplTest {
 
         assertThatThrownBy(() -> trie.searchAll(path))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("prefix must end with '*'");
+                .hasMessageContaining("prefix must");
     }
 
     @Test
     void remove_test() {
-        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("a.b.a"), 1);
-        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("a.b.b"), 1);
-        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("a.b.c"), 1);
-        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("a.b.d"), 1);
-        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("a.b.e"), 1);
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("/a/b/b"), 1);
+        DispatcherQueue dq3 = DispatcherQueue.create(RoutingKey.create("/a/b/c"), 1);
+        DispatcherQueue dq4 = DispatcherQueue.create(RoutingKey.create("/a/b/d"), 1);
+        DispatcherQueue dq5 = DispatcherQueue.create(RoutingKey.create("/a/b/e"), 1);
 
         Trie<DispatcherQueue> trie = new TrieImpl<>();
 
@@ -140,21 +141,50 @@ class TrieImplTest {
         trie.insert(dq4.route().getKey(), dq4);
         trie.insert(dq5.route().getKey(), dq5);
 
-        trie.remove("a.b.a");
-        trie.remove("a.b.b");
+        trie.remove("/a/b/a");
+        trie.remove("/a/b/b");
 
-        List<DispatcherQueue> dqs = trie.searchAll("*");
+        List<DispatcherQueue> dqs = trie.searchAll("/*");
         assertThat(dqs).hasSize(3);
         assertThat(dqs)
                 .extracting(dq -> dq.route().getKey())
-                .containsExactlyInAnyOrder("a.b.c", "a.b.d", "a.b.e");
+                .containsExactlyInAnyOrder("/a/b/c", "/a/b/d", "/a/b/e");
+    }
+
+    @Test
+    void remove_success_when_sibling_nodes_still_exist_test() {
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/a"), 1);
+        DispatcherQueue dq2 = DispatcherQueue.create(RoutingKey.create("/a/b/b"), 1);
+
+        Trie<DispatcherQueue> trie = new TrieImpl<>();
+
+        trie.insert(dq1.route().getKey(), dq1);
+        trie.insert(dq2.route().getKey(), dq2);
+
+        trie.remove("/a/b/a");
+
+        assertThat(trie.get("/a/b/a")).isNull();
+        assertThat(trie.get("/a/b/b")).isSameAs(dq2);
+    }
+
+    @Test
+    void remove_failed_when_path_does_not_exist_test() {
+        DispatcherQueue dq1 = DispatcherQueue.create(RoutingKey.create("/a/b/a"), 1);
+
+        Trie<DispatcherQueue> trie = new TrieImpl<>();
+
+        trie.insert(dq1.route().getKey(), dq1);
+
+        assertThatThrownBy(() -> trie.remove("/a/b/c"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("No such word: /a/b/c");
     }
 
     private List<String> getExpectedKeys(String path) {
         return switch (path) {
-            case "*" -> List.of("b.b.a", "a.b.b", "a.b.c", "a.b.d", "a.b.e");
-            case "a.*", "a.b.*" -> List.of("a.b.b", "a.b.c", "a.b.d", "a.b.e");
-            case "b.*" -> List.of("b.b.a");
+            case "/*" -> List.of("/b/b/a", "/a/b/b", "/a/b/c", "/a/b/d", "/a/b/e");
+            case "/a/*", "/a/b/*" -> List.of("/a/b/b", "/a/b/c", "/a/b/d", "/a/b/e");
+            case "/b/*" -> List.of("/b/b/a");
             default -> List.of();
         };
     }

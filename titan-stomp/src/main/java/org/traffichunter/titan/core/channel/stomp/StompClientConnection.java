@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
@@ -33,7 +32,6 @@ import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
@@ -125,6 +123,8 @@ public interface StompClientConnection extends StompConnection {
     @CanIgnoreReturnValue
     Promise<StompFrame> error(StompFrame frame);
 
+    StompHandler handler();
+
     /**
      * @return read-only list
      */
@@ -137,8 +137,6 @@ public interface StompClientConnection extends StompConnection {
     void removeInboundSubscription(String id);
 
     void receipt(String receiptId);
-
-    Promise<Void> awaitConnected();
 
     void connected();
 

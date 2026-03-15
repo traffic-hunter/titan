@@ -44,6 +44,8 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.InetServer;
+import org.traffichunter.titan.core.transport.option.InetClientOption;
+import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -59,7 +61,7 @@ public class ClientToServerTest {
     static void setUp() throws InterruptedException {
         server = InetServer.builder()
                 .group(EventLoopGroups.group(1))
-                .option(StandardSocketOptions.SO_REUSEADDR, true)
+                .options(InetServerOption.builder().build())
                 .channelHandler(ctx -> ctx.chain()
                         .add(new LineFrameChannelDecoder())
                         .add(new TestChannelInboundHandler()))
@@ -91,8 +93,7 @@ public class ClientToServerTest {
 
         InetClient client = InetClient.builder()
                 .group(EventLoopGroups.group())
-                .option(StandardSocketOptions.SO_REUSEADDR, true)
-                .option(StandardSocketOptions.SO_REUSEPORT, true)
+                .options(InetClientOption.builder().build())
                 .channelHandler(channel -> channel.chain())
                 .build();
 
@@ -119,8 +120,7 @@ public class ClientToServerTest {
 
         InetClient client = InetClient.builder()
                 .group(EventLoopGroups.group())
-                .option(StandardSocketOptions.SO_REUSEADDR, true)
-                .option(StandardSocketOptions.SO_REUSEPORT, true)
+                .options(InetClientOption.builder().build())
                 .channelHandler(channel -> channel.chain())
                 .build();
 

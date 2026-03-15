@@ -21,13 +21,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.util.secure.auth.authentication;
 
-import org.traffichunter.titan.core.dispatcher.Dispatcher;
+/**
+ * @author yun
+ */
+public class CredentialsException extends RuntimeException {
 
-public record StompTestServer(
-        String host,
-        int port,
-        StompServer server,
-        Dispatcher dispatcher
-) { }
+    public CredentialsException(String message) {
+        super(message);
+    }
+
+    public CredentialsException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}

@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 
 public final class StompServerExtension implements BeforeAllCallback, AfterAllCallback, ParameterResolver {
@@ -59,7 +59,10 @@ public final class StompServerExtension implements BeforeAllCallback, AfterAllCa
         server.start();
         server.listen(config.host(), config.port()).get(3, TimeUnit.SECONDS);
 
-        StompTestServer testServer = new StompTestServer(config.host(), config.port(), server);
+        // Get the default dispatcher that StompServer uses internally
+        Dispatcher dispatcher = Dispatcher.getDefault();
+
+        StompTestServer testServer = new StompTestServer(config.host(), config.port(), server, dispatcher);
         context.getStore(NS).put(KEY, testServer);
     }
 
@@ -75,7 +78,7 @@ public final class StompServerExtension implements BeforeAllCallback, AfterAllCa
     public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
             throws ParameterResolutionException {
         Class<?> type = parameterContext.getParameter().getType();
-        return type == StompTestServer.class || type == StompServer.class;
+        return type == StompTestServer.class || type == StompServer.class || type == Dispatcher.class;
     }
 
     @Override
@@ -86,8 +89,11 @@ public final class StompServerExtension implements BeforeAllCallback, AfterAllCa
             throw new ParameterResolutionException("Stomp test server is not initialized");
         }
 
-        if (parameterContext.getParameter().getType() == StompServer.class) {
+        Class<?> type = parameterContext.getParameter().getType();
+        if (type == StompServer.class) {
             return testServer.server();
+        } else if (type == Dispatcher.class) {
+            return testServer.dispatcher();
         }
 
         return testServer;

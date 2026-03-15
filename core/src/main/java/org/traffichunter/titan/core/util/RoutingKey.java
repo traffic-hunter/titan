@@ -34,7 +34,7 @@ import lombok.Getter;
 public final class RoutingKey {
 
     private static final Pattern ROUTING_KEY_PATTERN =
-            Pattern.compile("^([a-zA-Z0-9_]+)(\\.([a-zA-Z0-9_]+))*(\\.(\\*))?$");
+            Pattern.compile("^/([a-zA-Z0-9_-]+)(/([a-zA-Z0-9_-]+))*(/\\*)?$");
 
     private final String key;
 

@@ -33,7 +33,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
@@ -50,7 +53,7 @@ public class PromiseImpl<C> implements Promise<C> {
     private boolean isCompleted;
     private @Nullable C result;
     private @Nullable Throwable error;
-    private List<AsyncListener> listeners;
+    private List<AsyncListener<C>> listeners;
     protected final @Nullable Callable<C> task;
 
     private int waiter;
@@ -85,7 +88,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> addListener(final AsyncListener listener) {
+    public Promise<C> addListener(final AsyncListener<C> listener) {
         synchronized (this) {
             listeners.add(listener);
         }
@@ -96,10 +99,87 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> removeListener(final AsyncListener listener) {
+    public Promise<C> removeListener(final AsyncListener<C> listener) {
         synchronized (this) {
             this.listeners.remove(listener);
         }
+
+        return this;
+    }
+
+    @Override
+    public <R> Promise<R> map(Function<? super @Nullable C, ? extends R> mapper) {
+        Promise<R> next = Promise.newPromise(eventLoop);
+        addListener(promise -> {
+            if (!promise.isSuccess()) {
+                next.fail(error != null ? error : new PromiseException("Promise failed without error"));
+                return;
+            }
+
+            try {
+                next.success(mapper.apply(promise.getNow()));
+            } catch (Exception e) {
+                next.fail(e);
+            }
+        });
+        return next;
+    }
+
+    @Override
+    public <R> Promise<R> thenCompose(Function<? super @Nullable C, ? extends @Nullable Promise<R>> mapper) {
+        Promise<R> next = Promise.newPromise(eventLoop);
+
+        addListener(promise -> {
+            if (!promise.isSuccess()) {
+                next.fail(error != null ? error : new PromiseException("Promise failed without error"));
+                return;
+            }
+
+            try {
+                Promise<R> mapped = mapper.apply(promise.getNow());
+                if (mapped == null) {
+                    next.fail(new PromiseException("Composed promise cannot be null"));
+                    return;
+                }
+
+                mapped.addListener(result -> {
+                    if (result.isSuccess()) {
+                        next.success(result.getNow());
+                        return;
+                    }
+
+                    Throwable error = result.error();
+                    next.fail(error != null ? error : new PromiseException("Composed promise failed without error"));
+                });
+            } catch (Exception e) {
+                next.fail(e);
+            }
+        });
+
+        return next;
+    }
+
+    @Override
+    public Promise<C> onSuccess(Consumer<? super C> success) {
+        addListener(promise -> {
+            if (promise.isSuccess()) {
+                success.accept(promise.getNow());
+            }
+        });
+
+        return this;
+    }
+
+    @Override
+    public Promise<C> onFailure(Consumer<? super Throwable> failure) {
+        addListener(promise -> {
+            if(promise.isFailed()) {
+                Throwable error = promise.error();
+                if(error != null) {
+                    failure.accept(error);
+                }
+            }
+        });
 
         return this;
     }
@@ -116,11 +196,10 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public boolean cancel(final boolean mayInterruptIfRunning) {
-        if(isCancelled) {
-            return true;
-        }
-
         synchronized (this) {
+            if(isCancelled) {
+                return true;
+            }
             if(isDone()) {
                 return false;
             }
@@ -146,6 +225,11 @@ public class PromiseImpl<C> implements Promise<C> {
     @Override
     public boolean isDone() {
         return isCompleted;
+    }
+
+    @Override
+    public @Nullable C getNow() {
+        return result;
     }
 
     @Override
@@ -245,11 +329,17 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public Promise<C> complete(@Nullable final C result, @Nullable final Throwable error) {
-        if(isDone()) {
-            return this;
-        }
+        tryComplete(result, error);
+        return this;
+    }
 
+    @Override
+    public boolean tryComplete(@Nullable final C result, @Nullable final Throwable error) {
         synchronized (this) {
+            if(isDone()) {
+                return false;
+            }
+
             this.result = result;
             this.error = error;
             this.isCompleted = true;
@@ -260,7 +350,7 @@ public class PromiseImpl<C> implements Promise<C> {
         }
 
         notifyListeners();
-        return this;
+        return true;
     }
 
     private void notifyListeners() {
@@ -269,7 +359,7 @@ public class PromiseImpl<C> implements Promise<C> {
             return;
         }
 
-        List<AsyncListener> listeners;
+        List<AsyncListener<C>> listeners;
 
         synchronized (this) {
             if(this.listeners.isEmpty()) {
@@ -279,7 +369,7 @@ public class PromiseImpl<C> implements Promise<C> {
             this.listeners = new ArrayList<>();
         }
         while (true) {
-            for(AsyncListener listener : listeners) {
+            for(AsyncListener<C> listener : listeners) {
                 try {
                     listener.onComplete(this);
                 } catch (Exception e) {

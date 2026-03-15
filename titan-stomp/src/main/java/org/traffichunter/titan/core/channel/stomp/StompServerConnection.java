@@ -40,25 +40,17 @@ public interface StompServerConnection extends StompConnection {
 
     static StompServerConnection open(
             ChannelHandShakeEventListener channelHandShakeEventListener,
-            StompServerOption option,
-            StompServerHandler handler
+            StompServerOption option
     ) {
-        return new StompServerConnectionImpl(channelHandShakeEventListener, option, handler);
+        return new StompServerConnectionImpl(channelHandShakeEventListener, option);
     }
 
-    static StompServerConnection wrap(
-            NetServerChannel serverChannel,
-            StompServerOption option,
-            StompServerHandler handler
-    ) {
-        return new StompServerConnectionImpl(serverChannel, option, handler);
+    static StompServerConnection wrap(NetServerChannel serverChannel, StompServerOption option) {
+        return new StompServerConnectionImpl(serverChannel, option);
     }
 
-    static StompServerConnection create(
-            StompServerOption option,
-            StompServerHandler handler
-    ) {
-        return new StompServerConnectionImpl(option, handler);
+    static StompServerConnection create(StompServerOption option) {
+        return new StompServerConnectionImpl(option);
     }
 
     default Promise<Void> write(StompFrame frame) {
@@ -78,4 +70,6 @@ public interface StompServerConnection extends StompConnection {
     Collection<StompClientConnection> connections();
 
     int connectionCount();
+
+    StompServerOption option();
 }

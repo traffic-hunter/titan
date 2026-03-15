@@ -31,15 +31,18 @@ import java.util.Objects;
 import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.secure.auth.authentication.Authentication;
+import org.traffichunter.titan.core.util.secure.auth.authentication.AuthenticationImpl;
+import org.traffichunter.titan.core.util.secure.auth.authentication.UsernamePasswordCredentials;
 
 /**
  * @author yungwang-o
@@ -48,19 +51,15 @@ import org.traffichunter.titan.core.util.RoutingKey;
 public final class StompServerHandler implements StompHandler {
 
     private final Dispatcher dispatcher;
-    private @Nullable StompServerConnection serverConnection;
-
-    public StompServerHandler(final Dispatcher dispatcher) {
-        this.dispatcher = dispatcher;
-    }
+    private final StompServerConnection serverConnection;
+    private final StompServerOption option;
+    private final Authentication authentication;
 
     public StompServerHandler(final Dispatcher dispatcher, final StompServerConnection serverConnection) {
         this.dispatcher = dispatcher;
         this.serverConnection = serverConnection;
-    }
-
-    public void bind(StompServerConnection serverConnection) {
-        this.serverConnection = serverConnection;
+        this.option = serverConnection.option();
+        this.authentication = new AuthenticationImpl();
     }
 
     @Override
@@ -187,6 +186,28 @@ public final class StompServerHandler implements StompHandler {
             return;
         }
 
+        if(option.secured()) {
+            String login = sf.getHeader(Elements.LOGIN);
+            String passcode = sf.getHeader(Elements.PASSCODE);
+
+            if(login == null || passcode == null) {
+                log.error("Authentication required - login/passcode is required");
+                sc.send(errorFrame("Authentication required", "login/passcode is required"));
+                sc.close();
+                return;
+            }
+
+            boolean authenticated = authentication.authenticate(new UsernamePasswordCredentials(login, passcode));
+            if(!authenticated) {
+                log.error("Authentication failed - The connection frame does not contain valid credentials.");
+                sc.send(errorFrame("Authentication failed", "The connection frame does not contain valid credentials."));
+                sc.close();
+                return;
+            } else {
+                log.info("Successfully authenticated!!");
+            }
+        }
+
         String heartbeat = Optional.ofNullable(sf.getHeader(Elements.HEART_BEAT))
                 .orElse(HeartBeat.ZERO.value());
         long ping = StompFrame.HeartBeat.computePingClientToServer(
@@ -272,20 +293,13 @@ public final class StompServerHandler implements StompHandler {
             return;
         }
 
-        StompServerConnection rootConnection = serverConnection;
-        if (rootConnection == null) {
-            sc.send(errorFrame("Server connection is not initialized.", "Server connection is not initialized."));
-            sc.close();
-            return;
-        }
-
         RoutingKey routingKey = RoutingKey.create(destination);
         List<DispatcherQueue> dispatch = dispatcher.dispatch(RoutingKey.create(destination));
         dispatch.stream()
                 .map(DispatcherQueue::dispatch)
                 .filter(Objects::nonNull)
                 .forEach(message -> {
-                    for (StompClientConnection connection : rootConnection.connections()) {
+                    for (StompClientConnection connection : serverConnection.connections()) {
                         connection.subscriptions().stream()
                                 .filter(subscription -> subscription.key().equals(routingKey))
                                 .forEach(subscription -> {

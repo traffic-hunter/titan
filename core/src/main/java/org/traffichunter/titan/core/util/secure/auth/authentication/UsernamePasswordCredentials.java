@@ -21,13 +21,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.transport.stomp;
+package org.traffichunter.titan.core.util.secure.auth.authentication;
 
-import org.traffichunter.titan.core.dispatcher.Dispatcher;
+import lombok.Builder;
+import lombok.Getter;
 
-public record StompTestServer(
-        String host,
-        int port,
-        StompServer server,
-        Dispatcher dispatcher
-) { }
+/**
+ * @author yun
+ */
+@Getter
+public class UsernamePasswordCredentials implements Credentials {
+
+    private final String username;
+    private final String password;
+
+    @Builder
+    public UsernamePasswordCredentials(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    @Override
+    public void apply() {
+        if(username.isBlank()) {
+            throw new CredentialsException("Username cannot be blank");
+        }
+
+        if(password.isBlank()) {
+            throw new CredentialsException("Password cannot be blank");
+        }
+    }
+}

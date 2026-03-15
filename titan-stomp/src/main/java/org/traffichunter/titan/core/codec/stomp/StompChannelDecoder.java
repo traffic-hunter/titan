@@ -57,10 +57,6 @@ public class StompChannelDecoder extends ChannelDecoder {
         this(DEFAULT_MAX_LENGTH, stompChannel, handler);
     }
 
-    public StompChannelDecoder(int maxLength, StompClientConnection stompChannel) {
-        this(maxLength, stompChannel, stompChannel.handler());
-    }
-
     public StompChannelDecoder(int maxLength, StompClientConnection stompChannel, StompHandler handler) {
         this.stompParser = new StompParser(maxLength);
         this.stompChannel = stompChannel;

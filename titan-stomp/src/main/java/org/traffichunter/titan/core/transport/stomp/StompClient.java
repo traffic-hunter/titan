@@ -37,14 +37,12 @@ import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.*;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.*;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
@@ -57,16 +55,14 @@ public final class StompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
-    private final StompClientConnection connection;
+    private @Nullable StompClientConnection connection;
 
     private StompClient(
             InetClient inetClient,
-            StompClientConnection connection,
             StompClientOption option
     ) {
         this.inetClient = inetClient;
         this.option = option;
-        this.connection = connection;
     }
 
     public static Builder builder() {
@@ -77,30 +73,22 @@ public final class StompClient {
         inetClient.start();
     }
 
-    public Promise<Void> connect(String host, int port) {
+    public Promise<StompClientConnection> connect(String host, int port) {
         return connect(host, port, 30, TimeUnit.SECONDS);
     }
 
-    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+    public Promise<StompClientConnection> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
         return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
-    public Promise<Void> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(connection.channel());
-        connect(remoteAddress, timeOut, timeUnit, channelPromise);
-        return channelPromise;
-    }
-
-    public Promise<Void> send(StompFrame frame) {
-        return send(frame.toBuffer());
-    }
-
-    public Promise<Void> send(Buffer buffer) {
-        try {
-            return inetClient.send(buffer);
-        } catch (Exception e) {
-            throw new StompException("Failed to send frame", e);
-        }
+    public Promise<StompClientConnection> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
+        return inetClient.connect(remoteAddress, timeOut, timeUnit)
+                .map(this::createConnection)
+                .thenCompose(conn -> {
+                    StompFrame connectFrame = generateConnectFrame(remoteAddress.getHostString());
+                    return conn.send(connectFrame)
+                            .map(frame -> conn);
+                }).onFailure(error -> log.error("Failed to connect to {}", remoteAddress, error));
     }
 
     public void shutdown() {
@@ -131,28 +119,19 @@ public final class StompClient {
         return option;
     }
 
-    private void connect(
-            InetSocketAddress socketAddress,
-            long timeOut,
-            TimeUnit timeUnit,
-            ChannelPromise resultPromise
-    ) {
-        inetClient.connect(socketAddress, timeOut, timeUnit)
-                .addListener(connectFuture -> {
-                    if(connectFuture.isSuccess()) {
-                        StompFrame stompFrame = generateConnectFrame(socketAddress.getHostString());
-                        connection.send(stompFrame).addListener(future -> {
-                            if (future.isSuccess()) {
-                                resultPromise.success();
-                            } else {
-                                resultPromise.fail(new StompException("Failed to send CONNECT frame", future.error()));
-                            }
-                        });
-                    } else {
-                        log.error("Failed to connect to {}", socketAddress);
-                        resultPromise.fail(new StompException("Failed to connect to " + socketAddress, connectFuture.error()));
-                    }
-                });
+    public StompClientConnection connection() {
+        StompClientConnection connection = this.connection;
+        if (connection == null) {
+            throw new IllegalStateException("STOMP client is not connected");
+        }
+        return connection;
+    }
+
+    private StompClientConnection createConnection(NetChannel channel) {
+        StompClientConnection connection = StompClientConnection.wrap(channel, option);
+        channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
+        this.connection = connection;
+        return connection;
     }
 
     private StompFrame generateConnectFrame(String host) {
@@ -227,12 +206,7 @@ public final class StompClient {
                     .option(optionApplier)
                     .build();
 
-            NetChannel netChannel = inetClient.channel();
-            StompClientConnection stompClientConnection = StompClientConnection.wrap(netChannel, option);
-            netChannel.chain()
-                    .add(new StompChannelDecoder(option.maxFrameLength(), stompClientConnection));
-
-            return new StompClient(inetClient, stompClientConnection, option);
+            return new StompClient(inetClient, option);
         }
     }
 }
