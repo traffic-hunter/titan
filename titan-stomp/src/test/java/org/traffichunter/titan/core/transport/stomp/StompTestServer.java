@@ -23,8 +23,11 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp;
 
+import org.traffichunter.titan.core.dispatcher.Dispatcher;
+
 public record StompTestServer(
         String host,
         int port,
-        StompServer server
+        StompServer server,
+        Dispatcher dispatcher
 ) { }
