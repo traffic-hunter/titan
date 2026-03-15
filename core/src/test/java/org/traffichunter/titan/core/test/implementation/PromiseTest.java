@@ -12,6 +12,7 @@ import org.traffichunter.titan.core.concurrent.PromiseImpl;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -80,11 +81,11 @@ class PromiseTest {
     void addListener_should_not_notify_same_listener_twice() {
         Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
 
-        AsyncListener listener1 = mock(AsyncListener.class);
+        AsyncListener<String> listener1 = mock(AsyncListener.class);
         willDoNothing().given(listener1).onComplete(any(Promise.class));
         promise.addListener(listener1);
 
-        AsyncListener listener2 = mock(AsyncListener.class);
+        AsyncListener<String> listener2 = mock(AsyncListener.class);
         willDoNothing().given(listener2).onComplete(any(Promise.class));
         promise.addListener(listener2);
 
@@ -129,6 +130,63 @@ class PromiseTest {
         promise.cancel();
 
         assertTrue(promise.isCancelled());
+    }
+
+    @Test
+    void map_should_transform_result_test() throws Exception {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+
+        Promise<Integer> mapped = promise.map(String::length);
+        promise.success("test");
+
+        assertThat(mapped.get()).isEqualTo(4);
+    }
+
+    @Test
+    void thenCompose_should_chain_result_test() throws Exception {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+
+        Promise<Integer> chained = promise.thenCompose(value -> {
+            Promise<Integer> next = new TestPromiseImpl<>(eventLoop, NOOP);
+            next.success(value.length());
+            return next;
+        });
+
+        promise.success("test");
+
+        assertThat(chained.get()).isEqualTo(4);
+    }
+
+    @Test
+    void onSuccess_should_receive_value_test() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicReference<String> result = new AtomicReference<>();
+
+        promise.onSuccess(result::set);
+        promise.success("test");
+
+        assertThat(result.get()).isEqualTo("test");
+    }
+
+    @Test
+    void onFailure_should_receive_error_test() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        promise.onFailure(error::set);
+        IllegalStateException exception = new IllegalStateException("boom");
+        promise.fail(exception);
+
+        assertThat(error.get()).isSameAs(exception);
+    }
+
+    @Test
+    void trySuccess_should_report_completion_state_test() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+
+        assertThat(promise.trySuccess("test")).isTrue();
+        assertThat(promise.trySuccess("again")).isFalse();
+        assertThat(promise.getNow()).isEqualTo("test");
     }
 
     private static final class TestPromiseImpl<V> extends PromiseImpl<V> {
