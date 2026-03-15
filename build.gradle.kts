@@ -31,6 +31,7 @@ subprojects {
 
         // assertJ
         testImplementation(rootProject.libs.assertj)
+        testImplementation(rootProject.libs.awaitility)
     }
 
     tasks.test {
