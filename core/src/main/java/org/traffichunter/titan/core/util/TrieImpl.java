@@ -106,7 +106,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
         String[] split = prefix.split("/");
 
-        //validateWildcard(split);
+        validateWildcard(split);
 
         rLock.lock();
         try {
