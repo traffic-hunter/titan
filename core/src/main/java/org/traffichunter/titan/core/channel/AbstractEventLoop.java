@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Queue;
-import java.util.concurrent.Callable;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -37,7 +37,7 @@ import org.traffichunter.titan.core.concurrent.Promise;
  * @author yungwang-o
  */
 @Slf4j
-public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor implements EventLoop {
+public abstract class AbstractEventLoop extends ThreadPoolExecutor implements EventLoop {
 
     private static final Runnable WAKEUP_TASK = () -> {};
 
@@ -51,8 +51,30 @@ public abstract class AbstractEventLoop extends AdvancedThreadPoolExecutor imple
     protected long shutdownStartNanos;
     protected long shutdownTimeoutNanos;
 
-    public AbstractEventLoop(final String eventLoopName, final Queue<Runnable> taskQueue) {
-        super(AdvancedThreadPoolExecutor.singleThreadExecutor(eventLoopName, Configurations.taskPendingCapacity()));
+    public AbstractEventLoop(
+            int corePoolSize,
+            int maxPoolSize,
+            long keepAliveTime,
+            TimeUnit timeUnit,
+            BlockingQueue<Runnable> blockingQueue,
+            String eventLoopName,
+            Queue<Runnable> taskQueue
+    ) {
+        super(corePoolSize, maxPoolSize, keepAliveTime, timeUnit, blockingQueue, r -> new Thread(r, eventLoopName));
+        this.taskQueue = taskQueue;
+    }
+
+    public AbstractEventLoop(
+            int corePoolSize,
+            int maxPoolSize,
+            long keepAliveTime,
+            TimeUnit timeUnit,
+            BlockingQueue<Runnable> blockingQueue,
+            String eventLoopName,
+            Queue<Runnable> taskQueue,
+            RejectedExecutionHandler rejectedExecutionHandler
+    ) {
+        super(corePoolSize, maxPoolSize, keepAliveTime, timeUnit, blockingQueue, r -> new Thread(r, eventLoopName), rejectedExecutionHandler);
         this.taskQueue = taskQueue;
     }
 
