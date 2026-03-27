@@ -51,11 +51,13 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     private final PriorityQueue<ScheduledPromise<?>> scheduleQueue;
 
     public SingleThreadEventLoop(final String eventLoopName) {
-        this(eventLoopName, new BlockingArrayQueue<>(Math.max(INITIAL_TASK_QUEUE_CAPACITY, Configurations.taskPendingCapacity())));
+        this(eventLoopName, new ArrayBlockingQueue<>(Math.max(INITIAL_TASK_QUEUE_CAPACITY, Configurations.taskPendingCapacity())));
     }
 
     protected SingleThreadEventLoop(final String eventLoopName, final Queue<Runnable> taskQueue) {
-        super(eventLoopName, taskQueue);
+        super(1, 1, 0L,
+                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(Configurations.taskPendingCapacity()), eventLoopName,
+                taskQueue);
         this.scheduleQueue = new DefaultPriorityQueue<>(SCHEDULE_PROMISE_COMPARATOR, INITIAL_TASK_QUEUE_CAPACITY);
     }
 

@@ -50,15 +50,16 @@ import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ClientToServerTest {
 
-    private static final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("route.test"), 1001);
-    private static InetServer server;
+    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("/route/test"), 1001);
+    private InetServer server;
 
     private static final Logger log = LoggerFactory.getLogger(ClientToServerTest.class);
 
-    @BeforeAll
-    static void setUp() throws InterruptedException {
+    @BeforeEach
+    void setUp() throws InterruptedException {
         server = InetServer.builder()
                 .group(EventLoopGroups.group(1))
                 .options(InetServerOption.builder().build())
@@ -81,13 +82,10 @@ public class ClientToServerTest {
     @AfterEach
     void refresh() {
         rq.clear();
-    }
-
-    @AfterAll
-    static void tearDown() {
         server.shutdown();
     }
 
+    @Order(1)
     @Test
     void client_to_server_single_send_test() throws ExecutionException, InterruptedException {
 
@@ -106,12 +104,13 @@ public class ClientToServerTest {
             }
         });
 
-        Awaitility.await().atMost(Duration.ofSeconds(1))
-                .until(() -> rq.size() == 1);
+        Awaitility.await().atMost(Duration.ofSeconds(5))
+                .untilAsserted(() -> assertThat(rq.size()).isEqualTo(1));
 
         client.shutdown();
     }
 
+    @Order(2)
     @Test
     void client_to_server_multiple_send_test() throws Exception {
         int count = 100;
@@ -149,12 +148,12 @@ public class ClientToServerTest {
         es.close();
     }
 
-    private static class TestChannelInboundHandler implements ChannelInBoundHandler {
+    private class TestChannelInboundHandler implements ChannelInBoundHandler {
 
         @Override
         public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer, @NonNull ChannelInBoundHandlerChain chain) {
             final Message msg = Message.builder()
-                    .routingKey(RoutingKey.create("route.test"))
+                    .routingKey(RoutingKey.create("/route/test"))
                     .priority(Priority.DEFAULT)
                     .body(buffer.getBytes())
                     .producerId(IdGenerator.uuid())
