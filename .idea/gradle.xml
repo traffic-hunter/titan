@@ -14,7 +14,6 @@
             <option value="$PROJECT_DIR$/core" />
             <option value="$PROJECT_DIR$/monitor" />
             <option value="$PROJECT_DIR$/recovery" />
-            <option value="$PROJECT_DIR$/titan-mqtt" />
             <option value="$PROJECT_DIR$/titan-stomp" />
           </set>
         </option>
