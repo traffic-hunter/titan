@@ -28,7 +28,7 @@ import org.eclipse.jetty.util.thread.MonitoredQueuedThreadPool;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
 import org.eclipse.jetty.util.thread.VirtualThreadPool;
-import org.traffichunter.titan.bootstrap.httpserver.Pooling;
+import org.traffichunter.titan.core.httpserver.Pooling;
 
 /**
  * @author yungwang-o

@@ -3,9 +3,7 @@ version = "1.0-SNAPSHOT"
 
 dependencies {
 
-    implementation(project(":bootstrap"))
     implementation(project(":monitor"))
-    implementation(project(":recovery"))
 
     // embedded jetty
     implementation(project.libs.jetty.server)

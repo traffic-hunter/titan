@@ -33,9 +33,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.Configurations;
 import org.traffichunter.titan.core.util.Time;
 
 /**

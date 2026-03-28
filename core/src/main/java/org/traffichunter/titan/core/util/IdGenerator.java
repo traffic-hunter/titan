@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.util;
 
 import java.util.UUID;
-import org.traffichunter.titan.bootstrap.Configurations;
 
 /**
  * @author yungwang-o

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2025 traffic-hunter
+ * Copyright (c) 2024 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,21 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.environment;
+package org.traffichunter.titan.core.util.shutdownhook;
 
-import java.io.InputStream;
-import org.traffichunter.titan.bootstrap.Settings;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author yungwang-o
  */
-public interface ConfigurationInitializer {
+public class TitanShutdownHook implements Runnable {
 
-    static ConfigurationInitializer getDefault(final String path) {
-        return new YamlConfigurationInitializer(path);
+    private final Set<Runnable> shutdownCallbacks = ConcurrentHashMap.newKeySet();
+
+    private volatile boolean enabledShutdown;
+
+    public synchronized void enableShutdown() {
+        this.enabledShutdown = true;
     }
 
-    Settings load();
+    public boolean isEnabled() {
+        return this.enabledShutdown;
+    }
 
-    Settings load(InputStream is);
+    @CanIgnoreReturnValue
+    public TitanShutdownHook addShutdownCallback(final Runnable callback) {
+        shutdownCallbacks.add(callback);
+        return this;
+    }
+
+    @Override
+    public void run() {
+
+        if(!enabledShutdown) {
+            return;
+        }
+
+        for(Runnable callback : shutdownCallbacks) {
+            Runtime.getRuntime().addShutdownHook(new Thread(callback));
+        }
+    }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2025 traffic-hunter
+ * Copyright (c) 2024 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,22 +21,45 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
-
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+package org.traffichunter.titan.core.util;
 
 /**
- * @author yungwang-o
+ * Core runtime system properties.
  */
-@Data
-@NoArgsConstructor(access = AccessLevel.PUBLIC)
-@AllArgsConstructor
-public class HttpServerProperty {
+public final class Configurations {
 
-    private int port;
+    public static int taskPendingCapacity() {
+        String property = System.getProperty(Property.EVENTLOOP_PENDING_MAX_CAPACITY.value);
 
-    private String pool;
+        if (property == null || property.isEmpty()) {
+            return 500;
+        }
+
+        return Integer.parseInt(property);
+    }
+
+    public static String name() {
+        String property = System.getProperty(Property.NAME.value);
+
+        if (property == null || property.isEmpty()) {
+            return "titan";
+        }
+
+        return property;
+    }
+
+    public enum Property {
+        EVENTLOOP_PENDING_MAX_CAPACITY("titan.eventloop.pending.capacity"),
+        NAME("titan.name"),
+        ;
+
+        private final String value;
+
+        Property(final String value) {
+            this.value = value;
+        }
+    }
+
+    private Configurations() {
+    }
 }

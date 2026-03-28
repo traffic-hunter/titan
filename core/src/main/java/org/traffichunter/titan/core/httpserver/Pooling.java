@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2024 traffic-hunter
+ * Copyright (c) 2025 traffic-hunter
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,14 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan;
+package org.traffichunter.titan.core.httpserver;
 
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.bootstrap.TitanBootstrap;
+import lombok.Getter;
 
-public class Titan {
+/**
+ * HTTP server thread pool strategy used by the core module.
+ */
+@Getter
+public enum Pooling {
+    _VIRTUAL("virtual"),
+    _QUEUED("queue"),
+    _MONITOR("monitor");
 
-    public static void main(String[] args) {
-        TitanBootstrap.run(Configurations.environment());
+    private final String pooling;
+
+    Pooling(final String pooling) {
+        this.pooling = pooling;
     }
 }

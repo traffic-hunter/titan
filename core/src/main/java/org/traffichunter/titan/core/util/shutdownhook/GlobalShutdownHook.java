@@ -21,23 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.monitor;
-
-import java.util.concurrent.TimeUnit;
-import lombok.Builder;
+package org.traffichunter.titan.core.util.shutdownhook;
 
 /**
+ *
+ * Singleton global shutdown hook registry.
+ * Delegates shutdown behavior to a shared TitanShutdownHook instance.
+ *
  * @author yungwang-o
  */
-@Builder
-public record SettingsMonitor(
+public enum GlobalShutdownHook {
+    INSTANCE;
 
-        long initialDelay,
+    private final TitanShutdownHook shutdownHook = new TitanShutdownHook();
 
-        long delay,
+    public boolean isEnabled() {
+        return shutdownHook.isEnabled();
+    }
 
-        TimeUnit timeUnit,
+    public void addShutdownCallback(final Runnable runnable) {
+        shutdownHook.addShutdownCallback(runnable);
+    }
 
-        int scheduledThreadPool
-) {
+    public Runnable action() {
+        return shutdownHook;
+    }
 }
