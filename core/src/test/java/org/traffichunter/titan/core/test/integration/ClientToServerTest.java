@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.test.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.net.StandardSocketOptions;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
-import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.transport.InetClient;

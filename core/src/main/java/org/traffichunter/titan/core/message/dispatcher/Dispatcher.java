@@ -21,47 +21,39 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.dispatcher;
+package org.traffichunter.titan.core.message.dispatcher;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Iterator;
 import java.util.List;
-import org.traffichunter.titan.core.message.Message;
+
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.RoutingKey;
-import org.traffichunter.titan.core.util.concurrent.Pausable;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
 
 /**
  * @author yungwang-o
  */
-public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
+public interface Dispatcher {
 
-    static DispatcherQueue create(RoutingKey key) {
-        return new MessageDispatcherQueue(key);
+    static Dispatcher getDefault() {
+        return new TrieDispatcher();
     }
 
-    static DispatcherQueue create(RoutingKey key, int capacity) {
-        return new MessageDispatcherQueue(key, capacity);
-    }
+    /**
+     * @param key routing key
+     * @return null
+     */
+    @Nullable DispatcherQueue find(RoutingKey key);
 
-    RoutingKey route();
+    boolean exists(RoutingKey key);
 
-    boolean equalsTo(RoutingKey key);
+    /**
+     * @param key routing key
+     * @param queue value
+     */
+    void insert(RoutingKey key, DispatcherQueue queue);
 
-    @CanIgnoreReturnValue
-    Message enqueue(Message message);
+    void remove(RoutingKey key);
 
-    Message peek();
+    void update(RoutingKey originKey, RoutingKey updateKey);
 
-    List<Message> pressure();
-
-    Message dispatch();
-
-    void updateRoutingKey(RoutingKey key);
-
-    int size();
-
-    int capacity();
-
-    void clear();
+    List<DispatcherQueue> dispatch(RoutingKey key);
 }

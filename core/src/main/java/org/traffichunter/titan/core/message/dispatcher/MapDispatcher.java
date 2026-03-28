@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.dispatcher;
+package org.traffichunter.titan.core.message.dispatcher;
 
 import java.util.List;
 import java.util.Map;

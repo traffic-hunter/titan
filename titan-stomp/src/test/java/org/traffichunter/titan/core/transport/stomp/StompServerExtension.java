@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.dispatcher.Dispatcher;
+import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 
 public final class StompServerExtension implements BeforeAllCallback, AfterAllCallback, ParameterResolver {

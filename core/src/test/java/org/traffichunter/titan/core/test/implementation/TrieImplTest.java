@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.traffichunter.titan.core.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
