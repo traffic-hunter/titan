@@ -31,9 +31,12 @@ import org.traffichunter.titan.bootstrap.Banner.Mode;
 public final class Configurations {
 
     public static Banner.Mode banner(final Property property) {
-        boolean mode = Boolean.getBoolean(property.value);
+        String mode = System.getProperty(property.value);
+        if (mode == null || mode.isBlank()) {
+            return Mode.ON;
+        }
 
-        if(!mode) {
+        if ("false".equalsIgnoreCase(mode) || "off".equalsIgnoreCase(mode)) {
             return Mode.OFF;
         }
 

@@ -93,10 +93,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                     buffer.release();
                 }
             } else if (key.isWritable()) {
-                chain.processChannelWrite(
-                        channel,
-                        Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY)
-                );
+                channel.flush();
             }
         }
     }

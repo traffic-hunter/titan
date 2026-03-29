@@ -21,39 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.event;
+package org.traffichunter.titan.core.spi;
 
-import com.google.common.eventbus.EventBus;
+public interface ManagedServer extends AutoCloseable {
 
-/**
- * <p>
- *  this class is everywhere-accessible
- * </p>
- * @author yungwang-o
- */
-public enum EventBusHolder {
+    String name();
 
-    INSTANCE,
-    ;
+    void start();
 
-    EventBusHolder() {}
-
-    private final EventBus eventBus = new EventBus();
-
-    public void register(final Object listener) {
-        eventBus.register(listener);
-    }
-
-    public void unregister(final Object listener) {
-        eventBus.unregister(listener);
-    }
-
-    public void post(final Object event) {
-        eventBus.post(event);
-    }
+    void stop();
 
     @Override
-    public String toString() {
-        return super.toString();
+    default void close() {
+        stop();
     }
 }

@@ -21,23 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.monitor;
+package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
-import java.util.concurrent.TimeUnit;
-import lombok.Builder;
+import java.util.Map;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-/**
- * @author yungwang-o
- */
-@Builder
-public record SettingsMonitor(
+@Data
+@NoArgsConstructor(access = AccessLevel.PUBLIC)
+@AllArgsConstructor
+public class ServerProperty {
 
-        long initialDelay,
-
-        long delay,
-
-        TimeUnit timeUnit,
-
-        int scheduledThreadPool
-) {
+    private String name;
+    private String transport;
+    private String protocol;
+    private String host;
+    private int port;
+    private int primaryThreads;
+    private int secondaryThreads;
+    private Map<String, String> options;
+    private Map<String, String> transportOptions;
+    private Map<String, String> protocolOptions;
 }

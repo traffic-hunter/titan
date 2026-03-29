@@ -33,9 +33,9 @@ import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.ThreadPool;
-import org.traffichunter.titan.bootstrap.httpserver.Pooling;
 import org.traffichunter.titan.core.httpserver.HttpServer;
 import org.traffichunter.titan.core.httpserver.threadpool.JettyThreadPool;
+import org.traffichunter.titan.core.util.Pooling;
 
 /**
  * Embedded jetty web-server

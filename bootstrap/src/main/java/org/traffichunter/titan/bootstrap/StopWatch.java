@@ -23,6 +23,10 @@
  */
 package org.traffichunter.titan.bootstrap;
 
+import lombok.Getter;
+import lombok.Setter;
+import org.jspecify.annotations.Nullable;
+
 import java.time.Duration;
 import java.time.Instant;
 
@@ -39,19 +43,6 @@ import java.time.Instant;
  * public class TaskStopWatch extends StopWatch {
  *
  *     @Override
- *     public Instant getStartTime() {
- *         return startTime;
- *     }
- *
- *     @Override
- *     public Instant getEndTime() {
- *         if (endTime == null) {
- *             endTime = Instant.now();
- *         }
- *         return endTime;
- *     }
- *
- *     @Override
  *     public Duration getUpTime() {
  *         return Duration.between(getStartTime(), getEndTime());
  *     }
@@ -66,19 +57,20 @@ import java.time.Instant;
  *
  * @author yungwang-o
 */
+@Getter
 public abstract class StopWatch {
 
-    protected final Instant startTime;
+    private final Instant startTime;
 
-    protected Instant endTime;
+    private @Nullable Instant endTime;
 
     protected StopWatch() {
         this.startTime = Instant.now();
     }
 
-    public abstract Instant getStartTime();
-
-    public abstract Instant getEndTime();
+    public void setEndTime() {
+        this.endTime = Instant.now();
+    }
 
     public abstract Duration getUpTime();
 }

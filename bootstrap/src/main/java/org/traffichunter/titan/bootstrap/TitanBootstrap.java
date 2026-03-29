@@ -39,8 +39,6 @@ public final class TitanBootstrap {
     private static final String CALL_CORE_APPLICATION =
             "org.traffichunter.titan.core.CoreApplication";
 
-    private final TitanShutdownHook shutdownHook = new TitanShutdownHook();
-
     private final Banner.Mode bannerMode = Configurations.banner(Property.BANNER_MODE);
     private final Banner banner = new Banner();
 
@@ -60,7 +58,7 @@ public final class TitanBootstrap {
             return;
         }
 
-        final  StartUp startUp = new StartUp();
+        final StartUp startUp = new StartUp();
 
         banner.print(bannerMode);
 
@@ -75,7 +73,8 @@ public final class TitanBootstrap {
             throw new BootstrapException("Failed bootstrapping titan", e);
         }
 
-        log.info("Started titan in {} second", startUp.getUpTime().toMillis() / 1_000.0);
+        startUp.setEndTime();
+        log.info("Started titan in {} second", startUp.toMillis() / 1_000.0);
     }
 
     public static void run(final String env) {
@@ -89,25 +88,16 @@ public final class TitanBootstrap {
         }
 
         @Override
-        public Instant getStartTime() {
-            return this.startTime;
-        }
-
-        @Override
-        public Instant getEndTime() {
-            if(endTime == null) {
-                this.endTime = Instant.now();
-            }
-            return endTime;
-        }
-
-        @Override
         public Duration getUpTime() {
-            if(getStartTime() == null && getEndTime() == null) {
-                throw new IllegalStateException("No start time or end time specified");
-            }
-
             return Duration.between(getStartTime(), getEndTime());
+        }
+
+        public long toMillis() {
+            return getUpTime().toMillis();
+        }
+
+        public long toSeconds() {
+            return getUpTime().toSeconds();
         }
     }
 

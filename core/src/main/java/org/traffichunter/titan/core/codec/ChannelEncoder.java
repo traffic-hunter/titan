@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec;
 
 import org.traffichunter.titan.core.channel.*;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
@@ -33,11 +34,16 @@ public abstract class ChannelEncoder implements ChannelOutBoundHandler {
 
     @Override
     public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
-
+        Buffer encoded = encode(channel, buffer);
+        if (encoded != null) {
+            chain.sparkChannelWrite(channel, encoded);
+        }
     }
 
     @Override
     public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChainImpl chain) {
-
+        chain.sparkExceptionCaught(error);
     }
+
+    protected abstract @Nullable Buffer encode(NetChannel channel, Buffer buffer);
 }

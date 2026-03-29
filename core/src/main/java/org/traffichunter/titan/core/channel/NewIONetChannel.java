@@ -129,7 +129,8 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public void writeAndFlush(Buffer buffer) {
-        writeAndFlush0(buffer);
+        chain().processChannelWrite(this, buffer);
+        flush();
     }
 
     @Override
@@ -268,11 +269,6 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private SocketChannel channel() {
         return (SocketChannel) super.selectableChannel();
-    }
-
-    private void writeAndFlush0(Buffer buffer) {
-        write(buffer);
-        flush();
     }
 
     private int write0(ByteBuffer byteBuffer) {

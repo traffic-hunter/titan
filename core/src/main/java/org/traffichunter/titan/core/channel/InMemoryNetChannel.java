@@ -189,7 +189,7 @@ public final class InMemoryNetChannel implements NetChannel {
 
     @Override
     public void writeAndFlush(Buffer buffer) {
-        write(buffer);
+        chain.processChannelWrite(this, buffer);
         flush();
     }
 

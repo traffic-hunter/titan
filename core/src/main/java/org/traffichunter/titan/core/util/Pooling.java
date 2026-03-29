@@ -21,18 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.bootstrap.servicediscovery;
+package org.traffichunter.titan.core.util;
 
-/**
- * @author yungwang-o
- */
-public record SettingsServiceDiscovery(Struct struct) {
-
-    public static SettingsServiceDiscovery mode(final Struct struct) {
-        return new SettingsServiceDiscovery(struct);
-    }
-
-    public enum Struct {
-        MAP, CACHE
-    }
+public enum Pooling {
+    _VIRTUAL,
+    _QUEUED,
+    _MONITOR
 }

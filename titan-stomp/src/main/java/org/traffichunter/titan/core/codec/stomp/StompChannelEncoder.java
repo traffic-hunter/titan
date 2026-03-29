@@ -21,43 +21,20 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel;
+package org.traffichunter.titan.core.codec.stomp;
 
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.codec.ChannelEncoder;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yun
  */
-@Slf4j
-public final class ChannelOutBoundHandlerChainImpl implements ChannelOutBoundHandlerChain {
-
-    final ChannelOutBoundHandler handler;
-    @Nullable ChannelOutBoundHandlerChainImpl next;
-
-    public ChannelOutBoundHandlerChainImpl(ChannelOutBoundHandler handler) {
-        this.handler = handler;
-    }
+public class StompChannelEncoder extends ChannelEncoder {
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer) {
-        ChannelOutBoundHandlerChainImpl chain = next;
-        if(chain == null) {
-            channel.write(buffer);
-            return;
-        }
-
-        chain.handler.sparkChannelWrite(channel, buffer, chain);
-    }
-
-    @Override
-    public void sparkExceptionCaught(Throwable error) {
-        ChannelOutBoundHandlerChainImpl chain = next;
-        if(chain == null) {
-            return;
-        }
-
-        chain.handler.sparkExceptionCaught(error, chain);
+    protected @Nullable Buffer encode(NetChannel channel, Buffer buffer) {
+        return buffer;
     }
 }

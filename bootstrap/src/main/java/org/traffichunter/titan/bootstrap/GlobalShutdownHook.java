@@ -35,6 +35,10 @@ public enum GlobalShutdownHook {
 
     private final TitanShutdownHook shutdownHook = new TitanShutdownHook();
 
+    public void enableShutdownHook() {
+        shutdownHook.enableShutdown();
+    }
+
     public boolean isEnabled() {
         return shutdownHook.isEnabled();
     }

@@ -23,56 +23,46 @@
  */
 package org.traffichunter.titan.core;
 
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jspecify.annotations.NonNull;
+import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
 import org.traffichunter.titan.bootstrap.Settings;
-import org.traffichunter.titan.bootstrap.httpserver.SettingsHttpServer;
-import org.traffichunter.titan.core.httpserver.HealthCheckServlet;
-import org.traffichunter.titan.core.httpserver.HttpServer;
-import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer;
-import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer.ContextServlet;
-import org.traffichunter.titan.monitor.Monitor;
-import org.traffichunter.titan.monitor.jmx.heap.HeapData;
+import org.traffichunter.titan.core.spi.ManagedServer;
+import org.traffichunter.titan.core.spi.NetworkServerEngineProvider;
 
 /**
- * invoke reflection to bootstrap
- * @author yungwang-o
+ * Reflection entrypoint loaded by bootstrap.
  */
 @SuppressWarnings("unused")
 public class CoreApplication implements ApplicationStarter {
 
-    public CoreApplication() {}
+    private static final GlobalShutdownHook SHUTDOWN_HOOK = GlobalShutdownHook.INSTANCE;
+
+    static {
+        if(!SHUTDOWN_HOOK.isEnabled()) {
+            SHUTDOWN_HOOK.enableShutdownHook();
+        }
+    }
 
     @Override
-    public void start(final Settings settings) {
+    public void start(final @NonNull Settings settings) {
+        List<ManagedServer> managedServers = new ArrayList<>();
 
-        HttpServer httpServer = initializeHttpServer(settings.settingsHttpServer());
-        httpServer.start();
+        settings.servers().forEach(serverSettings -> {
+            ManagedServer server = NetworkServerEngineProvider.find(serverSettings).create(serverSettings);
+            server.start();
+            managedServers.add(server);
+        });
 
-        Monitor monitor = new Monitor(settings.settingsMonitor());
-    }
-
-    private EmbeddedJettyHttpServer initializeHttpServer(final SettingsHttpServer settingsHttpServer) {
-        return EmbeddedJettyHttpServer.builder()
-                .port(settingsHttpServer.port())
-                .contextHandler(ServletContextHandler.SESSIONS)
-                .threadPool(settingsHttpServer.pooling())
-                .addContextServlet(new ContextServlet(HealthCheckServlet.class, "/health-check"))
-                .build();
-    }
-
-    private static class ApplicationRunner implements Runnable {
-
-        private final Monitor monitor;
-
-        ApplicationRunner(final Monitor monitor) {
-            this.monitor = monitor;
+        if(managedServers.isEmpty()) {
+            throw new IllegalStateException("No managed servers found");
         }
 
-        @Override
-        public void run() {
-            monitor.doMonitor(HeapData.class);
-        }
+        managedServers.forEach(managedServer ->
+                SHUTDOWN_HOOK.addShutdownCallback(managedServer::stop));
     }
 
     public static class CoreApplicationException extends RuntimeException {
