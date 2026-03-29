@@ -24,27 +24,20 @@
 package org.traffichunter.titan.core.channel;
 
 import java.nio.channels.SelectionKey;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.EventLoopBridge;
-import org.traffichunter.titan.core.concurrent.EventLoopBridges;
-import org.traffichunter.titan.core.concurrent.SingleThreadIOEventLoop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 @Slf4j
 public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
-    private final EventLoopBridge<ChannelContext> bridge = EventLoopBridges.getInstance();
-
     public ChannelPrimaryIOEventLoop() {
         this(EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public ChannelPrimaryIOEventLoop(final String eventLoopName) {
+    public ChannelPrimaryIOEventLoop(String eventLoopName) {
         super(eventLoopName);
     }
 
@@ -61,14 +54,15 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
             if(key.isAcceptable()) {
                 try {
-                    ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
-                    SocketChannel clientSocketChannel = serverChannel.accept();
-                    clientSocketChannel.configureBlocking(false);
+                    NetServerChannel serverChannel = (NetServerChannel) key.attachment();
+                    NetChannel channel = serverChannel.accept();
+                    if(channel != null) {
+                        ((AbstractChannel) serverChannel).accept(channel);
 
-                    ChannelContext ctx = ChannelContext.create(clientSocketChannel);
-
-                    bridge.produce(ctx);
-
+                        if(log.isDebugEnabled()) {
+                            log.debug("Accepted connection from {}", channel.remoteAddress());
+                        }
+                    }
                 } catch (Throwable e) {
                     key.cancel();
                 }

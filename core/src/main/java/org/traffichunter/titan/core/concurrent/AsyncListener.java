@@ -27,7 +27,7 @@ package org.traffichunter.titan.core.concurrent;
  * @author yungwang-o
  */
 @FunctionalInterface
-public interface AsyncListener {
+public interface AsyncListener<C> {
 
-    void onComplete(Promise<?> promise);
+    void onComplete(Promise<C> promise);
 }

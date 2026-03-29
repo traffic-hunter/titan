@@ -28,24 +28,30 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.EventLoop;
 
 /**
  * @author yungwang-o
  */
-public interface Promise<C> extends RunnableFuture<C>, Completion<C> {
+public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
-    static @NonNull <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Runnable task) {
+    static <C> Promise<C> newPromise(EventLoop eventLoop) {
+        return new PromiseImpl<>(eventLoop, () -> {});
+    }
+
+    static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Runnable task) {
         return new PromiseImpl<>(eventLoop, task);
     }
 
-    static @NonNull <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Callable<C> task) {
+    static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Callable<C> task) {
         return new PromiseImpl<>(eventLoop, task);
     }
 
-    static @NonNull <C> Promise<C> failedPromise(EventLoop eventLoop, Throwable err) {
+    static <C> Promise<C> failedPromise(EventLoop eventLoop, Throwable err) {
         Promise<C> failedPromise = Promise.newPromise(eventLoop, () -> null);
         failedPromise.fail(err);
         return failedPromise;
@@ -53,27 +59,49 @@ public interface Promise<C> extends RunnableFuture<C>, Completion<C> {
 
     boolean isSuccess();
 
+    default boolean cancel() {
+        return cancel(false);
+    }
+
+    /**
+     * @param mayInterruptIfRunning Cancellation does not interrupt underlying task execution.
+     */
+    @Override
+    boolean cancel(boolean mayInterruptIfRunning);
+
     default boolean isFailed() {
         return !isSuccess();
     }
 
-    boolean isCancellable();
+    @CanIgnoreReturnValue
+    Promise<C> addListener(AsyncListener<C> listener);
 
     @CanIgnoreReturnValue
-    Promise<C> addListener(@NonNull AsyncListener listener);
+    Promise<C> removeListener(AsyncListener<C> listener);
 
     @CanIgnoreReturnValue
-    Promise<C> removeListener(@NonNull AsyncListener listener);
+    <R> Promise<R> map(Function<? super C, ? extends R> mapper);
 
     @CanIgnoreReturnValue
     Promise<C> await() throws InterruptedException;
 
     @CanIgnoreReturnValue
-    Promise<C> await(long timeout, @NonNull TimeUnit timeUnit) throws InterruptedException;
+    Promise<C> await(long timeout, TimeUnit timeUnit) throws InterruptedException;
+
+    @CanIgnoreReturnValue
+    <R> Promise<R> thenCompose(Function<? super C, ? extends Promise<R>> mapper);
+
+    @CanIgnoreReturnValue
+    Promise<C> onSuccess(Consumer<? super C> success);
+
+    @CanIgnoreReturnValue
+    Promise<C> onFailure(Consumer<? super Throwable> failure);
 
     Future<C> future();
 
     boolean isDone();
 
-    Throwable error();
+    @Nullable C getNow();
+
+    @Nullable Throwable error();
 }

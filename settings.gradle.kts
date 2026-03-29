@@ -5,4 +5,5 @@ include("core")
 include("monitor")
 include("recovery")
 include("titan-stomp")
-include("titan-mqtt")
+
+include("benchmark")

@@ -23,76 +23,208 @@
  */
 package org.traffichunter.titan.core.transport;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SocketChannel;
-import java.util.concurrent.CompletableFuture;
+import java.net.SocketOption;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.transport.option.InetClientOption;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
-public interface InetClient {
+@Slf4j
+public class InetClient extends AbstractTransport<NetChannel> {
 
-    static InetClient open(String host, int port) {
-        return new InetClientImpl(new InetSocketAddress(host, port));
+    private InetClient(NetChannel channel, EventLoopGroups groups) {
+        super(channel, groups);
     }
 
-    static InetClient open(InetSocketAddress address) {
-        return new InetClientImpl(address);
+    public static Builder builder() {
+        return new Builder();
     }
 
-    @CanIgnoreReturnValue
-    InetClient setOption(ClientOptions options);
+    @Override
+    public void start() {
+        groups().start();
+    }
 
-    @CanIgnoreReturnValue
-    InetClient start();
+    public Promise<NetChannel> connect(String host, int port) {
+        return connect(host, port, 30, TimeUnit.SECONDS);
+    }
 
-    @CanIgnoreReturnValue
-    CompletableFuture<ClientConnector> connect();
+    public Promise<NetChannel> connect(String host, int port, long timeout, TimeUnit unit) {
+        return connect(new InetSocketAddress(host, port), timeout, unit);
+    }
 
-    @CanIgnoreReturnValue
-    InetClient onConnect(Handler<SocketChannel> connectHandler);
+    public Promise<NetChannel> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
+        if(channel().isClosed()) {
+            log.error("Already connected or closed, cannot connect");
+            return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Already connected or closed, cannot connect"));
+        }
 
-    @CanIgnoreReturnValue
-    InetClient onRead(Handler<Buffer> readHandler);
+        IOEventLoop loop = channel().eventLoop();
+        Promise<NetChannel> connectResult = Promise.newPromise(loop);
 
-    @CanIgnoreReturnValue
-    InetClient onWrite(Handler<Buffer> writeHandler);
+        Promise<Void> connectRequest = loop.submit(() -> {
+            try {
+                channel().connect(remoteAddress, timeOut, timeUnit);
+            } catch (IOException e) {
+                throw new ClientException("Failed to connect to " + remoteAddress, e);
+            }
+        });
 
-    @CanIgnoreReturnValue
-    InetClient exceptionHandler(Handler<Throwable> exceptionHandler);
+        connectRequest.addListener(promise -> {
+            if (!promise.isSuccess()) {
+                connectResult.fail(promise.error());
+                return;
+            }
 
-    @CanIgnoreReturnValue
-    CompletableFuture<Void> send(Buffer buffer);
+            if (channel().isConnected()) {
+                connectResult.success(channel());
+                return;
+            }
 
-    String remoteHost();
+            ScheduledPromise<?> activeCheck = loop.scheduleAtFixedRate(() -> {
+                if (connectResult.isDone()) {
+                    return;
+                }
 
-    int remotePort();
+                if (channel().isClosed()) {
+                    connectResult.fail(new ClientException("Channel closed before connect completed"));
+                    return;
+                }
 
-    boolean isOpen();
+                if (channel().isConnected()) {
+                    connectResult.success(channel());
+                }
+            }, 1, 10, TimeUnit.MILLISECONDS);
 
-    boolean isConnected();
+            ScheduledPromise<?> timeoutCheck = loop.schedule(() -> {
+                if (!connectResult.isDone()) {
+                    connectResult.fail(new ClientException("Connect completion timeout"));
+                }
+            }, timeOut, timeUnit);
 
-    boolean isClosed();
+            connectResult.addListener(done -> {
+                activeCheck.cancel();
+                timeoutCheck.cancel();
+            });
+        });
 
-    void shutdown(boolean isGraceful);
+        return connectResult;
+    }
 
-    default void close() { shutdown(false); }
+    @Override
+    public Promise<Void> send(Buffer buffer) {
+        if(channel().isClosed() || !channel().isConnected()) {
+            log.error("Not ready to connect");
+            return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
+        }
 
-    class ClientException extends TransportException {
+        IOEventLoop loop = channel().eventLoop();
 
-        public ClientException() {}
+        return loop.submit(() -> {
+            try {
+                channel().writeAndFlush(buffer);
+            } catch (Exception e) {
+                log.error("Failed to send data = {}", buffer, e);
+                throw new ClientException("Failed to send data", e);
+            }
+        });
+    }
 
-        public ClientException(String message) { super(message); }
+    public void shutdown() {
+        shutdown(30, TimeUnit.SECONDS);
+    }
 
-        public ClientException(String message, Throwable cause) { super(message, cause); }
+    @Override
+    public void shutdown(long timeOut, TimeUnit timeUnit) {
+        if(channel().isClosed()) {
+            log.warn("Failed to close client, already closed or not connected");
+            return;
+        }
 
-        public ClientException(Throwable cause) { super(cause); }
+        log.info("Closing client...");
 
-        public ClientException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-            super(message, cause, enableSuppression, writableStackTrace);
+        close(timeOut, timeUnit);
+
+        log.info("Closed client");
+    }
+
+    @SuppressWarnings("unchecked")
+    public static class Builder {
+
+        private @Nullable EventLoopGroups groups;
+        private @Nullable Handler<Channel> channelHandler;
+        private Consumer<NetChannel> optionApplier = channel -> { };
+
+        @CanIgnoreReturnValue
+        public Builder group(EventLoopGroups groups) {
+            this.groups = groups;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder channelHandler(Handler<Channel> channelHandler) {
+            this.channelHandler = channelHandler;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder option(Consumer<NetChannel> optionApplier) {
+            this.optionApplier = this.optionApplier.andThen(optionApplier);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        @SuppressWarnings("unchecked")
+        public Builder options(InetClientOption option) {
+            optionApplier = optionApplier.andThen(channel ->
+                    option.socketOptions().forEach((k, v) ->
+                            channel.setOption((SocketOption<Object>) k, v)
+                    )
+            );
+            return this;
+        }
+
+        public InetClient build() {
+            Assert.checkNotNull(groups, "groups cannot be null");
+            Assert.checkNotNull(channelHandler, "channelHandler cannot be null");
+
+            try {
+                NetChannel channel = NetChannel.open(new ClientChannelConnector(channelHandler));
+                optionApplier.accept(channel);
+                groups.register(channel);
+                return new InetClient(channel, groups);
+            } catch (IOException e) {
+                throw new ClientException("Failed to create client", e);
+            }
+        }
+    }
+
+    private static class ClientChannelConnector implements ChannelHandShakeEventListener {
+
+        private final Handler<Channel> channelHandler;
+
+        private ClientChannelConnector(Handler<Channel> channelHandler) {
+            this.channelHandler = channelHandler;
+        }
+
+        @Override
+        public void accept(Channel channel) {
+            channelHandler.handle(channel);
         }
     }
 }

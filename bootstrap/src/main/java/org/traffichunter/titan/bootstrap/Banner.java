@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 public final class Banner {
 
     private static final String BANNER_NAME = "banner.txt";
+    private static final String DEFAULT_VERSION = "0.1.0";
 
     public void print(final Mode mode) {
         if(mode == Mode.OFF) {
@@ -47,10 +48,11 @@ public final class Banner {
         try (final InputStream in = getClass().getClassLoader().getResourceAsStream(BANNER_NAME)) {
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
+            String version = resolveVersion();
 
             String banner = reader.lines()
                     .map(line -> line
-                            .replace("${version}", "1.0.0")
+                            .replace("${version}", version)
                             .replace("${java.version}", System.getProperty("java.version"))
                             .replace("${java.specification}", System.getProperty("java.specification.version"))
                             .replace("${jdk}", System.getProperty("java.vendor"))
@@ -60,6 +62,20 @@ public final class Banner {
             System.out.println(banner + "\n");
 
         } catch (IOException ignored) {}
+    }
+
+    private String resolveVersion() {
+        Package bannerPackage = getClass().getPackage();
+        if (bannerPackage != null && bannerPackage.getImplementationVersion() != null) {
+            return bannerPackage.getImplementationVersion();
+        }
+
+        String version = System.getProperty("titan.version");
+        if (version != null && !version.isBlank()) {
+            return version;
+        }
+
+        return DEFAULT_VERSION;
     }
 
     public enum Mode {

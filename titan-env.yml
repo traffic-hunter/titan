@@ -1,0 +1,28 @@
+titan:
+  servers:
+    - name: stomp-dispatch
+      protocol: stomp
+      host: 0.0.0.0
+      port: 61613
+      transport-options:
+        reuse-address: "true"
+        receive-buffer-size: "65536"
+        child-tcp-no-delay: "true"
+        child-keep-alive: "true"
+        child-send-buffer-size: "65536"
+        child-receive-buffer-size: "65536"
+        child-reuse-address: "true"
+      protocol-options:
+        max-header-length: "10240"
+        max-headers: "1000"
+        max-body-length: "1048576"
+        max-frame-in-transaction: "1000"
+        supported-versions: "1.2"
+        send-error-on-no-subscriptions: "false"
+        ack-timeout-millis: "10000"
+        time-factor: "1"
+        heartbeat-x: "1000"
+        heartbeat-y: "1000"
+        transaction-chunk-size: "1000"
+        max-subscriptions-by-client: "1000"
+        secured: "false"

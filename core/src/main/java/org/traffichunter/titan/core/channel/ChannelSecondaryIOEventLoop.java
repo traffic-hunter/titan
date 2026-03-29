@@ -28,7 +28,8 @@ import java.util.Iterator;
 import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.SingleThreadIOEventLoop;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.buffer.BufferUtils;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -41,7 +42,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
         this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);
     }
 
-    public ChannelSecondaryIOEventLoop(final String eventLoopName) {
+    public ChannelSecondaryIOEventLoop(String eventLoopName) {
         super(eventLoopName);
     }
 
@@ -61,20 +62,38 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 continue;
             }
 
-            ChannelContext ctx = ChannelContext.select(key);
+            NetChannel channel = (NetChannel) key.attachment();
+            ChannelHandlerChain chain = channel.chain();
 
-            try {
-                if (key.isConnectable()) {
-                    if (ctx.isConnected()) {
-                        log.debug("completed connect: {}", ctx.remoteAddress());
+            if (key.isConnectable()) {
+                chain.processChannelConnecting(channel);
+                try {
+                    if(channel.finishConnect()) {
+                        if (channel instanceof NewIONetChannel nioNetChannel) {
+                            nioNetChannel.completeConnect();
+                        }
+
+                        chain.processChannelAfterConnected(channel);
+
+                        this.ioSelector()
+                                .unregisterConnect(channel)
+                                .registerRead(channel);
+
+                        ((AbstractChannel) channel).accept(channel);
                     }
-                } else if (key.isReadable()) {
-                    ctx.chain().fireInboundChannel(ctx);
-                } else if (key.isWritable()) {
-                    ctx.chain().fireOutboundChannel(ctx);
+                } catch (Exception e) {
+                    log.error("Failed connect", e);
                 }
-            } catch (Exception e) {
-                log.error("Failed task", e);
+            } else if (key.isReadable()) {
+                Buffer buffer = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY);
+                int read = channel.read(buffer);
+                if (read > 0) {
+                    chain.processChannelRead(channel, buffer);
+                } else {
+                    buffer.release();
+                }
+            } else if (key.isWritable()) {
+                channel.flush();
             }
         }
     }

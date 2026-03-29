@@ -23,12 +23,14 @@
  */
 package org.traffichunter.titan.bootstrap.environment.proprerty;
 
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HttpServerProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServiceDiscoveryProperty;
 
 /**
@@ -44,4 +46,6 @@ public class TitanSubProperty {
     private MonitorProperty monitor;
 
     private ServiceDiscoveryProperty serviceDiscovery;
+
+    private List<ServerProperty> servers;
 }

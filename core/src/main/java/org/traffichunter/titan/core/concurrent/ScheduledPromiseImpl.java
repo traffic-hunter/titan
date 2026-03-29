@@ -28,6 +28,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 
+import org.traffichunter.titan.core.channel.EventLoop;
+import org.traffichunter.titan.core.channel.SingleThreadEventLoop;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 
 /**
@@ -36,17 +39,69 @@ import org.traffichunter.titan.core.util.Time;
 public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements ScheduledPromise<C> {
 
     private long id;
-    private final long deadlineNanos;
+    private long deadlineNanos;
     private int queueIndex = INDEX_NOT_IN_QUEUE;
+    private final long periodNanos;
+
+    public ScheduledPromiseImpl(final EventLoop eventLoop,
+                                final Runnable task,
+                                final long deadlineNanos,
+                                final long period) {
+        super(eventLoop, task);
+        Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
+        this.deadlineNanos = deadlineNanos;
+        this.periodNanos = period;
+    }
 
     public ScheduledPromiseImpl(final EventLoop eventLoop, final Runnable task, long deadlineNanos) {
         super(eventLoop, task);
+        Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
         this.deadlineNanos = deadlineNanos;
+        this.periodNanos = 0;
     }
 
     public ScheduledPromiseImpl(final EventLoop eventLoop, final Callable<C> task, long deadlineNanos) {
         super(eventLoop, task);
+        Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
         this.deadlineNanos = deadlineNanos;
+        this.periodNanos = 0;
+    }
+
+    @Override
+    public void run() {
+        if(!eventLoop.inEventLoop()) {
+            return;
+        }
+
+        if(!isPeriodic()) {
+            super.run();
+            return;
+        }
+
+        if(isCancelled() || eventLoop.isShuttingDown()) {
+            return;
+        }
+
+        try {
+            if (task != null) {
+                task.call();
+            }
+        } catch (Exception e) {
+            fail(e);
+            return;
+        }
+
+        if(isCancelled() || eventLoop.isShuttingDown() || isDone()) {
+            return;
+        }
+
+        if(periodNanos > 0) {
+            deadlineNanos += periodNanos;
+        } else {
+            deadlineNanos = ScheduledPromise.calculateDeadlineNanos(-periodNanos);
+        }
+
+        eventLoop.register(this);
     }
 
     @Override
@@ -84,6 +139,16 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
     }
 
     @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        final boolean canceled = super.cancel(mayInterruptIfRunning);
+        if(canceled) {
+            singleThreadEventLoop().removeScheduledTask(this);
+        }
+
+        return canceled;
+    }
+
+    @Override
     public long getDeadlineNanos() {
         return this.deadlineNanos;
     }
@@ -98,7 +163,15 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
         queueIndex = i;
     }
 
-    private static long delayNanos(long currenTimeNanos, long deadlineNanos) {
-        return Math.max(0, deadlineNanos - currenTimeNanos);
+    private static long delayNanos(long currentTimeNanos, long deadlineNanos) {
+        return Math.max(0, deadlineNanos - currentTimeNanos);
+    }
+
+    private boolean isPeriodic() {
+        return periodNanos != 0;
+    }
+
+    private SingleThreadEventLoop singleThreadEventLoop() {
+        return (SingleThreadEventLoop) eventLoop;
     }
 }

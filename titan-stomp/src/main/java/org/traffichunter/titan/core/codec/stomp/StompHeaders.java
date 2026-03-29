@@ -23,15 +23,12 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.Getter;
-import org.traffichunter.titan.core.codec.Headers;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.codec.frame.Headers;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 
 /**
@@ -69,7 +66,7 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         return new StompHeaders(StompVersion.STOMP_1_2);
     }
 
-    public static String encode(final String value, final StompCommand command) {
+    public static String encode(@Nullable final String value, final StompCommand command) {
         if(value == null) {
             return "";
         }
@@ -134,9 +131,16 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
     }
 
     @Override
-    public Optional<String> get(final Elements key) {
+    public String getOrDefault(Elements key, String defaultValue) {
         Objects.requireNonNull(key, "key");
-        return Optional.of(map.get(key));
+        Objects.requireNonNull(defaultValue, "defaultValue");
+        return map.getOrDefault(key, defaultValue);
+    }
+
+    @Override
+    public @Nullable String get(final Elements key) {
+        Objects.requireNonNull(key, "key");
+        return map.get(key);
     }
 
     @Override
@@ -193,5 +197,28 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         Elements(final String name) {
             this.name = name;
         }
+
+        public static Elements convertToElements(final String value) {
+            return Optional.ofNullable(toMap().get(value))
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown element: " + value));
+        }
+
+        public static Map<String, Elements> toMap() {
+            Map<String, Elements> map = new HashMap<>();
+            Arrays.stream(values()).forEach(elements -> map.put(elements.getName(), elements));
+
+            return Collections.unmodifiableMap(map);
+        }
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("StompHeaders{ ");
+        for(Entry<Elements, String> entry : map.entrySet()) {
+            sb.append(entry.getKey()).append(" : ").append(entry.getValue()).append(", ");
+        }
+        sb.append("}");
+        return sb.toString();
     }
 }

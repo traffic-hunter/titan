@@ -28,15 +28,16 @@ import io.netty.buffer.ByteBuf;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Objects;
-import org.traffichunter.titan.core.codec.Codec;
+import org.traffichunter.titan.core.codec.base64.Base64Codec;
+import org.traffichunter.titan.core.util.Assert;
 
 /**
  * @author yungwang-o
  */
 public interface Buffer extends Clearable {
 
-    static Buffer alloc() {
-       return new InternalBuffer();
+    static Buffer alloc(final int initialCapacity, final int maxCapacity) {
+        return new InternalBuffer(initialCapacity, maxCapacity);
     }
 
     static Buffer alloc(final int initialCapacity) {
@@ -58,10 +59,14 @@ public interface Buffer extends Clearable {
         return new InternalBuffer(data);
     }
 
-    static Buffer allocAfterDecode(final String data) {
+    static Buffer allocAfterBase64Decode(final String data) {
         Objects.requireNonNull(data);
-        byte[] decode = Codec.decode(data);
+        byte[] decode = Base64Codec.decode(data);
         return new InternalBuffer(decode);
+    }
+
+    static Buffer empty() {
+        return new InternalBuffer();
     }
 
     static Buffer buffer(final ByteBuf buffer) {
@@ -221,9 +226,73 @@ public interface Buffer extends Clearable {
     @CanIgnoreReturnValue
     Buffer accumulateBuffer(Buffer buffer, int offset, int length);
 
+    default boolean hasRemaining() {
+        return length() > 0;
+    }
+
+    @CanIgnoreReturnValue
+    Buffer copy();
+
+    @CanIgnoreReturnValue
+    Buffer slice();
+
+    @CanIgnoreReturnValue
+    Buffer retainSlice();
+
+    @CanIgnoreReturnValue
+    Buffer slice(int start, int length);
+
+    @CanIgnoreReturnValue
+    Buffer retainSlice(int start, int length);
+
+    /**
+     * slice(readerIndex, length)
+     * @param length length of slice
+     * @return new buffer
+     */
+    @CanIgnoreReturnValue
+    Buffer readSlice(int length);
+
+    @CanIgnoreReturnValue
+    Buffer readRetainedSlice(int length);
+
+    @CanIgnoreReturnValue
+    Buffer skipBytes(int length);
+
+    /**
+     * @return {@code true} if and only if {@code (this.writerIndex - this.readerIndex)} is greater than {@code 0}.
+     */
+    boolean isReadable();
+
+    /**
+     * @return {@code true} if and only if {@code (this.capacity - this.writerIndex)} is greater than {@code 0}.
+     */
+    boolean isWritable();
+
+    boolean isWriteable(int size);
+
+    /**
+     * @return The maximum allowed capacity of this buffer. This value provides an upper bound on capacity().
+     */
+    int maxCapacity();
+
+    /**
+     * @return The number of bytes (octets) this buffer can contain.
+     */
+    int capacity();
+
+    int indexOf(int fromIndex, int toIndex, char value);
+
+    int indexOf(int fromIndex, int toIndex, byte value);
+
+    /**
+     * @return Number of readable bytes {@code (writerIndex - readerIndex)}
+     */
     int length();
 
     String toString();
 
     String toString(Charset charset);
+
+    boolean canAllocate(int size);
 }

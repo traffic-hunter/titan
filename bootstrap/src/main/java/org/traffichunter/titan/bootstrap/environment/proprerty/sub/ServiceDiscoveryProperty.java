@@ -27,7 +27,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery.Struct;
 
 /**
  * @author yungwang-o
@@ -37,5 +36,5 @@ import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscove
 @AllArgsConstructor
 public class ServiceDiscoveryProperty {
 
-    private Struct struct;
+    private String struct;
 }

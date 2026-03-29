@@ -5,15 +5,15 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleHome" value="" />
+        <option name="gradleJvm" value="temurin-21" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/benchmark" />
             <option value="$PROJECT_DIR$/bootstrap" />
             <option value="$PROJECT_DIR$/core" />
             <option value="$PROJECT_DIR$/monitor" />
             <option value="$PROJECT_DIR$/recovery" />
-            <option value="$PROJECT_DIR$/titan-mqtt" />
             <option value="$PROJECT_DIR$/titan-stomp" />
           </set>
         </option>

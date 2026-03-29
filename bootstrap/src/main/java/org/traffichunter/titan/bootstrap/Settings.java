@@ -23,21 +23,19 @@
  */
 package org.traffichunter.titan.bootstrap;
 
+import java.util.List;
 import lombok.Builder;
-import org.traffichunter.titan.bootstrap.httpserver.SettingsHttpServer;
-import org.traffichunter.titan.bootstrap.monitor.SettingsMonitor;
-import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
+import org.jspecify.annotations.NullUnmarked;
 
 /**
  * @author yungwang-o
  */
 @Builder
 public record Settings(
-
-        SettingsHttpServer settingsHttpServer,
-
-        SettingsMonitor settingsMonitor,
-
-        SettingsServiceDiscovery serviceDiscovery
+        List<ServerSettings> servers
 ) {
+
+    public Settings {
+        servers = List.copyOf(servers);
+    }
 }

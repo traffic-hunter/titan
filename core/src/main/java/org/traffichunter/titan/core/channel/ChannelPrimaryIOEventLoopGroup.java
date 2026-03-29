@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.channel;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.concurrent.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 
@@ -46,7 +45,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
         this(1);
     }
 
-    public ChannelPrimaryIOEventLoopGroup(final int size) {
+    public ChannelPrimaryIOEventLoopGroup(int size) {
         List<ChannelPrimaryIOEventLoop> eventLoops = new ArrayList<>(size);
 
         try {
@@ -72,6 +71,11 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
+    public void register(Channel channel) {
+        selector.next().register(channel);
+    }
+
+    @Override
     public void register(Runnable task) {
         selector.next().register(task);
     }
@@ -83,7 +87,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
 
     @SuppressWarnings("unchecked")
     @Override
-    public Promise<?> submit(Runnable task) {
+    public Promise<Void> submit(Runnable task) {
         return selector.next().submit(task);
     }
 
@@ -100,6 +104,16 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     @Override
     public <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit) {
         return selector.next().schedule(task, delay, unit);
+    }
+
+    @Override
+    public <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
+        return selector.next().scheduleAtFixedRate(task, initialDelay, period, unit);
+    }
+
+    @Override
+    public <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
+        return selector.next().scheduleWithFixedDelay(task, initialDelay, period, unit);
     }
 
     @Override

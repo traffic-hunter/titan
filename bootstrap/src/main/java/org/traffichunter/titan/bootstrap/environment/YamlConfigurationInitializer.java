@@ -26,10 +26,12 @@ package org.traffichunter.titan.bootstrap.environment;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.bootstrap.environment.proprerty.RootYamlProperty;
-import org.traffichunter.titan.bootstrap.servicediscovery.SettingsServiceDiscovery;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -59,7 +61,7 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
     public Settings load() {
         final InputStream is = getFile(path);
 
-        RootYamlProperty root =yaml.load(is);
+        RootYamlProperty root = yaml.load(is);
 
         return map(root);
     }
@@ -81,8 +83,29 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
     }
 
     private static Settings map(final RootYamlProperty root) {
+        List<ServerSettings> servers = root.getTitan() == null || root.getTitan().getServers() == null
+                ? List.of()
+                : root.getTitan().getServers().stream()
+                        .map(YamlConfigurationInitializer::mapServer)
+                        .toList();
+
         return Settings.builder()
-                .serviceDiscovery(new SettingsServiceDiscovery(root.getTitan().getServiceDiscovery().getStruct()))
+                .servers(servers)
                 .build();
+    }
+
+    private static ServerSettings mapServer(final ServerProperty property) {
+        return new ServerSettings(
+                property.getName(),
+                property.getTransport(),
+                property.getProtocol(),
+                property.getHost(),
+                property.getPort(),
+                property.getPrimaryThreads(),
+                property.getSecondaryThreads(),
+                property.getOptions(),
+                property.getTransportOptions(),
+                property.getProtocolOptions()
+        );
     }
 }

@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.util.Assert;
  * @author yungwang-o
  */
 @Slf4j
-class InternalBuffer implements Buffer {
+public class InternalBuffer implements Buffer {
 
     private ByteBuf buf;
 
@@ -52,6 +52,10 @@ class InternalBuffer implements Buffer {
 
     public InternalBuffer(final String src, final Charset charset) {
         this(src.getBytes(charset));
+    }
+
+    public InternalBuffer(final int initialCapacity, final int maxCapacity) {
+        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
     }
 
     public InternalBuffer(final int initialCapacity) {
@@ -82,8 +86,7 @@ class InternalBuffer implements Buffer {
             throw new IllegalStateException("Buffer has been released!");
         }
 
-        boolean isRelease = buf.release();
-        Assert.checkState(isRelease, "Buffer not fully released");
+        buf.release();
     }
 
     @Override
@@ -422,8 +425,84 @@ class InternalBuffer implements Buffer {
     }
 
     @Override
+    public Buffer copy() {
+        return buf.isReadOnly() ? this : new InternalBuffer(buf.copy());
+    }
+
+    @Override
+    public Buffer slice() {
+        return new InternalBuffer(buf.slice());
+    }
+
+    @Override
+    public Buffer retainSlice() {
+        return new InternalBuffer(buf.retainedSlice());
+    }
+
+    @Override
+    public Buffer slice(int start, int length) {
+        return new InternalBuffer(buf.slice(start, length));
+    }
+
+    @Override
+    public Buffer retainSlice(int start, int length) {
+        return new InternalBuffer(buf.retainedSlice(start, length));
+    }
+
+    @Override
+    public Buffer readSlice(int length) {
+        return new InternalBuffer(buf.readSlice(length));
+    }
+
+    @Override
+    public Buffer readRetainedSlice(int length) {
+        return new InternalBuffer(buf.readRetainedSlice(length));
+    }
+
+    @Override
+    public Buffer skipBytes(int length) {
+        buf.skipBytes(length);
+        return this;
+    }
+
+    @Override
+    public boolean isReadable() {
+        return buf.isReadable();
+    }
+
+    @Override
+    public boolean isWritable() {
+        return buf.isWritable();
+    }
+
+    @Override
+    public boolean isWriteable(int size) {
+        return buf.isWritable(size);
+    }
+
+    @Override
+    public int maxCapacity() {
+        return buf.maxCapacity();
+    }
+
+    @Override
+    public int capacity() {
+        return buf.capacity();
+    }
+
+    @Override
+    public int indexOf(int fromIndex, int toIndex, char value) {
+        return buf.indexOf(fromIndex, toIndex, (byte) value);
+    }
+
+    @Override
+    public int indexOf(int fromIndex, int toIndex, byte value) {
+        return buf.indexOf(fromIndex, toIndex, value);
+    }
+
+    @Override
     public int length() {
-        return buf.writerIndex();
+        return buf.readableBytes();
     }
 
     @Override
@@ -439,6 +518,11 @@ class InternalBuffer implements Buffer {
     @Override
     public void clear() {
         buf.clear();
+    }
+
+    @Override
+    public boolean canAllocate(int size) {
+        return buf.writerIndex() > buf.maxCapacity() - size;
     }
 
     @Override
