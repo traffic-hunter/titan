@@ -26,14 +26,14 @@ package org.traffichunter.titan.core.codec.stomp;
 import lombok.Builder;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 
 /**
  * @author yun
  */
 @Builder
 public record Subscription(
-        RoutingKey key,
+        Destination key,
         String id,
         String ackMode,
         Handler<StompFrame> handler,

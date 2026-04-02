@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 
 /**
  * @author yungwang-o
@@ -37,18 +37,18 @@ import org.traffichunter.titan.core.util.RoutingKey;
 @Slf4j
 public class MapDispatcher implements Dispatcher {
 
-    private final Map<RoutingKey, DispatcherQueue> map;
+    private final Map<Destination, DispatcherQueue> map;
 
     public MapDispatcher(final int initialCapacity) {
         this(new ConcurrentHashMap<>(initialCapacity));
     }
 
-    public MapDispatcher(final Map<RoutingKey, DispatcherQueue> map) {
+    public MapDispatcher(final Map<Destination, DispatcherQueue> map) {
         this.map = map;
     }
 
     @Override
-    public DispatcherQueue find(final RoutingKey key) {
+    public DispatcherQueue find(final Destination key) {
         if(exists(key)) {
             return map.get(key);
         }
@@ -57,12 +57,12 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public boolean exists(final RoutingKey key) {
+    public boolean exists(final Destination key) {
         return map.containsKey(key);
     }
 
     @Override
-    public void insert(final RoutingKey key, final DispatcherQueue queue) {
+    public void insert(final Destination key, final DispatcherQueue queue) {
         if(map.containsKey(key)) {
             log.error("Duplicate key: {}", key);
             return;
@@ -72,19 +72,19 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public void remove(final RoutingKey key) {
+    public void remove(final Destination key) {
         map.remove(key);
     }
 
     @Override
-    public void update(final RoutingKey originKey, final RoutingKey updateKey) {
+    public void update(final Destination originKey, final Destination updateKey) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<DispatcherQueue> dispatch(final RoutingKey key) {
+    public List<DispatcherQueue> dispatch(final Destination key) {
 
-        String routingKey = key.getKey();
+        String routingKey = key.path();
 
         int lastIdx = routingKey.lastIndexOf("*");
 

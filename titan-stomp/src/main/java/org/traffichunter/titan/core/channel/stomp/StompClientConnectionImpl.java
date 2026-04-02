@@ -24,8 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel.stomp;
 
 import java.io.IOException;
-import java.net.SocketAddress;
-import java.net.SocketOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -39,14 +37,13 @@ import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.Subscription;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Completable;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
@@ -70,7 +67,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
     private final Map<String, Promise<Void>> receiptMap = new HashMap<>();
     private final AtomicLong timer = new AtomicLong();
 
-    private @Nullable Promise<Void> connectPromise;
+    private final @Nullable Promise<Void> connectPromise = Promise.newPromise(eventLoop());
     private volatile boolean stompConnected;
 
     private long pingTimer = -1;
@@ -271,7 +268,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
                 .id(id)
                 .ackMode(ackMode)
                 .handler(handler)
-                .key(RoutingKey.create(destination))
+                .key(Destination.create(destination))
                 .channel(this)
                 .build();
 
@@ -336,7 +333,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
         Subscription subscription = Subscription.builder()
                 .id(id)
                 .ackMode(ackMode)
-                .key(RoutingKey.create(destination))
+                .key(Destination.create(destination))
                 .channel(this)
                 .build();
 
@@ -362,7 +359,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
 
     @Override
     public void connected() {
-        if(netChannel.isConnected()) {
+        if(netChannel.isConnected() && !stompConnected) {
             stompConnected = true;
         }
 

@@ -27,7 +27,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
 import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
 
@@ -36,17 +36,17 @@ import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
-    static DispatcherQueue create(RoutingKey key) {
+    static DispatcherQueue create(Destination key) {
         return new MessageDispatcherQueue(key);
     }
 
-    static DispatcherQueue create(RoutingKey key, int capacity) {
+    static DispatcherQueue create(Destination key, int capacity) {
         return new MessageDispatcherQueue(key, capacity);
     }
 
-    RoutingKey route();
+    Destination route();
 
-    boolean equalsTo(RoutingKey key);
+    boolean equalsTo(Destination key);
 
     @CanIgnoreReturnValue
     Message enqueue(Message message);
@@ -57,7 +57,7 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
 
     Message dispatch();
 
-    void updateRoutingKey(RoutingKey key);
+    void updateRoutingKey(Destination key);
 
     int size();
 

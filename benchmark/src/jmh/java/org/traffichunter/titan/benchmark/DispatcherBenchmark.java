@@ -21,7 +21,7 @@ import org.traffichunter.titan.core.message.dispatcher.MapDispatcher;
 import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -33,8 +33,8 @@ public class DispatcherBenchmark {
 
     private Dispatcher trieDispatcher;
     private Dispatcher mapDispatcher;
-    private RoutingKey exactKey;
-    private RoutingKey wildcardKey;
+    private Destination exactKey;
+    private Destination wildcardKey;
     private DispatcherQueue trieExactQueue;
     private DispatcherQueue mapExactQueue;
     private Message message;
@@ -43,24 +43,24 @@ public class DispatcherBenchmark {
     public void setUp() {
         trieDispatcher = new TrieDispatcher();
         mapDispatcher = new MapDispatcher(10_240);
-        exactKey = RoutingKey.create("/topic/bench/5000");
-        wildcardKey = RoutingKey.create("/topic/*");
+        exactKey = Destination.create("/topic/bench/5000");
+        wildcardKey = Destination.create("/topic/*");
         trieExactQueue = DispatcherQueue.create(exactKey);
         mapExactQueue = DispatcherQueue.create(exactKey);
 
-        List<RoutingKey> keys = new ArrayList<>(10_000);
+        List<Destination> keys = new ArrayList<>(10_000);
         for (int i = 0; i < 10_000; i++) {
-            keys.add(RoutingKey.create("/topic/bench/" + i));
+            keys.add(Destination.create("/topic/bench/" + i));
         }
 
-        for (RoutingKey key : keys) {
+        for (Destination key : keys) {
             trieDispatcher.insert(key, key.equals(exactKey) ? trieExactQueue : DispatcherQueue.create(key));
             mapDispatcher.insert(key, key.equals(exactKey) ? mapExactQueue : DispatcherQueue.create(key));
         }
 
         message = Message.builder()
                 .priority(Priority.DEFAULT)
-                .routingKey(exactKey)
+                .destination(exactKey)
                 .createdAt(Instant.now())
                 .isRecovery(false)
                 .producerId("benchmark-producer")

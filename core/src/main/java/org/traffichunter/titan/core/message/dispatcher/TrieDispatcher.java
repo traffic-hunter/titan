@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.message.dispatcher;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
 
@@ -42,32 +42,32 @@ public class TrieDispatcher implements Dispatcher {
      * @return null
      */
     @Override
-    public @Nullable DispatcherQueue find(final RoutingKey key) {
-        return trie.get(key.getKey());
+    public @Nullable DispatcherQueue find(final Destination key) {
+        return trie.get(key.path());
     }
 
     @Override
-    public boolean exists(final RoutingKey key) {
-        return trie.startsWith(key.getKey());
+    public boolean exists(final Destination key) {
+        return trie.startsWith(key.path());
     }
 
     @Override
-    public void insert(final RoutingKey key, final DispatcherQueue queue) {
-        trie.insert(key.getKey(), queue);
+    public void insert(final Destination key, final DispatcherQueue queue) {
+        trie.insert(key.path(), queue);
     }
 
     @Override
-    public void remove(final RoutingKey key) {
-        trie.remove(key.getKey());
+    public void remove(final Destination key) {
+        trie.remove(key.path());
     }
 
     @Override
-    public void update(final RoutingKey originKey, final RoutingKey updateKey) {
+    public void update(final Destination originKey, final Destination updateKey) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<DispatcherQueue> dispatch(final RoutingKey key) {
-        return trie.searchAll(key.getKey());
+    public List<DispatcherQueue> dispatch(final Destination key) {
+        return trie.searchAll(key.path());
     }
 }

@@ -39,7 +39,7 @@ import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.secure.auth.authentication.Authentication;
 import org.traffichunter.titan.core.util.secure.auth.authentication.AuthenticationImpl;
 import org.traffichunter.titan.core.util.secure.auth.authentication.UsernamePasswordCredentials;
@@ -293,8 +293,8 @@ public final class StompServerHandler implements StompHandler {
             return;
         }
 
-        RoutingKey routingKey = RoutingKey.create(destination);
-        List<DispatcherQueue> dispatch = dispatcher.dispatch(RoutingKey.create(destination));
+        Destination routingKey = Destination.create(destination);
+        List<DispatcherQueue> dispatch = dispatcher.dispatch(Destination.create(destination));
         dispatch.stream()
                 .map(DispatcherQueue::dispatch)
                 .filter(Objects::nonNull)
@@ -336,7 +336,7 @@ public final class StompServerHandler implements StompHandler {
         }
 
         // TODO Enforce a maximum subscriber limit. default size 100.
-        final RoutingKey key = RoutingKey.create(destination);
+        final Destination key = Destination.create(destination);
         if(!dispatcher.exists(key)) {
             sc.send(errorFrame("Not found dispatcher.", formatString("Not found dispatcher. destination = {}", destination)));
             sc.close();

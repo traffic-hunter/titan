@@ -48,7 +48,7 @@ import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 @EnableStompServer
@@ -129,7 +129,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_send_with_text_body_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
-        RoutingKey key = RoutingKey.create("/queue/test");
+        Destination key = Destination.create("/queue/test");
         DispatcherQueue queue = DispatcherQueue.create(key);
         dispatcher.insert(key, queue);
         StompClient client = StompClient.builder()
@@ -157,7 +157,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_subscribe_and_receive_message_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
-        RoutingKey key = RoutingKey.create("/topic/test");
+        Destination key = Destination.create("/topic/test");
         DispatcherQueue queue = DispatcherQueue.create(key);
         dispatcher.insert(key, queue);
 
@@ -204,7 +204,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_unsubscribe_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
-        RoutingKey key = RoutingKey.create("/topic/unsub");
+        Destination key = Destination.create("/topic/unsub");
         DispatcherQueue queue = DispatcherQueue.create(key);
         dispatcher.insert(key, queue);
 
@@ -237,9 +237,9 @@ class StompIntegrationTest {
 
     @Test
     void stomp_subscribe_with_ack_modes_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
-        RoutingKey key1 = RoutingKey.create("/topic/ack1");
-        RoutingKey key2 = RoutingKey.create("/topic/ack2");
-        RoutingKey key3 = RoutingKey.create("/topic/ack3");
+        Destination key1 = Destination.create("/topic/ack1");
+        Destination key2 = Destination.create("/topic/ack2");
+        Destination key3 = Destination.create("/topic/ack3");
         dispatcher.insert(key1, DispatcherQueue.create(key1));
         dispatcher.insert(key2, DispatcherQueue.create(key2));
         dispatcher.insert(key3, DispatcherQueue.create(key3));
@@ -367,7 +367,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_transaction_with_send_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
-        RoutingKey key = RoutingKey.create("/queue/tx-test");
+        Destination key = Destination.create("/queue/tx-test");
         DispatcherQueue queue = DispatcherQueue.create(key);
         dispatcher.insert(key, queue);
 
@@ -499,7 +499,7 @@ class StompIntegrationTest {
         public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
             Message message = Message.builder()
                     .priority(Priority.DEFAULT)
-                    .routingKey(queue.route())
+                    .destination(queue.route())
                     .createdAt(Instant.now())
                     .isRecovery(false)
                     .producerId(UUID.randomUUID().toString())

@@ -31,7 +31,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 
 /**
  * @author yungwang-o
@@ -41,7 +41,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     private final BlockingQueue<Message> queue;
     private final int capacity;
-    private volatile RoutingKey routingKey;
+    private volatile Destination destination;
 
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
@@ -50,24 +50,24 @@ class MessageDispatcherQueue implements DispatcherQueue {
     /**
      * {@link PriorityBlockingQueue} default capacity 11
      */
-    MessageDispatcherQueue(final RoutingKey routingKey) {
-        this(routingKey, 11);
+    MessageDispatcherQueue(final Destination destination) {
+        this(destination, 11);
     }
 
-    MessageDispatcherQueue(final RoutingKey routingKey, final int capacity) {
+    MessageDispatcherQueue(final Destination destination, final int capacity) {
         this.capacity = capacity;
         this.queue = new PriorityBlockingQueue<>(capacity);
-        this.routingKey = routingKey;
+        this.destination = destination;
     }
 
     @Override
-    public RoutingKey route() {
-        return routingKey;
+    public Destination route() {
+        return destination;
     }
 
     @Override
-    public boolean equalsTo(final RoutingKey key) {
-        return routingKey.equals(key);
+    public boolean equalsTo(final Destination key) {
+        return destination.equals(key);
     }
 
     @Override
@@ -136,13 +136,13 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public void updateRoutingKey(final RoutingKey key) {
+    public void updateRoutingKey(final Destination key) {
         if(key == null) {
             throw new IllegalArgumentException("Key cannot be null");
         }
 
         synchronized (this) {
-            this.routingKey = key;
+            this.destination = key;
         }
     }
 
