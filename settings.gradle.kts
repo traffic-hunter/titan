@@ -7,3 +7,4 @@ include("recovery")
 include("titan-stomp")
 
 include("benchmark")
+include("fanout")
