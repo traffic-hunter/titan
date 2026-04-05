@@ -23,9 +23,8 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.List;
-
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
@@ -47,13 +46,16 @@ public interface Dispatcher {
 
     /**
      * @param key routing key
-     * @param queue value
      */
-    void insert(Destination key, DispatcherQueue queue);
+    default void subscribe(Destination key) {
+        subscribe(key, DispatcherQueue.create(key));
+    }
 
-    void remove(Destination key);
+    void subscribe(Destination key, DispatcherQueue queue);
+
+    void unsubscribe(Destination key);
 
     void update(Destination originKey, Destination updateKey);
 
-    List<DispatcherQueue> dispatch(Destination key);
+    boolean dispatch(Destination key, NetChannel channel);
 }

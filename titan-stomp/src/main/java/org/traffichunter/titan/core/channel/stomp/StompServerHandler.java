@@ -31,6 +31,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.Subscription;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
@@ -293,30 +295,16 @@ public final class StompServerHandler implements StompHandler {
             return;
         }
 
-        Destination routingKey = Destination.create(destination);
-        List<DispatcherQueue> dispatch = dispatcher.dispatch(Destination.create(destination));
-        dispatch.stream()
-                .map(DispatcherQueue::dispatch)
-                .filter(Objects::nonNull)
-                .forEach(message -> {
-                    for (StompClientConnection connection : serverConnection.connections()) {
-                        connection.subscriptions().stream()
-                                .filter(subscription -> subscription.key().equals(routingKey))
-                                .forEach(subscription -> {
-                                    StompHeaders headers = StompHeaders.create();
-                                    headers.put(Elements.SUBSCRIPTION, subscription.id());
-                                    headers.put(Elements.MESSAGE_ID, message.getUniqueId());
-                                    headers.put(Elements.DESTINATION, destination);
+        Destination dest = Destination.create(destination);
+        if(dispatcher.exists(dest)) {
+            sc.send(errorFrame("Destination already exists.", formatString("Destination already exists.")));
+            sc.close();
+            return;
+        }
 
-                                    if (!AckMode.AUTO.equals(subscription.ackMode())) {
-                                        headers.put(Elements.ACK, message.getUniqueId());
-                                    }
-
-                                    StompFrame frame = create(headers, StompCommand.MESSAGE, message.getBody());
-                                    connection.send(frame);
-                                });
-                    }
-                });
+        if(!dispatcher.dispatch(dest, sc.channel())) {
+            log.error("Failed to dispatch destination.");
+        }
     }
 
     private void doSubscribe(final StompFrame sf, final StompClientConnection sc) {
@@ -336,15 +324,25 @@ public final class StompServerHandler implements StompHandler {
         }
 
         // TODO Enforce a maximum subscriber limit. default size 100.
-        final Destination key = Destination.create(destination);
-        if(!dispatcher.exists(key)) {
+        final Destination dest = Destination.create(destination);
+        if(!dispatcher.exists(dest)) {
             sc.send(errorFrame("Not found dispatcher.", formatString("Not found dispatcher. destination = {}", destination)));
             sc.close();
             return;
         }
 
         try {
-            sc.registerInboundSubscription(id, destination, ack);
+            boolean registered = serverConnection.subscriptions().register(
+                    StompServerSubscription.builder()
+                            .id(id)
+                            .ackMode(ack)
+                            .destination(dest)
+                            .connection(sc)
+                            .build()
+            );
+            if (!registered) {
+                throw new StompException("Subscription already exists");
+            }
         } catch (Exception e) {
             log.error("Error subscribe id = {} {}", id, e.getMessage());
             sc.send(errorFrame("Failed to subscribe.", formatString("Failed to subscribe destination = {}", destination)));
@@ -365,7 +363,10 @@ public final class StompServerHandler implements StompHandler {
         }
 
         try {
-            sc.removeInboundSubscription(id);
+            StompServerSubscription subscription = serverConnection.subscriptions().unregister(id);
+            if (subscription == null) {
+                throw new StompException("Subscription not found");
+            }
         } catch (Exception e) {
             log.error("Error unsubscribe id = {} {}", id, e.getMessage());
             sc.send(errorFrame("Failed to unsubscribe.", formatString("Failed to unsubscribe destination = {}", id)));

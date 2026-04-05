@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.channel.Channel;
@@ -53,14 +54,14 @@ public final class StompServer {
 
     private final InetServer inetServer;
     private final StompServerOption option;
-    private final StompServerConnection connection;
+    private final StompServerConnection serverConnection;
 
     private StompServer(
             InetServer inetServer,
-            StompServerConnection connection,
+            StompServerConnection serverConnection,
             StompServerOption option
     ) {
-        this.connection = connection;
+        this.serverConnection = serverConnection;
         this.inetServer = inetServer;
         this.option = option;
     }
@@ -78,9 +79,19 @@ public final class StompServer {
     }
 
     public Promise<Void> listen(InetSocketAddress address) {
-        ChannelPromise channelPromise = ChannelPromise.newPromise(connection.channel());
+        ChannelPromise channelPromise = ChannelPromise.newPromise(serverConnection.channel());
         listen(address, channelPromise);
         return channelPromise;
+    }
+
+    public StompServerConnection connection() {
+        return serverConnection;
+    }
+
+    public void handler(Consumer<StompClientConnection> connection) {
+        StompClientConnection clientConnection = this.serverConnection.connection();
+
+        connection.accept(clientConnection);
     }
 
     public boolean isStart() {
@@ -174,7 +185,7 @@ public final class StompServer {
 
                         StompClientConnection stompConnection =
                                 StompClientConnection.wrap(netChannel, acceptedConnectionOption);
-                        stompServerConnection.registerConnection(stompConnection);
+                        stompServerConnection.register(stompConnection);
 
                         netChannel.chain()
                                 .add(new StompChannelDecoder(option.maxBodyLength(), stompConnection, stompServerHandler));

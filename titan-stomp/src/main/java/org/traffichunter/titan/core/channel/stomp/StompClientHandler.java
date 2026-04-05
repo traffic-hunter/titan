@@ -65,7 +65,7 @@ public class StompClientHandler implements StompHandler {
         sc.subscriptions()
                 .stream()
                 .filter(subscription -> subscription.id().equals(id))
-                .forEach(subscription -> subscription.handler().handle(sf));
+                .forEach(subscription -> subscription.getHandler().handle(sf));
     }
 
     private void doReceipt(StompFrame sf, StompClientConnection sc) {

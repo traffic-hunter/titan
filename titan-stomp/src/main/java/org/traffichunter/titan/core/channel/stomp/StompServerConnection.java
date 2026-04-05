@@ -26,12 +26,14 @@ package org.traffichunter.titan.core.channel.stomp;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
+import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Collection;
+import java.util.List;
 
 /**
  * @author yungwang-o
@@ -61,15 +63,17 @@ public interface StompServerConnection extends StompConnection {
 
     void bind(NetServerChannel serverChannel);
 
-    void registerConnection(StompClientConnection connection);
+    void register(StompClientConnection connection);
 
-    void unregisterConnection(String sessionId);
+    void unregister(String sessionId);
 
     @Nullable StompClientConnection findConnection(String sessionId);
 
-    Collection<StompClientConnection> connections();
+    List<StompClientConnection> connections();
 
-    int connectionCount();
+    StompClientConnection connection();
+
+    StompSubscriptions<StompServerSubscription> subscriptions();
 
     StompServerOption option();
 }

@@ -23,12 +23,19 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Flow;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.Subscription;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -52,12 +59,20 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     @Override
-    public void insert(final Destination key, final DispatcherQueue queue) {
-        trie.insert(key.path(), queue);
+    public void subscribe(Destination key, DispatcherQueue dispatcherQueue) {
+        if(exists(key)) {
+            return;
+        }
+
+        trie.insert(key.path(), dispatcherQueue);
     }
 
     @Override
-    public void remove(final Destination key) {
+    public void unsubscribe(final Destination key) {
+        if(!exists(key)) {
+            return;
+        }
+
         trie.remove(key.path());
     }
 
@@ -67,7 +82,17 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<DispatcherQueue> dispatch(final Destination key) {
-        return trie.searchAll(key.path());
+    public boolean dispatch(final Destination key, final NetChannel channel) {
+        try {
+            trie.searchAll(key.path())
+                    .forEach(entry -> {
+                        Message message = entry.dispatch();
+                        channel.writeAndFlush(Buffer.alloc(message.getBody()));
+                    });
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

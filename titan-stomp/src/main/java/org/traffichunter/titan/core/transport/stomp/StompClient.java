@@ -127,6 +127,12 @@ public final class StompClient {
         return connection;
     }
 
+    public void handler(Consumer<StompClientConnection> connection) {
+        StompClientConnection clientConnection = connection();
+
+        connection.accept(clientConnection);
+    }
+
     private StompClientConnection createConnection(NetChannel channel) {
         StompClientConnection connection = StompClientConnection.wrap(channel, option);
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));

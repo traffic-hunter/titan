@@ -131,7 +131,7 @@ class StompIntegrationTest {
     void stomp_send_with_text_body_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/queue/test");
         DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.insert(key, queue);
+        dispatcher.subscribe(key, queue);
         StompClient client = StompClient.builder()
                 .group(clientGroups())
                 .build();
@@ -149,7 +149,7 @@ class StompIntegrationTest {
             assertThat(result.getBody().toString()).isEqualTo("Hello STOMP!");
         } finally {
             client.shutdown();
-            dispatcher.remove(key);
+            dispatcher.unsubscribe(key);
         }
     }
 
@@ -159,7 +159,7 @@ class StompIntegrationTest {
     void stomp_subscribe_and_receive_message_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/topic/test");
         DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.insert(key, queue);
+        dispatcher.subscribe(key, queue);
 
         AtomicBoolean messageReceived = new AtomicBoolean(false);
         AtomicReference<StompFrame> receivedFrame = new AtomicReference<>();
@@ -198,7 +198,7 @@ class StompIntegrationTest {
         } finally {
             subscriber.shutdown();
             publisher.shutdown();
-            dispatcher.remove(key);
+            dispatcher.unsubscribe(key);
         }
     }
 
@@ -206,7 +206,7 @@ class StompIntegrationTest {
     void stomp_unsubscribe_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/topic/unsub");
         DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.insert(key, queue);
+        dispatcher.subscribe(key, queue);
 
         StompClient client = StompClient.builder()
                 .group(clientGroups())
@@ -231,7 +231,7 @@ class StompIntegrationTest {
             assertThat(client.connection().subscriptions()).hasSize(0);
         } finally {
             client.shutdown();
-            dispatcher.remove(key);
+            dispatcher.unsubscribe(key);
         }
     }
 
@@ -240,9 +240,9 @@ class StompIntegrationTest {
         Destination key1 = Destination.create("/topic/ack1");
         Destination key2 = Destination.create("/topic/ack2");
         Destination key3 = Destination.create("/topic/ack3");
-        dispatcher.insert(key1, DispatcherQueue.create(key1));
-        dispatcher.insert(key2, DispatcherQueue.create(key2));
-        dispatcher.insert(key3, DispatcherQueue.create(key3));
+        dispatcher.subscribe(key1, DispatcherQueue.create(key1));
+        dispatcher.subscribe(key2, DispatcherQueue.create(key2));
+        dispatcher.subscribe(key3, DispatcherQueue.create(key3));
 
         StompClient client = StompClient.builder()
                 .group(clientGroups())
@@ -270,9 +270,9 @@ class StompIntegrationTest {
             assertThat(client.connection().subscriptions()).hasSize(3);
         } finally {
             client.shutdown();
-            dispatcher.remove(key1);
-            dispatcher.remove(key2);
-            dispatcher.remove(key3);
+            dispatcher.unsubscribe(key1);
+            dispatcher.unsubscribe(key2);
+            dispatcher.unsubscribe(key3);
         }
     }
 
@@ -369,7 +369,7 @@ class StompIntegrationTest {
     void stomp_transaction_with_send_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/queue/tx-test");
         DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.insert(key, queue);
+        dispatcher.subscribe(key, queue);
 
         StompClient client = StompClient.builder()
                 .group(clientGroups())
@@ -397,7 +397,7 @@ class StompIntegrationTest {
             assertThat(queue.size()).isGreaterThan(0);
         } finally {
             client.shutdown();
-            dispatcher.remove(key);
+            dispatcher.unsubscribe(key);
         }
     }
 

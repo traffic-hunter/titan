@@ -23,12 +23,16 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -62,17 +66,20 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public void insert(final Destination key, final DispatcherQueue queue) {
-        if(map.containsKey(key)) {
-            log.error("Duplicate key: {}", key);
+    public void subscribe(Destination key, DispatcherQueue dispatcherQueue) {
+        if(exists(key)) {
             return;
         }
 
-        map.put(key, queue);
+        map.put(key, dispatcherQueue);
     }
 
     @Override
-    public void remove(final Destination key) {
+    public void unsubscribe(final Destination key) {
+        if(!exists(key)) {
+            return;
+        }
+
         map.remove(key);
     }
 
@@ -82,7 +89,7 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<DispatcherQueue> dispatch(final Destination key) {
+    public boolean dispatch(final Destination key, final NetChannel channel) {
 
         String routingKey = key.path();
 
@@ -90,10 +97,18 @@ public class MapDispatcher implements Dispatcher {
 
         String prefixRoutingKey = routingKey.substring(0, lastIdx - 1);
 
-        return map.keySet()
-                .stream()
-                .filter(mapKey -> mapKey.startsWith(prefixRoutingKey))
-                .map(map::get)
-                .toList();
+        try {
+            map.keySet()
+                    .stream()
+                    .filter(mapKey -> mapKey.startsWith(prefixRoutingKey))
+                    .map(map::get)
+                    .forEach(dispatcher -> {
+                        Message message = dispatcher.dispatch();
+                        channel.writeAndFlush(Buffer.alloc(message.getBody()));
+                    });
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

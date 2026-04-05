@@ -24,6 +24,7 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
@@ -53,6 +54,9 @@ public interface StompClientConnection extends StompConnection {
     ) {
         return new StompClientConnectionImpl(netChannel, option);
     }
+
+    @Override
+    NetChannel channel();
 
     @CanIgnoreReturnValue
     Promise<StompFrame> disconnect();
@@ -125,16 +129,9 @@ public interface StompClientConnection extends StompConnection {
 
     StompHandler handler();
 
-    /**
-     * @return read-only list
-     */
-    List<Subscription> subscriptions();
+    List<StompClientSubscription> subscriptions();
 
     void setHeartbeat(long ping, long pong, Runnable handler);
-
-    void registerInboundSubscription(String id, String destination, String ackMode);
-
-    void removeInboundSubscription(String id);
 
     void receipt(String receiptId);
 

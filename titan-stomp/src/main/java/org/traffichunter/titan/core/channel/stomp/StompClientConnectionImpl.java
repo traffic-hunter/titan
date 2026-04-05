@@ -31,19 +31,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
+import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.codec.stomp.Subscription;
+import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
 import org.traffichunter.titan.core.concurrent.Completable;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
@@ -55,14 +57,12 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  */
 public class StompClientConnectionImpl implements StompClientConnection {
 
-    private static final int MAX_SUBSCRIBER = 100;
-
     private final String sessionId = IdGenerator.uuid();
     private final NetChannel netChannel;
     private final StompClientHandler stompClientHandler;
     private final StompClientOption option;
 
-    private final Map<String, Subscription> subscriptions = new HashMap<>(MAX_SUBSCRIBER);
+    private final StompSubscriptions<StompClientSubscription> subscriptions = new StompSubscriptions<>();
     private final Map<Long, ScheduledPromise<?>> pingPongTaskMap = new HashMap<>();
     private final Map<String, Promise<Void>> receiptMap = new HashMap<>();
     private final AtomicLong timer = new AtomicLong();
@@ -87,7 +87,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public Channel channel() {
+    public NetChannel channel() {
         return netChannel;
     }
 
@@ -253,29 +253,24 @@ public class StompClientConnectionImpl implements StompClientConnection {
 
     @Override
     public Promise<StompFrame> subscribe(String destination, StompHeaders headers, Handler<StompFrame> handler) {
-        String id = headers.getOrDefault(Elements.ID, IdGenerator.uuid());
+        String id = headers.getOrDefault(Elements.ID, destination);
 
-        String ackMode = headers.get(Elements.ACK);
-        if (ackMode == null) {
-            ackMode = AckMode.AUTO;
-        }
-
-        if (subscriptions.containsKey(id)) {
+        if (subscriptions.find(id) != null) {
             return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Subscription already exists"));
         }
 
-        Subscription subscription = Subscription.builder()
+        StompClientSubscription stompSubscription = StompClientSubscription.builder()
                 .id(id)
-                .ackMode(ackMode)
+                .destination(destination)
                 .handler(handler)
-                .key(Destination.create(destination))
-                .channel(this)
                 .build();
 
-        subscriptions.put(id, subscription);
+        subscriptions.register(stompSubscription);
 
+        if(!headers.containsKey(Elements.ID)) {
+            headers.put(Elements.ID, id);
+        }
         headers.put(Elements.DESTINATION, destination);
-        headers.put(Elements.ID, id);
 
         return send(create(headers, StompCommand.SUBSCRIBE));
     }
@@ -292,12 +287,12 @@ public class StompClientConnectionImpl implements StompClientConnection {
             return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Missing id header"));
         }
 
-        Subscription subscription = subscriptions.get(id);
-        if (subscription == null) {
+        StompClientSubscription stompSubscription = subscriptions.find(id);
+        if (stompSubscription == null) {
             return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Subscription already not exists"));
         }
 
-        subscriptions.remove(id);
+        subscriptions.unregister(id);
         return send(create(headers, StompCommand.UNSUBSCRIBE));
     }
 
@@ -307,8 +302,8 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public List<Subscription> subscriptions() {
-        return subscriptions.values().stream().toList();
+    public List<StompClientSubscription> subscriptions() {
+        return subscriptions.values();
     }
 
     @Override
@@ -326,23 +321,6 @@ public class StompClientConnectionImpl implements StompClientConnection {
                 }
             });
         }
-    }
-
-    @Override
-    public void registerInboundSubscription(String id, String destination, String ackMode) {
-        Subscription subscription = Subscription.builder()
-                .id(id)
-                .ackMode(ackMode)
-                .key(Destination.create(destination))
-                .channel(this)
-                .build();
-
-        subscriptions.put(id, subscription);
-    }
-
-    @Override
-    public void removeInboundSubscription(String id) {
-        subscriptions.remove(id);
     }
 
     @Override
@@ -395,7 +373,6 @@ public class StompClientConnectionImpl implements StompClientConnection {
                 promise.fail(new StompNetChannelException("Channel closed before receipt received")));
         receiptMap.clear();
         pingPongTaskMap.clear();
-        subscriptions.clear();
         netChannel.close();
     }
 
@@ -466,6 +443,8 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     private IOEventLoop eventLoop() {
+        Assert.checkNotNull(netChannel, "netChannel is null");
+
         return netChannel.eventLoop();
     }
 
