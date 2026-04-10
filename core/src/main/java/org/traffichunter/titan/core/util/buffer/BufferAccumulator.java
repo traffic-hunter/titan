@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.util.buffer;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.util.Clearable;
 
 /**
  * Accumulates incoming buffers across multiple read events.

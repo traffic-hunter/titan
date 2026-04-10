@@ -133,6 +133,10 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
         return result;
     }
 
+    public ChannelRegistry.ChannelSelector<NetChannel> connections() {
+        return channelRegistry.selector();
+    }
+
     public void shutdown() {
         shutdown(30, TimeUnit.SECONDS);
     }

@@ -84,13 +84,16 @@ public class TrieDispatcher implements Dispatcher {
     @Override
     public boolean dispatch(final Destination key, final NetChannel channel) {
         try {
-            trie.searchAll(key.path())
-                    .forEach(entry -> {
-                        Message message = entry.dispatch();
-                        channel.writeAndFlush(Buffer.alloc(message.getBody()));
-                    });
-
+            for (DispatcherQueue entry : trie.searchAll(key.path())) {
+                Message message = entry.dispatch();
+                if(message != null) {
+                    channel.writeAndFlush(Buffer.alloc(message.getBody()));
+                }
+            }
             return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         } catch (Exception e) {
             return false;
         }

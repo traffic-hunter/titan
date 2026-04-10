@@ -98,15 +98,20 @@ public class MapDispatcher implements Dispatcher {
         String prefixRoutingKey = routingKey.substring(0, lastIdx - 1);
 
         try {
-            map.keySet()
-                    .stream()
-                    .filter(mapKey -> mapKey.startsWith(prefixRoutingKey))
-                    .map(map::get)
-                    .forEach(dispatcher -> {
-                        Message message = dispatcher.dispatch();
-                        channel.writeAndFlush(Buffer.alloc(message.getBody()));
-                    });
+            for (Destination mapKey : map.keySet()) {
+                if (!mapKey.path().startsWith(prefixRoutingKey)) {
+                    continue;
+                }
+
+                Message message = map.get(mapKey).dispatch();
+                if (message != null) {
+                    channel.writeAndFlush(Buffer.alloc(message.getBody()));
+                }
+            }
             return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         } catch (Exception e) {
             return false;
         }

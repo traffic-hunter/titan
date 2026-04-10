@@ -30,6 +30,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -41,7 +42,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     private final BlockingQueue<Message> queue;
     private final int capacity;
-    private volatile Destination destination;
+    private Destination destination;
 
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
@@ -131,8 +132,8 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public Message dispatch() {
-        return queue.poll();
+    public @Nullable Message dispatch() throws InterruptedException {
+        return queue.take();
     }
 
     @Override

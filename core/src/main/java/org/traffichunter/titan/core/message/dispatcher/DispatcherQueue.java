@@ -26,6 +26,8 @@ package org.traffichunter.titan.core.message.dispatcher;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
@@ -55,7 +57,7 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
 
     List<Message> pressure();
 
-    Message dispatch();
+    @Nullable Message dispatch() throws InterruptedException;
 
     void updateRoutingKey(Destination key);
 
