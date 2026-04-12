@@ -32,7 +32,7 @@ import java.util.List;
  */
 public interface Trie<T> {
 
-    void insert(String word, T value);
+    T insert(String word, T value);
 
     @Nullable T get(String word);
 

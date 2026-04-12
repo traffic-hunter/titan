@@ -46,13 +46,13 @@ import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ClientToServerTest {
 
-    private final DispatcherQueue rq = DispatcherQueue.create(RoutingKey.create("/route/test"), 1001);
+    private final DispatcherQueue rq = DispatcherQueue.create(Destination.create("/route/test"), 1001);
     private InetServer server;
 
     private static final Logger log = LoggerFactory.getLogger(ClientToServerTest.class);
@@ -152,7 +152,7 @@ public class ClientToServerTest {
         @Override
         public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer, @NonNull ChannelInBoundHandlerChain chain) {
             final Message msg = Message.builder()
-                    .routingKey(RoutingKey.create("/route/test"))
+                    .destination(Destination.create("/route/test"))
                     .priority(Priority.DEFAULT)
                     .body(buffer.getBytes())
                     .producerId(IdGenerator.uuid())

@@ -24,19 +24,39 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec.stomp;
 
 import lombok.Builder;
+import lombok.Getter;
+import org.traffichunter.titan.core.channel.Subscription;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
-import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 
 /**
  * @author yun
  */
-@Builder
-public record Subscription(
-        RoutingKey key,
-        String id,
-        String ackMode,
-        Handler<StompFrame> handler,
-        StompClientConnection channel
-) {
+@Getter
+public class StompServerSubscription extends Subscription implements StompSubscription {
+
+    private final String ackMode;
+    private final StompClientConnection connection;
+
+    @Builder
+    public StompServerSubscription(
+            Destination destination,
+            String id,
+            String ackMode,
+            StompClientConnection connection
+    ) {
+        super(destination, id);
+        this.ackMode = ackMode;
+        this.connection = connection;
+    }
+
+    @Override
+    public String id() {
+        return getId();
+    }
+
+    @Override
+    public Destination destination() {
+        return getDestination();
+    }
 }

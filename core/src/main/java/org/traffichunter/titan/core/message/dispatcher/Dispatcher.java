@@ -23,10 +23,9 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.List;
-
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 
 /**
  * @author yungwang-o
@@ -37,23 +36,12 @@ public interface Dispatcher {
         return new TrieDispatcher();
     }
 
-    /**
-     * @param key routing key
-     * @return null
-     */
-    @Nullable DispatcherQueue find(RoutingKey key);
+    @Nullable DispatcherQueue get(Destination destination);
 
-    boolean exists(RoutingKey key);
+    @CanIgnoreReturnValue
+    DispatcherQueue getOrPut(Destination destination);
 
-    /**
-     * @param key routing key
-     * @param queue value
-     */
-    void insert(RoutingKey key, DispatcherQueue queue);
+    boolean exists(Destination destination);
 
-    void remove(RoutingKey key);
-
-    void update(RoutingKey originKey, RoutingKey updateKey);
-
-    List<DispatcherQueue> dispatch(RoutingKey key);
+    void remove(Destination destination);
 }

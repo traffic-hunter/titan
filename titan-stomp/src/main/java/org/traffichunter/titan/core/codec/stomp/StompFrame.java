@@ -56,17 +56,17 @@ public final class StompFrame implements Frame<Elements, String> {
 
     private final StompCommand command;
 
-    private final @Nullable Buffer body;
+    private final Buffer body;
 
     private StompFrame(final StompHeaders headers, final StompCommand command) {
         this(headers, command, new byte[] {});
     }
 
-    private StompFrame(final StompHeaders headers, final StompCommand command, final byte @Nullable [] body) {
+    private StompFrame(final StompHeaders headers, final StompCommand command, final byte [] body) {
         this(headers, command, Buffer.alloc(body));
     }
 
-    private StompFrame(final StompHeaders headers, final StompCommand command, @Nullable final Buffer body) {
+    private StompFrame(final StompHeaders headers, final StompCommand command, final Buffer body) {
         this.headers = headers;
         this.command = command;
         this.body = body;
@@ -116,9 +116,7 @@ public final class StompFrame implements Frame<Elements, String> {
         );
         buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
 
-        if(body != null) {
-            buffer.accumulateBuffer(body);
-        }
+        buffer.accumulateBuffer(body);
         buffer.accumulateString(StompDelimiter.NUL.getString());
 
         return buffer;
@@ -154,17 +152,7 @@ public final class StompFrame implements Frame<Elements, String> {
         }
         sb.append(StompDelimiter.CR.getCharacter()).append(StompDelimiter.LF.getCharacter());
 
-        if(body != null) {
-            if (isLogging && body.length() >= 100) {
-                String loggingStr = body.toString();
-
-                String pre = loggingStr.substring(0, 30);
-                String post = loggingStr.substring(body.length() - 30);
-                sb.append(pre).append(".............").append(post);
-            } else {
-                sb.append(body);
-            }
-        }
+        logging(isLogging, sb);
 
         sb.append(StompDelimiter.NUL.getCharacter());
         return sb.toString();
@@ -286,6 +274,18 @@ public final class StompFrame implements Frame<Elements, String> {
         String AUTO = "auto";
         String CLIENT = "client";
         String CLIENT_INDIVIDUAL = "client-individual";
+    }
+
+    private void logging(boolean isLogging, StringBuilder sb) {
+        if (isLogging && body.length() >= 100) {
+            String loggingStr = body.toString();
+
+            String pre = loggingStr.substring(0, 30);
+            String post = loggingStr.substring(body.length() - 30);
+            sb.append(pre).append(".............").append(post);
+        } else {
+            sb.append(body);
+        }
     }
 
     public static class StompFrameException extends StompException {

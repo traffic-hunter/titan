@@ -23,12 +23,17 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -37,63 +42,33 @@ import org.traffichunter.titan.core.util.RoutingKey;
 @Slf4j
 public class MapDispatcher implements Dispatcher {
 
-    private final Map<RoutingKey, DispatcherQueue> map;
+    private final Map<Destination, DispatcherQueue> map;
 
     public MapDispatcher(final int initialCapacity) {
         this(new ConcurrentHashMap<>(initialCapacity));
     }
 
-    public MapDispatcher(final Map<RoutingKey, DispatcherQueue> map) {
+    public MapDispatcher(final Map<Destination, DispatcherQueue> map) {
         this.map = map;
     }
 
     @Override
-    public DispatcherQueue find(final RoutingKey key) {
-        if(exists(key)) {
-            return map.get(key);
-        }
-
-        return null;
+    public @Nullable DispatcherQueue get(Destination destination) {
+        return map.get(destination);
     }
 
     @Override
-    public boolean exists(final RoutingKey key) {
-        return map.containsKey(key);
+    public DispatcherQueue getOrPut(final Destination destination) {
+        return map.putIfAbsent(destination, DispatcherQueue.create(destination));
     }
 
     @Override
-    public void insert(final RoutingKey key, final DispatcherQueue queue) {
-        if(map.containsKey(key)) {
-            log.error("Duplicate key: {}", key);
-            return;
-        }
-
-        map.put(key, queue);
+    public boolean exists(final Destination destination) {
+        return map.containsKey(destination);
     }
 
     @Override
-    public void remove(final RoutingKey key) {
-        map.remove(key);
-    }
-
-    @Override
-    public void update(final RoutingKey originKey, final RoutingKey updateKey) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<DispatcherQueue> dispatch(final RoutingKey key) {
-
-        String routingKey = key.getKey();
-
-        int lastIdx = routingKey.lastIndexOf("*");
-
-        String prefixRoutingKey = routingKey.substring(0, lastIdx - 1);
-
-        return map.keySet()
-                .stream()
-                .filter(mapKey -> mapKey.startsWith(prefixRoutingKey))
-                .map(map::get)
-                .toList();
+    public void remove(Destination destination) {
+        map.remove(destination);
     }
 }

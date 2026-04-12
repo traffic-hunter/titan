@@ -29,7 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import org.traffichunter.titan.core.codec.base64.Base64Codec;
-import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.Clearable;
 
 /**
  * @author yungwang-o

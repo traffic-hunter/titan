@@ -21,12 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.buffer;
+package org.traffichunter.titan.core.channel.stomp;
 
-/**
- * @author yungwang-o
- */
-public interface Clearable {
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
 
-    void clear();
+public record StompServerEvent(StompFrame frame, StompClientConnection connection) {
 }

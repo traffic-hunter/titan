@@ -24,8 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel.stomp;
 
 import java.io.IOException;
-import java.net.SocketAddress;
-import java.net.SocketOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -33,20 +31,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.jspecify.annotations.Nullable;
+
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
+import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.codec.stomp.Subscription;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
 import org.traffichunter.titan.core.concurrent.Completable;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
-import org.traffichunter.titan.core.util.RoutingKey;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
@@ -58,19 +56,17 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  */
 public class StompClientConnectionImpl implements StompClientConnection {
 
-    private static final int MAX_SUBSCRIBER = 100;
-
     private final String sessionId = IdGenerator.uuid();
     private final NetChannel netChannel;
     private final StompClientHandler stompClientHandler;
     private final StompClientOption option;
 
-    private final Map<String, Subscription> subscriptions = new HashMap<>(MAX_SUBSCRIBER);
+    private final StompSubscriptions<StompClientSubscription> subscriptions = new StompSubscriptions<>();
     private final Map<Long, ScheduledPromise<?>> pingPongTaskMap = new HashMap<>();
     private final Map<String, Promise<Void>> receiptMap = new HashMap<>();
     private final AtomicLong timer = new AtomicLong();
 
-    private @Nullable Promise<Void> connectPromise;
+    private final Promise<Void> connectPromise;
     private volatile boolean stompConnected;
 
     private long pingTimer = -1;
@@ -80,17 +76,35 @@ public class StompClientConnectionImpl implements StompClientConnection {
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompClientOption option
     ) throws IOException {
-        this(NetChannel.open(channelHandShakeEventListener), option);
+        this(NetChannel.open(channelHandShakeEventListener), option, handler -> {});
+    }
+
+    StompClientConnectionImpl(
+            ChannelHandShakeEventListener channelHandShakeEventListener,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) throws IOException {
+        this(NetChannel.open(channelHandShakeEventListener), option, clientHandlerConfigurer);
     }
 
     StompClientConnectionImpl(NetChannel netChannel, StompClientOption option) {
+        this(netChannel, option, handler -> {});
+    }
+
+    StompClientConnectionImpl(
+            NetChannel netChannel,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) {
         this.netChannel = netChannel;
-        this.stompClientHandler = new StompClientHandler();
+        this.stompClientHandler = StompClientHandler.create();
+        clientHandlerConfigurer.handle(this.stompClientHandler);
         this.option = option;
+        this.connectPromise = Promise.newPromise(eventLoop());
     }
 
     @Override
-    public Channel channel() {
+    public NetChannel channel() {
         return netChannel;
     }
 
@@ -256,29 +270,24 @@ public class StompClientConnectionImpl implements StompClientConnection {
 
     @Override
     public Promise<StompFrame> subscribe(String destination, StompHeaders headers, Handler<StompFrame> handler) {
-        String id = headers.getOrDefault(Elements.ID, IdGenerator.uuid());
+        String id = headers.getOrDefault(Elements.ID, destination);
 
-        String ackMode = headers.get(Elements.ACK);
-        if (ackMode == null) {
-            ackMode = AckMode.AUTO;
-        }
-
-        if (subscriptions.containsKey(id)) {
+        if (subscriptions.find(id) != null) {
             return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Subscription already exists"));
         }
 
-        Subscription subscription = Subscription.builder()
+        StompClientSubscription stompSubscription = StompClientSubscription.builder()
                 .id(id)
-                .ackMode(ackMode)
+                .destination(destination)
                 .handler(handler)
-                .key(RoutingKey.create(destination))
-                .channel(this)
                 .build();
 
-        subscriptions.put(id, subscription);
+        subscriptions.register(stompSubscription);
 
+        if(!headers.containsKey(Elements.ID)) {
+            headers.put(Elements.ID, id);
+        }
         headers.put(Elements.DESTINATION, destination);
-        headers.put(Elements.ID, id);
 
         return send(create(headers, StompCommand.SUBSCRIBE));
     }
@@ -295,12 +304,12 @@ public class StompClientConnectionImpl implements StompClientConnection {
             return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Missing id header"));
         }
 
-        Subscription subscription = subscriptions.get(id);
-        if (subscription == null) {
+        StompClientSubscription stompSubscription = subscriptions.find(id);
+        if (stompSubscription == null) {
             return Promise.failedPromise(netChannel.eventLoop(), new StompNetChannelException("Subscription already not exists"));
         }
 
-        subscriptions.remove(id);
+        subscriptions.unregister(id);
         return send(create(headers, StompCommand.UNSUBSCRIBE));
     }
 
@@ -310,8 +319,8 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public List<Subscription> subscriptions() {
-        return subscriptions.values().stream().toList();
+    public List<StompClientSubscription> subscriptions() {
+        return subscriptions.values();
     }
 
     @Override
@@ -332,23 +341,6 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public void registerInboundSubscription(String id, String destination, String ackMode) {
-        Subscription subscription = Subscription.builder()
-                .id(id)
-                .ackMode(ackMode)
-                .key(RoutingKey.create(destination))
-                .channel(this)
-                .build();
-
-        subscriptions.put(id, subscription);
-    }
-
-    @Override
-    public void removeInboundSubscription(String id) {
-        subscriptions.remove(id);
-    }
-
-    @Override
     public void receipt(String receiptId) {
         if (receiptId.isBlank()) {
             return;
@@ -362,43 +354,46 @@ public class StompClientConnectionImpl implements StompClientConnection {
 
     @Override
     public void connected() {
-        if(netChannel.isConnected()) {
+        if(netChannel.isConnected() && !stompConnected) {
             stompConnected = true;
         }
 
-        Promise<Void> promise = connectPromise;
-        if (promise != null && !promise.isDone()) {
-            promise.success();
+        if (!connectPromise.isDone()) {
+            connectPromise.success();
         }
     }
 
     @Override
     public void failConnect(Throwable error) {
-        Promise<Void> promise = connectPromise;
-        if (promise != null && !promise.isDone()) {
-            promise.fail(error);
+        if (!connectPromise.isDone()) {
+            connectPromise.fail(error);
         }
     }
 
     @Override
-    public StompHandler handler() {
+    public Promise<Void> connectedPromise() {
+        return connectPromise;
+    }
+
+    @Override
+    public StompClientHandler handler() {
         return stompClientHandler;
     }
 
     @Override
     public boolean isConnected() {
-        return netChannel.isConnected();
+        return netChannel.isConnected() && stompConnected;
     }
 
     @Override
     public void close() {
+        stompConnected = false;
         cancelHeartbeat();
         failConnect(new StompNetChannelException("Channel closed before STOMP connect completed"));
         receiptMap.values().forEach(promise ->
                 promise.fail(new StompNetChannelException("Channel closed before receipt received")));
         receiptMap.clear();
         pingPongTaskMap.clear();
-        subscriptions.clear();
         netChannel.close();
     }
 
@@ -469,6 +464,8 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     private IOEventLoop eventLoop() {
+        Assert.checkNotNull(netChannel, "netChannel is null");
+
         return netChannel.eventLoop();
     }
 

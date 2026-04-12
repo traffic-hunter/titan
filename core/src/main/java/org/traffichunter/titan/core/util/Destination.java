@@ -23,47 +23,40 @@
  */
 package org.traffichunter.titan.core.util;
 
-import java.util.Objects;
 import java.util.regex.Pattern;
-import lombok.Getter;
 
 /**
  * @author yungwang-o
  */
-@Getter
-public final class RoutingKey {
+public record Destination(String path) {
 
     private static final Pattern ROUTING_KEY_PATTERN =
             Pattern.compile("^/([a-zA-Z0-9_-]+)(/([a-zA-Z0-9_-]+))*(/\\*)?$");
 
-    private final String key;
-
-    private RoutingKey(final String key) {
-        if(!matchKey(key)) {
-            throw new IllegalArgumentException("Invalid routing key: " + key);
+    public Destination {
+        if(!matchKey(path)) {
+            throw new IllegalArgumentException("Invalid routing key: " + path);
         }
-
-        this.key = key;
     }
 
-    public static RoutingKey create(final String routingKey) {
-        return new RoutingKey(routingKey);
+    public static Destination create(final String routingKey) {
+        return new Destination(routingKey);
     }
 
     public boolean startsWith(final String prefix) {
-       return key.startsWith(prefix);
+       return path.startsWith(prefix);
     }
 
-    public boolean startsWith(final RoutingKey prefix) {
-        return key.startsWith(prefix.key);
+    public boolean startsWith(final Destination prefix) {
+        return path.startsWith(prefix.path);
     }
 
     public boolean contains(final String routingKey) {
-        return key.contains(routingKey);
+        return path.contains(routingKey);
     }
 
-    public boolean contains(final RoutingKey prefix) {
-        return key.contains(prefix.key);
+    public boolean contains(final Destination prefix) {
+        return path.contains(prefix.path);
     }
 
     private boolean matchKey(final String key) {
@@ -71,23 +64,7 @@ public final class RoutingKey {
     }
 
     @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof RoutingKey key1)) {
-            return false;
-        }
-        return Objects.equals(getKey(), key1.getKey());
-    }
-
-    @Override
     public String toString() {
-        return key;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(getKey());
+        return "{ destination = " + path + " }";
     }
 }

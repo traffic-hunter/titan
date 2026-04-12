@@ -48,7 +48,7 @@ public interface NetworkServerEngineProvider {
                 .toList();
 
         if (providers.size() == 1) {
-            return providers.get(0);
+            return providers.getFirst();
         }
 
         if (providers.isEmpty()) {

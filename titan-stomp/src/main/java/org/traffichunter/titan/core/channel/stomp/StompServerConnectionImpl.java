@@ -25,13 +25,14 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.traffichunter.titan.core.channel.*;
+import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
+import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -46,6 +47,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     private final StompServerOption option;
     private final Map<String, StompClientConnection> connections = new ConcurrentHashMap<>();
     private final AtomicInteger roundRobinSequence = new AtomicInteger();
+    private final StompSubscriptions<StompServerSubscription> subscriptions = new StompSubscriptions<>();
 
     StompServerConnectionImpl(
             ChannelHandShakeEventListener channelHandShakeEventListener,
@@ -93,12 +95,12 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public void registerConnection(StompClientConnection connection) {
+    public void register(StompClientConnection connection) {
         connections.put(connection.session(), connection);
     }
 
     @Override
-    public void unregisterConnection(String sessionId) {
+    public void unregister(String sessionId) {
         connections.remove(sessionId);
     }
 
@@ -108,13 +110,23 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public Collection<StompClientConnection> connections() {
+    public List<StompClientConnection> connections() {
         return List.copyOf(connections.values());
     }
 
     @Override
-    public int connectionCount() {
-        return connections.size();
+    public StompClientConnection connection() {
+        StompClientConnection stompClientConnection = nextConnection();
+        if (stompClientConnection == null) {
+            throw new StompNetServeChannelException("No active STOMP client connection");
+        }
+
+        return stompClientConnection;
+    }
+
+    @Override
+    public StompSubscriptions<StompServerSubscription> subscriptions() {
+        return subscriptions;
     }
 
     @Override
@@ -168,7 +180,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     private boolean isActive(StompClientConnection connection) {
         Channel channel = connection.channel();
         if (channel.isClosed() || !channel.isActive()) {
-            unregisterConnection(connection.session());
+            unregister(connection.session());
             return false;
         }
 
@@ -176,11 +188,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     private NetChannel asNetChannel(StompClientConnection connection) {
-        Channel channel = connection.channel();
-        if (!(channel instanceof NetChannel netChannel)) {
-            throw new StompNetServeChannelException("Unsupported channel type: " + channel.getClass().getName());
-        }
-        return netChannel;
+        return connection.channel();
     }
 
     private NetServerChannel requireServerChannel() {

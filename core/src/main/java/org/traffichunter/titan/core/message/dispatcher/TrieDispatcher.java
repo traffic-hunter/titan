@@ -23,10 +23,8 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.List;
-
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.util.RoutingKey;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
 
@@ -37,37 +35,36 @@ public class TrieDispatcher implements Dispatcher {
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
 
+    @Override
+    public @Nullable DispatcherQueue get(Destination destination) {
+        return trie.get(destination.path());
+    }
+
     /**
-     * @param key routingKey
+     * @param destination routingKey
      * @return null
      */
     @Override
-    public @Nullable DispatcherQueue find(final RoutingKey key) {
-        return trie.get(key.getKey());
+    public @Nullable DispatcherQueue getOrPut(final Destination destination) {
+        DispatcherQueue v = trie.get(destination.path());
+        if (v == null) {
+            v = trie.insert(destination.path(), DispatcherQueue.create(destination));
+        }
+
+        return v;
     }
 
     @Override
-    public boolean exists(final RoutingKey key) {
-        return trie.startsWith(key.getKey());
+    public boolean exists(final Destination destination) {
+        return trie.startsWith(destination.path());
+    }
+
+    public boolean startsWith(final Destination destination) {
+        return trie.startsWith(destination.path());
     }
 
     @Override
-    public void insert(final RoutingKey key, final DispatcherQueue queue) {
-        trie.insert(key.getKey(), queue);
-    }
-
-    @Override
-    public void remove(final RoutingKey key) {
-        trie.remove(key.getKey());
-    }
-
-    @Override
-    public void update(final RoutingKey originKey, final RoutingKey updateKey) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<DispatcherQueue> dispatch(final RoutingKey key) {
-        return trie.searchAll(key.getKey());
+    public void remove(Destination destination) {
+        trie.remove(destination.path());
     }
 }

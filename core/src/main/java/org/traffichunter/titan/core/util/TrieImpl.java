@@ -48,7 +48,7 @@ public final class TrieImpl<T> implements Trie<T> {
     private final Lock wLock = lock.writeLock();
 
     @Override
-    public void insert(final String word, final T value) {
+    public T insert(final String word, final T value) {
         String[] split = word.split("/");
 
         wLock.lock();
@@ -62,7 +62,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
                 current = current.children.computeIfAbsent(str, k -> new Node<>());
             }
-            current.value = value;
+            return current.value = value;
         } finally {
             wLock.unlock();
         }

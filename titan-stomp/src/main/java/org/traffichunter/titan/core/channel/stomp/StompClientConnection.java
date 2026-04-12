@@ -24,6 +24,7 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
@@ -44,15 +45,34 @@ public interface StompClientConnection extends StompConnection {
             ChannelHandShakeEventListener handShakeEventListener,
             StompClientOption option
     ) throws IOException {
-        return new StompClientConnectionImpl(handShakeEventListener, option);
+        return open(handShakeEventListener, option, handler -> {});
+    }
+
+    static StompClientConnection open(
+            ChannelHandShakeEventListener handShakeEventListener,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) throws IOException {
+        return new StompClientConnectionImpl(handShakeEventListener, option, clientHandlerConfigurer);
     }
 
     static StompClientConnection wrap(
             NetChannel netChannel,
             StompClientOption option
     ) {
-        return new StompClientConnectionImpl(netChannel, option);
+        return wrap(netChannel, option, handler -> {});
     }
+
+    static StompClientConnection wrap(
+            NetChannel netChannel,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) {
+        return new StompClientConnectionImpl(netChannel, option, clientHandlerConfigurer);
+    }
+
+    @Override
+    NetChannel channel();
 
     @CanIgnoreReturnValue
     Promise<StompFrame> disconnect();
@@ -123,24 +143,19 @@ public interface StompClientConnection extends StompConnection {
     @CanIgnoreReturnValue
     Promise<StompFrame> error(StompFrame frame);
 
-    StompHandler handler();
+    StompClientHandler handler();
 
-    /**
-     * @return read-only list
-     */
-    List<Subscription> subscriptions();
+    List<StompClientSubscription> subscriptions();
 
     void setHeartbeat(long ping, long pong, Runnable handler);
-
-    void registerInboundSubscription(String id, String destination, String ackMode);
-
-    void removeInboundSubscription(String id);
 
     void receipt(String receiptId);
 
     void connected();
 
     void failConnect(Throwable error);
+
+    Promise<Void> connectedPromise();
 
     boolean isConnected();
 }
