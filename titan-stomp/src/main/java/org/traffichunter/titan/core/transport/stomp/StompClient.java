@@ -61,11 +61,17 @@ public final class StompClient {
     private @Nullable StompClientConnection connection;
 
     private StompClient(
-            InetClient inetClient,
+            EventLoopGroups groups,
             StompClientOption option,
+            Consumer<NetChannel> optionApplier,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
-        this.inetClient = inetClient;
+
+        this.inetClient = InetClient.builder()
+                .group(groups)
+                .option(optionApplier)
+                .build();
+
         this.option = option;
         this.clientHandlerConfigurer = clientHandlerConfigurer;
     }
@@ -242,12 +248,12 @@ public final class StompClient {
         public StompClient build() {
             Assert.checkNotNull(groups, "groups cannot be null");
 
-            InetClient inetClient = InetClient.builder()
-                    .group(groups)
-                    .option(optionApplier)
-                    .build();
-
-            return new StompClient(inetClient, option, stompClientHandler);
+            return new StompClient(
+                    groups,
+                    option,
+                    optionApplier,
+                    stompClientHandler
+            );
         }
     }
 }

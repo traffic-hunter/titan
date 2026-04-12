@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -33,6 +32,7 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.channel.stomp.StompServerConnection;
 import org.traffichunter.titan.core.channel.stomp.StompServerHandler;
+import org.traffichunter.titan.core.channel.stomp.StompServerHandlerImpl;
 import org.traffichunter.titan.core.codec.stomp.StompChannelDecoder;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
@@ -55,13 +55,40 @@ public final class StompServer {
     private final StompServerConnection serverConnection;
 
     private StompServer(
-            InetServer inetServer,
-            StompServerConnection serverConnection,
-            StompServerOption option
+            EventLoopGroups groups,
+            StompServerOption option,
+            InetServerOption inetServerOption,
+            StompClientOption childOption,
+            Handler<StompServerHandler> stompServerHandlerConfigurer
     ) {
-        this.serverConnection = serverConnection;
-        this.inetServer = inetServer;
         this.option = option;
+
+        StompServerConnection stompServerConnection = StompServerConnection.create(option);
+        StompClientOption acceptedConnectionOption = serverChildSessionOption(option, childOption);
+        StompServerHandler stompServerHandler = new StompServerHandlerImpl(stompServerConnection);
+        stompServerHandlerConfigurer.handle(stompServerHandler);
+
+        InetServer stompInetServer = InetServer.builder()
+                .group(groups)
+                .options(inetServerOption)
+                .channelHandler(channel -> {
+                    if (!(channel instanceof NetChannel netChannel)) {
+                        throw new IllegalArgumentException("Unsupported channel: " + channel);
+                    }
+
+                    StompClientConnection stompConnection =
+                            StompClientConnection.wrap(netChannel, acceptedConnectionOption);
+                    stompServerConnection.register(stompConnection);
+
+                    netChannel.chain()
+                            .add(new StompChannelDecoder(option.maxBodyLength(), stompConnection, stompServerHandler));
+                })
+                .build();
+
+        stompServerConnection.bind(stompInetServer.channel());
+
+        this.serverConnection = stompServerConnection;
+        this.inetServer = stompInetServer;
     }
 
     public static Builder builder() {
@@ -84,12 +111,6 @@ public final class StompServer {
 
     public StompServerConnection connection() {
         return serverConnection;
-    }
-
-    public void handler(Consumer<StompClientConnection> connection) {
-        StompClientConnection clientConnection = this.serverConnection.connection();
-
-        connection.accept(clientConnection);
     }
 
     public boolean isStart() {
@@ -121,6 +142,16 @@ public final class StompServer {
                         resultPromise.fail(new StompException("Failed to listen on address " + address, listenFuture.error()));
                     }
                 });
+    }
+
+    private static StompClientOption serverChildSessionOption(StompServerOption option, StompClientOption childOption) {
+        return StompClientOption.builder()
+                .version(option.stompVersion())
+                .autoComputeContentLength(childOption.autoComputeContentLength())
+                .heartbeatX(option.heartbeatX())
+                .heartbeatY(option.heartbeatY())
+                .maxFrameLength(option.maxBodyLength())
+                .build();
     }
 
     public static final class Builder {
@@ -158,8 +189,8 @@ public final class StompServer {
             return this;
         }
 
-        public Builder handler(Handler<StompServerHandler> stompServerHandlerHandler) {
-            this.stompServerHandler = stompServerHandlerHandler;
+        public Builder handler(Handler<StompServerHandler> serverHandlerHandler) {
+            this.stompServerHandler = serverHandlerHandler;
             return this;
         }
 
@@ -167,47 +198,13 @@ public final class StompServer {
             Assert.checkNotNull(groups, "groups cannot be null");
             Assert.checkNotNull(option, "option cannot be null");
 
-            StompServerConnection stompServerConnection = StompServerConnection.create(option);
-            StompClientOption acceptedConnectionOption = serverChildSessionOption();
-            StompServerHandler stompServerHandler = StompServerHandler.create(stompServerConnection);
-            this.stompServerHandler.handle(stompServerHandler);
-
-            InetServer inetServer = InetServer.builder()
-                    .group(groups)
-                    .options(inetServerOption)
-                    .channelHandler(channel -> {
-                        if (!(channel instanceof NetChannel netChannel)) {
-                            throw new IllegalArgumentException("Unsupported channel: " + channel);
-                        }
-
-                        StompClientConnection stompConnection =
-                                StompClientConnection.wrap(netChannel, acceptedConnectionOption);
-                        stompServerConnection.register(stompConnection);
-
-                        netChannel.chain()
-                                .add(new StompChannelDecoder(option.maxBodyLength(), stompConnection, stompServerHandler));
-                    })
-                    .build();
-
-            stompServerConnection.bind(inetServer.channel());
-
             return new StompServer(
-                    inetServer,
-                    stompServerConnection,
-                    option
+                    groups,
+                    option,
+                    inetServerOption,
+                    childOption,
+                    stompServerHandler
             );
-        }
-
-        private StompClientOption serverChildSessionOption() {
-            Assert.checkNotNull(option, "option cannot be null");
-
-            return StompClientOption.builder()
-                    .version(option.stompVersion())
-                    .autoComputeContentLength(childOption.autoComputeContentLength())
-                    .heartbeatX(option.heartbeatX())
-                    .heartbeatY(option.heartbeatY())
-                    .maxFrameLength(option.maxBodyLength())
-                    .build();
         }
     }
 }

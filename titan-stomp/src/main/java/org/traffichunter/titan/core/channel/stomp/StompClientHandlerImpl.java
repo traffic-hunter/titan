@@ -23,12 +23,15 @@
  */
 package org.traffichunter.titan.core.channel.stomp;
 
+import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.util.Handler;
 
 public final class StompClientHandlerImpl implements StompClientHandler {
 
     private final StompClientHandlerContext context = new StompClientHandlerContext();
+
     private Handler<StompClientEvent> receivedFrameHandler = event -> {};
     private StompClientCommandHandler connectedHandler = new DefaultStompClientHandlers.DefaultConnectedHandler();
     private StompClientCommandHandler messageHandler = new DefaultStompClientHandlers.DefaultMessageHandler();
@@ -86,5 +89,65 @@ public final class StompClientHandlerImpl implements StompClientHandler {
     public StompClientHandler pingHandler(StompClientCommandHandler handler) {
         this.pingHandler = handler;
         return this;
+    }
+
+    private static final class DefaultStompClientHandlers {
+
+        static final class DefaultConnectedHandler implements StompClientCommandHandler {
+            @Override
+            public void handle(StompClientEvent event, StompClientHandlerContext context) {
+                StompFrame frame = event.frame();
+                StompClientConnection connection = event.connection();
+                connection.connected();
+
+                String heartbeat = frame.getHeader(StompHeaders.Elements.HEART_BEAT);
+                if (heartbeat != null) {
+                    StompFrame.HeartBeat server = StompFrame.HeartBeat.doParse(heartbeat);
+                    long ping = StompFrame.HeartBeat.computePingClientToServer(StompFrame.HeartBeat.DEFAULT, server);
+                    long pong = StompFrame.HeartBeat.computePongServerToClient(StompFrame.HeartBeat.DEFAULT, server);
+                    connection.setHeartbeat(ping, pong, () -> connection.send(StompFrame.PING));
+                }
+            }
+        }
+
+        static final class DefaultMessageHandler implements StompClientCommandHandler {
+            @Override
+            public void handle(StompClientEvent event, StompClientHandlerContext context) {
+                StompFrame frame = event.frame();
+                StompClientConnection connection = event.connection();
+                String id = frame.getHeader(StompHeaders.Elements.SUBSCRIPTION);
+                connection.subscriptions()
+                        .stream()
+                        .filter(subscription -> subscription.id().equals(id))
+                        .forEach(subscription -> subscription.getHandler().handle(frame));
+            }
+        }
+
+        static final class DefaultReceiptHandler implements StompClientCommandHandler {
+            @Override
+            public void handle(StompClientEvent event, StompClientHandlerContext context) {
+                String receiptId = event.frame().getHeader(StompHeaders.Elements.RECEIPT_ID);
+                if (receiptId != null) {
+                    event.connection().receipt(receiptId);
+                }
+            }
+        }
+
+        static final class DefaultErrorHandler implements StompClientCommandHandler {
+            @Override
+            public void handle(StompClientEvent event, StompClientHandlerContext context) {
+                StompClientConnection connection = event.connection();
+                connection.failConnect(new StompException("Received ERROR frame from server"));
+                connection.error(event.frame());
+            }
+        }
+
+        static final class DefaultPingHandler implements StompClientCommandHandler {
+            @Override
+            public void handle(StompClientEvent event, StompClientHandlerContext context) {
+            }
+        }
+
+        private DefaultStompClientHandlers() {}
     }
 }

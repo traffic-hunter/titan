@@ -30,10 +30,6 @@ import org.traffichunter.titan.core.util.Handler;
  */
 public interface StompServerHandler extends StompHandler {
 
-    static StompServerHandler create(StompServerConnection serverConnection) {
-        return new StompServerHandlerImpl(serverConnection);
-    }
-
     StompServerHandler receivedFrameHandler(Handler<StompServerEvent> handler);
 
     StompServerHandler connectHandler(StompServerCommandHandler handler);
