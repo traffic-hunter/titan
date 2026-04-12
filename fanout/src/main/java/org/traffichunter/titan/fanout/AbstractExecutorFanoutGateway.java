@@ -159,7 +159,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                     try {
                         Message message = dispatcherQueue.dispatch();
 
-                        exporter.send(destination, message);
+                        exporter.export(destination, message);
                     } catch (InterruptedException e) {
                         log.error("Interrupted while waiting for message to be delivered", e);
                         Thread.currentThread().interrupt();

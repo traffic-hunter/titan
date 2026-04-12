@@ -24,20 +24,23 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout.exporter;
 
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.FanoutResult;
+import org.traffichunter.titan.fanout.CompletableResult;
+
+import java.util.List;
 
 /**
  * @author yun
  */
-public class InetServerFanoutExporter implements FanoutExporter {
+public class TcpFanoutExporter implements FanoutExporter {
 
     private final InetServer inetServer;
 
-    public InetServerFanoutExporter(InetServer inetServer) {
+    public TcpFanoutExporter(InetServer inetServer) {
         this.inetServer = Assert.checkNotNull(inetServer, "inetServer");
     }
 
@@ -47,44 +50,35 @@ public class InetServerFanoutExporter implements FanoutExporter {
     }
 
     @Override
-    public FanoutResult send(Destination destination, Buffer payload) {
+    public CompletableResult export(Destination destination, Buffer payload) {
         Assert.checkState(inetServer.isStart(), "Cannot send an unstarted inet server");
 
-        int matched = 0;
-        int success = 0;
-        int failure = 0;
-
+        int attempted = 0;
+        int succeeded = 0;
+        int failed = 0;
         for (NetChannel channel : inetServer.connections().stream().toList()) {
             if (!channel.isActive() || channel.isClosed()) {
                 continue;
             }
 
-            matched++;
+            attempted++;
             Buffer copiedPayload = payload.copy();
             try {
                 channel.writeAndFlush(copiedPayload);
-                success++;
+                succeeded++;
             } catch (Exception e) {
                 copiedPayload.release();
-                failure++;
+                failed++;
             }
         }
 
-        return new FanoutResult(destination, matched, success, failure);
-    }
-
-    @Override
-    public boolean isOpen() {
-        return inetServer.isStart();
-    }
-
-    @Override
-    public boolean isClose() {
-        return inetServer.isShutdown();
-    }
-
-    @Override
-    public void close() {
-        inetServer.shutdown();
+        Promise<CompletableResult> resultPromise = Promise.newPromise(inetServer.channel().eventLoop());
+        return CompletableResult.completed(
+                List.of(destination),
+                attempted,
+                succeeded,
+                failed,
+                resultPromise
+        );
     }
 }

@@ -34,15 +34,15 @@ import java.util.concurrent.ThreadFactory;
 /**
  * @author yun
  */
-class VirtualThreadBasedFanoutGateway extends AbstractExecutorFanoutGateway {
+class VirtualThreadExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
 
     private static final int DEFAULT_CONCURRENCY_LIMIT = 100;
 
-    public VirtualThreadBasedFanoutGateway(FanoutExporter exporter) {
+    public VirtualThreadExecutorFanoutGateway(FanoutExporter exporter) {
         this(exporter, Dispatcher.getDefault());
     }
 
-    public VirtualThreadBasedFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
+    public VirtualThreadExecutorFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
         super(
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,

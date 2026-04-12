@@ -32,17 +32,17 @@ import java.util.concurrent.ThreadFactory;
 /**
  * @author yun
  */
-class ThreadPoolBasedFanoutGateway extends AbstractExecutorFanoutGateway {
+class ThreadPoolExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
 
-    public ThreadPoolBasedFanoutGateway(FanoutExporter exporter) {
+    public ThreadPoolExecutorFanoutGateway(FanoutExporter exporter) {
         this(exporter, Dispatcher.getDefault());
     }
 
-    public ThreadPoolBasedFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
+    public ThreadPoolExecutorFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
         this(Runtime.getRuntime().availableProcessors() * 2, exporter, dispatcher);
     }
 
-    public ThreadPoolBasedFanoutGateway(int nThreads, FanoutExporter exporter, Dispatcher dispatcher) {
+    public ThreadPoolExecutorFanoutGateway(int nThreads, FanoutExporter exporter, Dispatcher dispatcher) {
         super(Executors.newFixedThreadPool(nThreads, newThreadFactory()), exporter, dispatcher);
     }
 

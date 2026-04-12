@@ -28,29 +28,25 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.inet.Frame;
-import org.traffichunter.titan.fanout.FanoutResult;
+import org.traffichunter.titan.fanout.CompletableResult;
 
 /**
  * @author yun
  */
-public interface FanoutExporter extends AutoCloseable {
+public interface FanoutExporter {
 
     String name();
 
     @CanIgnoreReturnValue
-    default FanoutResult send(Destination destination, Frame<?, ?> payload) {
-        return send(destination, payload.toBuffer());
+    default CompletableResult export(Destination destination, Frame<?, ?> payload) {
+        return export(destination, payload.toBuffer());
     }
 
     @CanIgnoreReturnValue
-    default FanoutResult send(Destination destination, Message payload) {
-        return send(destination, Buffer.alloc(payload.getBody()));
+    default CompletableResult export(Destination destination, Message payload) {
+        return export(destination, Buffer.alloc(payload.getBody()));
     }
 
     @CanIgnoreReturnValue
-    FanoutResult send(Destination destination, Buffer payload);
-
-    boolean isOpen();
-
-    boolean isClose();
+    CompletableResult export(Destination destination, Buffer payload);
 }

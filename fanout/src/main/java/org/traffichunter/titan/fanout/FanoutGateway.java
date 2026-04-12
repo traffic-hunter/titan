@@ -37,11 +37,11 @@ import java.util.concurrent.Future;
 public interface FanoutGateway extends AutoCloseable {
 
     static FanoutGateway ofThread(FanoutExporter exporter) {
-        return new ThreadPoolBasedFanoutGateway(exporter);
+        return new ThreadPoolExecutorFanoutGateway(exporter);
     }
 
     static FanoutGateway ofVirtual(FanoutExporter exporter) {
-        return new VirtualThreadBasedFanoutGateway(exporter);
+        return new VirtualThreadExecutorFanoutGateway(exporter);
     }
 
     List<Future<Void>> fanout(Collection<Destination> destinations);
