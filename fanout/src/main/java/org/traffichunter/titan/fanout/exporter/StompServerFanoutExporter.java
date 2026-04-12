@@ -24,9 +24,14 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout.exporter;
 
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
+import org.traffichunter.titan.core.codec.stomp.StompCommand;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.fanout.FanoutResult;
 
@@ -61,9 +66,16 @@ public class StompServerFanoutExporter implements FanoutExporter {
         for(StompServerSubscription subscription : subscriptions) {
             Buffer payload = message.copy();
             try {
-                subscription.getConnection()
-                        .channel()
-                        .writeAndFlush(payload);
+                StompFrame frame = StompFrame.create(
+                        StompHeaders.create(),
+                        StompCommand.MESSAGE,
+                        payload
+                );
+                frame.addHeader(Elements.DESTINATION, destination.path());
+                frame.addHeader(Elements.SUBSCRIPTION, subscription.id());
+                frame.addHeader(Elements.MESSAGE_ID, IdGenerator.uuid());
+
+                subscription.getConnection().send(frame);
                 success++;
             } catch (Exception e) {
                 payload.release();

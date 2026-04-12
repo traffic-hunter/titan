@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout.exporter;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -36,14 +37,17 @@ public interface FanoutExporter extends AutoCloseable {
 
     String name();
 
+    @CanIgnoreReturnValue
     default FanoutResult send(Destination destination, Frame<?, ?> payload) {
         return send(destination, payload.toBuffer());
     }
 
+    @CanIgnoreReturnValue
     default FanoutResult send(Destination destination, Message payload) {
         return send(destination, Buffer.alloc(payload.getBody()));
     }
 
+    @CanIgnoreReturnValue
     FanoutResult send(Destination destination, Buffer payload);
 
     boolean isOpen();

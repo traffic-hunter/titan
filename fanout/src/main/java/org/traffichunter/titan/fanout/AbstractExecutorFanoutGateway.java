@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
@@ -35,6 +36,7 @@ import org.traffichunter.titan.core.util.concurrent.NoopDamper;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,18 +77,16 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     }
 
     @Override
-    public Future<Void> fanout(Collection<Destination> destinations) {
+    public List<Future<Void>> fanout(Collection<Destination> destinations) {
         Assert.checkNotNull(destinations, "destinations");
 
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
 
-        CompletableFuture<?>[] futures = (CompletableFuture<?>[]) destinations.stream()
+        return destinations.stream()
                 .map(this::fanout)
-                .toArray(Future[]::new);
-
-        return CompletableFuture.allOf(futures);
+                .toList();
     }
 
     @SuppressWarnings("unchecked")
@@ -99,6 +99,35 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         }
 
         return (Future<Void>) consumers.computeIfAbsent(destination, this::consume);
+    }
+
+    @Override
+    public List<Future<Void>> publish(Collection<Message> messages) {
+        Assert.checkNotNull(messages, "messages");
+
+        if (isClosed.get()) {
+            throw new IllegalStateException("FanoutGateway is closed");
+        }
+
+        return messages.stream()
+                .map(this::publish)
+                .toList();
+    }
+
+    @Override
+    public Future<Void> publish(Message message) {
+        Assert.checkNotNull(message, "message");
+
+        if (isClosed.get()) {
+            throw new IllegalStateException("FanoutGateway is closed");
+        }
+
+        return CompletableFuture.runAsync(() -> {
+            Message result = route(message);
+            if(result != null) {
+                fanout(result.getDestination());
+            }
+        }, executor);
     }
 
     @Override
@@ -120,13 +149,8 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         }
     }
 
-    private CompletableFuture<Void> consume(Destination destination) {
-        DispatcherQueue dispatcherQueue = dispatcher.find(destination);
-        if (dispatcherQueue == null) {
-            return CompletableFuture.failedFuture(
-                    new IllegalStateException("Dispatcher queue not found for destination: " + destination)
-            );
-        }
+    protected CompletableFuture<Void> consume(Destination destination) {
+        DispatcherQueue dispatcherQueue = dispatcher.getOrPut(destination);
 
         return CompletableFuture.runAsync(() -> {
             try {
@@ -134,9 +158,6 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                     damper.acquire();
                     try {
                         Message message = dispatcherQueue.dispatch();
-                        if (message == null) {
-                            break;
-                        }
 
                         exporter.send(destination, message);
                     } catch (InterruptedException e) {
@@ -156,5 +177,22 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                 consumers.remove(destination);
             }
         }, executor);
+    }
+
+    protected @Nullable Message route(Message message) {
+        Destination destination = message.getDestination();
+        Assert.checkNotNull(destination, "message.destination");
+
+        DispatcherQueue dq = dispatcher.getOrPut(destination);
+
+        try {
+            dq.enqueue(message);
+            return message;
+        } catch (Exception e) {
+            if(dq.contains(message)) {
+                dq.remove(message);
+            }
+            return null;
+        }
     }
 }

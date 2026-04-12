@@ -23,10 +23,12 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout;
 
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Future;
 
 /**
@@ -42,9 +44,13 @@ public interface FanoutGateway extends AutoCloseable {
         return new VirtualThreadBasedFanoutGateway(exporter);
     }
 
-    Future<Void> fanout(Collection<Destination> destinations);
+    List<Future<Void>> fanout(Collection<Destination> destinations);
 
     Future<Void> fanout(Destination destination);
+
+    List<Future<Void>> publish(Collection<Message> messages);
+
+    Future<Void> publish(Message message);
 
     boolean isOpen();
 
