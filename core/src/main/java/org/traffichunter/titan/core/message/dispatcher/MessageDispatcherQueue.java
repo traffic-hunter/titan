@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +73,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public Message enqueue(final Message message) {
+    public @Nullable Message enqueue(final Message message) {
         if(isPaused) {
             log.info("Waiting for queue to be resumed");
             wait0();
@@ -86,7 +87,12 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public Message peek() {
+    public boolean contains(Message message) {
+        return queue.contains(message);
+    }
+
+    @Override
+    public @Nullable Message peek() {
         return queue.peek();
     }
 
@@ -132,8 +138,13 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public @Nullable Message dispatch() throws InterruptedException {
+    public Message dispatch() throws InterruptedException {
         return queue.take();
+    }
+
+    @Override
+    public @Nullable Message dispatch(long timeout, TimeUnit unit) throws InterruptedException {
+        return queue.poll(timeout, unit);
     }
 
     @Override
@@ -144,6 +155,13 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
         synchronized (this) {
             this.destination = key;
+        }
+    }
+
+    @Override
+    public void remove(Message message) {
+        if(!queue.remove(message)) {
+            throw new IllegalStateException("Message not found");
         }
     }
 

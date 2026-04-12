@@ -15,7 +15,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.dispatcher.MapDispatcher;
 import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
@@ -31,10 +30,9 @@ import org.traffichunter.titan.core.util.Destination;
 @Fork(1)
 public class DispatcherBenchmark {
 
-    private Dispatcher trieDispatcher;
-    private Dispatcher mapDispatcher;
+    private TrieDispatcher trieDispatcher;
+    private MapDispatcher mapDispatcher;
     private Destination exactKey;
-    private Destination wildcardKey;
     private DispatcherQueue trieExactQueue;
     private DispatcherQueue mapExactQueue;
     private Message message;
@@ -44,9 +42,6 @@ public class DispatcherBenchmark {
         trieDispatcher = new TrieDispatcher();
         mapDispatcher = new MapDispatcher(10_240);
         exactKey = Destination.create("/topic/bench/5000");
-        wildcardKey = Destination.create("/topic/*");
-        trieExactQueue = DispatcherQueue.create(exactKey);
-        mapExactQueue = DispatcherQueue.create(exactKey);
 
         List<Destination> keys = new ArrayList<>(10_000);
         for (int i = 0; i < 10_000; i++) {
@@ -54,9 +49,12 @@ public class DispatcherBenchmark {
         }
 
         for (Destination key : keys) {
-            trieDispatcher.insert(key, key.equals(exactKey) ? trieExactQueue : DispatcherQueue.create(key));
-            mapDispatcher.insert(key, key.equals(exactKey) ? mapExactQueue : DispatcherQueue.create(key));
+            trieDispatcher.getOrPut(key);
+            mapDispatcher.getOrPut(key);
         }
+
+        trieExactQueue = trieDispatcher.get(exactKey);
+        mapExactQueue = mapDispatcher.get(exactKey);
 
         message = Message.builder()
                 .priority(Priority.DEFAULT)
@@ -78,12 +76,23 @@ public class DispatcherBenchmark {
 
     @Benchmark
     public DispatcherQueue trieFindExactQueue() {
-        return trieDispatcher.find(exactKey);
+        return trieDispatcher.get(exactKey);
     }
 
     @Benchmark
     public DispatcherQueue mapFindExactQueue() {
-        return mapDispatcher.find(exactKey);
+        return mapDispatcher.get(exactKey);
+    }
+
+    @Benchmark
+    public DispatcherQueue trieGetOrPutExactQueueHit() {
+        return trieDispatcher.getOrPut(exactKey);
+    }
+
+    @Benchmark
+    public DispatcherQueue mapGetOrPutExactQueueHit() {
+        DispatcherQueue queue = mapDispatcher.getOrPut(exactKey);
+        return queue == null ? mapDispatcher.get(exactKey) : queue;
     }
 
     @Benchmark
@@ -97,12 +106,14 @@ public class DispatcherBenchmark {
     }
 
     @Benchmark
-    public int trieDispatchWildcard() {
-        return trieDispatcher.dispatch(wildcardKey).size();
+    public Message trieDispatchExactQueue() throws InterruptedException {
+        trieExactQueue.enqueue(message);
+        return trieExactQueue.dispatch(1, TimeUnit.MILLISECONDS);
     }
 
     @Benchmark
-    public int mapDispatchWildcard() {
-        return mapDispatcher.dispatch(wildcardKey).size();
+    public Message mapDispatchExactQueue() throws InterruptedException {
+        mapExactQueue.enqueue(message);
+        return mapExactQueue.dispatch(1, TimeUnit.MILLISECONDS);
     }
 }

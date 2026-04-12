@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
@@ -52,68 +53,22 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public DispatcherQueue find(final Destination key) {
-        if(exists(key)) {
-            return map.get(key);
-        }
-
-        return null;
+    public @Nullable DispatcherQueue get(Destination destination) {
+        return map.get(destination);
     }
 
     @Override
-    public boolean exists(final Destination key) {
-        return map.containsKey(key);
+    public DispatcherQueue getOrPut(final Destination destination) {
+        return map.putIfAbsent(destination, DispatcherQueue.create(destination));
     }
 
     @Override
-    public void subscribe(Destination key, DispatcherQueue dispatcherQueue) {
-        if(exists(key)) {
-            return;
-        }
-
-        map.put(key, dispatcherQueue);
+    public boolean exists(final Destination destination) {
+        return map.containsKey(destination);
     }
 
     @Override
-    public void unsubscribe(final Destination key) {
-        if(!exists(key)) {
-            return;
-        }
-
-        map.remove(key);
-    }
-
-    @Override
-    public void update(final Destination originKey, final Destination updateKey) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean dispatch(final Destination key, final NetChannel channel) {
-
-        String routingKey = key.path();
-
-        int lastIdx = routingKey.lastIndexOf("*");
-
-        String prefixRoutingKey = routingKey.substring(0, lastIdx - 1);
-
-        try {
-            for (Destination mapKey : map.keySet()) {
-                if (!mapKey.path().startsWith(prefixRoutingKey)) {
-                    continue;
-                }
-
-                Message message = map.get(mapKey).dispatch();
-                if (message != null) {
-                    channel.writeAndFlush(Buffer.alloc(message.getBody()));
-                }
-            }
-            return true;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
+    public void remove(Destination destination) {
+        map.remove(destination);
     }
 }

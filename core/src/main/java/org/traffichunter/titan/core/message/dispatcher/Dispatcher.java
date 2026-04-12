@@ -23,8 +23,8 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
@@ -36,26 +36,12 @@ public interface Dispatcher {
         return new TrieDispatcher();
     }
 
-    /**
-     * @param key routing key
-     * @return null
-     */
-    @Nullable DispatcherQueue find(Destination key);
+    @Nullable DispatcherQueue get(Destination destination);
 
-    boolean exists(Destination key);
+    @CanIgnoreReturnValue
+    DispatcherQueue getOrPut(Destination destination);
 
-    /**
-     * @param key routing key
-     */
-    default void subscribe(Destination key) {
-        subscribe(key, DispatcherQueue.create(key));
-    }
+    boolean exists(Destination destination);
 
-    void subscribe(Destination key, DispatcherQueue queue);
-
-    void unsubscribe(Destination key);
-
-    void update(Destination originKey, Destination updateKey);
-
-    boolean dispatch(Destination key, NetChannel channel);
+    void remove(Destination destination);
 }

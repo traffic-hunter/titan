@@ -23,19 +23,10 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Flow;
-
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.channel.Subscription;
-import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -44,58 +35,36 @@ public class TrieDispatcher implements Dispatcher {
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
 
+    @Override
+    public @Nullable DispatcherQueue get(Destination destination) {
+        return trie.get(destination.path());
+    }
+
     /**
-     * @param key routingKey
+     * @param destination routingKey
      * @return null
      */
     @Override
-    public @Nullable DispatcherQueue find(final Destination key) {
-        return trie.get(key.path());
-    }
-
-    @Override
-    public boolean exists(final Destination key) {
-        return trie.startsWith(key.path());
-    }
-
-    @Override
-    public void subscribe(Destination key, DispatcherQueue dispatcherQueue) {
-        if(exists(key)) {
-            return;
+    public @Nullable DispatcherQueue getOrPut(final Destination destination) {
+        DispatcherQueue v = trie.get(destination.path());
+        if (v == null) {
+            v = trie.insert(destination.path(), DispatcherQueue.create(destination));
         }
 
-        trie.insert(key.path(), dispatcherQueue);
+        return v;
     }
 
     @Override
-    public void unsubscribe(final Destination key) {
-        if(!exists(key)) {
-            return;
-        }
+    public boolean exists(final Destination destination) {
+        return trie.startsWith(destination.path());
+    }
 
-        trie.remove(key.path());
+    public boolean startsWith(final Destination destination) {
+        return trie.startsWith(destination.path());
     }
 
     @Override
-    public void update(final Destination originKey, final Destination updateKey) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean dispatch(final Destination key, final NetChannel channel) {
-        try {
-            for (DispatcherQueue entry : trie.searchAll(key.path())) {
-                Message message = entry.dispatch();
-                if(message != null) {
-                    channel.writeAndFlush(Buffer.alloc(message.getBody()));
-                }
-            }
-            return true;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
+    public void remove(Destination destination) {
+        trie.remove(destination.path());
     }
 }
