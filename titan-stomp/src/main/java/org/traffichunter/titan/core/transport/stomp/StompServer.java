@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
@@ -39,7 +38,6 @@ import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
@@ -131,8 +129,7 @@ public final class StompServer {
         private @Nullable StompServerOption option;
         private InetServerOption inetServerOption = InetServerOption.DEFAULT_INET_SERVER_OPTION;
         private StompClientOption childOption = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
-        private Handler<Channel> channelHandler = channel -> {
-        };
+        private Handler<StompServerHandler> stompServerHandler = handler -> {};
 
         @CanIgnoreReturnValue
         public Builder group(EventLoopGroups groups) {
@@ -161,9 +158,8 @@ public final class StompServer {
             return this;
         }
 
-        @CanIgnoreReturnValue
-        public Builder channelHandler(Handler<Channel> channelHandler) {
-            this.channelHandler = channelHandler;
+        public Builder handler(Handler<StompServerHandler> stompServerHandlerHandler) {
+            this.stompServerHandler = stompServerHandlerHandler;
             return this;
         }
 
@@ -173,7 +169,8 @@ public final class StompServer {
 
             StompServerConnection stompServerConnection = StompServerConnection.create(option);
             StompClientOption acceptedConnectionOption = serverChildSessionOption();
-            StompServerHandler stompServerHandler = new StompServerHandler(Dispatcher.getDefault(), stompServerConnection);
+            StompServerHandler stompServerHandler = StompServerHandler.create(stompServerConnection);
+            this.stompServerHandler.handle(stompServerHandler);
 
             InetServer inetServer = InetServer.builder()
                     .group(groups)
@@ -189,8 +186,6 @@ public final class StompServer {
 
                         netChannel.chain()
                                 .add(new StompChannelDecoder(option.maxBodyLength(), stompConnection, stompServerHandler));
-
-                        channelHandler.handle(channel);
                     })
                     .build();
 

@@ -23,65 +23,26 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel.stomp;
 
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
-import org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
-import org.traffichunter.titan.core.codec.stomp.StompException;
-
-import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
+import org.traffichunter.titan.core.util.Handler;
 
 /**
  * @author yun
  */
-public class StompClientHandler implements StompHandler {
+public interface StompClientHandler extends StompHandler {
 
-    @Override
-    public void handle(StompFrame sf, StompClientConnection sc) {
-        sc.setLastActivatedAt();
-
-        switch (sf.getCommand()) {
-            case CONNECTED -> doConnected(sf, sc);
-            case MESSAGE -> doMessage(sf, sc);
-            case RECEIPT -> doReceipt(sf, sc);
-            case ERROR -> doError(sf, sc);
-            case PING -> doNothing();
-            default -> throw new IllegalStateException("Unexpected value: " + sf.getCommand());
-        }
+    static StompClientHandler create() {
+        return new StompClientHandlerImpl();
     }
 
-    private void doConnected(StompFrame sf, StompClientConnection sc) {
-        sc.connected();
+    StompClientHandler receivedFrameHandler(Handler<StompClientEvent> handler);
 
-        String heartbeat = sf.getHeader(Elements.HEART_BEAT);
-        if (heartbeat != null) {
-            HeartBeat server = HeartBeat.doParse(heartbeat);
-            long ping = HeartBeat.computePingClientToServer(HeartBeat.DEFAULT, server);
-            long pong = HeartBeat.computePongServerToClient(HeartBeat.DEFAULT, server);
-            sc.setHeartbeat(ping, pong, () -> sc.send(StompFrame.PING));
-        }
-    }
+    StompClientHandler connectedHandler(StompClientCommandHandler handler);
 
-    private void doMessage(StompFrame sf, StompClientConnection sc) {
-        String id = sf.getHeader(Elements.SUBSCRIPTION);
-        sc.subscriptions()
-                .stream()
-                .filter(subscription -> subscription.id().equals(id))
-                .forEach(subscription -> subscription.getHandler().handle(sf));
-    }
+    StompClientHandler messageHandler(StompClientCommandHandler handler);
 
-    private void doReceipt(StompFrame sf, StompClientConnection sc) {
-        String header = sf.getHeader(Elements.RECEIPT_ID);
-        if (header != null) {
-            sc.receipt(header);
-        }
-    }
+    StompClientHandler receiptHandler(StompClientCommandHandler handler);
 
-    private void doError(StompFrame sf, StompClientConnection sc) {
-        sc.failConnect(new StompException("Received ERROR frame from server"));
-        sc.error(sf);
-    }
+    StompClientHandler errorHandler(StompClientCommandHandler handler);
 
-    /**
-     * No operation.
-     */
-    private void doNothing() { }
+    StompClientHandler pingHandler(StompClientCommandHandler handler);
 }

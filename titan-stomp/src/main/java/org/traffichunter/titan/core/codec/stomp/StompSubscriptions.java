@@ -49,6 +49,10 @@ public final class StompSubscriptions<S extends StompSubscription> {
         return subscriptions.get(id);
     }
 
+    public List<S> findByDestination() {
+        return subscriptions.values().stream().toList();
+    }
+
     public List<S> findByDestination(Destination destination) {
         return subscriptions.values().stream()
                 .filter(subscription -> subscription.destination().equals(destination))
