@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
@@ -67,7 +66,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
     private final Map<String, Promise<Void>> receiptMap = new HashMap<>();
     private final AtomicLong timer = new AtomicLong();
 
-    private final @Nullable Promise<Void> connectPromise = Promise.newPromise(eventLoop());
+    private final Promise<Void> connectPromise;
     private volatile boolean stompConnected;
 
     private long pingTimer = -1;
@@ -77,13 +76,31 @@ public class StompClientConnectionImpl implements StompClientConnection {
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompClientOption option
     ) throws IOException {
-        this(NetChannel.open(channelHandShakeEventListener), option);
+        this(NetChannel.open(channelHandShakeEventListener), option, handler -> {});
+    }
+
+    StompClientConnectionImpl(
+            ChannelHandShakeEventListener channelHandShakeEventListener,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) throws IOException {
+        this(NetChannel.open(channelHandShakeEventListener), option, clientHandlerConfigurer);
     }
 
     StompClientConnectionImpl(NetChannel netChannel, StompClientOption option) {
+        this(netChannel, option, handler -> {});
+    }
+
+    StompClientConnectionImpl(
+            NetChannel netChannel,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) {
         this.netChannel = netChannel;
-        this.stompClientHandler = new StompClientHandler();
+        this.stompClientHandler = StompClientHandler.create();
+        clientHandlerConfigurer.handle(this.stompClientHandler);
         this.option = option;
+        this.connectPromise = Promise.newPromise(eventLoop());
     }
 
     @Override
@@ -341,32 +358,36 @@ public class StompClientConnectionImpl implements StompClientConnection {
             stompConnected = true;
         }
 
-        Promise<Void> promise = connectPromise;
-        if (promise != null && !promise.isDone()) {
-            promise.success();
+        if (!connectPromise.isDone()) {
+            connectPromise.success();
         }
     }
 
     @Override
     public void failConnect(Throwable error) {
-        Promise<Void> promise = connectPromise;
-        if (promise != null && !promise.isDone()) {
-            promise.fail(error);
+        if (!connectPromise.isDone()) {
+            connectPromise.fail(error);
         }
     }
 
     @Override
-    public StompHandler handler() {
+    public Promise<Void> connectedPromise() {
+        return connectPromise;
+    }
+
+    @Override
+    public StompClientHandler handler() {
         return stompClientHandler;
     }
 
     @Override
     public boolean isConnected() {
-        return netChannel.isConnected();
+        return netChannel.isConnected() && stompConnected;
     }
 
     @Override
     public void close() {
+        stompConnected = false;
         cancelHeartbeat();
         failConnect(new StompNetChannelException("Channel closed before STOMP connect completed"));
         receiptMap.values().forEach(promise ->

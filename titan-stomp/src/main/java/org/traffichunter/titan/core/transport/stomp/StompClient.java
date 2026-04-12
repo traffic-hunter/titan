@@ -32,12 +32,14 @@ import java.util.function.Consumer;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientHandler;
+import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
@@ -55,14 +57,17 @@ public final class StompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
+    private final Handler<StompClientHandler> clientHandlerConfigurer;
     private @Nullable StompClientConnection connection;
 
     private StompClient(
             InetClient inetClient,
-            StompClientOption option
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
     ) {
         this.inetClient = inetClient;
         this.option = option;
+        this.clientHandlerConfigurer = clientHandlerConfigurer;
     }
 
     public static Builder builder() {
@@ -87,7 +92,7 @@ public final class StompClient {
                 .thenCompose(conn -> {
                     StompFrame connectFrame = generateConnectFrame(remoteAddress.getHostString());
                     return conn.send(connectFrame)
-                            .map(frame -> conn);
+                            .thenCompose(frame -> awaitConnected(conn, remoteAddress, timeOut, timeUnit));
                 }).onFailure(error -> log.error("Failed to connect to {}", remoteAddress, error));
     }
 
@@ -134,7 +139,7 @@ public final class StompClient {
     }
 
     private StompClientConnection createConnection(NetChannel channel) {
-        StompClientConnection connection = StompClientConnection.wrap(channel, option);
+        StompClientConnection connection = StompClientConnection.wrap(channel, option, clientHandlerConfigurer);
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
         return connection;
@@ -165,12 +170,44 @@ public final class StompClient {
         return StompFrame.create(headers, command);
     }
 
+    private Promise<StompClientConnection> awaitConnected(
+            StompClientConnection conn,
+            InetSocketAddress remoteAddress,
+            long timeOut,
+            TimeUnit timeUnit
+    ) {
+        Promise<StompClientConnection> result = Promise.newPromise(conn.channel().eventLoop());
+        ScheduledPromise<Object> timeoutTask = conn.channel().eventLoop().schedule(() -> {
+            if (result.tryFail(new StompNetChannelException(
+                    "Timed out waiting for CONNECTED from " + remoteAddress + " in " + timeOut + " " + timeUnit))) {
+                conn.close();
+            }
+        }, timeOut, timeUnit);
+
+        conn.connectedPromise().addListener(connectedFuture -> {
+            timeoutTask.cancel();
+            if (connectedFuture.isSuccess()) {
+                result.trySuccess(conn);
+                return;
+            }
+
+            Throwable error = connectedFuture.error();
+            if (error != null) {
+                result.tryFail(error);
+            } else {
+                result.tryFail(new StompNetChannelException("STOMP connect failed without error cause"));
+            }
+        });
+
+        return result;
+    }
+
     public static final class Builder {
 
         private @Nullable EventLoopGroups groups;
         private StompClientOption option = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
         private Consumer<NetChannel> optionApplier = channel -> { };
-        private Handler<Channel> channelHandler = channel -> { };
+        private Handler<StompClientHandler> stompClientHandler = handler -> { };
 
         @CanIgnoreReturnValue
         public Builder group(EventLoopGroups groups) {
@@ -197,9 +234,8 @@ public final class StompClient {
             return this;
         }
 
-        @CanIgnoreReturnValue
-        public Builder channelHandler(Handler<Channel> channelHandler) {
-            this.channelHandler = channelHandler;
+        public Builder handler(Handler<StompClientHandler> stompClientHandler) {
+            this.stompClientHandler = stompClientHandler;
             return this;
         }
 
@@ -208,11 +244,10 @@ public final class StompClient {
 
             InetClient inetClient = InetClient.builder()
                     .group(groups)
-                    .channelHandler(channelHandler)
                     .option(optionApplier)
                     .build();
 
-            return new StompClient(inetClient, option);
+            return new StompClient(inetClient, option, stompClientHandler);
         }
     }
 }

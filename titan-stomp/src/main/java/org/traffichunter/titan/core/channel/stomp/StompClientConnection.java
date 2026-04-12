@@ -45,14 +45,30 @@ public interface StompClientConnection extends StompConnection {
             ChannelHandShakeEventListener handShakeEventListener,
             StompClientOption option
     ) throws IOException {
-        return new StompClientConnectionImpl(handShakeEventListener, option);
+        return open(handShakeEventListener, option, handler -> {});
+    }
+
+    static StompClientConnection open(
+            ChannelHandShakeEventListener handShakeEventListener,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) throws IOException {
+        return new StompClientConnectionImpl(handShakeEventListener, option, clientHandlerConfigurer);
     }
 
     static StompClientConnection wrap(
             NetChannel netChannel,
             StompClientOption option
     ) {
-        return new StompClientConnectionImpl(netChannel, option);
+        return wrap(netChannel, option, handler -> {});
+    }
+
+    static StompClientConnection wrap(
+            NetChannel netChannel,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) {
+        return new StompClientConnectionImpl(netChannel, option, clientHandlerConfigurer);
     }
 
     @Override
@@ -127,7 +143,7 @@ public interface StompClientConnection extends StompConnection {
     @CanIgnoreReturnValue
     Promise<StompFrame> error(StompFrame frame);
 
-    StompHandler handler();
+    StompClientHandler handler();
 
     List<StompClientSubscription> subscriptions();
 
@@ -138,6 +154,8 @@ public interface StompClientConnection extends StompConnection {
     void connected();
 
     void failConnect(Throwable error);
+
+    Promise<Void> connectedPromise();
 
     boolean isConnected();
 }
