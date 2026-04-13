@@ -25,6 +25,7 @@ package org.traffichunter.titan.fanout.exporter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -32,6 +33,9 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.NetServerChannel;
@@ -47,20 +51,23 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 import org.traffichunter.titan.fanout.CompletableResult;
 
+@ExtendWith(MockitoExtension.class)
 class FanoutExporterTest {
 
-    private static IOEventLoop immediateEventLoop() {
-        IOEventLoop loop = mock(IOEventLoop.class);
-        when(loop.inEventLoop(any(Thread.class))).thenReturn(true);
-        when(loop.inEventLoop()).thenReturn(true);
-        return loop;
-    }
+    @Mock
+    private StompServerConnection serverConnection;
+
+    @Mock
+    private NetServerChannel serverChannel;
+
+    @Mock
+    private InetServer inetServer;
 
     @Test
     void completableResult_completes_when_done_reaches_attempted() throws Exception {
         IOEventLoop loop = immediateEventLoop();
         Promise<CompletableResult> promise = Promise.newPromise(loop);
-        CompletableResult result = CompletableResult.pending(
+        CompletableResult result = CompletableResult.create(
                 List.of(Destination.create("/topic/test")),
                 2,
                 promise
@@ -83,8 +90,6 @@ class FanoutExporterTest {
     void stompFanoutExporter_aggregates_success_and_failure() throws Exception {
         IOEventLoop loop = immediateEventLoop();
 
-        StompServerConnection serverConnection = mock(StompServerConnection.class);
-        NetServerChannel serverChannel = mock(NetServerChannel.class);
         when(serverConnection.channel()).thenReturn(serverChannel);
         when(serverChannel.eventLoop()).thenReturn(loop);
 
@@ -96,12 +101,12 @@ class FanoutExporterTest {
         StompClientConnection successConn = mock(StompClientConnection.class);
         Promise<StompFrame> successPromise = Promise.newPromise(loop);
         successPromise.success(StompFrame.PING);
-        when(successConn.send(org.mockito.ArgumentMatchers.any(StompFrame.class))).thenReturn(successPromise);
+        when(successConn.send(any(StompFrame.class))).thenReturn(successPromise);
 
         StompClientConnection failedConn = mock(StompClientConnection.class);
         Promise<StompFrame> failedPromise = Promise.newPromise(loop);
         failedPromise.fail(new IllegalStateException("send failed"));
-        when(failedConn.send(org.mockito.ArgumentMatchers.any(StompFrame.class))).thenReturn(failedPromise);
+        when(failedConn.send(any(StompFrame.class))).thenReturn(failedPromise);
 
         subscriptions.register(StompServerSubscription.builder()
                 .destination(destination)
@@ -130,10 +135,8 @@ class FanoutExporterTest {
     void tcpFanoutExporter_returns_completed_result_counts() {
         IOEventLoop loop = immediateEventLoop();
 
-        InetServer inetServer = mock(InetServer.class);
         when(inetServer.isStart()).thenReturn(true);
 
-        NetServerChannel serverChannel = mock(NetServerChannel.class);
         when(inetServer.channel()).thenReturn(serverChannel);
         when(serverChannel.eventLoop()).thenReturn(loop);
 
@@ -148,7 +151,7 @@ class FanoutExporterTest {
         when(channelFail.id()).thenReturn("fail");
         when(channelFail.isActive()).thenReturn(true);
         when(channelFail.isClosed()).thenReturn(false);
-        doThrow(new RuntimeException("boom")).when(channelFail).writeAndFlush(org.mockito.ArgumentMatchers.any(Buffer.class));
+        doThrow(new RuntimeException("boom")).when(channelFail).writeAndFlush(any(Buffer.class));
         registry.addChannel(channelFail);
 
         when(inetServer.connections()).thenReturn(registry.selector());
@@ -160,5 +163,12 @@ class FanoutExporterTest {
         assertThat(result.totalAttempted()).isEqualTo(2);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);
+    }
+
+    private static IOEventLoop immediateEventLoop() {
+        IOEventLoop loop = mock(IOEventLoop.class);
+        lenient().when(loop.inEventLoop(any(Thread.class))).thenReturn(true);
+        lenient().when(loop.inEventLoop()).thenReturn(true);
+        return loop;
     }
 }
