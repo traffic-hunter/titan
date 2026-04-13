@@ -56,7 +56,7 @@ public final class CompletableResult {
         this.failed = new AtomicInteger(failed);
     }
 
-    public static CompletableResult pending(
+    public static CompletableResult create(
             Collection<Destination> destinations,
             int attempted,
             Promise<CompletableResult> promise

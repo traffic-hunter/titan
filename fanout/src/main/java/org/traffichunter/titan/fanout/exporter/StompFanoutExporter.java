@@ -58,7 +58,7 @@ public class StompFanoutExporter implements FanoutExporter {
                 serverConnection.subscriptions().findByDestination(destination);
 
         Promise<CompletableResult> resultPromise = Promise.newPromise(serverConnection.channel().eventLoop());
-        CompletableResult result = CompletableResult.pending(
+        CompletableResult result = CompletableResult.create(
                 List.of(destination),
                 subscriptions.size(),
                 resultPromise
