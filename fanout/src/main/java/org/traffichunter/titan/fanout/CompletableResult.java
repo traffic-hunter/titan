@@ -34,7 +34,7 @@ import org.traffichunter.titan.core.util.Destination;
 public final class CompletableResult {
 
     private final Collection<Destination> destinations;
-    private final int attempted;
+    private final int totalAttempted;
     private final Promise<CompletableResult> promise;
     private final AtomicInteger done;
     private final AtomicInteger succeeded;
@@ -42,14 +42,14 @@ public final class CompletableResult {
 
     private CompletableResult(
             Collection<Destination> destinations,
-            int attempted,
+            int totalAttempted,
             Promise<CompletableResult> promise,
             int done,
             int succeeded,
             int failed
     ) {
         this.destinations = destinations;
-        this.attempted = attempted;
+        this.totalAttempted = totalAttempted;
         this.promise = promise;
         this.done = new AtomicInteger(done);
         this.succeeded = new AtomicInteger(succeeded);
@@ -101,8 +101,8 @@ public final class CompletableResult {
         return destinations;
     }
 
-    public int attempted() {
-        return attempted;
+    public int totalAttempted() {
+        return totalAttempted;
     }
 
     public int done() {
@@ -118,7 +118,7 @@ public final class CompletableResult {
     }
 
     public boolean isSuccess() {
-        return done() == attempted && failed() == 0;
+        return done() == totalAttempted && failed() == 0;
     }
 
     public Promise<CompletableResult> promise() {
@@ -126,7 +126,7 @@ public final class CompletableResult {
     }
 
     private void completeIfDone() {
-        if (done.incrementAndGet() == attempted) {
+        if (done.incrementAndGet() == totalAttempted) {
             promise.trySuccess(this);
         }
     }
