@@ -21,6 +21,7 @@ import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -60,9 +61,8 @@ public class DispatcherBenchmark {
                 .priority(Priority.DEFAULT)
                 .destination(exactKey)
                 .createdAt(Instant.now())
-                .isRecovery(false)
                 .producerId("benchmark-producer")
-                .body("payload".getBytes())
+                .body(Buffer.alloc("payload"))
                 .build();
     }
 

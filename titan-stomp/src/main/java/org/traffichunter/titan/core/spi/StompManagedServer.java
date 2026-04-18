@@ -21,39 +21,48 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.fanout;
+package org.traffichunter.titan.core.spi;
 
-import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.core.channel.stomp.StompServerConnection;
+import org.traffichunter.titan.core.transport.stomp.StompServer;
 
-import java.io.Closeable;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yun
  */
-public interface FanoutGateway extends Closeable {
+public final class StompManagedServer implements ManagedServer {
 
-    static FanoutGateway ofThread(FanoutExporter exporter) {
-        return new ThreadPoolExecutorFanoutGateway(exporter);
+    private final StompServer server;
+    private final ServerSettings settings;
+
+    public StompManagedServer(StompServer server, ServerSettings settings) {
+        this.server = server;
+        this.settings = settings;
     }
 
-    static FanoutGateway ofVirtual(FanoutExporter exporter) {
-        return new VirtualThreadExecutorFanoutGateway(exporter);
+    @Override
+    public String name() {
+        return settings.serverName();
     }
 
-    List<Future<Void>> fanout(Collection<Destination> destinations);
+    @Override
+    public void start() {
+        try {
+            server.start();
+            server.listen(settings.host(), settings.port()).get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to start STOMP server " + name(), e);
+        }
+    }
 
-    Future<Void> fanout(Destination destination);
+    public StompServer server() {
+        return server;
+    }
 
-    List<Future<Void>> publish(Collection<Message> messages);
-
-    Future<Void> publish(Message message);
-
-    boolean isOpen();
-
-    boolean isClosed();
+    @Override
+    public void stop() {
+        server.shutdown();
+    }
 }

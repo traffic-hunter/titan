@@ -48,6 +48,7 @@ import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
+import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -71,9 +72,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_client_can_connect_to_server_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -89,9 +88,7 @@ class StompIntegrationTest {
 
     @RepeatedTest(5)
     void stomp_reconnect_cycle_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -113,9 +110,7 @@ class StompIntegrationTest {
 
     @RepeatedTest(10)
     void stomp_ping_pong_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -130,11 +125,8 @@ class StompIntegrationTest {
     @Test
     void stomp_send_with_text_body_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/queue/test");
-        DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.produce(key, queue);
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        DispatcherQueue queue = dispatcher.getOrPut(key);
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -149,7 +141,7 @@ class StompIntegrationTest {
             assertThat(result.getBody().toString()).isEqualTo("Hello STOMP!");
         } finally {
             client.shutdown();
-            dispatcher.subscribe(key);
+            dispatcher.remove(key);
         }
     }
 
@@ -158,34 +150,30 @@ class StompIntegrationTest {
     @Test
     void stomp_subscribe_and_receive_message_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/topic/test");
-        DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.produce(key, queue);
+        DispatcherQueue queue = dispatcher.getOrPut(key);
 
         AtomicBoolean messageReceived = new AtomicBoolean(false);
         AtomicReference<StompFrame> receivedFrame = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        StompClient subscriber = StompClient.builder().group(clientGroups()).build();
-        StompClient publisher = StompClient.builder().group(clientGroups()).build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
-            subscriber.start();
-            publisher.start();
+            client.start();
 
-            subscriber.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
-            publisher.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
+            client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             // Subscribe with message handler
-            subscriber.connection().subscribe("/topic/test", frame -> {
+            client.connection().subscribe("/topic/test", frame -> {
                 messageReceived.set(true);
                 receivedFrame.set(frame);
                 latch.countDown();
             }).get(3, TimeUnit.SECONDS);
 
-            assertThat(subscriber.connection().subscriptions()).hasSize(1);
+            assertThat(client.connection().subscriptions()).hasSize(1);
 
             // Publish message
-            publisher.connection().send("/topic/test", Buffer.alloc("Test message")).get(3, TimeUnit.SECONDS);
+            client.connection().send("/topic/test", Buffer.alloc("Test message")).get(3, TimeUnit.SECONDS);
 
             // Wait for message
             boolean received = latch.await(5, TimeUnit.SECONDS);
@@ -196,21 +184,17 @@ class StompIntegrationTest {
                 assertThat(receivedFrame.get().getCommand()).isEqualTo(StompCommand.MESSAGE);
             }
         } finally {
-            subscriber.shutdown();
-            publisher.shutdown();
-            dispatcher.subscribe(key);
+            client.shutdown();
+            dispatcher.remove(key);
         }
     }
 
     @Test
     void stomp_unsubscribe_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/topic/unsub");
-        DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.produce(key, queue);
+        DispatcherQueue queue = dispatcher.getOrPut(key);
 
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -231,7 +215,7 @@ class StompIntegrationTest {
             assertThat(client.connection().subscriptions()).hasSize(0);
         } finally {
             client.shutdown();
-            dispatcher.subscribe(key);
+            dispatcher.remove(key);
         }
     }
 
@@ -240,13 +224,11 @@ class StompIntegrationTest {
         Destination key1 = Destination.create("/topic/ack1");
         Destination key2 = Destination.create("/topic/ack2");
         Destination key3 = Destination.create("/topic/ack3");
-        dispatcher.produce(key1, DispatcherQueue.create(key1));
-        dispatcher.produce(key2, DispatcherQueue.create(key2));
-        dispatcher.produce(key3, DispatcherQueue.create(key3));
+        dispatcher.getOrPut(key1);
+        dispatcher.getOrPut(key2);
+        dispatcher.getOrPut(key3);
 
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -270,9 +252,9 @@ class StompIntegrationTest {
             assertThat(client.connection().subscriptions()).hasSize(3);
         } finally {
             client.shutdown();
-            dispatcher.subscribe(key1);
-            dispatcher.subscribe(key2);
-            dispatcher.subscribe(key3);
+            dispatcher.remove(key1);
+            dispatcher.remove(key2);
+            dispatcher.remove(key3);
         }
     }
 
@@ -280,9 +262,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_ack_command_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -295,9 +275,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_nack_command_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -310,9 +288,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_ack_within_transaction_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -331,9 +307,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_transaction_begin_commit_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -349,9 +323,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_transaction_begin_abort_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -368,16 +340,13 @@ class StompIntegrationTest {
     @Test
     void stomp_transaction_with_send_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/queue/tx-test");
-        DispatcherQueue queue = DispatcherQueue.create(key);
-        dispatcher.produce(key, queue);
+        DispatcherQueue queue = dispatcher.getOrPut(key);
 
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .channelHandler(channel ->
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION)
+                .onChannel(channel ->
                         channel.chain()
                             .add(new TestChannelInboundHandler(queue))
-                )
-                .build();
+                );
 
         try {
             client.start();
@@ -397,15 +366,13 @@ class StompIntegrationTest {
             assertThat(queue.size()).isGreaterThan(0);
         } finally {
             client.shutdown();
-            dispatcher.subscribe(key);
+            dispatcher.remove(key);
         }
     }
 
     @RepeatedTest(3)
     void stomp_multiple_transactions_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -429,9 +396,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_disconnect_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -451,9 +416,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_subscribe_to_nonexistent_destination_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -470,9 +433,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_commit_without_begin_test(StompTestServer testServer) throws Exception {
-        StompClient client = StompClient.builder()
-                .group(clientGroups())
-                .build();
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
 
         try {
             client.start();
@@ -501,9 +462,8 @@ class StompIntegrationTest {
                     .priority(Priority.DEFAULT)
                     .destination(queue.route())
                     .createdAt(Instant.now())
-                    .isRecovery(false)
                     .producerId(UUID.randomUUID().toString())
-                    .body(buffer.getBytes())
+                    .body(buffer)
                     .build();
 
             queue.enqueue(message);

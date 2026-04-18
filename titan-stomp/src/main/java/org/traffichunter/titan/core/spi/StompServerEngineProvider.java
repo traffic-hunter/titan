@@ -23,17 +23,57 @@
  */
 package org.traffichunter.titan.core.spi;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 
 public final class StompServerEngineProvider implements NetworkServerEngineProvider {
+
+    private final List<ChannelInBoundHandler> inboundHandlers = new ArrayList<>();
+    private final List<ChannelOutBoundHandler> outboundHandlers = new ArrayList<>();
+
+    @Override
+    @CanIgnoreReturnValue
+    public NetworkServerEngineProvider setInboundHandler(ChannelInBoundHandler channelInBoundHandler) {
+        inboundHandlers.add(channelInBoundHandler);
+        return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public NetworkServerEngineProvider setOutboundHandler(ChannelOutBoundHandler channelOutBoundHandler) {
+        outboundHandlers.add(channelOutBoundHandler);
+        return this;
+    }
+
+    @Override
+    public ManagedServer create(final ServerSettings settings) {
+        EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
+        InetServerOption inetOption = buildInetOption(settings.resolvedTransportOptions());
+        StompServerOption stompServerOption = buildOption(settings.resolvedProtocolOptions(), inetOption);
+
+        StompServer server = StompServer.open(groups, stompServerOption)
+                .onChannel(channel -> {
+                    inboundHandlers.forEach(inboundHandler ->
+                            channel.chain().add(inboundHandler)
+                    );
+                    outboundHandlers.forEach(outboundHandler ->
+                            channel.chain().add(outboundHandler)
+                    );
+                });
+
+        return new StompManagedServer(server, settings);
+    }
 
     @Override
     public String transport() {
@@ -43,39 +83,6 @@ public final class StompServerEngineProvider implements NetworkServerEngineProvi
     @Override
     public String protocol() {
         return "stomp";
-    }
-
-    @Override
-    public ManagedServer create(final ServerSettings settings) {
-        EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
-        InetServerOption inetOption = buildInetOption(settings.resolvedTransportOptions());
-        StompServer server = StompServer.builder()
-                .group(groups)
-                .option(buildOption(settings.resolvedProtocolOptions(), inetOption))
-                .build();
-
-        return new ManagedServer() {
-
-            @Override
-            public String name() {
-                return settings.serverName();
-            }
-
-            @Override
-            public void start() {
-                try {
-                    server.start();
-                    server.listen(settings.host(), settings.port()).get(30, TimeUnit.SECONDS);
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to start STOMP server " + name(), e);
-                }
-            }
-
-            @Override
-            public void stop() {
-                server.shutdown();
-            }
-        };
     }
 
     private static StompServerOption buildOption(final Map<String, String> options, final InetServerOption inetOption) {

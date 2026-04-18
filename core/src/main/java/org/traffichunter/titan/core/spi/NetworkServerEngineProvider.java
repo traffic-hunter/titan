@@ -23,7 +23,10 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.spi;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -73,6 +76,12 @@ public interface NetworkServerEngineProvider {
     String transport();
 
     String protocol();
+
+    @CanIgnoreReturnValue
+    NetworkServerEngineProvider setInboundHandler(ChannelInBoundHandler channelInBoundHandler);
+
+    @CanIgnoreReturnValue
+    NetworkServerEngineProvider setOutboundHandler(ChannelOutBoundHandler channelOutBoundHandler);
 
     ManagedServer create(ServerSettings settings);
 
