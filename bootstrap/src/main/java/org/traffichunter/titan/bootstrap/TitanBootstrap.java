@@ -37,7 +37,7 @@ import org.traffichunter.titan.bootstrap.environment.ConfigurationInitializer;
 public final class TitanBootstrap {
 
     private static final String CALL_CORE_APPLICATION =
-            "org.traffichunter.titan.core.CoreApplication";
+            "org.traffichunter.titan.core.TitanApplication";
 
     private final Banner.Mode bannerMode = Configurations.banner(Property.BANNER_MODE);
     private final Banner banner = new Banner();
