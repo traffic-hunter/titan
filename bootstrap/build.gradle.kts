@@ -6,4 +6,5 @@ dependencies {
 
     runtimeOnly(project(":core"))
     runtimeOnly(project(":titan-stomp"))
+    runtimeOnly(project(":fanout"))
 }

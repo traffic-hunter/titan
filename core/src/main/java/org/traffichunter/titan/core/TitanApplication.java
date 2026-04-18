@@ -76,10 +76,12 @@ public class TitanApplication implements ApplicationStarter {
                             server
                     ));
             server.start();
+            log.info("Started TitanServer at {}", server.name());
             managedServers.add(server);
         });
 
         if(managedServers.isEmpty()) {
+            log.error("No managed servers found");
             throw new CoreApplicationException("No managed servers found");
         }
 

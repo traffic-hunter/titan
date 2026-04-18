@@ -11,7 +11,7 @@ import java.util.ServiceLoader;
 public interface FanoutLauncher {
 
     static List<FanoutLauncher> load() {
-        return ServiceLoader.load(FanoutLauncher.class)
+        return ServiceLoader.load(FanoutLauncher.class, FanoutLauncher.class.getClassLoader())
                 .stream()
                 .map(ServiceLoader.Provider::get)
                 .sorted(Comparator.comparingInt(FanoutLauncher::order))
