@@ -3,9 +3,11 @@ package org.traffichunter.titan.fanout;
 import java.util.Locale;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.spi.*;
 import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
 
+@Slf4j
 @SuppressWarnings("unused")
 public final class FanoutStompServerLauncher implements FanoutLauncher {
 
@@ -37,6 +39,8 @@ public final class FanoutStompServerLauncher implements FanoutLauncher {
         stompManagedServer.server().onStomp(handler ->
                 handler.sendHandler(stompSendToFanoutHandler)
         );
+
+        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), stompManagedServer.name());
     }
 
     private static FanoutMode resolveMode(final Map<String, String> protocolOptions) {
