@@ -25,13 +25,14 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.net.SocketOption;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
@@ -41,13 +42,11 @@ import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.InetClient;
-import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
-import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 
-import static org.traffichunter.titan.core.codec.stomp.StompFrame.*;
-import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
+import static org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 
 /**
  * @author yun
@@ -57,30 +56,44 @@ public final class StompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
-    private final Handler<StompClientHandler> clientHandlerConfigurer;
+
+    private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private @Nullable StompClientConnection connection;
 
-    private StompClient(
-            EventLoopGroups groups,
-            StompClientOption option,
-            Consumer<NetChannel> optionApplier,
-            Handler<StompClientHandler> clientHandlerConfigurer
-    ) {
-
-        this.inetClient = InetClient.builder()
-                .group(groups)
-                .option(optionApplier)
-                .build();
-
+    private StompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
-        this.clientHandlerConfigurer = clientHandlerConfigurer;
+
+        if (inetClient == null) {
+            inetClient = InetClient.open(groups, option.inetClientOption());
+        }
+        this.inetClient = inetClient;
     }
 
-    public static Builder builder() {
-        return new Builder();
+    public static StompClient open(EventLoopGroups groups, StompClientOption option) {
+        return open(groups, null, option);
+    }
+
+    public static StompClient open(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
+        return new StompClient(groups, inetClient, option);
+    }
+
+    @CanIgnoreReturnValue
+    public StompClient onChannel(Handler<Channel> channelHandler) {
+        inetClient.onChannel(channelHandler);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public StompClient onStomp(Handler<StompClientHandler> stompClientHandler) {
+        this.stompClientHandler = stompClientHandler;
+        return this;
     }
 
     public void start() {
+        if(inetClient.isStart()) {
+            throw new StompException("Client already started");
+        }
+
         inetClient.start();
     }
 
@@ -139,40 +152,36 @@ public final class StompClient {
     }
 
     public void handler(Consumer<StompClientConnection> connection) {
-        StompClientConnection clientConnection = connection();
-
-        connection.accept(clientConnection);
+        connection.accept(connection());
     }
 
     private StompClientConnection createConnection(NetChannel channel) {
-        StompClientConnection connection = StompClientConnection.wrap(channel, option, clientHandlerConfigurer);
+        StompClientConnection connection = StompClientConnection.wrap(channel, option);
+        stompClientHandler.handle(connection.handler());
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
         return connection;
     }
 
     private StompFrame generateConnectFrame(String host) {
-        StompHeaders headers = create();
-        String accepted = option.stompVersion().getVersion();
-        headers.put(Elements.ACCEPT_VERSION, accepted);
+        StompHeaders headers = StompHeaders.create();
+        headers.put(Elements.ACCEPT_VERSION, option.stompVersion().getVersion());
 
-        if(!option.bypassHostHeader()) {
+        if (!option.bypassHostHeader()) {
             headers.put(Elements.HOST, host);
         }
-        if(option.virtualHost() != null) {
+        if (option.virtualHost() != null) {
             headers.put(Elements.HOST, option.virtualHost());
         }
-        if(option.login() != null) {
+        if (option.login() != null) {
             headers.put(Elements.LOGIN, option.login());
         }
-        if(option.passcode() != null) {
+        if (option.passcode() != null) {
             headers.put(Elements.PASSCODE, option.passcode());
         }
 
         headers.put(Elements.HEART_BEAT, HeartBeat.create(option.heartbeatX(), option.heartbeatY()).value());
-
         StompCommand command = option.useStompFrame() ? StompCommand.STOMP : StompCommand.CONNECT;
-
         return StompFrame.create(headers, command);
     }
 
@@ -184,8 +193,7 @@ public final class StompClient {
     ) {
         Promise<StompClientConnection> result = Promise.newPromise(conn.channel().eventLoop());
         ScheduledPromise<Object> timeoutTask = conn.channel().eventLoop().schedule(() -> {
-            if (result.tryFail(new StompNetChannelException(
-                    "Timed out waiting for CONNECTED from " + remoteAddress + " in " + timeOut + " " + timeUnit))) {
+            if (result.tryFail(new StompNetChannelException("Timed out waiting for CONNECTED from " + remoteAddress + " in " + timeOut + " " + timeUnit))) {
                 conn.close();
             }
         }, timeOut, timeUnit);
@@ -206,54 +214,5 @@ public final class StompClient {
         });
 
         return result;
-    }
-
-    public static final class Builder {
-
-        private @Nullable EventLoopGroups groups;
-        private StompClientOption option = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
-        private Consumer<NetChannel> optionApplier = channel -> { };
-        private Handler<StompClientHandler> stompClientHandler = handler -> { };
-
-        @CanIgnoreReturnValue
-        public Builder group(EventLoopGroups groups) {
-            this.groups = groups;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public Builder option(StompClientOption option) {
-            this.option = option;
-            if (option.inetClientOption() != null) {
-                option(option.inetClientOption());
-            }
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        @SuppressWarnings("unchecked")
-        public Builder option(InetClientOption option) {
-            this.optionApplier = this.optionApplier.andThen(channel ->
-                    option.socketOptions().forEach((k, v) ->
-                            channel.setOption((SocketOption<Object>) k, v)
-                    ));
-            return this;
-        }
-
-        public Builder handler(Handler<StompClientHandler> stompClientHandler) {
-            this.stompClientHandler = stompClientHandler;
-            return this;
-        }
-
-        public StompClient build() {
-            Assert.checkNotNull(groups, "groups cannot be null");
-
-            return new StompClient(
-                    groups,
-                    option,
-                    optionApplier,
-                    stompClientHandler
-            );
-        }
     }
 }
