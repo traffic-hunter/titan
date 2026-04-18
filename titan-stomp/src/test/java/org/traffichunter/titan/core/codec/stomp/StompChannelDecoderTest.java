@@ -5,12 +5,15 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
+import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -174,7 +177,14 @@ class StompChannelDecoderTest {
     private static class TestStompChannelDecoder extends StompChannelDecoder {
 
         public TestStompChannelDecoder(int maxLength, StompHandler handler) {
-            super(maxLength, StompClientConnection.wrap(new InMemoryNetChannel(), StompClientOption.builder().build()), handler);
+            super(maxLength, StompClientConnection.wrap(channelWithEventLoop(), StompClientOption.builder().build()), handler);
+        }
+
+        private static InMemoryNetChannel channelWithEventLoop() {
+            InMemoryNetChannel channel = new InMemoryNetChannel();
+            IOEventLoop eventLoop = Mockito.mock(IOEventLoop.class);
+            channel.register(eventLoop, ChannelPromise.newPromise(eventLoop, channel));
+            return channel;
         }
     }
 
