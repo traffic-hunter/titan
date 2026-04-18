@@ -104,7 +104,7 @@ public record StompServerOption(
                 transactionChunkSize == null ? DEFAULT_TRANSACTION_CHUNK_SIZE : transactionChunkSize,
                 maxSubscriptionsByClient == null ? DEFAULT_MAX_SUBSCRIPTIONS_BY_CLIENT : maxSubscriptionsByClient,
                 StompVersion.STOMP_1_2,
-                inetServerOption
+                inetServerOption == null ? InetServerOption.DEFAULT_INET_SERVER_OPTION : inetServerOption
         );
     }
 }

@@ -102,7 +102,7 @@ public record StompClientOption(
                 virtualHost,
                 maxFrameLength == null ? DEFAULT_MAX_FRAME_LENGTH : maxFrameLength,
                 StompVersion.STOMP_1_2,
-                inetClientOption
+                inetClientOption == null ? InetClientOption.DEFAULT_INET_CLIENT_OPTION : inetClientOption
         );
     }
 }
