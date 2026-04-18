@@ -25,7 +25,9 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
@@ -34,13 +36,22 @@ import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 
-public final class StompServerExtension implements BeforeAllCallback, AfterAllCallback, ParameterResolver {
+public final class StompServerExtension implements
+        BeforeAllCallback,
+        AfterAllCallback,
+        BeforeEachCallback,
+        AfterEachCallback,
+        ParameterResolver {
 
     private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(StompServerExtension.class);
     private static final String KEY = "stomp-test-server";
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
+    }
+
+    @Override
+    public void beforeEach(ExtensionContext context) throws Exception {
         EnableStompServer config = context.getRequiredTestClass().getAnnotation(EnableStompServer.class);
         if (config == null) {
             throw new IllegalStateException("@EnableStompServer is required");
@@ -51,11 +62,7 @@ public final class StompServerExtension implements BeforeAllCallback, AfterAllCa
                 .maxBodyLength(config.maxFrameLength())
                 .build();
 
-        StompServer server = StompServer.builder()
-                .group(groups)
-                .option(serverOption)
-                .build();
-
+        StompServer server = StompServer.open(groups, serverOption);
         server.start();
         server.listen(config.host(), config.port()).get(3, TimeUnit.SECONDS);
 
@@ -68,6 +75,10 @@ public final class StompServerExtension implements BeforeAllCallback, AfterAllCa
 
     @Override
     public void afterAll(ExtensionContext context) {
+    }
+
+    @Override
+    public void afterEach(ExtensionContext context) {
         StompTestServer testServer = context.getStore(NS).remove(KEY, StompTestServer.class);
         if (testServer != null) {
             testServer.server().shutdown();

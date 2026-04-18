@@ -23,15 +23,34 @@
  */
 package org.traffichunter.titan.core.spi;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 
 public final class TcpServerEngineProvider implements NetworkServerEngineProvider {
+
+    private final List<ChannelInBoundHandler> inboundHandlers = new ArrayList<>();
+    private final List<ChannelOutBoundHandler> outboundHandlers = new ArrayList<>();
+
+    @Override
+    public NetworkServerEngineProvider setInboundHandler(ChannelInBoundHandler channelInBoundHandler) {
+        inboundHandlers.add(channelInBoundHandler);
+        return this;
+    }
+
+    @Override
+    public NetworkServerEngineProvider setOutboundHandler(ChannelOutBoundHandler channelOutBoundHandler) {
+        outboundHandlers.add(channelOutBoundHandler);
+        return this;
+    }
 
     @Override
     public String transport() {
@@ -47,13 +66,17 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
     public ManagedServer create(final ServerSettings settings) {
         EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
         InetServerOption inetOption = buildOption(settings.resolvedTransportOptions());
-        InetServer server = InetServer.builder()
-                .group(groups)
-                .options(inetOption)
-                .channelHandler(channel -> channel.chain()
-                        .add(new LineFrameChannelDecoder())
-                )
-                .build();
+        InetServer server = InetServer.open(groups)
+                .option(inetOption)
+                .onChannel(channel -> {
+                    channel.chain().add(new LineFrameChannelDecoder());
+                    inboundHandlers.forEach(inboundHandler ->
+                            channel.chain().add(inboundHandler)
+                    );
+                    outboundHandlers.forEach(outboundHandler ->
+                            channel.chain().add(outboundHandler)
+                    );
+                });
 
         return new ManagedServer() {
             @Override

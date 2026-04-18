@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.time.Instant;
+
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
 import org.traffichunter.titan.core.channel.stomp.StompServerEvent;
@@ -33,7 +34,6 @@ import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.IdGenerator;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 
@@ -63,9 +63,8 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
                 .priority(Priority.DEFAULT)
                 .destination(Destination.create(destination))
                 .createdAt(Instant.now())
-                .isRecovery(false)
-                .producerId(IdGenerator.uuid())
-                .body(sf.getBody().getBytes())
+                .producerId(connection.session())
+                .body(sf.getBody())
                 .build();
 
         try {

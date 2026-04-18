@@ -59,13 +59,11 @@ public class ClientToServerTest {
 
     @BeforeEach
     void setUp() throws InterruptedException {
-        server = InetServer.builder()
-                .group(EventLoopGroups.group(1))
-                .options(InetServerOption.builder().build())
-                .channelHandler(ctx -> ctx.chain()
+        server = InetServer.open(EventLoopGroups.group(1))
+                .option(InetServerOption.builder().build())
+                .onChannel(ctx -> ctx.chain()
                         .add(new LineFrameChannelDecoder())
-                        .add(new TestChannelInboundHandler()))
-                .build();
+                        .add(new TestChannelInboundHandler()));
 
         server.start();
 
@@ -88,11 +86,8 @@ public class ClientToServerTest {
     @Test
     void client_to_server_single_send_test() throws ExecutionException, InterruptedException {
 
-        InetClient client = InetClient.builder()
-                .group(EventLoopGroups.group())
-                .options(InetClientOption.builder().build())
-                .channelHandler(channel -> channel.chain())
-                .build();
+        InetClient client = InetClient.open(EventLoopGroups.group())
+                .onChannel(channel -> channel.chain());
 
         client.start();
         client.connect("localhost", 7777).get();
@@ -116,11 +111,8 @@ public class ClientToServerTest {
 
         ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2, r -> new Thread(r, "TestThread"));
 
-        InetClient client = InetClient.builder()
-                .group(EventLoopGroups.group())
-                .options(InetClientOption.builder().build())
-                .channelHandler(channel -> channel.chain())
-                .build();
+        InetClient client = InetClient.open(EventLoopGroups.group())
+                .onChannel(channel -> channel.chain());
 
         client.start();
         client.connect("localhost", 7777).get();
@@ -154,7 +146,7 @@ public class ClientToServerTest {
             final Message msg = Message.builder()
                     .destination(Destination.create("/route/test"))
                     .priority(Priority.DEFAULT)
-                    .body(buffer.getBytes())
+                    .body(buffer)
                     .producerId(IdGenerator.uuid())
                     .createdAt(Instant.now())
                     .build();

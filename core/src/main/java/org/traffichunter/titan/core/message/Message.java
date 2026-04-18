@@ -30,6 +30,7 @@ import lombok.Builder;
 import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -47,8 +48,6 @@ public final class Message implements Comparable<Message> {
 
     private Instant dispatchedAt;
 
-    private boolean isRecovery;
-
     private final String producerId;
 
     private final long size;
@@ -59,21 +58,15 @@ public final class Message implements Comparable<Message> {
     public Message(final Priority priority,
                    final Destination destination,
                    final Instant createdAt,
-                   final boolean isRecovery,
                    final String producerId,
-                   final byte[] body
+                   final Buffer body
     ) {
         this.priority = Objects.requireNonNull(priority, "priority");
         this.destination = Objects.requireNonNull(destination, "routingKey");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
-        this.isRecovery = isRecovery;
         this.producerId = Objects.requireNonNull(producerId, "producerId");
-        this.body = Objects.requireNonNull(body, "body");
-        this.size = body.length;
-    }
-
-    public void setRecover() {
-        this.isRecovery = true;
+        this.body = Objects.requireNonNull(body, "body").getBytes();
+        this.size = this.body.length;
     }
 
     public void setDispatchAt(final Instant dispatchedAt) {
@@ -96,7 +89,7 @@ public final class Message implements Comparable<Message> {
         if (!(o instanceof Message message)) {
             return false;
         }
-        return isRecovery() == message.isRecovery() && getSize() == message.getSize() && Objects.equals(
+        return getSize() == message.getSize() && Objects.equals(
                 getUniqueId(), message.getUniqueId()) && getPriority() == message.getPriority() && Objects.equals(
                 getDestination(), message.getDestination()) && Objects.equals(getCreatedAt(),
                 message.getCreatedAt()) && Objects.equals(getDispatchedAt(), message.getDispatchedAt())
@@ -112,7 +105,6 @@ public final class Message implements Comparable<Message> {
                 getDestination(),
                 getCreatedAt(),
                 getDispatchedAt(),
-                isRecovery(),
                 getProducerId(), getSize(), Arrays.hashCode(getBody())
         );
     }
@@ -125,7 +117,6 @@ public final class Message implements Comparable<Message> {
                 ", routingKey:" + destination +
                 ", createdAt:" + createdAt +
                 ", dispatchedAt:" + dispatchedAt +
-                ", isRecovery:" + isRecovery +
                 ", producerId:'" + producerId + '\'' +
                 ", size:" + size +
                 ", body:" + Arrays.toString(body) +

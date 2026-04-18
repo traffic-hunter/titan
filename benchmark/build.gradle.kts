@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":fanout"))
 
     jmh("org.openjdk.jmh:jmh-core:1.37")
     jmh("org.openjdk.jmh:jmh-generator-annprocess:1.37")

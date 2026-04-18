@@ -23,37 +23,44 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout;
 
-import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.Destination;
+import lombok.Getter;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
-import java.io.Closeable;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.Future;
+import java.util.Map;
 
 /**
  * @author yun
  */
-public interface FanoutGateway extends Closeable {
+@Getter
+public enum FanoutMode {
 
-    static FanoutGateway ofThread(FanoutExporter exporter) {
-        return new ThreadPoolExecutorFanoutGateway(exporter);
+    PLATFORM_EXECUTOR("platform") {
+        @Override
+        public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter) {
+            return FanoutGateway.ofThread(fanoutExporter);
+        }
+    },
+    VT_EXECUTOR("virtual") {
+        @Override
+        public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter) {
+            return FanoutGateway.ofVirtual(fanoutExporter);
+        }
+    },
+    ;
+
+    private final String name;
+
+    FanoutMode(String name) {
+        this.name = name;
     }
 
-    static FanoutGateway ofVirtual(FanoutExporter exporter) {
-        return new VirtualThreadExecutorFanoutGateway(exporter);
+    public abstract FanoutGateway fanoutGateway(FanoutExporter fanoutExporter);
+
+    public static FanoutMode resolveMode(String modeName) {
+        return switch (modeName) {
+            case "platform" -> FanoutMode.PLATFORM_EXECUTOR;
+            case "virtual" -> FanoutMode.VT_EXECUTOR;
+            default -> throw new IllegalStateException("Unexpected value: " + modeName);
+        };
     }
-
-    List<Future<Void>> fanout(Collection<Destination> destinations);
-
-    Future<Void> fanout(Destination destination);
-
-    List<Future<Void>> publish(Collection<Message> messages);
-
-    Future<Void> publish(Message message);
-
-    boolean isOpen();
-
-    boolean isClosed();
 }

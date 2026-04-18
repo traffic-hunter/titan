@@ -26,18 +26,23 @@ package org.traffichunter.titan.core;
 import java.util.ArrayList;
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.core.spi.ManagedServer;
+import org.traffichunter.titan.core.spi.FanoutLauncher;
 import org.traffichunter.titan.core.spi.NetworkServerEngineProvider;
 
 /**
  * Reflection entrypoint loaded by bootstrap.
  */
+@Slf4j
+@NullMarked
 @SuppressWarnings("unused")
-public class CoreApplication implements ApplicationStarter {
+public class TitanApplication implements ApplicationStarter {
 
     private static final GlobalShutdownHook SHUTDOWN_HOOK = GlobalShutdownHook.INSTANCE;
 
@@ -48,21 +53,39 @@ public class CoreApplication implements ApplicationStarter {
     }
 
     @Override
-    public void start(final @NonNull Settings settings) {
+    public void start(final Settings settings) {
         List<ManagedServer> managedServers = new ArrayList<>();
+        List<FanoutLauncher> fanoutLaunchers = FanoutLauncher.load();
 
         settings.servers().forEach(serverSettings -> {
-            ManagedServer server = NetworkServerEngineProvider.find(serverSettings).create(serverSettings);
+            ManagedServer server = NetworkServerEngineProvider
+                    .find(serverSettings)
+                    .create(serverSettings);
+
+            fanoutLaunchers.stream()
+                    .filter(plugin -> plugin.supports(
+                            serverSettings.protocol(),
+                            serverSettings.transport(),
+                            serverSettings.resolvedProtocolOptions(),
+                            server
+                    ))
+                    .forEach(plugin -> plugin.apply(
+                            serverSettings.protocol(),
+                            serverSettings.transport(),
+                            serverSettings.resolvedProtocolOptions(),
+                            server
+                    ));
             server.start();
             managedServers.add(server);
         });
 
         if(managedServers.isEmpty()) {
-            throw new IllegalStateException("No managed servers found");
+            throw new CoreApplicationException("No managed servers found");
         }
 
         managedServers.forEach(managedServer ->
-                SHUTDOWN_HOOK.addShutdownCallback(managedServer::stop));
+                SHUTDOWN_HOOK.addShutdownCallback(managedServer::stop)
+        );
     }
 
     public static class CoreApplicationException extends RuntimeException {
