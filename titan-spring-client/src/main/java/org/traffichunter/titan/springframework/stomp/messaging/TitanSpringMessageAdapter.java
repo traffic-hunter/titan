@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.springframework.stomp.messaging;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
@@ -30,6 +31,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 /**
  * @author yun
  */
+@NullMarked
 public final class TitanSpringMessageAdapter {
 
     public static final String HDR_STOMP_FRAME = "titan.stomp.frame";
