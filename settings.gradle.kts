@@ -7,3 +7,4 @@ include("titan-stomp")
 
 include("benchmark")
 include("fanout")
+include("titan-spring-client")

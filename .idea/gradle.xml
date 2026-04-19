@@ -14,6 +14,7 @@
             <option value="$PROJECT_DIR$/core" />
             <option value="$PROJECT_DIR$/fanout" />
             <option value="$PROJECT_DIR$/monitor" />
+            <option value="$PROJECT_DIR$/titan-spring-client" />
             <option value="$PROJECT_DIR$/titan-stomp" />
           </set>
         </option>
