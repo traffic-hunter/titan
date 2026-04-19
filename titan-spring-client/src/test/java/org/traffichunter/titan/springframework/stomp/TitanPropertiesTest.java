@@ -1,0 +1,45 @@
+package org.traffichunter.titan.springframework.stomp;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+class TitanPropertiesTest {
+
+    @Test
+    void defaults_are_initialized() {
+        TitanProperties properties = new TitanProperties();
+
+        assertTrue(properties.isEnabled());
+        assertTrue(properties.isAutoStart());
+        assertTrue(properties.isAutoConnect());
+        assertEquals("127.0.0.1", properties.getHost());
+        assertEquals(61613, properties.getPort());
+        assertEquals(30000L, properties.getConnectTimeoutMillis());
+        assertTrue(properties.isAutoComputeContentLength());
+        assertFalse(properties.isUseStompFrame());
+        assertFalse(properties.isBypassHostHeader());
+    }
+
+    @Test
+    void set_secondary_threads_fallback_to_available_processors_when_non_positive() {
+        TitanProperties properties = new TitanProperties();
+
+        properties.setSecondaryThreads(0);
+        assertEquals(Runtime.getRuntime().availableProcessors(), properties.getSecondaryThreads());
+
+        properties.setSecondaryThreads(-1);
+        assertEquals(Runtime.getRuntime().availableProcessors(), properties.getSecondaryThreads());
+    }
+
+    @Test
+    void set_secondary_threads_uses_explicit_value_when_positive() {
+        TitanProperties properties = new TitanProperties();
+
+        properties.setSecondaryThreads(4);
+
+        assertEquals(4, properties.getSecondaryThreads());
+    }
+}
