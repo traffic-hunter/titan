@@ -1,0 +1,80 @@
+package org.traffichunter.titan.springframework.stomp;
+
+import org.springframework.messaging.Message;
+import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
+import org.springframework.messaging.handler.invocation.InvocableHandlerMethod;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public final class TitanMessageListenerContainer {
+
+    private final TitanListenerEndpoint endpoint;
+    private final TitanClientManager manager;
+    private final HandlerMethodArgumentResolverComposite argumentResolvers;
+
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
+    public TitanMessageListenerContainer(
+            TitanListenerEndpoint endpoint,
+            TitanClientManager manager,
+            HandlerMethodArgumentResolverComposite argumentResolvers
+    ) {
+        this.endpoint = endpoint;
+        this.manager = manager;
+        this.argumentResolvers = argumentResolvers;
+    }
+
+    public void start() {
+        if (!running.compareAndSet(false, true)) {
+            return;
+        }
+
+        try {
+            StompClientConnection conn = manager.connection();
+            conn.subscribe(endpoint.destination(), frame -> {
+                try {
+                    invoke(frame); // payload binding
+                } catch (Exception e) {
+                    // TODO: error handler, nack/retry policy
+                }
+            });
+        } catch (Exception e) {
+            running.set(false);
+            throw new IllegalStateException("Failed to start listener " + endpoint.id(), e);
+        }
+    }
+
+    public void stop() {
+        if (!running.compareAndSet(true, false)) {
+            return;
+        }
+
+        try {
+            StompClientConnection conn = manager.currentConnection();
+            if(conn == null) {
+                return;
+            }
+
+            if (conn.isConnected()) {
+                conn.unsubscribe(endpoint.destination());
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to stop listener " + endpoint.id(), e);
+        }
+    }
+
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    private void invoke(StompFrame frame) throws Exception {
+        Message<byte[]> springMessage = TitanSpringMessageAdapter.from(frame);
+
+        InvocableHandlerMethod invocable = new InvocableHandlerMethod(endpoint.bean(), endpoint.method());
+        invocable.setMessageMethodArgumentResolvers(this.argumentResolvers);
+        invocable.invoke(springMessage);
+    }
+}
