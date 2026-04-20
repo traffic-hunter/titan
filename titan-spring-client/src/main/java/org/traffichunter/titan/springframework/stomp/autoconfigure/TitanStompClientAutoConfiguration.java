@@ -54,7 +54,7 @@ public class TitanStompClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public TitanClientManager titanStompClientManager(
+    public TitanClientManager titanClientManager(
             StompClient titanStompClient,
             TitanProperties properties
     ) {
