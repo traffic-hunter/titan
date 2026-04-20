@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: smoke-spring
+  titan:
+    auto-connect: false
+    auto-start: true
+    login: test
+    passcode: test
+    virtual-host: test
+    secondary-threads: 10

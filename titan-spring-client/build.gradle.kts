@@ -1,5 +1,9 @@
+plugins {
+    `java-library`
+}
+
 dependencies {
-    implementation(project(":titan-stomp"))
+    api(project(":titan-stomp"))
     implementation(project(":core"))
 
     implementation("org.springframework.boot:spring-boot-autoconfigure:3.3.5")
