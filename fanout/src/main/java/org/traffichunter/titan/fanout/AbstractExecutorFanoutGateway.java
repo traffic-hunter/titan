@@ -151,6 +151,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
 
     protected CompletableFuture<Void> consume(Destination destination) {
         DispatcherQueue dispatcherQueue = dispatcher.getOrPut(destination);
+        log.info("Starting fanout consumer for destination={}", destination.path());
 
         return CompletableFuture.runAsync(() -> {
             try {
@@ -189,6 +190,11 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
             dq.enqueue(message);
             return message;
         } catch (Exception e) {
+            log.warn(
+                    "Failed to route fanout message. destination={}",
+                    destination.path(),
+                    e
+            );
             if(dq.contains(message)) {
                 dq.remove(message);
             }

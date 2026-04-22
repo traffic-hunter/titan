@@ -64,6 +64,7 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
                         }
                     }
                 } catch (Throwable e) {
+                    log.error("Failed to accept incoming connection", e);
                     key.cancel();
                 }
             }

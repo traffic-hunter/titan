@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -45,6 +46,7 @@ import org.traffichunter.titan.core.util.Handler;
 /**
  * @author yun
  */
+@Slf4j
 public final class StompServer {
 
     private final InetServer inetServer;
@@ -116,6 +118,13 @@ public final class StompServer {
         serverConnection.bind(inetServer.channel());
 
         inetServer.start();
+        log.info(
+                "Started STOMP server engine. session={}, version={}, secured={}, sendErrorOnNoSubscriptions={}",
+                serverConnection.session(),
+                option.stompVersion().getVersion(),
+                option.secured(),
+                option.sendErrorOnNoSubscriptions()
+        );
 
         return this;
     }
@@ -161,6 +170,7 @@ public final class StompServer {
         inetServer.listen(address)
                 .addListener(listenFuture -> {
                     if (listenFuture.isSuccess()) {
+                        log.info("STOMP server listening on {}", address);
                         resultPromise.success();
                     } else {
                         resultPromise.fail(new StompException("Failed to listen on address " + address, listenFuture.error()));

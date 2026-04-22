@@ -25,6 +25,7 @@ package org.traffichunter.titan.fanout;
 
 import java.time.Instant;
 
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
 import org.traffichunter.titan.core.channel.stomp.StompServerEvent;
@@ -40,6 +41,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 /**
  * STOMP SEND -> fanout queue ingress.
  */
+@Slf4j
 public final class StompSendToFanoutHandler implements StompServerCommandHandler {
 
     private final FanoutGateway fanoutGateway;
@@ -54,6 +56,7 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
         StompClientConnection connection = event.connection();
         String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
         if (destination == null || destination.isBlank()) {
+            log.warn("Rejected fanout publish due to missing destination. session={}", connection.session());
             connection.send(errorFrame("Wrong send.", "Wrong send destination id, Id is required."));
             connection.close();
             return;
@@ -70,6 +73,12 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
         try {
             fanoutGateway.publish(message);
         } catch (Exception e) {
+            log.error(
+                    "Failed to publish fanout message. session={}, destination={}",
+                    connection.session(),
+                    destination,
+                    e
+            );
             connection.send(errorFrame("Failed to publish.", "Failed to publish inbound SEND frame."));
             connection.close();
             return;
