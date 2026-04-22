@@ -114,6 +114,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
             return read;
         } catch (IOException e) {
+            log.warn("Failed to read from socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
             return -1;
         }
     }
@@ -276,6 +277,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         try {
             written = channel().write(byteBuffer);
         } catch (IOException e) {
+            log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
             return -1;
         }
 

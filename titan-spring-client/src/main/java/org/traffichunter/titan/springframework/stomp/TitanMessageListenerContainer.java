@@ -3,6 +3,8 @@ package org.traffichunter.titan.springframework.stomp;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 import org.springframework.messaging.handler.invocation.InvocableHandlerMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
@@ -10,6 +12,8 @@ import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessag
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class TitanMessageListenerContainer {
+
+    private static final Logger log = LoggerFactory.getLogger(TitanMessageListenerContainer.class);
 
     private final TitanListenerEndpoint endpoint;
     private final TitanClientManager manager;
@@ -38,9 +42,16 @@ public final class TitanMessageListenerContainer {
                 try {
                     invoke(frame); // payload binding
                 } catch (Exception e) {
+                    log.error(
+                            "Failed to invoke Titan listener handler. id={}, destination={}",
+                            endpoint.id(),
+                            endpoint.destination(),
+                            e
+                    );
                     // TODO: error handler, nack/retry policy
                 }
             });
+            log.info("Started Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());
         } catch (Exception e) {
             running.set(false);
             throw new IllegalStateException("Failed to start listener " + endpoint.id(), e);
@@ -61,6 +72,8 @@ public final class TitanMessageListenerContainer {
             if (conn.isConnected()) {
                 conn.unsubscribe(endpoint.destination());
             }
+
+            log.info("Stopped Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());
         } catch (Exception e) {
             throw new IllegalStateException("Failed to stop listener " + endpoint.id(), e);
         }

@@ -167,6 +167,12 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                         .orElse(STOMP_1_0.getVersion());
 
                 if(!accept.equals(sc.version())) {
+                    log.warn(
+                            "Rejected STOMP CONNECT due to version mismatch. session={}, clientVersion={}, serverVersion={}",
+                            sc.session(),
+                            accept,
+                            sc.version()
+                    );
                     sc.send(errorFrame("Not match stomp version...", formatString("Not match stomp version... client version = {}", accept)));
                     sc.close();
                     return;
@@ -177,6 +183,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                     String passcode = sf.getHeader(StompHeaders.Elements.PASSCODE);
 
                     if(login == null || passcode == null) {
+                        log.warn(
+                                "Rejected STOMP CONNECT due to missing credentials. session={}",
+                                sc.session()
+                        );
                         sc.send(errorFrame("Authentication required", "login/passcode is required"));
                         sc.close();
                         return;
@@ -184,6 +194,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                     boolean authenticated = context.authentication().authenticate(new UsernamePasswordCredentials(login, passcode));
                     if(!authenticated) {
+                        log.warn(
+                                "Rejected STOMP CONNECT due to authentication failure. session={}, login={}",
+                                sc.session(),
+                                login
+                        );
                         sc.send(errorFrame("Authentication failed", "The connection frame does not contain valid credentials."));
                         sc.close();
                         return;
@@ -209,6 +224,12 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 frame.addHeader(StompHeaders.Elements.SERVER, IdGenerator.name());
                 frame.addHeader(StompHeaders.Elements.HEART_BEAT, StompFrame.HeartBeat.DEFAULT.value());
                 sc.send(frame);
+                log.info(
+                        "Accepted STOMP CONNECT. session={}, version={}, heartbeat={}",
+                        sc.session(),
+                        sc.version(),
+                        heartbeat
+                );
 
                 context.receipt(sf, sc);
             }
@@ -236,6 +257,12 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 }
 
                 if(id == null || destination == null) {
+                    log.warn(
+                            "Failed to subscribe due to invalid headers. session={}, destination={}, id={}",
+                            sc.session(),
+                            destination,
+                            id
+                    );
                     sc.send(errorFrame("Failed to subscribe.", formatString("Failed to subscribe destination = {}",
                             destination == null ? "null" : destination)));
                     sc.close();
@@ -252,10 +279,23 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                                 .build()
                 );
                 if (!registered) {
+                    log.warn(
+                            "Failed to subscribe due to duplicate subscription id. session={}, destination={}, id={}",
+                            sc.session(),
+                            destination,
+                            id
+                    );
                     sc.send(errorFrame("Failed to subscribe.", formatString("Failed to subscribe destination = {}", destination)));
                     sc.close();
                     return;
                 }
+                log.info(
+                        "Subscribed session. session={}, destination={}, subscriptionId={}, ack={}",
+                        sc.session(),
+                        destination,
+                        id,
+                        ack
+                );
 
                 context.receipt(sf, sc);
             }
@@ -269,6 +309,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 if(id == null) {
+                    log.warn(
+                            "Failed to unsubscribe due to missing id. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Wrong unsubscribe id.", "Wrong unsubscribe id, Id is required."));
                     sc.close();
                     return;
@@ -276,10 +320,21 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 StompServerSubscription subscription = context.serverConnection().subscriptions().unregister(id);
                 if (subscription == null) {
+                    log.warn(
+                            "Failed to unsubscribe due to unknown subscription id. session={}, id={}",
+                            sc.session(),
+                            id
+                    );
                     sc.send(errorFrame("Failed to unsubscribe.", formatString("Failed to unsubscribe destination = {}", id)));
                     sc.close();
                     return;
                 }
+                log.info(
+                        "Unsubscribed session. session={}, subscriptionId={}, destination={}",
+                        sc.session(),
+                        id,
+                        subscription.destination().path()
+                );
 
                 context.receipt(sf, sc);
             }
@@ -292,6 +347,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 StompClientConnection sc = event.connection();
                 String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
                 if(destination == null) {
+                    log.warn(
+                            "Failed to send due to missing destination. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Wrong send.", "Wrong send destination id, Id is required."));
                     sc.close();
                     return;
@@ -301,6 +360,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 var subscriptions = context.serverConnection().subscriptions().findByDestination(dest);
                 if (subscriptions.isEmpty()) {
                     if (context.option().sendErrorOnNoSubscriptions()) {
+                        log.warn(
+                                "Failed to send due to no subscriptions. session={}, destination={}",
+                                sc.session(),
+                                destination
+                        );
                         sc.send(errorFrame("No subscriptions found.",
                                 formatString("No subscriptions found for destination = {}", destination)));
                         sc.close();
@@ -323,11 +387,23 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                         subscription.getConnection().send(messageFrame);
                         success++;
-                    } catch (Exception ignore) {
+                    } catch (Exception e) {
+                        log.error(
+                                "Failed to fanout STOMP message. producerSession={}, consumerSession={}, destination={}",
+                                sc.session(),
+                                subscription.getConnection().session(),
+                                destination,
+                                e
+                        );
                     }
                 }
 
                 if (success == 0) {
+                    log.warn(
+                            "Failed to send because all deliveries failed. session={}, destination={}",
+                            sc.session(),
+                            destination
+                    );
                     sc.send(errorFrame("Failed to send.", formatString("Failed to send destination = {}", destination)));
                     sc.close();
                     return;
@@ -345,6 +421,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 if(id == null) {
+                    log.warn(
+                            "Failed to ACK due to missing id. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Wrong ack id, Id is required.", "Wrong ack id, Id is required."));
                     sc.close();
                     return;
@@ -354,6 +434,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 if(txId != null) {
                     Transaction transaction = Transactions.getInstance().getTransaction(sc, txId);
                     if(transaction == null) {
+                        log.warn(
+                                "Failed to ACK due to unknown transaction. session={}, txId={}",
+                                sc.session(),
+                                txId
+                        );
                         sc.send(errorFrame("Unknown transaction", formatString("Unknown transaction id = {}", txId)));
                         sc.close();
                     }
@@ -361,6 +446,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 }
 
                 if(!Transactions.getInstance().registerTransaction(sc, id)) {
+                    log.warn(
+                            "Failed to ACK due to transaction registration failure. session={}, id={}",
+                            sc.session(),
+                            id
+                    );
                     Transactions.getInstance().removeTransactions(sc);
                     sc.send(errorFrame("Failed transaction", formatString("Failed transaction add id = {}", id)));
                     sc.close();
@@ -379,6 +469,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 if(id == null) {
+                    log.warn(
+                            "Failed to NACK due to missing id. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Wrong nack id, Id is required.", "Wrong nack id, Id is required."));
                     sc.close();
                     return;
@@ -388,6 +482,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 if(txId != null) {
                     Transaction transaction = Transactions.getInstance().getTransaction(sc, txId);
                     if(transaction == null) {
+                        log.warn(
+                                "Failed to NACK due to unknown transaction. session={}, txId={}",
+                                sc.session(),
+                                txId
+                        );
                         sc.send(errorFrame("Unknown transaction.", formatString("Unknown transaction id = {}", txId)));
                         sc.close();
                     }
@@ -395,6 +494,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 }
 
                 if(!Transactions.getInstance().registerTransaction(sc, id)) {
+                    log.warn(
+                            "Failed to NACK due to transaction registration failure. session={}, id={}",
+                            sc.session(),
+                            id
+                    );
                     Transactions.getInstance().removeTransactions(sc);
                     sc.send(errorFrame("Failed to transaction.", formatString("Failed to transaction add id = {}", id)));
                     sc.close();
@@ -413,12 +517,21 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 String txId = sf.getHeader(StompHeaders.Elements.TRANSACTION);
                 if (txId == null) {
+                    log.warn(
+                            "Failed to BEGIN due to missing transaction id. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Transaction id is required.", "Transaction id is required."));
                     sc.close();
                     return;
                 }
 
                 if(!Transactions.getInstance().registerTransaction(sc, txId)) {
+                    log.warn(
+                            "Failed to BEGIN due to duplicate transaction id. session={}, txId={}",
+                            sc.session(),
+                            txId
+                    );
                     sc.send(errorFrame("Transaction id already exists.", formatString("Transaction id = {}", txId)));
                     sc.close();
                     return;
@@ -436,12 +549,21 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 String txId = sf.getHeader(StompHeaders.Elements.TRANSACTION);
                 if (txId == null) {
+                    log.warn(
+                            "Failed to ABORT due to missing transaction id. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Transaction id is required.", "Transaction id is required."));
                     sc.close();
                     return;
                 }
 
                 if (!Transactions.getInstance().removeTransaction(sc, txId)) {
+                    log.warn(
+                            "Failed to ABORT due to unknown transaction id. session={}, txId={}",
+                            sc.session(),
+                            txId
+                    );
                     sc.send(errorFrame("Unknown transaction.", formatString("Unknown transaction id = {}", txId)));
                     sc.close();
                     return;
@@ -458,6 +580,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 StompClientConnection sc = event.connection();
                 String txId = sf.getHeader(StompHeaders.Elements.TRANSACTION);
                 if(txId == null) {
+                    log.warn(
+                            "Failed to COMMIT due to missing transaction id. session={}",
+                            sc.session()
+                    );
                     sc.send(errorFrame("Transaction id is required.", "Transaction id is required."));
                     sc.close();
                     return;
@@ -465,6 +591,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 Transaction transaction = Transactions.getInstance().getTransaction(sc, txId);
                 if(transaction == null) {
+                    log.warn(
+                            "Failed to COMMIT due to unknown transaction id. session={}, txId={}",
+                            sc.session(),
+                            txId
+                    );
                     sc.send(errorFrame("Unknown transaction", formatString("Unknown transaction id = {}", txId)));
                     sc.close();
                     return;

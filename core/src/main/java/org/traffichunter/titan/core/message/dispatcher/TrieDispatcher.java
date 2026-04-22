@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
@@ -31,6 +32,7 @@ import org.traffichunter.titan.core.util.TrieImpl;
 /**
  * @author yungwang-o
  */
+@Slf4j
 public class TrieDispatcher implements Dispatcher {
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
@@ -49,6 +51,7 @@ public class TrieDispatcher implements Dispatcher {
         DispatcherQueue v = trie.get(destination.path());
         if (v == null) {
             v = trie.insert(destination.path(), DispatcherQueue.create(destination));
+            log.info("Created new dispatcher for path {}", destination.path());
         }
 
         return v;

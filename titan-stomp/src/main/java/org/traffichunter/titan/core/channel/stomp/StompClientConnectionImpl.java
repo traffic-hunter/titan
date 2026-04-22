@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
@@ -54,6 +55,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 /**
  * @author yun
  */
+@Slf4j
 public class StompClientConnectionImpl implements StompClientConnection {
 
     private final String sessionId = IdGenerator.uuid();
@@ -425,6 +427,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
             if (receiptId != null && !receiptId.isBlank()) {
                 receiptMap.remove(receiptId);
             }
+            log.error("Failed to write STOMP frame. session={}, command={}", sessionId, frame.getCommand(), e);
             close();
             receiptPromise.fail(new StompNetChannelException("Failed to write STOMP frame", e));
         }

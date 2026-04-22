@@ -116,6 +116,12 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
             applyServerOptions(option);
             groups().primaryGroup().register(channel());
             groups().start();
+            log.info(
+                    "Started InetServer. session={}, serverOptions={}, childOptions={}",
+                    channel().session(),
+                    option.serverSocketOptions(),
+                    option.childSocketOptions()
+            );
         } catch (RuntimeException e) {
             state.compareAndSet(State.STARTED, State.INIT);
             throw e;
@@ -152,6 +158,7 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
             eventLoop.register(() -> {
                 try {
                     eventLoop.ioSelector().registerAccept(channel());
+                    log.info("InetServer listen ready. session={}, address={}", channel().session(), address);
                     resultPromise.success();
                 } catch (IOException e) {
                     state.compareAndSet(State.LISTENING, State.STARTED);

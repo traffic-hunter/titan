@@ -201,6 +201,13 @@ public final class StompClient {
         conn.connectedPromise().addListener(connectedFuture -> {
             timeoutTask.cancel();
             if (connectedFuture.isSuccess()) {
+                log.info(
+                        "Connected STOMP client. remoteAddress={}, session={}, version={}, heartbeat={}",
+                        remoteAddress,
+                        conn.session(),
+                        option.stompVersion().getVersion(),
+                        HeartBeat.create(option.heartbeatX(), option.heartbeatY()).value()
+                );
                 result.trySuccess(conn);
                 return;
             }
