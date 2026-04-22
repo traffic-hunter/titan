@@ -87,6 +87,10 @@ public final class TitanClientManager implements SmartLifecycle {
         return connect();
     }
 
+    public long connectTimeoutMillis() {
+        return properties.getConnectTimeoutMillis();
+    }
+
     public @Nullable StompClientConnection currentConnection() {
         try {
             return stompClient.connection();
