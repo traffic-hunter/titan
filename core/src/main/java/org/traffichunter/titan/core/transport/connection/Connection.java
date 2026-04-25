@@ -21,12 +21,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.stomp;
+package org.traffichunter.titan.core.transport.connection;
 
-import org.traffichunter.titan.core.transport.connection.Connection;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.traffichunter.titan.core.channel.Channel;
+
+import java.time.Instant;
 
 /**
  * @author yun
  */
-public interface StompConnection extends Connection {
+public interface Connection {
+
+    Channel channel();
+
+    String session();
+
+    @CanIgnoreReturnValue
+    Instant setLastActivatedAt();
+
+    Instant lastActivatedAt();
+
+    String version();
+
+    void close();
 }

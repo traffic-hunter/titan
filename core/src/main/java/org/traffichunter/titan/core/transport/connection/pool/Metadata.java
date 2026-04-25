@@ -21,12 +21,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.stomp;
+package org.traffichunter.titan.core.transport.connection.pool;
 
-import org.traffichunter.titan.core.transport.connection.Connection;
+import lombok.Builder;
+
+import java.net.InetSocketAddress;
 
 /**
  * @author yun
  */
-public interface StompConnection extends Connection {
+@Builder
+public record Metadata(
+    int maxConnections,
+    int minConnections,
+    boolean fair,
+    InetSocketAddress localAddress,
+    InetSocketAddress remoteAddress
+) {
+
+    public Metadata {
+        if (maxConnections > 100) {
+            throw new IllegalArgumentException("maxConnections cannot be greater than 100");
+        }
+        if (minConnections < 0 || minConnections > maxConnections) {
+            throw new IllegalArgumentException("minConnections cannot be negative");
+        }
+    }
 }
