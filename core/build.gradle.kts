@@ -13,9 +13,6 @@ dependencies {
     // jackson
     implementation(project.libs.jackson.databind)
 
-    // Apache Commons pool2
-    implementation(project.libs.apache.commons.pool)
-
     // logback
     implementation(project.libs.logback)
 }

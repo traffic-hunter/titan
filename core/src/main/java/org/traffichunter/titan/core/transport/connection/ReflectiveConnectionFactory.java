@@ -21,12 +21,36 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.stomp;
+package org.traffichunter.titan.core.transport.connection;
 
-import org.traffichunter.titan.core.transport.connection.Connection;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * @author yun
  */
-public interface StompConnection extends Connection {
+public final class ReflectiveConnectionFactory<C extends Connection> implements ConnectionFactory<C> {
+
+    private final Constructor<C> constructor;
+
+    public ReflectiveConnectionFactory(Class<C> connectionType) {
+        try {
+            this.constructor = connectionType.getDeclaredConstructor();
+            this.constructor.setAccessible(true);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(
+                    "No default constructor found for connection type: " + connectionType.getName(),
+                    e
+            );
+        }
+    }
+
+    @Override
+    public C create() {
+        try {
+            return constructor.newInstance();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
 }

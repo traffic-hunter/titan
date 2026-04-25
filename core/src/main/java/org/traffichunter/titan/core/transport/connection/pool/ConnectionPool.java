@@ -21,12 +21,29 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.stomp;
+package org.traffichunter.titan.core.transport.connection.pool;
 
 import org.traffichunter.titan.core.transport.connection.Connection;
+import org.traffichunter.titan.core.transport.connection.ConnectionFactory;
+
+import java.io.Closeable;
 
 /**
  * @author yun
  */
-public interface StompConnection extends Connection {
+public interface ConnectionPool<C extends Connection> extends Closeable {
+
+    static <C extends Connection> ConnectionPool<C> simple(Metadata metadata, ConnectionFactory<C> factory) {
+        return new SimpleConnectionPool<>(metadata, factory);
+    }
+
+    C acquire();
+
+    boolean release(C connection);
+
+    int size();
+
+    Metadata metadata();
+
+    boolean isClosed();
 }

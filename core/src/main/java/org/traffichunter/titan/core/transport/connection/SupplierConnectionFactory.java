@@ -21,12 +21,23 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.stomp;
+package org.traffichunter.titan.core.transport.connection;
 
-import org.traffichunter.titan.core.transport.connection.Connection;
+import java.util.function.Supplier;
 
 /**
  * @author yun
  */
-public interface StompConnection extends Connection {
+public final class SupplierConnectionFactory<C extends Connection> implements ConnectionFactory<C> {
+
+    private final Supplier<C> connectionSupplier;
+
+    public SupplierConnectionFactory(Supplier<C> connectionSupplier) {
+        this.connectionSupplier = connectionSupplier;
+    }
+
+    @Override
+    public C create() {
+        return connectionSupplier.get();
+    }
 }
