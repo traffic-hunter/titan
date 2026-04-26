@@ -39,6 +39,14 @@ public class TitanProperties {
 
     private boolean bypassHostHeader = false;
 
+    private int listenerMaxAttempts = 5;
+
+    private long listenerInitialBackoffMillis = 1000L;
+
+    private long listenerMaxBackoffMillis = 30000L;
+
+    private double listenerBackoffMultiplier = 2.0d;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -177,5 +185,37 @@ public class TitanProperties {
 
     public void setBypassHostHeader(boolean bypassHostHeader) {
         this.bypassHostHeader = bypassHostHeader;
+    }
+
+    public int getListenerMaxAttempts() {
+        return listenerMaxAttempts;
+    }
+
+    public void setListenerMaxAttempts(int listenerMaxAttempts) {
+        this.listenerMaxAttempts = Math.max(1, listenerMaxAttempts);
+    }
+
+    public long getListenerInitialBackoffMillis() {
+        return listenerInitialBackoffMillis;
+    }
+
+    public void setListenerInitialBackoffMillis(long listenerInitialBackoffMillis) {
+        this.listenerInitialBackoffMillis = Math.max(1L, listenerInitialBackoffMillis);
+    }
+
+    public long getListenerMaxBackoffMillis() {
+        return listenerMaxBackoffMillis;
+    }
+
+    public void setListenerMaxBackoffMillis(long listenerMaxBackoffMillis) {
+        this.listenerMaxBackoffMillis = Math.max(1L, listenerMaxBackoffMillis);
+    }
+
+    public double getListenerBackoffMultiplier() {
+        return listenerBackoffMultiplier;
+    }
+
+    public void setListenerBackoffMultiplier(double listenerBackoffMultiplier) {
+        this.listenerBackoffMultiplier = listenerBackoffMultiplier <= 1.0d ? 2.0d : listenerBackoffMultiplier;
     }
 }
