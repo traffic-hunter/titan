@@ -1,5 +1,5 @@
 [versions]
-lombok = "1.18.38"
+lombok = "1.18.46"
 slf4j = "2.0.17"
 google-guava = "33.4.8-jre"
 netty-buffer = "4.2.2.Final"
