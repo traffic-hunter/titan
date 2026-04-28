@@ -1,7 +1,7 @@
 [versions]
 lombok = "1.18.46"
 slf4j = "2.0.17"
-google-guava = "33.4.8-jre"
+google-guava = "33.6.0-jre"
 netty-buffer = "4.2.2.Final"
 assertj = "3.27.7"
 mokito = "5.21.0"
