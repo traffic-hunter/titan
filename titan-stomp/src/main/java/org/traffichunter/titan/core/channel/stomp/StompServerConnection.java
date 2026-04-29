@@ -51,21 +51,19 @@ public interface StompServerConnection extends StompConnection {
         return new StompServerConnectionImpl(serverChannel, option);
     }
 
-    static StompServerConnection create(StompServerOption option) {
-        return new StompServerConnectionImpl(option);
-    }
-
     default Promise<Void> write(StompFrame frame) {
         return write(frame.toBuffer());
     }
 
     Promise<Void> write(Buffer buffer);
 
-    void bind(NetServerChannel serverChannel);
-
     void register(StompClientConnection connection);
 
     void unregister(String sessionId);
+
+    void cleanUp(StompClientConnection connection);
+
+    void cleanupInactiveConnections();
 
     @Nullable StompClientConnection findConnection(String sessionId);
 

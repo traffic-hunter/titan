@@ -59,11 +59,12 @@ public final class Transactions {
     }
 
     public synchronized boolean removeTransaction(final StompClientConnection sc, final String txId) {
-        if(getTransaction(sc, txId) == null) {
+        Transaction tx = getTransaction(sc, txId);
+        if (tx == null) {
             return false;
         }
 
-        return transactions.remove(Transaction.create(sc, txId));
+        return transactions.remove(tx);
     }
 
     @CanIgnoreReturnValue
@@ -73,6 +74,10 @@ public final class Transactions {
         }
 
         return transactions.removeIf(transaction -> transaction.getStompClientConnection().equals(sc));
+    }
+
+    public synchronized void clear() {
+        transactions.clear();
     }
 
     public synchronized int size() {

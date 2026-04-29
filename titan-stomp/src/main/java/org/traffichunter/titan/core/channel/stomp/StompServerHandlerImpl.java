@@ -33,7 +33,6 @@ import org.traffichunter.titan.core.util.secure.auth.authentication.UsernamePass
 
 import java.util.Optional;
 
-import static org.traffichunter.titan.core.codec.stomp.StompFrame.*;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.create;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.formatString;
@@ -239,6 +238,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 context.receipt(event.frame(), event.connection());
+                context.serverConnection().cleanUp(event.connection());
                 event.connection().close();
             }
         }
@@ -441,19 +441,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                         );
                         sc.send(errorFrame("Unknown transaction", formatString("Unknown transaction id = {}", txId)));
                         sc.close();
+                        return;
                     }
-                    return;
-                }
 
-                if(!Transactions.getInstance().registerTransaction(sc, id)) {
-                    log.warn(
-                            "Failed to ACK due to transaction registration failure. session={}, id={}",
-                            sc.session(),
-                            id
-                    );
-                    Transactions.getInstance().removeTransactions(sc);
-                    sc.send(errorFrame("Failed transaction", formatString("Failed transaction add id = {}", id)));
-                    sc.close();
+                    transaction.addFrame(sf);
+                    context.receipt(sf, sc);
                     return;
                 }
 
@@ -489,19 +481,11 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                         );
                         sc.send(errorFrame("Unknown transaction.", formatString("Unknown transaction id = {}", txId)));
                         sc.close();
+                        return;
                     }
-                    return;
-                }
 
-                if(!Transactions.getInstance().registerTransaction(sc, id)) {
-                    log.warn(
-                            "Failed to NACK due to transaction registration failure. session={}, id={}",
-                            sc.session(),
-                            id
-                    );
-                    Transactions.getInstance().removeTransactions(sc);
-                    sc.send(errorFrame("Failed to transaction.", formatString("Failed to transaction add id = {}", id)));
-                    sc.close();
+                    transaction.addFrame(sf);
+                    context.receipt(sf, sc);
                     return;
                 }
 
