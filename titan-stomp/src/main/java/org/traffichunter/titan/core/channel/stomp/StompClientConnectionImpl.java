@@ -401,7 +401,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
         Buffer body = frame.getBody();
-        if (body != null && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
+        if (!frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
             frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
         }
 

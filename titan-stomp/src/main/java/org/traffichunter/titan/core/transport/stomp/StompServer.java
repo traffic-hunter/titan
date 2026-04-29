@@ -37,6 +37,7 @@ import org.traffichunter.titan.core.codec.stomp.StompChannelDecoder;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
@@ -56,14 +57,15 @@ public final class StompServer {
     private StompClientOption childOption = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
     private Handler<StompServerHandler> stompServerHandler = handler -> {};
     private Handler<Channel> channelHandler = channel -> {};
+    private @Nullable ScheduledPromise<?> inactiveConnectionCleanupTask;
 
     private StompServer(EventLoopGroups groups, @Nullable InetServer inetServer, StompServerOption option) {
         this.option = option;
-        this.serverConnection = StompServerConnection.create(option);
         if(inetServer == null) {
-            inetServer = initializeInetServer(groups);
+            inetServer = InetServer.open(groups);
         }
         this.inetServer = inetServer;
+        this.serverConnection = StompServerConnection.wrap(inetServer.channel(), option);
     }
 
     public static StompServer open(EventLoopGroups groups, StompServerOption option) {
@@ -94,6 +96,10 @@ public final class StompServer {
 
     @CanIgnoreReturnValue
     public StompServer start() {
+        if(isShutdown()) {
+            throw new StompException("Server has been shut down");
+        }
+
         StompClientOption stompClientOption = serverChildSessionOption(option, childOption);
         StompServerHandler stompServerHandler = new StompServerHandlerImpl(serverConnection);
         this.stompServerHandler.handle(stompServerHandler);
@@ -115,9 +121,13 @@ public final class StompServer {
                     channelHandler.handle(netChannel);
                 });
 
-        serverConnection.bind(inetServer.channel());
-
         inetServer.start();
+        inactiveConnectionCleanupTask = serverConnection.channel().eventLoop().scheduleAtFixedRate(
+                serverConnection::cleanupInactiveConnections,
+                1,
+                1,
+                TimeUnit.SECONDS
+        );
         log.info(
                 "Started STOMP server engine. session={}, version={}, secured={}, sendErrorOnNoSubscriptions={}",
                 serverConnection.session(),
@@ -157,6 +167,11 @@ public final class StompServer {
 
     public void shutdown(long timeout, TimeUnit unit) {
         Assert.checkState(inetServer.isStart(), "inetServer is not started");
+        ScheduledPromise<?> task = inactiveConnectionCleanupTask;
+        if (task != null) {
+            task.cancel();
+            inactiveConnectionCleanupTask = null;
+        }
         inetServer.shutdown(timeout, unit);
     }
 
@@ -176,10 +191,6 @@ public final class StompServer {
                         resultPromise.fail(new StompException("Failed to listen on address " + address, listenFuture.error()));
                     }
                 });
-    }
-
-    private InetServer initializeInetServer(EventLoopGroups groups) {
-        return InetServer.open(groups);
     }
 
     private static StompClientOption serverChildSessionOption(StompServerOption option, StompClientOption childOption) {

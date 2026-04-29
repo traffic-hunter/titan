@@ -40,10 +40,13 @@ import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.codec.stomp.Transaction;
+import org.traffichunter.titan.core.codec.stomp.Transactions;
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
@@ -294,11 +297,58 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
+            final StompClientConnection serverConnection = awaitSingleServerConnection(testServer);
             String txId = "tx-" + UUID.randomUUID();
             client.connection().begin(txId).get(3, TimeUnit.SECONDS);
             client.connection().ack("msg-3", txId).get(3, TimeUnit.SECONDS);
+
+            await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+                Transaction transaction = Transactions.getInstance().getTransaction(serverConnection, txId);
+                assertThat(transaction).isNotNull();
+                assertThat(transaction.getFrames()).hasSize(1);
+                assertThat(transaction.getFrames().getFirst().getCommand()).isEqualTo(StompCommand.ACK);
+                assertThat(transaction.getFrames().getFirst().getHeader(Elements.ID)).isEqualTo("msg-3");
+            });
+
             client.connection().commit(txId).get(3, TimeUnit.SECONDS);
+
+            await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(Transactions.getInstance().getTransaction(serverConnection, txId)).isNull());
         } finally {
+            testServer.server().connection().connections()
+                    .forEach(connection -> Transactions.getInstance().removeTransactions(connection));
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void stomp_nack_within_transaction_test(StompTestServer testServer) throws Exception {
+        StompClient client = StompClient.open(clientGroups(), StompClientOption.DEFAULT_STOMP_CLIENT_OPTION);
+
+        try {
+            client.start();
+            client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
+
+            final StompClientConnection serverConnection = awaitSingleServerConnection(testServer);
+            String txId = "tx-" + UUID.randomUUID();
+            client.connection().begin(txId).get(3, TimeUnit.SECONDS);
+            client.connection().nack("msg-4", txId).get(3, TimeUnit.SECONDS);
+
+            await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+                Transaction transaction = Transactions.getInstance().getTransaction(serverConnection, txId);
+                assertThat(transaction).isNotNull();
+                assertThat(transaction.getFrames()).hasSize(1);
+                assertThat(transaction.getFrames().getFirst().getCommand()).isEqualTo(StompCommand.NACK);
+                assertThat(transaction.getFrames().getFirst().getHeader(Elements.ID)).isEqualTo("msg-4");
+            });
+
+            client.connection().abort(txId).get(3, TimeUnit.SECONDS);
+
+            await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(Transactions.getInstance().getTransaction(serverConnection, txId)).isNull());
+        } finally {
+            testServer.server().connection().connections()
+                    .forEach(connection -> Transactions.getInstance().removeTransactions(connection));
             client.shutdown();
         }
     }
@@ -445,6 +495,15 @@ class StompIntegrationTest {
                 client.shutdown();
             }
         }
+    }
+
+    private static StompClientConnection awaitSingleServerConnection(StompTestServer testServer) {
+        AtomicReference<StompClientConnection> holder = new AtomicReference<>();
+        await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertThat(testServer.server().connection().connections()).isNotEmpty();
+            holder.set(testServer.server().connection().connections().getFirst());
+        });
+        return holder.get();
     }
 
     @NullMarked

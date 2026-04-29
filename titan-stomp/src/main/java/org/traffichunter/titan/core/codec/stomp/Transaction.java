@@ -30,6 +30,8 @@ import lombok.Getter;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 
 /**
+ * Transaction is thread safe.
+ *
  * @author yungwang-o
  */
 @Getter
