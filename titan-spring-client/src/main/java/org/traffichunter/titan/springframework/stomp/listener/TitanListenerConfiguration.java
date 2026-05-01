@@ -28,6 +28,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.converter.*;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 import org.traffichunter.titan.springframework.stomp.beans.TitanListenerAnnotationBeanPostProcessor;
+import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListenerContainerFactory;
+import org.traffichunter.titan.springframework.stomp.factory.TitanListenerContainerFactory;
 import org.traffichunter.titan.springframework.stomp.messaging.converter.StompFrameMessageConverter;
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanPayloadHandlerMethodArgumentResolver;
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanStompHandlerMethodArgumentResolver;
@@ -68,5 +70,15 @@ public class TitanListenerConfiguration {
         c.addResolver(new TitanStompHandlerMethodArgumentResolver(converter));
         c.addResolver(new TitanPayloadHandlerMethodArgumentResolver(converter));
         return c;
+    }
+
+    @Bean
+    public TitanListenerContainerFactory<?> titanListenerContainerFactory(SmartMessageConverter converter) {
+        SimpleTitanListenerContainerFactory factory = new SimpleTitanListenerContainerFactory();
+        factory.setArgumentResolvers(
+                new TitanStompHandlerMethodArgumentResolver(converter),
+                new TitanPayloadHandlerMethodArgumentResolver(converter)
+        );
+        return factory;
     }
 }

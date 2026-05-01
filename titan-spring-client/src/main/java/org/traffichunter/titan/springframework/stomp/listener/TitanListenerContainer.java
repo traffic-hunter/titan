@@ -10,29 +10,33 @@ import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
+import org.springframework.util.ErrorHandler;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
-public final class TitanMessageListenerContainer {
+public final class TitanListenerContainer {
 
-    private static final Logger log = LoggerFactory.getLogger(TitanMessageListenerContainer.class);
+    private static final Logger log = LoggerFactory.getLogger(TitanListenerContainer.class);
 
     private final TitanListenerEndpoint endpoint;
     private final TitanClientManager manager;
     private final HandlerMethodArgumentResolverComposite argumentResolvers;
+    private final ErrorHandler listenerErrorHandler;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public TitanMessageListenerContainer(
+    public TitanListenerContainer(
             TitanListenerEndpoint endpoint,
             TitanClientManager manager,
-            HandlerMethodArgumentResolverComposite argumentResolvers
+            HandlerMethodArgumentResolverComposite argumentResolvers,
+            ErrorHandler listenerErrorHandler
     ) {
         this.endpoint = endpoint;
         this.manager = manager;
         this.argumentResolvers = argumentResolvers;
+        this.listenerErrorHandler = listenerErrorHandler;
     }
 
     public void start() {
@@ -53,6 +57,7 @@ public final class TitanMessageListenerContainer {
                             endpoint.destination(),
                             e
                     );
+                    handleListenerError(e);
                     negativeAcknowledgeIfPossible(frame, conn);
                 }
             });
@@ -86,6 +91,10 @@ public final class TitanMessageListenerContainer {
 
     public boolean isRunning() {
         return running.get();
+    }
+
+    public boolean isStopped() {
+        return !running.get();
     }
 
     private void invoke(StompFrame frame) throws Exception {
@@ -122,5 +131,16 @@ public final class TitanMessageListenerContainer {
         }
 
         connection.nack(messageId);
+    }
+
+    private void handleListenerError(Throwable error) {
+        try {
+            listenerErrorHandler.handleError(error);
+        } catch (Throwable handlerError) {
+            log.warn("Titan listener error handler failed. id={}, destination={}",
+                    endpoint.id(),
+                    endpoint.destination(),
+                    handlerError);
+        }
     }
 }
