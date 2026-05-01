@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.listener;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,7 +51,7 @@ public class TitanListenerConfiguration {
     }
 
     @Bean
-    SmartMessageConverter titanMessageConverter() {
+    public SmartMessageConverter titanMessageConverter() {
         List<MessageConverter> converters = List.of(
                 new StompFrameMessageConverter(),
                 new ByteArrayMessageConverter(),
@@ -63,7 +63,7 @@ public class TitanListenerConfiguration {
     }
 
     @Bean
-    HandlerMethodArgumentResolverComposite titanResolverComposite(SmartMessageConverter converter) {
+    public HandlerMethodArgumentResolverComposite titanResolverComposite(SmartMessageConverter converter) {
         HandlerMethodArgumentResolverComposite c = new HandlerMethodArgumentResolverComposite();
         c.addResolver(new TitanStompHandlerMethodArgumentResolver(converter));
         c.addResolver(new TitanPayloadHandlerMethodArgumentResolver(converter));

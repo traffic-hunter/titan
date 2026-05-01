@@ -1,4 +1,4 @@
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.listener;
 
 import java.lang.reflect.Method;
 

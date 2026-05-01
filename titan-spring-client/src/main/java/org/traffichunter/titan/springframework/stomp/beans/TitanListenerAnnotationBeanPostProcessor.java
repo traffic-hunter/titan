@@ -31,9 +31,9 @@ import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.Assert;
-import org.traffichunter.titan.springframework.stomp.TitanListener;
-import org.traffichunter.titan.springframework.stomp.TitanListenerEndpoint;
-import org.traffichunter.titan.springframework.stomp.TitanListenerEndpointRegistry;
+import org.traffichunter.titan.springframework.stomp.annotation.TitanListener;
+import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
+import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpointRegistry;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;

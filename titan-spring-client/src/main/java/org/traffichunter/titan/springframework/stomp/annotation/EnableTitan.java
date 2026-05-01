@@ -21,9 +21,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.annotation;
 
 import org.springframework.context.annotation.Import;
+import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConfiguration;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

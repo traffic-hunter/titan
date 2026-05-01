@@ -1,8 +1,9 @@
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.listener;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
+import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.listener;
 
 import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 
 import java.util.concurrent.atomic.AtomicBoolean;
