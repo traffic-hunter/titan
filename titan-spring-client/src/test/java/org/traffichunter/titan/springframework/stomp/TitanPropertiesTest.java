@@ -21,10 +21,6 @@ class TitanPropertiesTest {
         assertTrue(properties.isAutoComputeContentLength());
         assertFalse(properties.isUseStompFrame());
         assertFalse(properties.isBypassHostHeader());
-        assertEquals(5, properties.getListenerMaxAttempts());
-        assertEquals(1000L, properties.getListenerInitialBackoffMillis());
-        assertEquals(30000L, properties.getListenerMaxBackoffMillis());
-        assertEquals(2.0d, properties.getListenerBackoffMultiplier());
     }
 
     @Test
@@ -45,20 +41,5 @@ class TitanPropertiesTest {
         properties.setSecondaryThreads(4);
 
         assertEquals(4, properties.getSecondaryThreads());
-    }
-
-    @Test
-    void listener_retry_properties_apply_floor_values() {
-        TitanProperties properties = new TitanProperties();
-
-        properties.setListenerMaxAttempts(0);
-        properties.setListenerInitialBackoffMillis(0);
-        properties.setListenerMaxBackoffMillis(0);
-        properties.setListenerBackoffMultiplier(1.0d);
-
-        assertEquals(1, properties.getListenerMaxAttempts());
-        assertEquals(1L, properties.getListenerInitialBackoffMillis());
-        assertEquals(1L, properties.getListenerMaxBackoffMillis());
-        assertEquals(2.0d, properties.getListenerBackoffMultiplier());
     }
 }

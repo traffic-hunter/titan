@@ -27,9 +27,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.converter.*;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
-import org.springframework.retry.backoff.ExponentialBackOffPolicy;
-import org.springframework.retry.policy.SimpleRetryPolicy;
-import org.springframework.retry.support.RetryTemplate;
 import org.traffichunter.titan.springframework.stomp.beans.TitanListenerAnnotationBeanPostProcessor;
 import org.traffichunter.titan.springframework.stomp.messaging.converter.StompFrameMessageConverter;
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanPayloadHandlerMethodArgumentResolver;
@@ -71,19 +68,5 @@ public class TitanListenerConfiguration {
         c.addResolver(new TitanStompHandlerMethodArgumentResolver(converter));
         c.addResolver(new TitanPayloadHandlerMethodArgumentResolver(converter));
         return c;
-    }
-
-    @Bean
-    RetryTemplate titanListenerRetryTemplate(TitanProperties properties) {
-        RetryTemplate retryTemplate = new RetryTemplate();
-        retryTemplate.setRetryPolicy(new SimpleRetryPolicy(properties.getListenerMaxAttempts()));
-
-        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
-        backOffPolicy.setInitialInterval(properties.getListenerInitialBackoffMillis());
-        backOffPolicy.setMaxInterval(properties.getListenerMaxBackoffMillis());
-        backOffPolicy.setMultiplier(properties.getListenerBackoffMultiplier());
-        retryTemplate.setBackOffPolicy(backOffPolicy);
-
-        return retryTemplate;
     }
 }

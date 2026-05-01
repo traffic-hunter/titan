@@ -3,7 +3,6 @@ package org.traffichunter.titan.springframework.stomp;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
-import org.springframework.retry.support.RetryTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,8 +14,7 @@ public final class TitanListenerEndpointRegistry implements SmartLifecycle {
     public void register(TitanListenerEndpoint endpoint, BeanFactory beanFactory) {
         TitanClientManager manager = beanFactory.getBean(endpoint.clientRef(), TitanClientManager.class);
         HandlerMethodArgumentResolverComposite resolvers = beanFactory.getBean(HandlerMethodArgumentResolverComposite.class);
-        RetryTemplate retryTemplate = beanFactory.getBean(RetryTemplate.class);
-        containers.add(new TitanMessageListenerContainer(endpoint, manager, resolvers, retryTemplate));
+        containers.add(new TitanMessageListenerContainer(endpoint, manager, resolvers));
     }
 
     public void start() {

@@ -10,7 +10,6 @@ dependencies {
     implementation("org.springframework:spring-context:6.1.14")
     implementation("org.springframework:spring-beans:6.1.14")
     implementation("org.springframework:spring-messaging:6.1.14")
-    implementation("org.springframework.retry:spring-retry:2.0.8")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
 
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:3.3.5")
