@@ -2,6 +2,13 @@ package org.traffichunter.titan.springframework.stomp;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Configuration properties for the Titan Spring STOMP client.
+ * Binds connection, heartbeat, frame, and lifecycle options.
+ * Values are consumed by autoconfiguration and client manager components.
+ *
+ * @author yun
+ */
 @ConfigurationProperties(prefix = "spring.titan")
 public class TitanProperties {
 

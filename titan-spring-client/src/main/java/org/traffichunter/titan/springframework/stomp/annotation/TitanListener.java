@@ -23,16 +23,26 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.springframework.stomp.annotation;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 /**
+ * Marks a method as a Titan STOMP message listener.
+ * The annotated method is registered against a destination.
+ * Listener endpoints are created during Spring bean initialization.
+ * Typical listener methods receive a payload, Spring {@code Message}, or {@code StompFrame}.
+ *
+ * <pre> {@code
+ * @TitanListener(destination = "/topic/alerts")
+ * void onAlert(String payload) {
+ *     // handle message
+ * }
+ * }</pre>
+ *
  * @author yun
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
+@Documented
 public @interface TitanListener {
 
     String destination();

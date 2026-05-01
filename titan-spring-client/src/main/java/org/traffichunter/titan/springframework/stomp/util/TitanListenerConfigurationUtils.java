@@ -24,6 +24,9 @@ THE SOFTWARE.
 package org.traffichunter.titan.springframework.stomp.util;
 
 /**
+ * Shared constants used by Titan listener configuration.
+ * Keeps internal bean names in one place.
+ *
  * @author yun
  */
 public final class TitanListenerConfigurationUtils {

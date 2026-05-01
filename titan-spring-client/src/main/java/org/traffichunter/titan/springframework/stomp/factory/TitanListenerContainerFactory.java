@@ -28,9 +28,16 @@ import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConta
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 
 /**
+ * Strategy for creating listener containers from discovered listener endpoints.
+ * Implementations own container assembly and policy injection.
+ * This mirrors Spring listener container factory patterns.
+ *
  * @author yun
  */
 public interface TitanListenerContainerFactory<C extends TitanListenerContainer> {
 
+    /**
+     * Create a listener container for the given endpoint and client manager.
+     */
     C create(TitanListenerEndpoint endpoint, TitanClientManager clientManager);
 }

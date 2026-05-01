@@ -16,6 +16,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
+/**
+ * Runtime container for a single Titan listener endpoint.
+ * Manages subscription lifecycle and invokes the target bean method.
+ * Successful listener execution sends ACK when possible; failures call NACK.
+ *
+ * @author yun
+ */
 public final class TitanListenerContainer {
 
     private static final Logger log = LoggerFactory.getLogger(TitanListenerContainer.class);
@@ -39,6 +46,9 @@ public final class TitanListenerContainer {
         this.listenerErrorHandler = listenerErrorHandler;
     }
 
+    /**
+     * Subscribe to the endpoint destination and start dispatching frames.
+     */
     public void start() {
         if (!running.compareAndSet(false, true)) {
             return;
@@ -68,6 +78,9 @@ public final class TitanListenerContainer {
         }
     }
 
+    /**
+     * Stop dispatching and unsubscribe from the endpoint destination.
+     */
     public void stop() {
         if (!running.compareAndSet(true, false)) {
             return;
@@ -89,10 +102,16 @@ public final class TitanListenerContainer {
         }
     }
 
+    /**
+     * Return whether this container is currently running.
+     */
     public boolean isRunning() {
         return running.get();
     }
 
+    /**
+     * Return whether this container is currently stopped.
+     */
     public boolean isStopped() {
         return !running.get();
     }
@@ -105,6 +124,9 @@ public final class TitanListenerContainer {
         invocable.invoke(springMessage);
     }
 
+    /**
+     * Send ACK for MESSAGE frames that include a message-id.
+     */
     private void acknowledgeIfPossible(StompFrame frame, StompClientConnection connection) {
         if (frame.getCommand() != StompCommand.MESSAGE) {
             return;
@@ -119,6 +141,9 @@ public final class TitanListenerContainer {
         connection.ack(messageId);
     }
 
+    /**
+     * Send NACK for MESSAGE frames that include a message-id.
+     */
     private void negativeAcknowledgeIfPossible(StompFrame frame, StompClientConnection connection) {
         if (frame.getCommand() != StompCommand.MESSAGE) {
             return;

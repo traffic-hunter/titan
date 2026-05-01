@@ -26,16 +26,18 @@ package org.traffichunter.titan.springframework.stomp.annotation;
 import org.springframework.context.annotation.Import;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConfiguration;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 /**
+ * Enables annotation-driven Titan listener support.
+ * Imports the listener configuration required for endpoint scanning.
+ * Apply this to a Spring configuration or application class.
+ *
  * @author yun
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Import(TitanListenerConfiguration.class)
+@Documented
 public @interface EnableTitan {
 }

@@ -34,7 +34,11 @@ import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConta
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 
 /**
- * Base factory aligned with Spring listener container factories.
+ * Base implementation for Titan listener container factories.
+ * Collects common listener options and applies them during container creation.
+ * Subclasses provide the concrete container instance.
+ *
+ * @author yun
  */
 public abstract class AbstractTitanListenerContainerFactory<C extends TitanListenerContainer>
         implements TitanListenerContainerFactory<C> {
@@ -49,19 +53,31 @@ public abstract class AbstractTitanListenerContainerFactory<C extends TitanListe
         return createContainerInstance(endpoint, clientManager, composite, listenerErrorHandler);
     }
 
+    /**
+     * Replace all argument resolvers used when invoking listener methods.
+     */
     public void setArgumentResolvers(HandlerMethodArgumentResolver... argumentResolvers) {
         this.argumentResolvers.clear();
         this.argumentResolvers.addAll(Arrays.asList(argumentResolvers));
     }
 
+    /**
+     * Add an argument resolver to the listener invocation chain.
+     */
     public void setArgumentResolver(HandlerMethodArgumentResolver argumentResolver) {
         this.argumentResolvers.add(argumentResolver);
     }
 
+    /**
+     * Set the handler invoked when listener method execution fails.
+     */
     public void setListenerErrorHandler(ErrorHandler listenerErrorHandler) {
         this.listenerErrorHandler = listenerErrorHandler;
     }
 
+    /**
+     * Build the concrete container with resolved factory configuration.
+     */
     protected abstract C createContainerInstance(
             TitanListenerEndpoint endpoint,
             TitanClientManager clientManager,

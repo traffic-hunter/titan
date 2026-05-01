@@ -23,16 +23,18 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.springframework.stomp.annotation;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 /**
+ * Container annotation for declaring multiple Titan listeners.
+ * Used by Java's repeatable annotation infrastructure.
+ * Prefer repeated {@link TitanListener} declarations in user code.
+ *
  * @author yun
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
+@Documented
 public @interface TitanListeners {
 
     TitanListener[] value();

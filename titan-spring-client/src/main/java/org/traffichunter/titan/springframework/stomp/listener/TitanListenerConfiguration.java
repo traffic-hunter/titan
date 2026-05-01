@@ -37,6 +37,10 @@ import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanSto
 import java.util.List;
 
 /**
+ * Spring configuration for annotation-driven Titan listeners.
+ * Registers endpoint discovery, listener container factory, and argument resolvers.
+ * Imported by {@code @EnableTitan}.
+ *
  * @author yun
  */
 @Configuration

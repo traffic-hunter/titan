@@ -29,6 +29,10 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 
 /**
+ * Converts Titan STOMP frames into Spring messaging messages.
+ * Copies STOMP headers into Spring headers and keeps the original frame.
+ * Used by listener containers before method argument resolution.
+ *
  * @author yun
  */
 @NullMarked
@@ -46,4 +50,6 @@ public final class TitanSpringMessageAdapter {
         builder.setHeader(HDR_STOMP_FRAME, frame);
         return builder.build();
     }
+
+    private TitanSpringMessageAdapter() { }
 }

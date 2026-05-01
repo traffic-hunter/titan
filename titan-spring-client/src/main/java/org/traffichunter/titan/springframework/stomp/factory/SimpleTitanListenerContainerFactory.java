@@ -30,11 +30,18 @@ import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpo
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 
 /**
+ * Default listener container factory for annotation-driven Titan listeners.
+ * Creates the standard {@link TitanListenerContainer}.
+ * Custom listener policies can be configured through inherited setters.
+ *
  * @author yun
  */
 public final class SimpleTitanListenerContainerFactory
         extends AbstractTitanListenerContainerFactory<TitanListenerContainer> {
 
+    /**
+     * Create the default listener container instance.
+     */
     @Override
     protected TitanListenerContainer createContainerInstance(
             TitanListenerEndpoint endpoint,
