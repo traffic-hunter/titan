@@ -116,6 +116,22 @@ public final class TitanListenerContainer {
         return !running.get();
     }
 
+    TitanListenerEndpoint endpoint() {
+        return endpoint;
+    }
+
+    TitanClientManager manager() {
+        return manager;
+    }
+
+    HandlerMethodArgumentResolverComposite argumentResolvers() {
+        return argumentResolvers;
+    }
+
+    ErrorHandler listenerErrorHandler() {
+        return listenerErrorHandler;
+    }
+
     private void invoke(StompFrame frame) throws Exception {
         Message<byte[]> springMessage = TitanSpringMessageAdapter.from(frame);
 
