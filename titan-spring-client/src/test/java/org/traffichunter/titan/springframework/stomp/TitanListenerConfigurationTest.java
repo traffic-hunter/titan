@@ -14,6 +14,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConfiguration;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 
 class TitanListenerConfigurationTest {

@@ -9,6 +9,13 @@ import org.springframework.context.SmartLifecycle;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.transport.stomp.StompClient;
 
+/**
+ * Spring lifecycle adapter for a Titan STOMP client.
+ * Starts and stops the underlying client with the application context.
+ * Resolves or creates the active STOMP connection for template and listener use.
+ *
+ * @author yun
+ */
 public final class TitanClientManager implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(TitanClientManager.class);

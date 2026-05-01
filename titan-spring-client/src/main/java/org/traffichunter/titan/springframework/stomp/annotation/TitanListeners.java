@@ -21,20 +21,21 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.annotation;
 
-import org.springframework.context.annotation.Import;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 /**
+ * Container annotation for declaring multiple Titan listeners.
+ * Used by Java's repeatable annotation infrastructure.
+ * Prefer repeated {@link TitanListener} declarations in user code.
+ *
  * @author yun
  */
-@Target(ElementType.TYPE)
+@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-@Import(TitanListenerConfiguration.class)
-public @interface EnableTitan {
+@Documented
+public @interface TitanListeners {
+
+    TitanListener[] value();
 }

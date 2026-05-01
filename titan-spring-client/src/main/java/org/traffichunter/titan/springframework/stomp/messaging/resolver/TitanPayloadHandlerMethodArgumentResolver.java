@@ -32,6 +32,10 @@ import org.springframework.messaging.handler.invocation.HandlerMethodArgumentRes
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 
 /**
+ * Resolves listener method arguments from the STOMP message payload.
+ * Applies Spring message conversion for non-message and non-frame parameters.
+ * Used after the STOMP-specific resolver in the listener resolver chain.
+ *
  * @author yun
  */
 public class TitanPayloadHandlerMethodArgumentResolver implements HandlerMethodArgumentResolver {

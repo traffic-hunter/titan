@@ -31,6 +31,10 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 
 /**
+ * Message converter that resolves the original {@link StompFrame}.
+ * The frame is read from the internal Spring message header.
+ * This supports listener method parameters of type {@code StompFrame}.
+ *
  * @author yun
  */
 public final class StompFrameMessageConverter extends AbstractMessageConverter {

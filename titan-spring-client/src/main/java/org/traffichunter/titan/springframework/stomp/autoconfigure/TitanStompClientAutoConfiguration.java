@@ -13,6 +13,13 @@ import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import org.traffichunter.titan.springframework.stomp.TitanTemplate;
 
+/**
+ * Autoconfiguration for Titan's Spring STOMP client integration.
+ * Creates the client event loops, options, manager, and template.
+ * User-defined beans can override each default component.
+ *
+ * @author yun
+ */
 @AutoConfiguration
 @ConditionalOnClass({StompClient.class, EventLoopGroups.class})
 @EnableConfigurationProperties(TitanProperties.class)

@@ -21,25 +21,23 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.factory;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.listener.TitanListenerContainer;
+import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 
 /**
+ * Strategy for creating listener containers from discovered listener endpoints.
+ * Implementations own container assembly and policy injection.
+ * This mirrors Spring listener container factory patterns.
+ *
  * @author yun
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface TitanListener {
+public interface TitanListenerContainerFactory<C extends TitanListenerContainer> {
 
-    String destination();
-
-    String id() default "";
-
-    int concurrency() default 1;
-
-    String clientRef() default "titanStompClientManager";
+    /**
+     * Create a listener container for the given endpoint and client manager.
+     */
+    C create(TitanListenerEndpoint endpoint, TitanClientManager clientManager);
 }

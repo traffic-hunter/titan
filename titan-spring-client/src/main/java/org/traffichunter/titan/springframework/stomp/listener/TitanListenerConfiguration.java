@@ -21,13 +21,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.springframework.stomp;
+package org.traffichunter.titan.springframework.stomp.listener;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.converter.*;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 import org.traffichunter.titan.springframework.stomp.beans.TitanListenerAnnotationBeanPostProcessor;
+import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListenerContainerFactory;
+import org.traffichunter.titan.springframework.stomp.factory.TitanListenerContainerFactory;
 import org.traffichunter.titan.springframework.stomp.messaging.converter.StompFrameMessageConverter;
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanPayloadHandlerMethodArgumentResolver;
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanStompHandlerMethodArgumentResolver;
@@ -35,6 +37,10 @@ import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanSto
 import java.util.List;
 
 /**
+ * Spring configuration for annotation-driven Titan listeners.
+ * Registers endpoint discovery, listener container factory, and argument resolvers.
+ * Imported by {@code @EnableTitan}.
+ *
  * @author yun
  */
 @Configuration
@@ -51,7 +57,7 @@ public class TitanListenerConfiguration {
     }
 
     @Bean
-    SmartMessageConverter titanMessageConverter() {
+    public SmartMessageConverter titanMessageConverter() {
         List<MessageConverter> converters = List.of(
                 new StompFrameMessageConverter(),
                 new ByteArrayMessageConverter(),
@@ -63,10 +69,20 @@ public class TitanListenerConfiguration {
     }
 
     @Bean
-    HandlerMethodArgumentResolverComposite titanResolverComposite(SmartMessageConverter converter) {
+    public HandlerMethodArgumentResolverComposite titanResolverComposite(SmartMessageConverter converter) {
         HandlerMethodArgumentResolverComposite c = new HandlerMethodArgumentResolverComposite();
         c.addResolver(new TitanStompHandlerMethodArgumentResolver(converter));
         c.addResolver(new TitanPayloadHandlerMethodArgumentResolver(converter));
         return c;
+    }
+
+    @Bean
+    public TitanListenerContainerFactory<?> titanListenerContainerFactory(SmartMessageConverter converter) {
+        SimpleTitanListenerContainerFactory factory = new SimpleTitanListenerContainerFactory();
+        factory.setArgumentResolvers(
+                new TitanStompHandlerMethodArgumentResolver(converter),
+                new TitanPayloadHandlerMethodArgumentResolver(converter)
+        );
+        return factory;
     }
 }

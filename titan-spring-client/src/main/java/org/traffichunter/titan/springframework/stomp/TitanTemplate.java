@@ -10,6 +10,13 @@ import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
 
+/**
+ * Convenience operations for sending and managing STOMP subscriptions.
+ * Uses {@link TitanClientManager} to resolve the active connection.
+ * Provides synchronous methods and an async view backed by Titan promises.
+ *
+ * @author yun
+ */
 public final class TitanTemplate {
 
     private final TitanClientManager clientManager;
@@ -63,6 +70,11 @@ public final class TitanTemplate {
         return clientManager.connection();
     }
 
+    /**
+     * Async variant of {@link TitanTemplate} that exposes {@link Future} results.
+     *
+     * @author yun
+     */
     public static final class AsyncTitanTemplate {
 
         private final TitanClientManager clientManager;

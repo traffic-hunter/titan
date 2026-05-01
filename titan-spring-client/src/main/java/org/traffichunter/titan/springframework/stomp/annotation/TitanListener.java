@@ -21,15 +21,35 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.springframework.stomp.util;
+package org.traffichunter.titan.springframework.stomp.annotation;
+
+import java.lang.annotation.*;
 
 /**
- * Shared constants used by Titan listener configuration.
- * Keeps internal bean names in one place.
+ * Marks a method as a Titan STOMP message listener.
+ * The annotated method is registered against a destination.
+ * Listener endpoints are created during Spring bean initialization.
+ * Typical listener methods receive a payload, Spring {@code Message}, or {@code StompFrame}.
+ *
+ * <pre> {@code
+ * @TitanListener(destination = "/topic/alerts")
+ * void onAlert(String payload) {
+ *     // handle message
+ * }
+ * }</pre>
  *
  * @author yun
  */
-public final class TitanListenerConfigurationUtils {
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface TitanListener {
 
-    public static final String TITAN_LISTENER_BEAN_NAME = "titanListener";
+    String destination();
+
+    String id() default "";
+
+    int concurrency() default 1;
+
+    String clientRef() default "titanStompClientManager";
 }
