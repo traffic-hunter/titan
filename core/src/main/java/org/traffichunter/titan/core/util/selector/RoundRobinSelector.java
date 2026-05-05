@@ -21,12 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.channel;
+package org.traffichunter.titan.core.util.selector;
 
 import org.jspecify.annotations.NullUnmarked;
-import org.jspecify.annotations.Nullable;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -34,36 +33,28 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author yun
  */
 @NullUnmarked
-public class RoundRobinSelector<E> {
+public class RoundRobinSelector<E> implements Selector<E> {
 
-    private final List<E> group;
     private final AtomicInteger counter = new AtomicInteger();
 
-    public RoundRobinSelector(final List<E> group) {
-        this.group = group;
-    }
-
-    public E next() {
-        final int adjustIdx = adjustSignedArrayIndex(counter.getAndIncrement(), group.size());
-
-        E e = group.get(adjustIdx);
-        if(e == null) {
+    @Override
+    public E next(Collection<E> candidates) {
+        if (candidates.isEmpty()) {
             throw new NoSuchElementException("No more elements");
         }
 
-        return e;
-    }
+        int selectedIndex = adjustSignedArrayIndex(counter.getAndIncrement(), candidates.size());
+        int index = 0;
+        for (E candidate : candidates) {
+            if (index++ == selectedIndex) {
+                if (candidate == null) {
+                    throw new NoSuchElementException("No more elements");
+                }
 
-    public @Nullable E peek() {
-        return group.get(currentIdx());
-    }
-
-    public List<E> group() {
-        return group;
-    }
-
-    public int currentIdx() {
-        return adjustSignedArrayIndex(counter.get(), group.size());
+                return candidate;
+            }
+        }
+        throw new NoSuchElementException("No more elements");
     }
 
     private static int adjustSignedArrayIndex(final int idx, final int size) {

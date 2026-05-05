@@ -43,7 +43,7 @@ import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.channel.stomp.StompServerConnection;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
-import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
+import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Destination;
@@ -93,17 +93,19 @@ class FanoutExporterTest {
         when(serverConnection.channel()).thenReturn(serverChannel);
         when(serverChannel.eventLoop()).thenReturn(loop);
 
-        StompSubscriptions<StompServerSubscription> subscriptions = new StompSubscriptions<>();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
         when(serverConnection.subscriptions()).thenReturn(subscriptions);
 
         Destination destination = Destination.create("/topic/orders");
 
         StompClientConnection successConn = mock(StompClientConnection.class);
+        when(successConn.session()).thenReturn("session-1");
         Promise<StompFrame> successPromise = Promise.newPromise(loop);
         successPromise.success(StompFrame.PING);
         when(successConn.send(any(StompFrame.class))).thenReturn(successPromise);
 
         StompClientConnection failedConn = mock(StompClientConnection.class);
+        when(failedConn.session()).thenReturn("session-2");
         Promise<StompFrame> failedPromise = Promise.newPromise(loop);
         failedPromise.fail(new IllegalStateException("send failed"));
         when(failedConn.send(any(StompFrame.class))).thenReturn(failedPromise);
@@ -154,7 +156,7 @@ class FanoutExporterTest {
         doThrow(new RuntimeException("boom")).when(channelFail).writeAndFlush(any(Buffer.class));
         registry.addChannel(channelFail);
 
-        when(inetServer.connections()).thenReturn(registry.selector());
+        when(inetServer.childChannel()).thenReturn(registry.getChannels());
 
         TcpFanoutExporter exporter = new TcpFanoutExporter(inetServer);
         CompletableResult result = exporter.export(Destination.create("/topic/a"), Buffer.alloc("p".getBytes()));

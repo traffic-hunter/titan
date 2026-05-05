@@ -24,15 +24,18 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.transport;
 
 import java.net.SocketAddress;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
-
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
+import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.channel.factory.ChannelFactory;
+import org.traffichunter.titan.core.channel.factory.ReflectiveChannelFactory;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
 /**
  * @author yun
@@ -40,29 +43,33 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 @Slf4j
 public abstract class AbstractTransport<C extends Channel> {
 
-    private final C channel;
     private final EventLoopGroups eventLoopGroups;
+    private final ChannelFactory<C> channelFactory;
+    protected final ChannelRegistry<C> channelRegistry;
 
-    protected AbstractTransport(C channel, EventLoopGroups eventLoopGroups) {
-        this.channel = channel;
+    protected AbstractTransport(Class<? extends C> clazz, EventLoopGroups eventLoopGroups) {
         this.eventLoopGroups = eventLoopGroups;
+        this.channelFactory = new ReflectiveChannelFactory<>(clazz);
+        this.channelRegistry = new ChannelRegistry<>();
     }
 
     public abstract void start();
 
     public boolean isStart() {
-        return channel.isOpen();
+        return channelRegistry.isActive();
     }
 
     public boolean isShutdown() {
-        return channel.isClosed() && eventLoopGroups.isShuttingDown();
+        return channelRegistry.isClosed() && eventLoopGroups.isShutdown();
     }
 
     public @Nullable SocketAddress remoteAddress() {
+        C channel = channel();
         return channel.remoteAddress();
     }
 
     public @Nullable SocketAddress localAddress() {
+        C channel = channel();
         return channel.localAddress();
     }
 
@@ -74,37 +81,35 @@ public abstract class AbstractTransport<C extends Channel> {
         return "1.0";
     }
 
-    public C channel() {
+    public List<C> channels() {
+        return channelRegistry.getChannels();
+    }
+
+    protected C newChannel(ChannelHandShakeEventListener handShakeEventListener) {
+        C channel = channelFactory.create(handShakeEventListener);
+        channelRegistry.addChannel(channel);
         return channel;
     }
 
-    void close(long timeout, TimeUnit unit) {
-        channel.close();
-
-        if(channel.isClosed()) {
-            eventLoopGroups.gracefullyShutdown(timeout, unit);
-            //waitForShutdown(timeout, unit);
-        } else {
-            throw new IllegalStateException("Failed to close channel");
-        }
+    protected void destroyChannel(C channel) {
+        channelFactory.destroy(channel);
+        channelRegistry.removeChannel(channel);
     }
 
-    private void waitForShutdown(long timeout, TimeUnit unit) {
-        long waitNanos = Math.min(unit.toNanos(timeout), TimeUnit.SECONDS.toNanos(1));
-        long deadlineNanos = System.nanoTime() + waitNanos;
+    public void close(long timeout, TimeUnit unit) {
+        channelRegistry.forEach(Channel::close);
 
-        while (!eventLoopGroups.isShutdown()) {
-            if (System.nanoTime() >= deadlineNanos) {
-                log.warn("Timed out waiting for event loop groups to shutdown");
-                return;
-            }
-
-            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+        if (channelRegistry.isClosed()) {
+            eventLoopGroups.gracefullyShutdown(timeout, unit);
         }
     }
 
     public boolean isClosed() {
-        return channel.isClosed();
+        return channelRegistry.isClosed();
+    }
+
+    public C channel() {
+        return channelRegistry.selector().next();
     }
 
     protected EventLoopGroups groups() {

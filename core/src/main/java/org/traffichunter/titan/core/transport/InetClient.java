@@ -23,12 +23,12 @@
  */
 package org.traffichunter.titan.core.transport;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
@@ -38,12 +38,14 @@ import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.NewIONetChannel;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
 /**
  * @author yungwang-o
@@ -54,18 +56,16 @@ public class InetClient extends AbstractTransport<NetChannel> {
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
     private final InetClientOption option;
 
-    private volatile Handler<Channel> channelHandler = channel -> {};
+    private Handler<Channel> channelHandler = channel -> {};
 
     private enum State {
         INIT,
         STARTED,
-        CONNECTING,
-        CONNECTED,
         SHUTDOWN
     }
 
-    private InetClient(NetChannel channel, EventLoopGroups groups, InetClientOption option) {
-        super(channel, groups);
+    private InetClient(EventLoopGroups groups, InetClientOption option) {
+        super(NewIONetChannel.class, groups);
         this.option = option;
     }
 
@@ -74,15 +74,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
     }
 
     public static InetClient open(EventLoopGroups groups, InetClientOption option) {
-        ClientChannelConnector connector = new ClientChannelConnector();
-
-        try {
-            NetChannel channel = NetChannel.open(connector);
-            groups.register(channel);
-            return new InetClient(channel, groups, option);
-        } catch (IOException e) {
-            throw new ClientException("Failed to create client", e);
-        }
+        return new InetClient(groups, option);
     }
 
     @CanIgnoreReturnValue
@@ -98,8 +90,6 @@ public class InetClient extends AbstractTransport<NetChannel> {
         }
 
         try {
-            channelHandler.handle(channel());
-            applyClientOption(option);
             groups().start();
         } catch (RuntimeException e) {
             state.compareAndSet(State.STARTED, State.INIT);
@@ -121,27 +111,27 @@ public class InetClient extends AbstractTransport<NetChannel> {
             return validate;
         }
 
-        IOEventLoop loop = channel().eventLoop();
+        NetChannel channel = createChannel();
+        IOEventLoop loop = channel.eventLoop();
         Promise<NetChannel> connectResult = Promise.newPromise(loop);
 
         Promise<Void> connectRequest = loop.submit(() -> {
             try {
-                channel().connect(remoteAddress, timeOut, timeUnit);
-            } catch (IOException e) {
+                channel.connect(remoteAddress, timeOut, timeUnit);
+            } catch (Exception e) {
                 throw new ClientException("Failed to connect to " + remoteAddress, e);
             }
         });
 
         connectRequest.addListener(promise -> {
             if (!promise.isSuccess()) {
-                state.compareAndSet(State.CONNECTING, State.STARTED);
+                destroyChannel(channel);
                 connectResult.fail(promise.error());
                 return;
             }
 
-            if (channel().isConnected()) {
-                state.set(State.CONNECTED);
-                connectResult.success(channel());
+            if (channel.isConnected()) {
+                connectResult.success(channel);
                 return;
             }
 
@@ -150,15 +140,14 @@ public class InetClient extends AbstractTransport<NetChannel> {
                     return;
                 }
 
-                if (channel().isClosed()) {
-                    state.compareAndSet(State.CONNECTING, State.STARTED);
+                if (channel.isClosed()) {
+                    destroyChannel(channel);
                     connectResult.fail(new ClientException("Channel closed before connect completed"));
                     return;
                 }
 
-                if (channel().isConnected()) {
-                    state.set(State.CONNECTED);
-                    connectResult.success(channel());
+                if (channel.isConnected()) {
+                    connectResult.success(channel);
                 }
             }, 1, 10, TimeUnit.MILLISECONDS);
 
@@ -172,7 +161,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
                 activeCheck.cancel();
                 timeoutCheck.cancel();
                 if (!done.isSuccess()) {
-                    state.compareAndSet(State.CONNECTING, State.STARTED);
+                    destroyChannel(channel);
                 }
             });
         });
@@ -182,16 +171,22 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     @Override
     public Promise<Void> send(Buffer buffer) {
-        if (state.get() != State.CONNECTED || channel().isClosed() || !channel().isConnected()) {
+        if (channels().isEmpty()) {
             log.error("Not ready to connect");
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
         }
 
-        IOEventLoop loop = channel().eventLoop();
+        NetChannel channel = channelRegistry.selector().next();
+        if (state.get() != State.STARTED || channel.isClosed() || !channel.isConnected()) {
+            log.error("Not ready to connect");
+            return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
+        }
+
+        IOEventLoop loop = channel.eventLoop();
 
         return loop.submit(() -> {
             try {
-                channel().writeAndFlush(buffer);
+                channel.writeAndFlush(buffer);
             } catch (Exception e) {
                 log.error("Failed to send data = {}", buffer, e);
                 throw new ClientException("Failed to send data", e);
@@ -205,47 +200,41 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     @Override
     public void shutdown(long timeOut, TimeUnit timeUnit) {
-        do {
-            State current = state.get();
-            if (current == State.SHUTDOWN) {
-                log.warn("Client is already shutdown");
-                return;
-            }
-            if (current == State.INIT) {
-                log.warn("Client is not started");
-                return;
-            }
-            if (state.compareAndSet(current, State.SHUTDOWN)) {
-                break;
-            }
-        } while (true);
+        State current = state.get();
 
-        if (channel().isClosed()) {
-            log.info("Client channel is already closed");
-            groups().gracefullyShutdown(timeOut, timeUnit);
+        if (current == State.SHUTDOWN) {
+            log.warn("Client is already shutdown");
+            return;
+        }
+        if (current == State.INIT) {
+            log.warn("Client is not started");
+            return;
+        }
+        if (!state.compareAndSet(current, State.SHUTDOWN)) {
+            log.warn("Client shutdown skipped. state={}", state.get());
             return;
         }
 
         log.info("Closing client...");
-        close(timeOut, timeUnit);
+        channels().forEach(this::destroyChannel);
+        groups().gracefullyShutdown(timeOut, timeUnit);
         log.info("Closed client");
     }
 
     @Override
     public boolean isStart() {
-        State current = state.get();
-        return current == State.STARTED || current == State.CONNECTING || current == State.CONNECTED;
+        return state.get() == State.STARTED;
     }
 
     @Override
     public boolean isShutdown() {
-        return state.get() == State.SHUTDOWN && super.isShutdown();
+        return state.get() == State.SHUTDOWN && groups().isShuttingDown();
     }
 
     @SuppressWarnings("unchecked")
-    private void applyClientOption(InetClientOption option) {
+    private void applyClientOption(NetChannel channel, InetClientOption option) {
         option.socketOptions().forEach((k, v) -> {
-            channel().setOption((SocketOption<Object>) k, v);
+            channel.setOption((SocketOption<Object>) k, v);
         });
     }
 
@@ -257,17 +246,15 @@ public class InetClient extends AbstractTransport<NetChannel> {
         if (current == State.SHUTDOWN) {
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Client is shutdown"));
         }
-        if (current == State.CONNECTING || current == State.CONNECTED || channel().isConnected()) {
-            return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Client is already connecting or connected"));
-        }
-        if (!state.compareAndSet(State.STARTED, State.CONNECTING)) {
-            return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Cannot connect from state=" + state.get()));
-        }
-        if (channel().isClosed()) {
-            state.compareAndSet(State.CONNECTING, State.STARTED);
-            return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Channel is closed"));
-        }
         return null;
+    }
+
+    private NetChannel createChannel() {
+        NetChannel channel = newChannel(new ClientChannelConnector());
+        channelHandler.handle(channel);
+        applyClientOption(channel, option);
+        groups().register(channel);
+        return channel;
     }
 
     @Noop

@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.transport;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -44,13 +45,14 @@ import org.traffichunter.titan.core.util.channel.ChannelRegistry;
  * @author yungwang-o
  */
 @Slf4j
-public class InetServer extends AbstractTransport<NetServerChannel>{
+public class InetServer extends AbstractTransport<NetServerChannel> {
 
-    private final ChannelRegistry<NetChannel> channelRegistry;
+    private final NetServerChannel channel;
+    private final ChannelRegistry<NetChannel> childChannels;
     private final ServerChannelAcceptor acceptor;
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
 
-    private volatile InetServerOption option = InetServerOption.DEFAULT_INET_SERVER_OPTION;
+    private InetServerOption option = InetServerOption.DEFAULT_INET_SERVER_OPTION;
 
     private enum State {
         INIT,
@@ -60,13 +62,13 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
     }
 
     private InetServer(
-            NetServerChannel channel,
             EventLoopGroups groups,
-            ChannelRegistry<NetChannel> channelRegistry,
+            ChannelRegistry<NetChannel> childChannels,
             ServerChannelAcceptor acceptor
     ) {
-        super(channel, groups);
-        this.channelRegistry = channelRegistry;
+        super(NewIONetServerChannel.class, groups);
+        this.channel = newChannel(acceptor);
+        this.childChannels = childChannels;
         this.acceptor = acceptor;
     }
 
@@ -77,15 +79,9 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
                 channelRegistry
         );
 
-        NetServerChannel serverChannel;
-        try {
-            serverChannel = NetServerChannel.open(acceptor);
-        } catch (IOException e) {
-            throw new ServerException("Failed to open server channel", e);
-        }
-
-        groups.register(serverChannel);
-        return new InetServer(serverChannel, groups, channelRegistry, acceptor);
+        InetServer server = new InetServer(groups, channelRegistry, acceptor);
+        groups.register(server.channel);
+        return server;
     }
 
     @CanIgnoreReturnValue
@@ -114,11 +110,11 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
 
         try {
             applyServerOptions(option);
-            groups().primaryGroup().register(channel());
+            groups().primaryGroup().register(channel);
             groups().start();
             log.info(
                     "Started InetServer. session={}, serverOptions={}, childOptions={}",
-                    channel().session(),
+                    channel.session(),
                     option.serverSocketOptions(),
                     option.childSocketOptions()
             );
@@ -134,14 +130,14 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
 
     public Promise<Void> listen(InetSocketAddress address) {
         State current = state.get();
-        if (current != State.STARTED || !channel().isOpen()) {
-            return ChannelPromise.failedPromise(channel(), new ServerException("Server is not ready to listen. state=" + current));
+        if (current != State.STARTED || !channel.isOpen()) {
+            return ChannelPromise.failedPromise(channel, new ServerException("Server is not ready to listen. state=" + current));
         }
         if (!state.compareAndSet(State.STARTED, State.LISTENING)) {
-            return ChannelPromise.failedPromise(channel(), new ServerException("Failed to transition to LISTENING. state=" + state.get()));
+            return ChannelPromise.failedPromise(channel, new ServerException("Failed to transition to LISTENING. state=" + state.get()));
         }
 
-        ChannelPromise resultPromise = ChannelPromise.newPromise(channel());
+        ChannelPromise resultPromise = ChannelPromise.newPromise(channel);
         listen(address, resultPromise);
         return resultPromise;
     }
@@ -157,8 +153,8 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
             ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
             eventLoop.register(() -> {
                 try {
-                    eventLoop.ioSelector().registerAccept(channel());
-                    log.info("InetServer listen ready. session={}, address={}", channel().session(), address);
+                    eventLoop.ioSelector().registerAccept(channel);
+                    log.info("InetServer listen ready. session={}, address={}", channel.session(), address);
                     resultPromise.success();
                 } catch (IOException e) {
                     state.compareAndSet(State.LISTENING, State.STARTED);
@@ -170,31 +166,41 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
 
     @Override
     public Promise<Void> send(Buffer buffer) {
-        ChannelRegistry.ChannelSelector<NetChannel> selector = channelRegistry.selector();
+        ChannelRegistry.ChannelSelector<NetChannel> selector = childChannels.selector();
 
-        final Promise<Void> result;
         while (true) {
-            if(selector.isEmpty()) {
-                return ChannelPromise.failedPromise(channel(), new ServerException("Channel is empty"));
+            if (childChannels.isEmpty()) {
+                return ChannelPromise.failedPromise(channel, new ServerException("Channel is empty"));
             }
 
-            boolean hasNext = selector.hasNext();
-            if (hasNext) {
-                final NetChannel netChannel = selector.next();
-                if (!netChannel.isActive() || netChannel.isClosed()) {
-                    selector.remove();
-                } else {
-                    result = netChannel.eventLoop().submit(() -> netChannel.writeAndFlush(buffer));
-                    break;
-                }
+            NetChannel netChannel = selector.next();
+            if (!netChannel.isActive() || netChannel.isClosed()) {
+                childChannels.removeChannel(netChannel);
+                continue;
             }
+
+            return netChannel.eventLoop().submit(() -> netChannel.writeAndFlush(buffer));
         }
-
-        return result;
     }
 
-    public ChannelRegistry.ChannelSelector<NetChannel> connections() {
-        return channelRegistry.selector();
+    public List<NetChannel> childChannel() {
+        return childChannels.getChannels();
+    }
+
+    @Override
+    public NetServerChannel channel() {
+        return channel;
+    }
+
+    @Override
+    public boolean isStart() {
+        State current = state.get();
+        return current == State.STARTED || current == State.LISTENING;
+    }
+
+    @Override
+    public boolean isShutdown() {
+        return state.get() == State.SHUTDOWN && groups().isShuttingDown();
     }
 
     public void shutdown() {
@@ -203,25 +209,24 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
 
     @Override
     public void shutdown(long timeOut, TimeUnit timeUnit) {
-        do {
-            State current = state.get();
-            if (current == State.SHUTDOWN) {
-                log.warn("Server is already shutdown");
-                return;
-            }
-            if (current == State.INIT) {
-                log.warn("Server is not started");
-                return;
-            }
-            if (state.compareAndSet(current, State.SHUTDOWN)) {
-                break;
-            }
-        } while (true);
+        State current = state.get();
+        if (current == State.SHUTDOWN) {
+            log.warn("Server is already shutdown");
+            return;
+        }
+        if (current == State.INIT) {
+            log.warn("Server is not started");
+            return;
+        }
+        if (!state.compareAndSet(current, State.SHUTDOWN)) {
+            log.warn("Server is already shutdown");
+            return;
+        }
 
         log.info("Closing server...");
 
         try {
-            super.close(timeOut, timeUnit);
+            close(timeOut, timeUnit);
             log.info("Closed server");
         } catch (Exception e) {
             throw new ServerException("Cannot close server", e);
@@ -231,9 +236,9 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
     private Promise<Void> bind(InetSocketAddress address) {
         return groups().primaryGroup().submit(() -> {
             try {
-                channel().bind(address);
+                channel.bind(address);
             } catch (IOException e) {
-                throw new ServerException("Failed to bind to " + channel().localAddress(), e);
+                throw new ServerException("Failed to bind to " + channel.localAddress(), e);
             }
         });
     }
@@ -241,7 +246,7 @@ public class InetServer extends AbstractTransport<NetServerChannel>{
     @SuppressWarnings("unchecked")
     private void applyServerOptions(InetServerOption option) {
         option.serverSocketOptions().forEach((k, v) ->
-                channel().setOption((SocketOption<Object>) k, v)
+                channel.setOption((SocketOption<Object>) k, v)
         );
     }
 

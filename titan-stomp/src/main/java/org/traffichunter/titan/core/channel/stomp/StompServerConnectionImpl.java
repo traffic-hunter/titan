@@ -34,8 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.Transactions;
-import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
-import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
+import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -50,7 +49,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     private final StompServerOption option;
     private final Map<String, StompClientConnection> connections = new ConcurrentHashMap<>();
     private final AtomicInteger roundRobinSequence = new AtomicInteger();
-    private final StompSubscriptions<StompServerSubscription> subscriptions = new StompSubscriptions<>();
+    private final StompServerSubscriptions subscriptions = new StompServerSubscriptions();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
 
@@ -138,11 +137,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
 
         connections.remove(connection.session());
 
-        List<String> subscriptionIds = subscriptions.values().stream()
-                .filter(subscription -> connection.equals(subscription.getConnection()))
-                .map(StompServerSubscription::id)
-                .toList();
-        subscriptionIds.forEach(subscriptions::unregister);
+        subscriptions.unregisterAll(connection);
 
         Transactions.getInstance().removeTransactions(connection);
     }
@@ -183,7 +178,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public StompSubscriptions<StompServerSubscription> subscriptions() {
+    public StompServerSubscriptions subscriptions() {
         return subscriptions;
     }
 
@@ -249,4 +244,5 @@ public class StompServerConnectionImpl implements StompServerConnection {
     private NetChannel asNetChannel(StompClientConnection connection) {
         return connection.channel();
     }
+
 }

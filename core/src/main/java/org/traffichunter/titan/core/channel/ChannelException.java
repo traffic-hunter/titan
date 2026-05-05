@@ -1,6 +1,6 @@
 package org.traffichunter.titan.core.channel;
 
-class ChannelException extends RuntimeException {
+public class ChannelException extends RuntimeException {
 
     public ChannelException() {
         super();

@@ -106,6 +106,10 @@ public final class StompClient {
     }
 
     public Promise<StompClientConnection> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
+        if (connection != null && connection.isConnected()) {
+            return Promise.failedPromise(connection.channel().eventLoop(), new StompException("STOMP client is already connected"));
+        }
+
         return inetClient.connect(remoteAddress, timeOut, timeUnit)
                 .map(this::createConnection)
                 .thenCompose(conn -> {

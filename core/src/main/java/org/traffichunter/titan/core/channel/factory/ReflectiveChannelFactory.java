@@ -1,0 +1,61 @@
+/*
+The MIT License
+
+Copyright (c) 2025 traffic-hunter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package org.traffichunter.titan.core.channel.factory;
+
+import org.traffichunter.titan.core.channel.Channel;
+import org.traffichunter.titan.core.channel.ChannelException;
+import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
+
+import java.lang.reflect.Constructor;
+
+/**
+ * @author yun
+ */
+public final class ReflectiveChannelFactory<C extends Channel> implements ChannelFactory<C> {
+
+    private final Constructor<? extends C> constructor;
+
+    public ReflectiveChannelFactory(Class<? extends C> clazz) {
+        try {
+            this.constructor = clazz.getDeclaredConstructor(ChannelHandShakeEventListener.class);
+            this.constructor.setAccessible(true);
+        } catch (NoSuchMethodException e) {
+            throw new ChannelException("Channel must have constructor(ChannelHandShakeEventListener): " + clazz.getName(), e);
+        }
+    }
+
+    @Override
+    public C create(ChannelHandShakeEventListener handShakeEventListener) {
+        try {
+            return constructor.newInstance(handShakeEventListener);
+        } catch (Exception e) {
+            throw new ChannelException("Failed to instantiate channel: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void destroy(Channel channel) {
+        channel.close();
+    }
+}
