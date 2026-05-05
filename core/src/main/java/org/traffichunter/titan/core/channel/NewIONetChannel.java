@@ -49,7 +49,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private @Nullable volatile ChannelPromise connectPromise;
 
-    public NewIONetChannel(ChannelHandShakeEventListener initializer) throws IOException {
+    NewIONetChannel(ChannelHandShakeEventListener initializer) throws IOException {
         this(SocketChannel.open(), initializer);
     }
 

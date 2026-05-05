@@ -56,7 +56,7 @@ public class TcpFanoutExporter implements FanoutExporter {
         int attempted = 0;
         int succeeded = 0;
         int failed = 0;
-        for (NetChannel channel : inetServer.connections().stream().toList()) {
+        for (NetChannel channel : inetServer.childChannel().stream().toList()) {
             if (!channel.isActive() || channel.isClosed()) {
                 continue;
             }

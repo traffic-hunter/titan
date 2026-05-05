@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.channel;
 
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.selector.RoundRobinSelector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,14 +54,14 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
         } catch (Exception e) {
             eventLoops.forEach(IOEventLoop::gracefullyShutdown);
         } finally {
-            this.selector = new RoundRobinSelector<>(eventLoops);
+            this.selector = new RoundRobinSelector<>();
             this.group = eventLoops;
         }
     }
 
     @Override
     public ChannelSecondaryIOEventLoop next() {
-        return selector.next();
+        return selector.next(group);
     }
 
     @Override
@@ -70,43 +71,43 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     @Override
     public void register(Channel channel) {
-        selector.next().register(channel);
+        selector.next(group).register(channel);
     }
 
     @Override
     public void register(Runnable task) {
-        selector.next().register(task);
+        selector.next(group).register(task);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public Promise<Void> submit(Runnable task) {
-        return selector.next().submit(task);
+        return selector.next(group).submit(task);
     }
 
     @Override
     public <V> Promise<V> submit(Callable<V> task) {
-        return selector.next().submit(task);
+        return selector.next(group).submit(task);
     }
 
     @Override
     public <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit) {
-        return selector.next().schedule(task, delay, unit);
+        return selector.next(group).schedule(task, delay, unit);
     }
 
     @Override
     public <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit) {
-        return selector.next().schedule(task, delay, unit);
+        return selector.next(group).schedule(task, delay, unit);
     }
 
     @Override
     public <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
-        return selector.next().scheduleAtFixedRate(task, initialDelay, period, unit);
+        return selector.next(group).scheduleAtFixedRate(task, initialDelay, period, unit);
     }
 
     @Override
     public <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
-        return selector.next().scheduleWithFixedDelay(task, initialDelay, period, unit);
+        return selector.next(group).scheduleWithFixedDelay(task, initialDelay, period, unit);
     }
 
     @Override
@@ -127,7 +128,7 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     @Override
     public IOSelector ioSelector() {
-        return selector.next().ioSelector();
+        return selector.next(group).ioSelector();
     }
 
     @Override

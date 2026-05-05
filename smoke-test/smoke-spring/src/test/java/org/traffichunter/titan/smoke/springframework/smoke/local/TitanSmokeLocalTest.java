@@ -29,11 +29,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.core.transport.stomp.StompClient;
+import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.smoke.springframework.smoke.junit.LocalSmokeTest;
+import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import org.traffichunter.titan.springframework.stomp.TitanTemplate;
+
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
 
 /**
  * @author yun
@@ -42,9 +54,14 @@ import org.traffichunter.titan.springframework.stomp.TitanTemplate;
 public class TitanSmokeLocalTest {
 
     private static final String PAYLOAD = "smoke-message";
+    private static final String FANOUT_DESTINATION = "/topic/smoke-local/fanout";
 
     @Autowired
     private TitanTemplate titanTemplate;
+
+    @Autowired
+    private TitanProperties titanProperties;
+
 
     @Test
     void sync_subscribe_and_send_smoke() throws Exception {
@@ -85,6 +102,58 @@ public class TitanSmokeLocalTest {
 
         sendEventually(destinationA, PAYLOAD + "-a");
         sendEventually(destinationB, PAYLOAD + "-b");
+    }
+
+    @Test
+    void producer_send_should_be_received_by_subscribed_consumers() throws Exception {
+        String payload = PAYLOAD + "-fanout";
+        CountDownLatch received = new CountDownLatch(2);
+        AtomicReference<String> firstPayload = new AtomicReference<>();
+        AtomicReference<String> secondPayload = new AtomicReference<>();
+
+        EventLoopGroups producerGroups = EventLoopGroups.group(1, 2);
+        EventLoopGroups firstConsumerGroups = EventLoopGroups.group(1, 2);
+        EventLoopGroups secondConsumerGroups = EventLoopGroups.group(1, 2);
+
+        StompClient producer = newStompClient(producerGroups);
+        StompClient firstConsumer = newStompClient(firstConsumerGroups);
+        StompClient secondConsumer = newStompClient(secondConsumerGroups);
+
+        try {
+            producer.start();
+            firstConsumer.start();
+            secondConsumer.start();
+
+            StompClientConnection producerConnection = connect(producer);
+            StompClientConnection firstConsumerConnection = connect(firstConsumer);
+            StompClientConnection secondConsumerConnection = connect(secondConsumer);
+
+            StompHeaders firstSubscribeHeaders = StompHeaders.create();
+            firstSubscribeHeaders.put(ID, "smoke-fanout");
+            firstConsumerConnection.subscribe(FANOUT_DESTINATION, firstSubscribeHeaders, frame -> {
+                firstPayload.set(frame.getBody().toString(StandardCharsets.UTF_8));
+                received.countDown();
+            }).get(titanProperties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+            StompHeaders secondSubscribeHeaders = StompHeaders.create();
+            secondSubscribeHeaders.put(ID, "smoke-fanout");
+            secondConsumerConnection.subscribe(FANOUT_DESTINATION, secondSubscribeHeaders, frame -> {
+                secondPayload.set(frame.getBody().toString(StandardCharsets.UTF_8));
+                received.countDown();
+            }).get(titanProperties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+            producerConnection.send(FANOUT_DESTINATION, Buffer.alloc(payload))
+                    .get(titanProperties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+            assertThat(received.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(firstPayload.get()).isEqualTo(payload);
+            assertThat(secondPayload.get()).isEqualTo(payload);
+        } finally {
+            producer.shutdown();
+            firstConsumer.shutdown();
+            secondConsumer.shutdown();
+        }
+
     }
 
     @Test
@@ -148,5 +217,30 @@ public class TitanSmokeLocalTest {
                 .atMost(Duration.ofSeconds(10))
                 .ignoreExceptions()
                 .untilAsserted(() -> assertThat(titanTemplate.unsubscribe(destination)).isNotNull());
+    }
+
+    private StompClient newStompClient(EventLoopGroups groups) {
+        return StompClient.open(groups, StompClientOption.builder()
+                .host(titanProperties.getHost())
+                .port(titanProperties.getPort())
+                .login(titanProperties.getLogin())
+                .passcode(titanProperties.getPasscode())
+                .virtualHost(titanProperties.getVirtualHost())
+                .heartbeatX(titanProperties.getHeartbeatX())
+                .heartbeatY(titanProperties.getHeartbeatY())
+                .maxFrameLength(titanProperties.getMaxFrameLength())
+                .autoComputeContentLength(titanProperties.isAutoComputeContentLength())
+                .useStompFrame(titanProperties.isUseStompFrame())
+                .bypassHostHeader(titanProperties.isBypassHostHeader())
+                .build());
+    }
+
+    private StompClientConnection connect(StompClient client) throws Exception {
+        return client.connect(
+                titanProperties.getHost(),
+                titanProperties.getPort(),
+                titanProperties.getConnectTimeoutMillis(),
+                TimeUnit.MILLISECONDS
+        ).get(titanProperties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
     }
 }

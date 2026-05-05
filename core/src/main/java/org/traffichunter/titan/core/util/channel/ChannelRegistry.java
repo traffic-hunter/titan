@@ -25,16 +25,13 @@ package org.traffichunter.titan.core.util.channel;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
-import org.traffichunter.titan.core.channel.RoundRobinSelector;
+import org.traffichunter.titan.core.util.selector.RoundRobinSelector;
+import org.traffichunter.titan.core.util.selector.Selector;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 /**
  * @author yun
@@ -43,7 +40,7 @@ public final class ChannelRegistry<C extends Channel> {
 
     private final Map<String, C> channels = new ConcurrentHashMap<>();
 
-    private final ChannelSelector<C> selector = new ChannelSelector<>(this);
+    private final ChannelSelector<C> selector = new ChannelSelector<>(this, new RoundRobinSelector<>());
 
     public ChannelSelector<C> selector() { return selector; }
 
@@ -60,49 +57,50 @@ public final class ChannelRegistry<C extends Channel> {
     }
 
     public void removeChannel(C channel) {
-        channels.remove(channel.id());
+        removeChannel(channel.id());
     }
 
     public void removeChannel(String key) {
         channels.remove(key);
     }
 
-    Map<String, C> getChannelMap() {
-        return channels;
+    public List<C> getChannels() {
+        return channels.values().stream().toList();
     }
 
-    public static class ChannelSelector<C extends Channel> implements Iterator<C> {
+    public void forEach(Consumer<C> consumer) {
+        channels.values().forEach(consumer);
+    }
+
+    public boolean isActive() {
+        List<C> snapshot = getChannels();
+        return !snapshot.isEmpty() && snapshot.stream().allMatch(Channel::isActive);
+    }
+
+    public boolean isClosed() {
+        return channels.values().stream().allMatch(Channel::isClosed);
+    }
+
+    public boolean isEmpty() {
+        return channels.isEmpty();
+    }
+
+    public static class ChannelSelector<C extends Channel> {
 
         private final ChannelRegistry<C> registry;
+        private final Selector<C> selector;
 
-        public ChannelSelector(ChannelRegistry<C> registry) {
+        public ChannelSelector(ChannelRegistry<C> registry, Selector<C> selector) {
             this.registry = registry;
+            this.selector = selector;
         }
 
-        @Override
-        public boolean hasNext() {
-            return stream().iterator().hasNext();
+        public List<C> channels() {
+            return registry.getChannels();
         }
 
-        @Override
         public C next() {
-            return stream().iterator().next();
-        }
-
-        public Stream<C> stream() {
-            return registry.getChannelMap().values().stream();
-        }
-
-        public void forEachChannel(Consumer<C> consumer) {
-            registry.getChannelMap().values().forEach(consumer);
-        }
-
-        public int size() {
-            return registry.getChannelMap().size();
-        }
-
-        public boolean isEmpty() {
-            return registry.getChannelMap().isEmpty();
+            return selector.next(registry.channels.values());
         }
     }
 }

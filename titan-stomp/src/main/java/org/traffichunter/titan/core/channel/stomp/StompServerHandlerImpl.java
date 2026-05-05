@@ -318,7 +318,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                     return;
                 }
 
-                StompServerSubscription subscription = context.serverConnection().subscriptions().unregister(id);
+                StompServerSubscription subscription = context.serverConnection().subscriptions().unregister(sc, id);
                 if (subscription == null) {
                     log.warn(
                             "Failed to unsubscribe due to unknown subscription id. session={}, id={}",
