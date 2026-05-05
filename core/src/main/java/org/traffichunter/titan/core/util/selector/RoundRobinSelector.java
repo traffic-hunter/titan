@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.util.selector;
 import org.jspecify.annotations.NullUnmarked;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,23 +39,18 @@ public class RoundRobinSelector<E> implements Selector<E> {
     private final AtomicInteger counter = new AtomicInteger();
 
     @Override
-    public E next(Collection<E> candidates) {
+    public E next(List<E> candidates) {
         if (candidates.isEmpty()) {
             throw new NoSuchElementException("No more elements");
         }
 
-        int selectedIndex = adjustSignedArrayIndex(counter.getAndIncrement(), candidates.size());
-        int index = 0;
-        for (E candidate : candidates) {
-            if (index++ == selectedIndex) {
-                if (candidate == null) {
-                    throw new NoSuchElementException("No more elements");
-                }
-
-                return candidate;
-            }
+        int index = adjustSignedArrayIndex(counter.getAndIncrement(), candidates.size());
+        E candidate = candidates.get(index);
+        if (candidate == null) {
+            throw new NoSuchElementException("No more elements");
         }
-        throw new NoSuchElementException("No more elements");
+
+        return candidate;
     }
 
     private static int adjustSignedArrayIndex(final int idx, final int size) {

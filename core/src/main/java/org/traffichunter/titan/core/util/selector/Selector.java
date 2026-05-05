@@ -23,12 +23,12 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.util.selector;
 
-import java.util.Collection;
+import java.util.List;
 
 /**
  * @author yun
  */
 public interface Selector<E> {
 
-    E next(Collection<E> candidates);
+    E next(List<E> candidates);
 }
