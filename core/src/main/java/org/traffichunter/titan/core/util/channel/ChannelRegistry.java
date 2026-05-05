@@ -100,7 +100,7 @@ public final class ChannelRegistry<C extends Channel> {
         }
 
         public C next() {
-            return selector.next(registry.channels.values());
+            return selector.next(List.copyOf(registry.channels.values()));
         }
     }
 }
