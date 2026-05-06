@@ -35,6 +35,11 @@ import org.traffichunter.titan.core.util.concurrent.Pausable;
 import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
 
 /**
+ * Queue of messages for one destination.
+ *
+ * <p>The queue is the handoff point between producers and destination consumers. It supports
+ * pausing producers, inspecting queued pressure, and blocking dispatch for consumers.</p>
+ *
  * @author yungwang-o
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
@@ -47,10 +52,16 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
         return new MessageDispatcherQueue(key, capacity);
     }
 
+    /**
+     * Destination served by this queue.
+     */
     Destination route();
 
     boolean equalsTo(Destination key);
 
+    /**
+     * Enqueues a message, returning {@code null} when the queue refuses it.
+     */
     @CanIgnoreReturnValue
     @Nullable Message enqueue(Message message);
 
@@ -58,8 +69,14 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
 
     Message peek();
 
+    /**
+     * Drains queued messages for pressure inspection or handoff.
+     */
     List<Message> pressure();
 
+    /**
+     * Blocks until a message is available.
+     */
     Message dispatch() throws InterruptedException;
 
     Message dispatch(long timeout, TimeUnit unit) throws InterruptedException;

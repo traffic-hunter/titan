@@ -33,6 +33,11 @@ import org.traffichunter.titan.core.util.buffer.BufferUtils;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
+ * I/O event loop responsible for connection connect/read/write readiness.
+ *
+ * <p>The loop dispatches connect completion, read buffers into the inbound handler chain, and
+ * write readiness back to the channel's pending write buffer.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j

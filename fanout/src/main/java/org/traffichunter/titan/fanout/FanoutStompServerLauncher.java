@@ -7,6 +7,28 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.spi.*;
 import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
 
+/**
+ * SPI launcher that installs fanout behavior into a managed STOMP server.
+ *
+ * <p>The bootstrap/core SPI discovers this class as a {@link FanoutLauncher}.
+ * When the managed server is STOMP, the launcher creates a fanout gateway,
+ * connects it to the server-side STOMP connection registry through
+ * {@link StompFanoutExporter}, and registers {@link StompSendToFanoutHandler}
+ * as the SEND command ingress.</p>
+ *
+ * <pre>{@code
+ * Titan bootstrap
+ *      |
+ *      v
+ * Managed STOMP server
+ *      |
+ *      v
+ * FanoutStompServerLauncher.apply(...)
+ *      |
+ *      v
+ * SEND handler -> FanoutGateway -> StompFanoutExporter
+ * }</pre>
+ */
 @Slf4j
 @SuppressWarnings("unused")
 public final class FanoutStompServerLauncher implements FanoutLauncher {

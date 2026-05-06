@@ -36,6 +36,11 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
+ * Priority queue implementation for one dispatcher destination.
+ *
+ * <p>Messages are ordered by their natural ordering in {@link PriorityBlockingQueue}. Pausing
+ * the queue blocks enqueue attempts while consumers can continue draining already queued data.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -149,9 +154,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public void updateRoutingKey(final Destination key) {
-        if(key == null) {
-            throw new IllegalArgumentException("Key cannot be null");
-        }
 
         synchronized (this) {
             this.destination = key;

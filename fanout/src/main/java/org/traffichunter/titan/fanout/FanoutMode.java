@@ -29,7 +29,12 @@ import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 import java.util.Map;
 
 /**
- * @author yun
+ * Execution strategy used by a fanout gateway.
+ *
+ * <p>The mode intentionally selects only the threading model. Routing,
+ * destination ownership, and exporter behavior remain the same for every mode,
+ * so protocol launchers can switch execution strategy without changing the
+ * fanout contract.</p>
  */
 @Getter
 public enum FanoutMode {

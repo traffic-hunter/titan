@@ -33,6 +33,13 @@ import java.net.SocketOption;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Client-side or accepted server-side network connection.
+ *
+ * <p>{@code NetChannel} is the data-carrying channel type. It can initiate connects, read
+ * bytes into {@link Buffer}, enqueue outbound buffers, and flush them through its owning
+ * {@link IOEventLoop}. Server transports also use this same type for accepted child
+ * connections after the listening {@link NetServerChannel} accepts them.</p>
+ *
  * @author yun
  */
 public interface NetChannel extends Channel {
@@ -48,18 +55,27 @@ public interface NetChannel extends Channel {
         connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
+    /**
+     * Starts or completes a non-blocking socket connection.
+     */
     @CanIgnoreReturnValue
     void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException;
 
     @CanIgnoreReturnValue
     void disconnect();
 
+    /**
+     * Reads available bytes without blocking.
+     */
     @CanIgnoreReturnValue
     int read(Buffer buffer);
 
     @CanIgnoreReturnValue
     void write(Buffer buffer);
 
+    /**
+     * Queues the buffer and attempts to write queued bytes to the socket.
+     */
     @CanIgnoreReturnValue
     void writeAndFlush(Buffer buffer);
 
@@ -68,6 +84,9 @@ public interface NetChannel extends Channel {
 
     void onWritabilityChanged(boolean isWritable);
 
+    /**
+     * Completes a pending non-blocking connect from the owning event-loop thread.
+     */
     boolean finishConnect();
 
     boolean isConnected();

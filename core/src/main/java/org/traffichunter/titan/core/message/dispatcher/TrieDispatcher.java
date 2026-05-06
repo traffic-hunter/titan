@@ -30,6 +30,11 @@ import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
 
 /**
+ * Trie-backed dispatcher for path-like destinations.
+ *
+ * <p>Destinations are stored by their normalized path. A trie keeps lookup and prefix existence
+ * checks aligned with the routing model used by queue creation and fanout consumers.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -42,10 +47,6 @@ public class TrieDispatcher implements Dispatcher {
         return trie.get(destination.path());
     }
 
-    /**
-     * @param destination routingKey
-     * @return null
-     */
     @Override
     public @Nullable DispatcherQueue getOrPut(final Destination destination) {
         DispatcherQueue v = trie.get(destination.path());

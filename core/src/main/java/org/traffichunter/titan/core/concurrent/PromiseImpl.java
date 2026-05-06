@@ -43,6 +43,13 @@ import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
+ * Default {@link Promise} implementation.
+ *
+ * <p>The implementation is synchronized around completion state and waiters, but listener
+ * execution is always redirected to the owning {@link EventLoop}. This keeps callbacks in
+ * the same thread-affinity model as channel I/O and avoids running transport callbacks on
+ * arbitrary caller threads.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j

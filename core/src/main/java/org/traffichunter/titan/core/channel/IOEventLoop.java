@@ -26,12 +26,24 @@ package org.traffichunter.titan.core.channel;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 
 /**
+ * Event loop that owns an {@link IOSelector}.
+ *
+ * <p>Channels are registered with an I/O event loop before selector operations are performed.
+ * The owning loop is responsible for all readiness registration and I/O callbacks for that
+ * channel.</p>
+ *
  * @author yungwang-o
  */
 public interface IOEventLoop extends EventLoop {
 
+    /**
+     * Assigns this loop as the owner of the channel.
+     */
     void register(Channel channel);
 
+    /**
+     * Returns the selector wrapper owned by this event loop.
+     */
     IOSelector ioSelector();
 
     default ChannelPromise newPromise(Channel channel) {

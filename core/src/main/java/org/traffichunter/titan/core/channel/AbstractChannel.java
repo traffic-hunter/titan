@@ -36,6 +36,18 @@ import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
+ * Common implementation for selectable channels.
+ *
+ * <p>The class owns state that is shared by server and network channels: the underlying
+ * {@link SelectableChannel}, lifecycle transitions, handler pipeline, event-loop ownership,
+ * and generated identifiers. Concrete implementations provide socket-specific operations
+ * such as connect, accept, read, and write.</p>
+ *
+ * <p>The state machine is intentionally small. A channel starts in {@code INIT}, becomes
+ * {@code ACTIVE} when its handshake listener runs, and finally moves to {@code CLOSED}.
+ * The handshake listener is the extension point used by transports to attach protocol
+ * handlers and register accepted channels.</p>
+ *
  * @author yun
  */
 @Slf4j

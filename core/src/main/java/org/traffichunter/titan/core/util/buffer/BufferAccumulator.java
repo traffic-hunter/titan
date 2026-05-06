@@ -29,7 +29,10 @@ import org.traffichunter.titan.core.util.Clearable;
 
 /**
  * Accumulates incoming buffers across multiple read events.
- * Used in handler chains to collect fragmented data until enough is available for processing.
+ *
+ * <p>Codecs use this when protocol frames can be split across multiple socket reads. The
+ * accumulator owns an internal buffer and enforces a maximum accumulated size so malformed or
+ * incomplete input cannot grow memory without bound.</p>
  *
  * @author yun
  */

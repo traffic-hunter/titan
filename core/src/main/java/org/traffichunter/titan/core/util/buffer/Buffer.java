@@ -32,14 +32,31 @@ import org.traffichunter.titan.core.codec.base64.Base64Codec;
 import org.traffichunter.titan.core.util.Clearable;
 
 /**
+ * Byte buffer abstraction used by Titan codecs and transports.
+ *
+ * <p>{@code Buffer} wraps Netty's {@link ByteBuf} while keeping the rest of the codebase
+ * independent from direct Netty APIs. It preserves the familiar reader/writer index model:
+ * read operations consume or inspect readable bytes, and {@code accumulate*} operations append
+ * bytes at the writer index.</p>
+ *
+ * <p>Buffers are reference-counted through the underlying {@link ByteBuf}. Callers that keep
+ * slices or pass buffers across asynchronous boundaries should use {@link #retain()} or retained
+ * slice operations where ownership must outlive the current handler call.</p>
+ *
  * @author yungwang-o
  */
 public interface Buffer extends Clearable {
 
+    /**
+     * Allocates a direct buffer with bounded capacity.
+     */
     static Buffer alloc(final int initialCapacity, final int maxCapacity) {
         return new InternalBuffer(initialCapacity, maxCapacity);
     }
 
+    /**
+     * Allocates a direct buffer using the default maximum capacity of the allocator.
+     */
     static Buffer alloc(final int initialCapacity) {
         return new InternalBuffer(initialCapacity);
     }
@@ -69,16 +86,31 @@ public interface Buffer extends Clearable {
         return new InternalBuffer();
     }
 
+    /**
+     * Wraps an existing {@link ByteBuf}. Ownership follows the wrapped buffer's reference count.
+     */
     static Buffer buffer(final ByteBuf buffer) {
         return new InternalBuffer(buffer);
     }
 
+    /**
+     * Returns a NIO view over the readable/writable region of the underlying buffer.
+     */
     ByteBuffer byteBuffer();
 
+    /**
+     * Exposes the underlying Netty buffer for channel I/O and codec internals.
+     */
     ByteBuf byteBuf();
 
+    /**
+     * Releases one reference to the underlying buffer.
+     */
     void release();
 
+    /**
+     * Retains the underlying buffer and returns a buffer view for the retained reference.
+     */
     Buffer retain();
 
     byte getByte(int idx);
@@ -220,6 +252,9 @@ public interface Buffer extends Clearable {
     @CanIgnoreReturnValue
     Buffer accumulateString(String str, Charset charset);
 
+    /**
+     * Appends another buffer's readable bytes to this buffer.
+     */
     @CanIgnoreReturnValue
     Buffer accumulateBuffer(Buffer buffer);
 
@@ -230,12 +265,21 @@ public interface Buffer extends Clearable {
         return length() > 0;
     }
 
+    /**
+     * Creates a copy with independent storage.
+     */
     @CanIgnoreReturnValue
     Buffer copy();
 
+    /**
+     * Creates a non-retained slice sharing the underlying storage.
+     */
     @CanIgnoreReturnValue
     Buffer slice();
 
+    /**
+     * Creates a retained slice sharing the underlying storage.
+     */
     @CanIgnoreReturnValue
     Buffer retainSlice();
 

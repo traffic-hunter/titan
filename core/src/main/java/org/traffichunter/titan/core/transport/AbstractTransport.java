@@ -38,6 +38,11 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
 /**
+ * Base transport that owns event loops and the channels created for the transport.
+ *
+ * <p>Subclasses decide the transport lifecycle, while this class centralizes channel creation,
+ * registry management, and common shutdown behavior.</p>
+ *
  * @author yun
  */
 @Slf4j

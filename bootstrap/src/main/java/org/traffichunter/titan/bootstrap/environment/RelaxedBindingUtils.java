@@ -27,8 +27,12 @@ import org.yaml.snakeyaml.introspector.Property;
 import org.yaml.snakeyaml.introspector.PropertyUtils;
 
 /**
- * @author yungwang-o
- * @version 1.0.0
+ * SnakeYAML property resolver that accepts kebab-case YAML keys for camel-case
+ * Java bean properties.
+ *
+ * <p>For example, {@code primary-threads} is resolved as
+ * {@code primaryThreads}. This keeps configuration files idiomatic for users
+ * while preserving normal Java naming in the property DTOs.</p>
  */
 final class RelaxedBindingUtils extends PropertyUtils {
 

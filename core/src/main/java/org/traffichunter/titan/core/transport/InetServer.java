@@ -42,6 +42,11 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
 /**
+ * TCP server transport with a single listening channel and many accepted child channels.
+ *
+ * <p>The inherited registry stores the server channel. Accepted client channels are kept in
+ * {@code childChannels} so server lifecycle and connection fanout remain separate.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -287,6 +292,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     netChannel.setOption((SocketOption<Object>) k, v)
             );
 
+            // Accepted sockets must move to a secondary loop before reads are registered.
             ChannelSecondaryIOEventLoop loop = secondaryGroup.next();
             loop.register(() -> {
                 try {

@@ -44,6 +44,34 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Executor-backed {@link FanoutGateway} implementation shared by platform and
+ * virtual-thread variants.
+ *
+ * <p>Each destination has at most one active consumer task in {@link #consumers}.
+ * Producer calls enqueue messages into a dispatcher queue, and the destination
+ * consumer drains that queue sequentially into the configured
+ * {@link FanoutExporter}. This gives a simple fanout invariant: ordering is
+ * preserved per destination queue, while different destinations can progress
+ * independently on the executor.</p>
+ *
+ * <pre>{@code
+ * publish(message)
+ *      |
+ *      v
+ * route(message) -> DispatcherQueue(destination).enqueue(message)
+ *      |
+ *      v
+ * fanout(destination) -> computeIfAbsent(destination, consume)
+ *      |
+ *      v
+ * consume loop -> dispatcherQueue.dispatch() -> exporter.export(...)
+ * }</pre>
+ *
+ * <p>The optional {@link Damper} is a small back-pressure hook for executor
+ * implementations that can create many concurrent tasks. The virtual-thread
+ * gateway uses it to cap active fanout dispatch work.</p>
+ */
 abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractExecutorFanoutGateway.class);

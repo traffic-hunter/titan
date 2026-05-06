@@ -30,6 +30,13 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
+/**
+ * I/O event loop responsible for server accept readiness.
+ *
+ * <p>Accepted sockets are initialized as child {@link NetChannel} instances. The actual
+ * read/write registration for those child channels is delegated by the server acceptor to a
+ * secondary event loop.</p>
+ */
 @Slf4j
 public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 
@@ -57,6 +64,7 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
                     NetServerChannel serverChannel = (NetServerChannel) key.attachment();
                     NetChannel channel;
                     while ((channel = serverChannel.accept()) != null) {
+                        // The server acceptor initializes the child and assigns its secondary I/O loop.
                         ((AbstractChannel) channel).accept(channel);
 
                         if(log.isDebugEnabled()) {

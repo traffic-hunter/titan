@@ -24,6 +24,8 @@
 package org.traffichunter.titan.core.concurrent;
 
 /**
+ * Runtime exception used for promise state and composition failures.
+ *
  * @author yungwang-o
  */
 public class PromiseException extends RuntimeException {

@@ -37,7 +37,26 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
 /**
- * @author yungwang-o
+ * SnakeYAML-backed environment loader.
+ *
+ * <p>The loader binds YAML into {@link RootYamlProperty} using
+ * {@link RelaxedBindingUtils}, then maps only the server configuration that the
+ * runtime currently consumes into {@link Settings}. Keeping the mapping step
+ * explicit makes it clear where defaults and validation move from parser DTOs
+ * into runtime records.</p>
+ *
+ * <pre>{@code
+ * titan-env.yml
+ *      |
+ *      v
+ * RootYamlProperty / TitanSubProperty / ServerProperty
+ *      |
+ *      v
+ * ServerSettings
+ *      |
+ *      v
+ * Settings
+ * }</pre>
  */
 @Slf4j
 final class YamlConfigurationInitializer implements ConfigurationInitializer {

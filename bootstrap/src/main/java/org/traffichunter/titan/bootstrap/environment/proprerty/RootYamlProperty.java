@@ -29,7 +29,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @author yungwang-o
+ * Root object used only for YAML binding.
+ *
+ * <p>The expected top-level document shape is {@code titan: ...}. Runtime code
+ * should not depend on this DTO directly; it is mapped to {@code Settings}
+ * after parsing.</p>
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)

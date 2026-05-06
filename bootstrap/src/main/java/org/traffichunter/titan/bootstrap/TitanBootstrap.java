@@ -31,7 +31,17 @@ import org.traffichunter.titan.bootstrap.Configurations.Property;
 import org.traffichunter.titan.bootstrap.environment.ConfigurationInitializer;
 
 /**
- * @author yungwang-o
+ * Coordinates process startup from raw configuration to core application start.
+ *
+ * <p>This class is the boundary between the bootstrap module and the core
+ * runtime. It loads environment settings, prints the banner, prevents duplicate
+ * start attempts through {@link BootState}, and finally invokes the core
+ * application by reflection.</p>
+ *
+ * <p>The reflective call is intentional: bootstrap is the first module loaded
+ * by the process, but it should not depend directly on all core transport and
+ * protocol packages. The only contract shared across that boundary is
+ * {@link ApplicationStarter#start(Settings)}.</p>
  */
 @Slf4j
 public final class TitanBootstrap {
@@ -102,7 +112,8 @@ public final class TitanBootstrap {
     }
 
     /**
-     * To avoid module cyclic dependencies, reflection was used.
+     * Loads the core application without creating a compile-time dependency
+     * from bootstrap back into the core runtime module.
      */
     private ApplicationStarter invokeCoreApplication(final ClassLoader classLoader) throws Exception {
 
@@ -113,6 +124,14 @@ public final class TitanBootstrap {
         return (ApplicationStarter) constructor.newInstance();
     }
 
+    /**
+     * Contract implemented by the runtime module that bootstrap starts.
+     *
+     * <p>Implementations live outside the bootstrap module. Bootstrap is
+     * responsible for loading and normalizing {@link Settings}; the starter is
+     * responsible for turning those settings into concrete runtime components
+     * such as managed servers, transports, and protocol handlers.</p>
+     */
     public interface ApplicationStarter {
 
         void start(Settings settings);

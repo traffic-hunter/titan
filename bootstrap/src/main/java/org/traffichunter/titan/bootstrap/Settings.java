@@ -25,10 +25,14 @@ package org.traffichunter.titan.bootstrap;
 
 import java.util.List;
 import lombok.Builder;
-import org.jspecify.annotations.NullUnmarked;
 
 /**
- * @author yungwang-o
+ * Immutable runtime settings resolved from the bootstrap environment.
+ *
+ * <p>At the moment the primary setting is the list of server definitions. The
+ * record defensively copies that list so downstream runtime code can safely
+ * share a {@code Settings} instance without observing accidental caller-side
+ * mutation.</p>
  */
 @Builder
 public record Settings(

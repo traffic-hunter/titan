@@ -26,7 +26,11 @@ package org.traffichunter.titan.bootstrap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * @author yungwang-o
+ * Atomic one-way start guard for the bootstrap lifecycle.
+ *
+ * <p>The bootstrap path should only transition from "not started" to "started"
+ * once per instance. {@link #start()} returns whether the caller won that
+ * transition, which keeps duplicate startup attempts explicit and cheap.</p>
  */
 public final class BootState {
 

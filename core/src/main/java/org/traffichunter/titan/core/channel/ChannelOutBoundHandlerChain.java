@@ -26,6 +26,8 @@ package org.traffichunter.titan.core.channel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Context passed to outbound handlers so they can continue write propagation.
+ *
  * @author yun
  */
 public interface ChannelOutBoundHandlerChain {

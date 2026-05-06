@@ -48,6 +48,12 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
 /**
+ * TCP client transport that can own multiple outbound channels.
+ *
+ * <p>The client lifecycle is intentionally separate from connection state. Each call to
+ * {@link #connect(InetSocketAddress, long, TimeUnit)} creates and registers a new channel,
+ * so per-connection state remains on the {@link NetChannel} itself.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -135,6 +141,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
                 return;
             }
 
+            // Non-blocking socket connect may complete after the write request has been submitted.
             ScheduledPromise<?> activeCheck = loop.scheduleAtFixedRate(() -> {
                 if (connectResult.isDone()) {
                     return;
@@ -176,6 +183,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
         }
 
+        // Outbound sends are distributed across the currently registered client channels.
         NetChannel channel = channelRegistry.selector().next();
         if (state.get() != State.STARTED || channel.isClosed() || !channel.isConnected()) {
             log.error("Not ready to connect");

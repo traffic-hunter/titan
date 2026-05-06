@@ -39,6 +39,13 @@ import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 
 /**
+ * Event loop with one owner thread, an immediate task queue, and a scheduled-task queue.
+ *
+ * <p>The loop repeatedly moves due scheduled promises into the task queue and runs available
+ * tasks on its owner thread. Shutdown is cooperative: the loop first enters
+ * {@link EventLoopStatus#SHUTTING_DOWN}, drains queued work until timeout, then performs
+ * subclass cleanup.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -109,6 +116,9 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         });
     }
 
+    /**
+     * Main loop body executed by the owner thread.
+     */
     protected abstract void doRun() throws Exception;
 
     @Override
@@ -273,6 +283,9 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         return isShutdown();
     }
 
+    /**
+     * Releases resources owned by the concrete loop after the run loop terminates.
+     */
     protected abstract void cleanUp();
 
     protected long delayNanosUntilNextScheduledTask() {

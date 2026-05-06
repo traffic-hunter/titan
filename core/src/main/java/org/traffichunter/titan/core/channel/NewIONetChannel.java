@@ -40,6 +40,13 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * {@link SocketChannel}-backed {@link NetChannel} implementation.
+ *
+ * <p>The channel is always configured as non-blocking by {@link AbstractChannel}. Connect
+ * completion, reads, and write-readiness registration are coordinated through the owning
+ * {@link IOEventLoop}, while {@link ChannelWriteBuffer} keeps partially written buffers until
+ * the socket becomes writable again.</p>
+ *
  * @author yun
  */
 @Slf4j

@@ -28,6 +28,8 @@ import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoop;
 
 /**
+ * Default channel promise implementation.
+ *
  * @author yun
  */
 final class ChannelPromiseImpl extends PromiseImpl<Void> implements ChannelPromise {

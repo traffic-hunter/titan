@@ -32,8 +32,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
+ * Default {@link Buffer} implementation backed by a Netty {@link ByteBuf}.
  *
- * reference: vertx
+ * <p>The implementation delegates most primitive accessors directly to {@code ByteBuf}.
+ * Append-style methods use Netty's writer index, while slice methods preserve Netty's
+ * shared-storage semantics. When appending strings, the buffer expands beyond its current
+ * max capacity by allocating a larger direct buffer and copying existing contents.</p>
+ *
+ * <p>Reference: Vert.x buffer API shape.</p>
  *
  * @author yungwang-o
  */

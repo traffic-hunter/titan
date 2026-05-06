@@ -34,6 +34,13 @@ import java.nio.channels.Selector;
 import java.util.Set;
 
 /**
+ * Thin wrapper around Java NIO {@link Selector}.
+ *
+ * <p>The wrapper keeps selector registration code local to the channel package and exposes
+ * domain-specific operations such as accept, read, write, and connect readiness. Registered
+ * channels attach themselves as the selection key attachment so event loops can dispatch
+ * ready keys without additional lookup tables.</p>
+ *
  * @author yun
  */
 @Slf4j

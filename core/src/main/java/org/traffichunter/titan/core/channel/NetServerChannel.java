@@ -30,6 +30,12 @@ import java.net.InetSocketAddress;
 import java.net.SocketOption;
 
 /**
+ * Listening server socket channel.
+ *
+ * <p>A server channel is registered for accept readiness on the primary event loop. Each
+ * successful {@link #accept()} creates a separate {@link NetChannel}; that child channel is
+ * then initialized and registered on a secondary event loop for read/write processing.</p>
+ *
  * @author yun
  */
 public interface NetServerChannel extends Channel {
@@ -45,7 +51,13 @@ public interface NetServerChannel extends Channel {
         bind(new InetSocketAddress(host, port));
     }
 
+    /**
+     * Binds the listening socket to the given address.
+     */
     void bind(InetSocketAddress address) throws IOException;
 
+    /**
+     * Accepts one pending child connection, or returns {@code null} when no connection is ready.
+     */
     @Nullable NetChannel accept();
 }

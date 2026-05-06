@@ -24,6 +24,12 @@
 package org.traffichunter.titan.core.channel;
 
 /**
+ * Group facade for channel event loops.
+ *
+ * <p>The group is also exposed as an {@link IOEventLoop} so transports can submit tasks
+ * without caring which concrete loop is chosen. Implementations select a member event loop
+ * with {@link #next()} and delegate operations to it.</p>
+ *
  * @author yun
  */
 public interface ChannelEventLoopGroup<E extends IOEventLoop>

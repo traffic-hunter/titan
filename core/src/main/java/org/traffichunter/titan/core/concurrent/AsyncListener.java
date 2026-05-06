@@ -24,6 +24,11 @@
 package org.traffichunter.titan.core.concurrent;
 
 /**
+ * Completion callback for a {@link Promise}.
+ *
+ * <p>Listeners are invoked by the promise's owning event loop. Implementations should avoid
+ * blocking because they run in the same execution lane as channel I/O callbacks.</p>
+ *
  * @author yungwang-o
  */
 @FunctionalInterface

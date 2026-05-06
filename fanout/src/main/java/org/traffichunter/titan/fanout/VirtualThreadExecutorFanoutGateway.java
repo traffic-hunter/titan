@@ -32,7 +32,12 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * @author yun
+ * Fanout gateway backed by one virtual thread per submitted task.
+ *
+ * <p>Destination consumers are naturally long-lived and often block while
+ * waiting for dispatcher queues. Virtual threads make that blocking cheap, while
+ * the internal damper still caps active dispatch sections so exporter work does
+ * not grow without a limit.</p>
  */
 class VirtualThreadExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
 

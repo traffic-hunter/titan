@@ -35,6 +35,12 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
 
 /**
+ * Event-loop-backed asynchronous result.
+ *
+ * <p>A promise is both a {@link RunnableFuture} and a {@link Completable}. Event loops submit
+ * promises as runnable tasks, while transport code can also complete them manually when an I/O
+ * event happens later. Listener notification is serialized through the owning {@link EventLoop}.</p>
+ *
  * @author yungwang-o
  */
 public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
@@ -57,6 +63,9 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
         return failedPromise;
     }
 
+    /**
+     * Returns whether the promise completed without an error.
+     */
     boolean isSuccess();
 
     default boolean cancel() {
@@ -73,12 +82,18 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
         return !isSuccess();
     }
 
+    /**
+     * Registers a listener that will be notified on the owning event loop.
+     */
     @CanIgnoreReturnValue
     Promise<C> addListener(AsyncListener<C> listener);
 
     @CanIgnoreReturnValue
     Promise<C> removeListener(AsyncListener<C> listener);
 
+    /**
+     * Creates a promise that maps this promise's successful result.
+     */
     @CanIgnoreReturnValue
     <R> Promise<R> map(Function<? super C, ? extends R> mapper);
 
@@ -88,6 +103,9 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
     @CanIgnoreReturnValue
     Promise<C> await(long timeout, TimeUnit timeUnit) throws InterruptedException;
 
+    /**
+     * Creates a promise that follows the promise returned by the mapper.
+     */
     @CanIgnoreReturnValue
     <R> Promise<R> thenCompose(Function<? super C, ? extends Promise<R>> mapper);
 
@@ -101,7 +119,13 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
     boolean isDone();
 
+    /**
+     * Returns the completed value without blocking, or {@code null} if no value is available.
+     */
     @Nullable C getNow();
 
+    /**
+     * Returns the completion failure, or {@code null} when the promise succeeded or is pending.
+     */
     @Nullable Throwable error();
 }

@@ -29,6 +29,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Mutable YAML DTO for one configured server.
+ *
+ * <p>This class mirrors configuration keys closely so SnakeYAML can bind user
+ * input with minimal ceremony. Validation and defaulting are intentionally
+ * deferred to {@code ServerSettings}, which is the immutable runtime model.</p>
+ */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)
 @AllArgsConstructor

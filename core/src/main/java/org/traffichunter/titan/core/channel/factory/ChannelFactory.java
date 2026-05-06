@@ -27,11 +27,19 @@ import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 
 /**
+ * Factory abstraction used by transports to create a fresh channel per connection.
+ *
  * @author yun
  */
 public interface ChannelFactory<C extends Channel> {
 
+    /**
+     * Creates a channel wired with the handshake listener that initializes it later.
+     */
     C create(ChannelHandShakeEventListener handShakeEventListener);
 
+    /**
+     * Releases channel resources.
+     */
     void destroy(Channel channel);
 }

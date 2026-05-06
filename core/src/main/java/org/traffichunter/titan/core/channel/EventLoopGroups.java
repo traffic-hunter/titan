@@ -26,6 +26,12 @@ package org.traffichunter.titan.core.channel;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Pair of event-loop groups used by network transports.
+ *
+ * <p>The primary group owns server accept channels. The secondary group owns accepted or
+ * outbound {@link NetChannel} instances that perform reads and writes. Keeping these roles
+ * separate prevents accept readiness from competing with regular connection I/O.</p>
+ *
  * @author yun
  */
 public record EventLoopGroups(

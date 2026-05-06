@@ -23,12 +23,27 @@
  */
 package org.traffichunter.titan.core.spi;
 
+/**
+ * Lifecycle wrapper returned by a network server provider.
+ *
+ * <p>Bootstrap code interacts with managed servers instead of concrete transport classes so
+ * protocol modules can own their own construction details.</p>
+ */
 public interface ManagedServer extends AutoCloseable {
 
+    /**
+     * Configured server name.
+     */
     String name();
 
+    /**
+     * Starts and binds the server.
+     */
     void start();
 
+    /**
+     * Stops the server and releases transport resources.
+     */
     void stop();
 
     @Override

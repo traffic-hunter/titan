@@ -37,7 +37,17 @@ import org.traffichunter.titan.fanout.CompletableResult;
 import java.util.List;
 
 /**
- * @author yun
+ * Fanout exporter for STOMP subscriptions.
+ *
+ * <p>The exporter asks the server connection for subscriptions matching the
+ * destination, then emits a STOMP {@code MESSAGE} frame per subscription. The
+ * {@code subscription} header is copied from the subscription id owned by that
+ * client session, which lets a single STOMP connection multiplex multiple
+ * subscriptions correctly.</p>
+ *
+ * <p>Each outgoing frame receives a copied payload buffer because the same
+ * logical message can be written to many clients. Sharing one buffer instance
+ * across those writes would couple independent channel write lifecycles.</p>
  */
 public class StompFanoutExporter implements FanoutExporter {
 

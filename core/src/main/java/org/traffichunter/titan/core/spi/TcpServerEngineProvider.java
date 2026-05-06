@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
@@ -35,6 +37,12 @@ import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 
+/**
+ * Built-in provider for plain TCP line-frame servers.
+ *
+ * <p>The provider builds an {@link InetServer}, installs the line-frame decoder, and then
+ * appends handlers contributed by bootstrap integrations.</p>
+ */
 public final class TcpServerEngineProvider implements NetworkServerEngineProvider {
 
     private final List<ChannelInBoundHandler> inboundHandlers = new ArrayList<>();
@@ -125,7 +133,7 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
         return builder.build();
     }
 
-    private static Integer intOption(final Map<String, String> options, final String key) {
+    private static @Nullable Integer intOption(final Map<String, String> options, final String key) {
         String value = options.get(key);
         return value == null || value.isBlank() ? null : Integer.parseInt(value);
     }

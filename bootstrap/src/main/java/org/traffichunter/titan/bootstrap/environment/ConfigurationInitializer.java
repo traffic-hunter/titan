@@ -27,7 +27,12 @@ import java.io.InputStream;
 import org.traffichunter.titan.bootstrap.Settings;
 
 /**
- * @author yungwang-o
+ * Loads external configuration into bootstrap {@link Settings}.
+ *
+ * <p>The default implementation reads Titan's YAML environment file, but tests
+ * and alternate launchers can provide an input stream directly. Implementations
+ * should return normalized settings rather than exposing parser-specific
+ * objects to the rest of the runtime.</p>
  */
 public interface ConfigurationInitializer {
 

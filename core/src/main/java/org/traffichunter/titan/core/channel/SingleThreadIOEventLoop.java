@@ -33,6 +33,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
+ * Single-threaded event loop that combines queued tasks with Java NIO selector polling.
+ *
+ * <p>All selector mutations are funneled through this event-loop thread. External callers
+ * enqueue registration tasks, and {@link #addTask(Runnable)} wakes the selector so those
+ * tasks can run promptly even when the loop is blocked in {@code select()}.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -92,6 +98,9 @@ public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop impl
         }
     }
 
+    /**
+     * Processes ready selector keys after queued tasks have had a chance to run.
+     */
     protected abstract void processIO(Set<SelectionKey> keySet);
 
     @Override
