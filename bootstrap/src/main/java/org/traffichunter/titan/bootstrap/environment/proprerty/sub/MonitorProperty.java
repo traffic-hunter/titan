@@ -29,7 +29,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @author yungwang-o
+ * YAML DTO for monitor scheduling options.
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)

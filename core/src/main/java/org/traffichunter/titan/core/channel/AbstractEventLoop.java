@@ -34,6 +34,12 @@ import org.traffichunter.titan.core.concurrent.AdvancedThreadPoolExecutor;
 import org.traffichunter.titan.core.concurrent.Promise;
 
 /**
+ * Base event-loop implementation backed by a single-thread executor.
+ *
+ * <p>This class owns lifecycle state and promise submission. Concrete subclasses decide how
+ * the loop body runs: task-only loops can just drain tasks, while I/O loops combine task
+ * execution with selector polling.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -44,7 +50,7 @@ public abstract class AbstractEventLoop extends ThreadPoolExecutor implements Ev
     protected final Queue<Runnable> taskQueue;
     protected @Nullable volatile Thread thread;
 
-    // Optimize atomicReference
+    // Atomic updater keeps lifecycle transitions cheap without synchronizing every status read.
     private static final AtomicReferenceFieldUpdater<AbstractEventLoop, EventLoopStatus> STATUS_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(AbstractEventLoop.class, EventLoopStatus.class, "status");
     private volatile EventLoopStatus status = EventLoopStatus.NOT_STARTED;

@@ -24,6 +24,8 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.util.buffer;
 
 /**
+ * Shared buffer sizing defaults.
+ *
  * @author yun
  */
 public final class BufferUtils {

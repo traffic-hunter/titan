@@ -26,9 +26,14 @@ package org.traffichunter.titan.core.util.selector;
 import java.util.List;
 
 /**
+ * Strategy for choosing one candidate from a caller-owned candidate list.
+ *
  * @author yun
  */
 public interface Selector<E> {
 
+    /**
+     * Returns one candidate using the strategy's internal cursor or policy.
+     */
     E next(List<E> candidates);
 }

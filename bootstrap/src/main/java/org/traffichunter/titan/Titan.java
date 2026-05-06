@@ -26,6 +26,14 @@ package org.traffichunter.titan;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.bootstrap.TitanBootstrap;
 
+/**
+ * Command-line entry point for a Titan process.
+ *
+ * <p>The entry point resolves the environment file path from system properties
+ * and delegates all startup work to {@link TitanBootstrap}. Keeping this class
+ * thin makes embedded tests and alternate launchers use the same bootstrap
+ * path as the production main method.</p>
+ */
 public class Titan {
 
     public static void main(String[] args) {

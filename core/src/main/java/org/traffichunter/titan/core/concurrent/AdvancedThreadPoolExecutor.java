@@ -36,6 +36,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
+ * Thread-pool executor with cooperative pause/resume support.
+ *
+ * <p>Paused executors keep accepting queued work, but worker threads block in
+ * {@link #beforeExecute(Thread, Runnable)} until {@link #resume()} is called.</p>
+ *
  * @author yungwang-o
  */
 public class AdvancedThreadPoolExecutor extends ThreadPoolExecutor implements Pausable {

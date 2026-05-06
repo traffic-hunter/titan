@@ -29,7 +29,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * @author yungwang-o
+ * YAML DTO for the optional HTTP server section.
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)

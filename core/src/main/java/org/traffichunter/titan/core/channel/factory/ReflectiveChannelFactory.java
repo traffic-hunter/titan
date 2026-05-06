@@ -30,6 +30,11 @@ import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import java.lang.reflect.Constructor;
 
 /**
+ * Channel factory for built-in channel implementations with non-public constructors.
+ *
+ * <p>Core channel constructors are package-private to keep direct construction out of user
+ * code. The factory resolves the constructor once and reuses it for each connection.</p>
+ *
  * @author yun
  */
 public final class ReflectiveChannelFactory<C extends Channel> implements ChannelFactory<C> {

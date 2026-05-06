@@ -6,7 +6,11 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 /**
- * Hook for optional module integrations (e.g. fanout) without introducing direct module dependencies.
+ * Hook for optional module integrations, such as fanout.
+ *
+ * <p>Launchers are loaded after a server has been created. They can inspect the selected
+ * protocol and transport, then attach sidecar behavior without creating a direct dependency
+ * from core bootstrap code to optional modules.</p>
  */
 public interface FanoutLauncher {
 

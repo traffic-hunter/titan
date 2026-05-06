@@ -27,6 +27,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
+ * Factory for core event-loop implementations.
+ *
+ * <p>The factory centralizes thread naming for primary and secondary I/O loops.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j

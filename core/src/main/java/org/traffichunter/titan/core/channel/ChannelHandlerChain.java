@@ -28,6 +28,45 @@ import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Owns the inbound and outbound handler pipelines for a channel.
+ *
+ * <p>The chain is split into two independent, forward-only pipelines. Inbound events are
+ * produced by the transport when a channel connects or reads bytes. Outbound events are
+ * produced by user code or codecs before bytes are finally written to the channel.</p>
+ *
+ * <pre>{@code
+ *                         ChannelHandlerChain
+ *
+ *   inbound events
+ *   (connect/read)
+ *        |
+ *        v
+ *   +----------+     +-----------------+     +-----------------+
+ *   | inHead   | --> | inbound handler | --> | inbound handler | --> ...
+ *   +----------+     +-----------------+     +-----------------+
+ *        ^
+ *        |
+ *   processChannelConnecting(...)
+ *   processChannelAfterConnected(...)
+ *   processChannelRead(...)
+ *
+ *
+ *   outbound events
+ *   (write)
+ *        |
+ *        v
+ *   +----------+     +------------------+     +------------------+     +---------------+
+ *   | outHead  | --> | outbound handler | --> | outbound handler | --> | channel.write |
+ *   +----------+     +------------------+     +------------------+     +---------------+
+ *        ^
+ *        |
+ *   processChannelWrite(...)
+ * }</pre>
+ *
+ * <p>Handlers continue propagation by calling the {@code spark*} method on the supplied chain
+ * context. If an outbound event reaches the end of the outbound chain, the buffer is written
+ * to the {@link NetChannel}.</p>
+ *
  * @author yun
  */
 @Slf4j

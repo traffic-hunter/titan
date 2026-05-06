@@ -30,7 +30,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * @author yun
+ * Fanout gateway backed by a fixed-size platform thread pool.
+ *
+ * <p>This mode is useful when fanout work should be bounded by a small number
+ * of OS threads. It limits executor parallelism directly through the pool size.</p>
  */
 class ThreadPoolExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
 

@@ -24,6 +24,8 @@
 package org.traffichunter.titan.core.util.buffer;
 
 /**
+ * Buffer memory location.
+ *
  * @author yungwang-o
  */
 public enum BufferType {

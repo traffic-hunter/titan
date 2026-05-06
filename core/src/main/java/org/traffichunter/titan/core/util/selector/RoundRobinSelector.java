@@ -25,12 +25,16 @@ package org.traffichunter.titan.core.util.selector;
 
 import org.jspecify.annotations.NullUnmarked;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Round-robin selector that keeps only cursor state.
+ *
+ * <p>Candidates are supplied by the caller on each selection so the selector can be reused
+ * with dynamic registries without owning their storage.</p>
+ *
  * @author yun
  */
 @NullUnmarked

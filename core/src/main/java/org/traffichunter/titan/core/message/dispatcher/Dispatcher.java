@@ -28,16 +28,31 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
+ * Registry of destination queues.
+ *
+ * <p>Dispatchers do not deliver messages directly. They resolve the queue for a destination,
+ * creating it when necessary, and queue consumers perform the actual dispatch from
+ * {@link DispatcherQueue}.</p>
+ *
  * @author yungwang-o
  */
 public interface Dispatcher {
 
+    /**
+     * Returns Titan's default destination registry implementation.
+     */
     static Dispatcher getDefault() {
         return new TrieDispatcher();
     }
 
+    /**
+     * Returns the queue for the destination, or {@code null} when it has not been created.
+     */
     @Nullable DispatcherQueue get(Destination destination);
 
+    /**
+     * Returns the existing queue or creates one for this destination.
+     */
     @CanIgnoreReturnValue
     DispatcherQueue getOrPut(Destination destination);
 

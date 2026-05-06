@@ -35,6 +35,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
+ * ByteBuf allocator that wraps allocated buffers with a cleaner-backed release guard.
+ *
+ * <p>The wrapper does not replace normal reference-count ownership. Callers should still
+ * release buffers explicitly. The cleaner is a last-resort safety net for buffers that become
+ * unreachable with outstanding references.</p>
+ *
  * @author yungwang-o
  */
 public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
@@ -64,6 +70,9 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
         return delegate.isDirectBufferPooled();
     }
 
+    /**
+     * Wrapped buffer that marks the cleaner state when Netty reference count reaches zero.
+     */
     @Slf4j
     static class AutoReleaseByteBuf extends WrappedByteBuf {
 
@@ -129,7 +138,9 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
         }
     }
 
-    // Releaser action: releases remaining refCnt if > 0
+    /**
+     * Cleaner action that releases any remaining references when a wrapped buffer is abandoned.
+     */
     private record Releaser(ByteBuf buf, AtomicBoolean cleaned) implements Runnable {
 
         @Override

@@ -37,6 +37,13 @@ import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 
+/**
+ * Service provider for STOMP-over-TCP server engines.
+ *
+ * <p>The provider translates bootstrap protocol and transport options into
+ * {@link StompServerOption} and {@link InetServerOption}, then installs any externally supplied
+ * channel handlers on accepted STOMP child channels.</p>
+ */
 public final class StompServerEngineProvider implements NetworkServerEngineProvider {
 
     private final List<ChannelInBoundHandler> inboundHandlers = new ArrayList<>();

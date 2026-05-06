@@ -34,6 +34,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Event-loop group for server-side accept handling.
+ *
+ * <p>Transports register {@link NetServerChannel} instances here. Accepted child channels
+ * are handed off to the secondary group before read/write readiness is registered.</p>
+ *
  * @author yun
  */
 @Slf4j

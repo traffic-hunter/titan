@@ -27,6 +27,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * Manual completion contract for asynchronous results.
+ *
+ * <p>The non-{@code try} methods complete the target and return the underlying promise for
+ * fluent use. The {@code try} variants report whether this call won the completion race.</p>
+ *
  * @author yungwang-o
  */
 public interface Completable<C> {
@@ -49,8 +54,14 @@ public interface Completable<C> {
         return complete(null, new PromiseException(message));
     }
 
+    /**
+     * Completes with either a result or a failure.
+     */
     Promise<C> complete(@Nullable C result, @Nullable Throwable error);
 
+    /**
+     * Attempts to complete with either a result or a failure.
+     */
     boolean tryComplete(@Nullable C result, @Nullable Throwable error);
 
     default boolean trySuccess(@Nullable C result) {

@@ -24,12 +24,16 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.spi;
 
 import org.traffichunter.titan.bootstrap.ServerSettings;
-import org.traffichunter.titan.core.channel.stomp.StompServerConnection;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Managed lifecycle adapter for a STOMP server.
+ *
+ * <p>The SPI exposes this wrapper to bootstrap code while keeping STOMP-specific access
+ * available through {@link #server()} for integrations that need it.</p>
+ *
  * @author yun
  */
 public final class StompManagedServer implements ManagedServer {

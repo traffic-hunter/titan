@@ -36,6 +36,11 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Hash-map dispatcher implementation.
+ *
+ * <p>This implementation is useful when destinations should be matched exactly and prefix
+ * behavior is unnecessary.</p>
+ *
  * @author yungwang-o
  */
 @Getter

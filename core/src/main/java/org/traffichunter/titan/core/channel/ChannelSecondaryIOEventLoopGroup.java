@@ -33,6 +33,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Event-loop group for connection read/write processing.
+ *
+ * <p>Outbound client channels and accepted server child channels are registered here. Work
+ * is distributed across member loops with a round-robin selector.</p>
+ *
  * @author yun
  */
 public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> {

@@ -28,6 +28,11 @@ import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoop;
 
 /**
+ * Promise specialization for channel operations.
+ *
+ * <p>Channel promises carry the channel that initiated the operation, making registration,
+ * bind, connect, and write results easier to correlate with their owning channel.</p>
+ *
  * @author yun
  */
 public interface ChannelPromise extends Promise<Void> {
@@ -48,6 +53,9 @@ public interface ChannelPromise extends Promise<Void> {
         return new ChannelPromiseImpl(eventLoop, channel).fail(error);
     }
 
+    /**
+     * Returns the channel associated with this asynchronous operation.
+     */
     Channel channel();
 
     @Override

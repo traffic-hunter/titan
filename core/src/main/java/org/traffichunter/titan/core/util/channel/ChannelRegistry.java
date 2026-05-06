@@ -34,6 +34,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
+ * Thread-safe registry for channels owned by a transport.
+ *
+ * <p>The registry keeps channel storage separate from channel selection. Selection receives a
+ * snapshot of current channels so callers can add or remove channels while the selector keeps
+ * only its own cursor state.</p>
+ *
  * @author yun
  */
 public final class ChannelRegistry<C extends Channel> {
@@ -100,6 +106,7 @@ public final class ChannelRegistry<C extends Channel> {
         }
 
         public C next() {
+            // Snapshot before selecting so concurrent registry updates do not affect one selection pass.
             return selector.next(List.copyOf(registry.channels.values()));
         }
     }

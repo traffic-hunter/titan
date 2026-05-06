@@ -33,7 +33,21 @@ import java.util.List;
 import java.util.concurrent.Future;
 
 /**
- * @author yun
+ * Asynchronous ingress and routing facade for fanout delivery.
+ *
+ * <p>The gateway has two responsibilities:</p>
+ *
+ * <ul>
+ *     <li>{@link #publish(Message)} enqueues producer messages into the
+ *     dispatcher queue keyed by {@link Destination}.</li>
+ *     <li>{@link #fanout(Destination)} starts one long-lived consumer task for
+ *     a destination, if it has not already been started.</li>
+ * </ul>
+ *
+ * <p>Callers normally publish first and let the implementation ensure that the
+ * matching destination consumer exists. The returned futures represent gateway
+ * task submission, not necessarily remote protocol acknowledgement for every
+ * subscribed client.</p>
  */
 public interface FanoutGateway extends Closeable {
 

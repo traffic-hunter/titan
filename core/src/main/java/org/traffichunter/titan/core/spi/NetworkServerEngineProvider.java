@@ -34,10 +34,19 @@ import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 /**
+ * Service-provider contract for network server engines.
+ *
+ * <p>Providers are discovered with {@link ServiceLoader}. Each provider declares a protocol and
+ * transport pair, translates {@link ServerSettings} into concrete server options, and returns a
+ * {@link ManagedServer} that bootstrap code can start and stop uniformly.</p>
+ *
  * @author yun
  */
 public interface NetworkServerEngineProvider {
 
+    /**
+     * Loads all provider implementations visible to the current class loader.
+     */
     static List<NetworkServerEngineProvider> load() {
         return ServiceLoader.load(NetworkServerEngineProvider.class)
                 .stream()
@@ -45,6 +54,9 @@ public interface NetworkServerEngineProvider {
                 .toList();
     }
 
+    /**
+     * Finds the single provider matching protocol and optional transport settings.
+     */
     static NetworkServerEngineProvider find(final ServerSettings settings) {
         List<NetworkServerEngineProvider> providers = load().stream()
                 .filter(provider -> provider.supports(settings))
@@ -73,8 +85,14 @@ public interface NetworkServerEngineProvider {
         );
     }
 
+    /**
+     * Transport name, for example {@code tcp}.
+     */
     String transport();
 
+    /**
+     * Protocol name, for example {@code stomp}.
+     */
     String protocol();
 
     @CanIgnoreReturnValue
@@ -83,6 +101,9 @@ public interface NetworkServerEngineProvider {
     @CanIgnoreReturnValue
     NetworkServerEngineProvider setOutboundHandler(ChannelOutBoundHandler channelOutBoundHandler);
 
+    /**
+     * Creates a managed server instance from bootstrap settings.
+     */
     ManagedServer create(ServerSettings settings);
 
     default boolean supports(final ServerSettings settings) {

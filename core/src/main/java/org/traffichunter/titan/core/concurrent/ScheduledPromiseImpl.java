@@ -34,6 +34,12 @@ import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 
 /**
+ * Default scheduled promise implementation.
+ *
+ * <p>A one-shot scheduled promise completes through {@link PromiseImpl#run()}. A periodic
+ * scheduled promise executes its task, computes the next deadline, and re-registers itself
+ * with the owning event loop until it is cancelled or the event loop shuts down.</p>
+ *
  * @author yungwang-o
  */
 public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements ScheduledPromise<C> {

@@ -31,14 +31,33 @@ import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
+ * Single execution lane for asynchronous work.
+ *
+ * <p>An event loop owns a task queue, scheduled tasks, and optionally I/O selector work.
+ * Channel code relies on {@link #inEventLoop()} to preserve thread affinity: channel state,
+ * selector registrations, and promise listeners should run on the owning loop.</p>
+ *
+ * <p>Submitting a task returns a {@link Promise}. Scheduling returns a
+ * {@link ScheduledPromise} that is executed by the same event-loop thread when its deadline
+ * is reached.</p>
+ *
  * @author yungwang-o
  */
 public interface EventLoop extends EventLoopLifeCycle {
 
+    /**
+     * Starts the event-loop thread.
+     */
     void start();
 
+    /**
+     * Enqueues a task without wrapping it in a new promise.
+     */
     void register(Runnable task);
 
+    /**
+     * Enqueues a task and returns a promise completed by that task.
+     */
     <V> Promise<V> submit(Runnable task);
 
     <V> Promise<V> submit(Callable<V> task);
@@ -59,6 +78,9 @@ public interface EventLoop extends EventLoopLifeCycle {
         return Promise.newPromise(this, task);
     }
 
+    /**
+     * Returns whether the current thread is this event loop's owner thread.
+     */
     default boolean inEventLoop() {
         return inEventLoop(Thread.currentThread());
     }

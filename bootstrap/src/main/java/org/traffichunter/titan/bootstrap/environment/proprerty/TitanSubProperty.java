@@ -34,7 +34,11 @@ import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerPropert
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServiceDiscoveryProperty;
 
 /**
- * @author yungwang-o
+ * YAML binding object for properties nested below the {@code titan} key.
+ *
+ * <p>Some fields are placeholders for broader process features, while
+ * {@link #servers} is the active path used to construct managed server
+ * settings.</p>
  */
 @Data
 @NoArgsConstructor(access = AccessLevel.PUBLIC)

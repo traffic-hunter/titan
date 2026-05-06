@@ -29,7 +29,12 @@ import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
- * @author yun
+ * Aggregates completion counts for a single export attempt.
+ *
+ * <p>Fanout delivery can target zero, one, or many consumers. This object keeps
+ * the destination set, the number of attempted writes, and the success/failure
+ * counters in one place. Its promise is completed when all attempted writes have
+ * reported a result. An export with no targets completes immediately.</p>
  */
 public final class CompletableResult {
 

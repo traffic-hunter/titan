@@ -31,6 +31,12 @@ import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Time;
 
 /**
+ * Promise scheduled by an event loop deadline.
+ *
+ * <p>Scheduled promises are stored in the event loop's priority queue. They also implement
+ * Netty's {@link PriorityQueueNode} so queue index bookkeeping can be updated without an
+ * additional wrapper object.</p>
+ *
  * @author yungwang-o
  */
 public interface ScheduledPromise<C> extends Promise<C>, Delayed, PriorityQueueNode {
@@ -47,6 +53,9 @@ public interface ScheduledPromise<C> extends Promise<C>, Delayed, PriorityQueueN
         return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos, period);
     }
 
+    /**
+     * Calculates an absolute deadline from the event-loop time source.
+     */
     static long calculateDeadlineNanos(final long delay) {
         long deadlineNanos = Time.currentNanos() + delay;
         return deadlineNanos < 0 ? Long.MAX_VALUE : deadlineNanos;

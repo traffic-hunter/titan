@@ -37,7 +37,18 @@ import org.traffichunter.titan.core.spi.FanoutLauncher;
 import org.traffichunter.titan.core.spi.NetworkServerEngineProvider;
 
 /**
- * Reflection entrypoint loaded by bootstrap.
+ * Core runtime entry point invoked by {@link org.traffichunter.titan.bootstrap.TitanBootstrap}.
+ *
+ * <p>{@code TitanApplication} is the first core class reached after bootstrap
+ * has loaded and normalized external configuration. Bootstrap calls this class
+ * through the narrow {@link ApplicationStarter} contract so the startup module
+ * does not need a compile-time dependency on transport, protocol, or fanout
+ * implementations.</p>
+ *
+ * <p>For each configured server, a transport/protocol pair is resolved by SPI
+ * providers, optional fanout behavior is installed by matching launchers, and
+ * the resulting managed server is started and registered for process shutdown
+ * cleanup.</p>
  */
 @Slf4j
 @NullMarked
