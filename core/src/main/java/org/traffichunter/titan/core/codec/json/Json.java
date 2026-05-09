@@ -30,6 +30,10 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
+ * Small JSON helper that uses the shared Jackson {@link JsonMapper}.
+ *
+ * <p>Methods return {@code null} when serialization or deserialization fails.</p>
+ *
  * @author yungwang-o
  */
 @Slf4j
@@ -37,6 +41,9 @@ public final class Json {
 
     private static final JsonMapper mapper = new JsonMapper();
 
+    /**
+     * Serializes an object to a JSON string.
+     */
     public static @Nullable <T> String serialize(final T object) {
         try {
             return mapper.writeValueAsString(object);
@@ -46,6 +53,9 @@ public final class Json {
         }
     }
 
+    /**
+     * Serializes an object to UTF-8 JSON bytes.
+     */
     public static <T> byte @Nullable [] serializeToBytes(final T object) {
         try {
             return mapper.writeValueAsBytes(object);
@@ -55,6 +65,9 @@ public final class Json {
         }
     }
 
+    /**
+     * Deserializes a JSON string into the requested type.
+     */
     public static @Nullable <T> T deserialize(final String json, final Class<T> type) {
         try {
             return mapper.readValue(json, type);
@@ -64,6 +77,9 @@ public final class Json {
         }
     }
 
+    /**
+     * Deserializes JSON read from an input stream into the requested type.
+     */
     public static @Nullable <T> T deserialize(final InputStream is, final Class<T> type) {
         try {
             return mapper.readValue(is, type);
@@ -73,6 +89,9 @@ public final class Json {
         }
     }
 
+    /**
+     * Deserializes JSON bytes into the requested type.
+     */
     public static @Nullable <T> T deserialize(final byte[] json, final Class<T> type) {
         try {
             return mapper.readValue(json, type);

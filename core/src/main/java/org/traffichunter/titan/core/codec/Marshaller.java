@@ -24,11 +24,19 @@
 package org.traffichunter.titan.core.codec;
 
 /**
+ * Converts an object between its runtime representation and a byte array.
+ *
  * @author yungwang-o
  */
 public interface Marshaller<T> {
 
+    /**
+     * Serializes this value into bytes.
+     */
     byte[] marshall();
 
+    /**
+     * Deserializes bytes into a value.
+     */
     T unmarshall();
 }

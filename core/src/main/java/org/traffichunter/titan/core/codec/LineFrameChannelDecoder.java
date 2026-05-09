@@ -29,6 +29,11 @@ import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Decodes inbound bytes into frames delimited by {@code \n} or {@code \r\n}.
+ *
+ * <p>Frames longer than {@code maxLength} are discarded until the next line
+ * delimiter is found.</p>
+ *
  * @author yun
  */
 public class LineFrameChannelDecoder extends ChannelDecoder {
@@ -41,14 +46,23 @@ public class LineFrameChannelDecoder extends ChannelDecoder {
 
     private boolean reSync;
 
+    /**
+     * Creates a decoder with a 1024-byte maximum frame length.
+     */
     public LineFrameChannelDecoder() {
         this(1024);
     }
 
+    /**
+     * Creates a decoder that strips line delimiters from decoded frames.
+     */
     public LineFrameChannelDecoder(int maxLength) {
         this(maxLength, true);
     }
 
+    /**
+     * Creates a decoder with the given maximum frame length and delimiter behavior.
+     */
     public LineFrameChannelDecoder(int maxLength, boolean stripDelimiter) {
         Assert.checkArgument(maxLength > 0, "maxLength must be greater than 0");
 

@@ -31,13 +31,18 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Inbound channel handler that turns a byte stream into decoded frame buffers.
+ *
+ * <p>The decoder keeps unread bytes between read events so subclasses can return
+ * {@code null} until a full frame is available.</p>
+ *
  * @author yun
  */
 @Slf4j
 public abstract class ChannelDecoder implements ChannelInBoundHandler {
 
     /**
-     *
+     * Combines a previously retained buffer with newly received bytes.
      */
     public static final KeepingBuffer EXPANDING_AFTER_COPY_BUFFER = ((keepBuffer, in) -> {
         final Buffer newBuffer = Buffer.alloc(keepBuffer.length() + in.length());
@@ -87,10 +92,21 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
         }
     }
 
+    /**
+     * Attempts to decode one frame from the readable bytes in the buffer.
+     *
+     * @return a decoded frame, or {@code null} when more bytes are required
+     */
     protected abstract @Nullable Buffer decode(NetChannel channel, Buffer buffer);
 
+    /**
+     * Strategy for carrying unread bytes across inbound read events.
+     */
     public interface KeepingBuffer {
 
+        /**
+         * Returns a buffer containing the previously kept bytes and the new input.
+         */
         Buffer keep(Buffer keepBuffer, Buffer in);
     }
 }

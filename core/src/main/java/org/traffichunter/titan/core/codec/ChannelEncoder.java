@@ -28,6 +28,11 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Outbound channel handler that transforms buffers before they are written.
+ *
+ * <p>Subclasses implement {@link #encode(NetChannel, Buffer)} and return the encoded
+ * buffer to forward. Returning {@code null} drops the outbound event.</p>
+ *
  * @author yun
  */
 public abstract class ChannelEncoder implements ChannelOutBoundHandler {
@@ -45,5 +50,10 @@ public abstract class ChannelEncoder implements ChannelOutBoundHandler {
         chain.sparkExceptionCaught(error);
     }
 
+    /**
+     * Encodes an outbound buffer for the given channel.
+     *
+     * @return the encoded buffer to forward, or {@code null} to stop propagation
+     */
     protected abstract @Nullable Buffer encode(NetChannel channel, Buffer buffer);
 }

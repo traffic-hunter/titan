@@ -24,9 +24,14 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec;
 
 /**
+ * Exception raised when an inbound frame exceeds the configured maximum length.
+ *
  * @author yun
  */
 public class TooLongFrameException extends ChannelDecoderException {
+    /**
+     * Creates an exception with the failure message.
+     */
     public TooLongFrameException(String message) {
         super(message);
     }

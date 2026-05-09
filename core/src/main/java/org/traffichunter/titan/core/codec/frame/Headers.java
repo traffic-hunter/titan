@@ -30,6 +30,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * Base type for frame header collections.
+ *
+ * <p>The generic {@code H} type lets implementations return their concrete header
+ * type from fluent or accessor methods.</p>
+ *
  * @author yungwang-o
  */
 public abstract class Headers<K, V, H extends Headers<K, V, H>> {
@@ -40,21 +45,48 @@ public abstract class Headers<K, V, H extends Headers<K, V, H>> {
         this.map = map;
     }
 
+    /**
+     * Stores a header value for the given key.
+     */
     public abstract void put(K key, V value);
 
+    /**
+     * Stores a header value only when the key is absent.
+     */
     public abstract void putIfAbsent(K key, V value);
 
+    /**
+     * Returns the value for the key, or the supplied default when absent.
+     */
     public abstract V getOrDefault(K key, V defaultValue);
 
+    /**
+     * Returns the value for the key, or {@code null} when absent.
+     */
     public abstract @Nullable V get(K key);
 
+    /**
+     * Returns whether this collection contains the key.
+     */
     public abstract boolean containsKey(K key);
 
+    /**
+     * Returns all header keys.
+     */
     public abstract Set<K> keySet();
 
+    /**
+     * Returns all header entries.
+     */
     public abstract Set<Map.Entry<K, V>> entrySet();
 
+    /**
+     * Returns an iterator over header entries.
+     */
     public abstract Iterator<Map.Entry<K, V>> iterator();
 
+    /**
+     * Returns this header collection as its concrete type.
+     */
     public abstract H getHeader();
 }

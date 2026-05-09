@@ -28,6 +28,10 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Decoder for protocols that prefix each frame with a length field.
+ *
+ * <p>This class is reserved for length-field based framing support.</p>
+ *
  * @author yun
  */
 public class LengthFieldFrameChannelDecoder extends ChannelDecoder {

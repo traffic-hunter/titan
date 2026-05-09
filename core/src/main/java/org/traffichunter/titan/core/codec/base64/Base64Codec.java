@@ -29,6 +29,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
+ * Utility methods for Base64 encoding and decoding.
+ *
+ * <p>Encoded output is generated without padding.</p>
+ *
  * @author yungwang-o
  */
 public final class Base64Codec {
@@ -36,30 +40,51 @@ public final class Base64Codec {
     private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder().withoutPadding();
     private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
 
+    /**
+     * Encodes raw bytes as Base64.
+     */
     public static byte[] encode(final byte[] src) {
         return BASE64_ENCODER.encode(src);
     }
 
+    /**
+     * Encodes a UTF-8 string as Base64.
+     */
     public static byte[] encode(final String src) {
         return encode(src, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Encodes a string with the given charset as Base64.
+     */
     public static byte[] encode(final String src, final Charset charset) {
         return BASE64_ENCODER.encode(src.getBytes(charset));
     }
 
+    /**
+     * Encodes the remaining bytes of a {@link ByteBuffer} as Base64.
+     */
     public static byte[] encode(final ByteBuffer src) {
         return BASE64_ENCODER.encode(src).array();
     }
 
+    /**
+     * Decodes Base64 bytes.
+     */
     public static byte[] decode(final byte[] src) {
         return BASE64_DECODER.decode(src);
     }
 
+    /**
+     * Decodes a Base64 string.
+     */
     public static byte[] decode(final String src) {
         return BASE64_DECODER.decode(src);
     }
 
+    /**
+     * Decodes the remaining bytes of a Base64 {@link ByteBuffer}.
+     */
     public static byte[] decode(final ByteBuffer src) {
         return BASE64_DECODER.decode(src).array();
     }

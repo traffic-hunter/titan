@@ -24,10 +24,15 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec;
 
 /**
+ * Base runtime exception for codec failures.
+ *
  * @author yun
  */
 public class CodecException extends RuntimeException {
 
+    /**
+     * Creates an exception with the failure message.
+     */
     public CodecException(String message) {
         super(message);
     }
