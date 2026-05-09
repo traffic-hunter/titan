@@ -23,6 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -69,7 +71,11 @@ public final class StompServerExtension implements
         // Get the default dispatcher that StompServer uses internally
         Dispatcher dispatcher = Dispatcher.getDefault();
 
-        StompTestServer testServer = new StompTestServer(config.host(), config.port(), server, dispatcher);
+        SocketAddress localAddress = server.connection().channel().localAddress();
+        int port = localAddress instanceof InetSocketAddress inetAddress
+                ? inetAddress.getPort()
+                : config.port();
+        StompTestServer testServer = new StompTestServer(config.host(), port, server, dispatcher);
         context.getStore(NS).put(KEY, testServer);
     }
 

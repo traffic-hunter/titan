@@ -39,3 +39,12 @@ jobs:
 
       - name: Build
         run: ./gradlew --no-daemon build
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/test/
+            **/build/test-results/test/
