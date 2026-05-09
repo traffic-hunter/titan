@@ -42,7 +42,7 @@ public @interface EnableStompServer {
 
     String host() default "127.0.0.1";
 
-    int port() default 61613;
+    int port() default 0;
 
     int primaryThreads() default 1;
 

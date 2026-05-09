@@ -37,6 +37,7 @@ import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -180,10 +181,17 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public void onWritabilityChanged(boolean active) {
+        if (isClosed()) {
+            return;
+        }
+
         IOEventLoop ioEventLoop = eventLoop();
+        if (ioEventLoop.isShuttingDown()) {
+            return;
+        }
         IOSelector ioSelector = ioEventLoop.ioSelector();
 
-        ioEventLoop.register(() -> {
+        Runnable updateWritability = () -> {
             try {
                 if (active) {
                     ioSelector.registerWrite(this);
@@ -193,7 +201,20 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             } catch (IOException e) {
                 throw new ChannelException("Failed to register write event", e);
             }
-        });
+        };
+
+        if (ioEventLoop.inEventLoop()) {
+            updateWritability.run();
+            return;
+        }
+
+        try {
+            ioEventLoop.register(updateWritability);
+        } catch (RejectedExecutionException e) {
+            if (!isClosed() && !ioEventLoop.isShuttingDown()) {
+                throw e;
+            }
+        }
     }
 
     @Override

@@ -33,6 +33,10 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+tasks.named("bootJar") {
+    enabled = false
+}
+
 configurations.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "io.netty") {
