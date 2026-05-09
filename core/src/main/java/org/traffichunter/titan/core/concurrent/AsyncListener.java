@@ -26,13 +26,19 @@ package org.traffichunter.titan.core.concurrent;
 /**
  * Completion callback for a {@link Promise}.
  *
- * <p>Listeners are invoked by the promise's owning event loop. Implementations should avoid
- * blocking because they run in the same execution lane as channel I/O callbacks.</p>
+ * <p>Listeners are invoked by the promise's owning event loop. Implementations should keep
+ * callbacks lightweight because they run in the same execution lane as channel I/O callbacks.
+ * Do not run blocking code here.</p>
  *
  * @author yungwang-o
  */
 @FunctionalInterface
 public interface AsyncListener<C> {
 
+    /**
+     * Handles completion of the given promise on its owning event loop.
+     *
+     * <p>Do not run blocking code in this callback.</p>
+     */
     void onComplete(Promise<C> promise);
 }

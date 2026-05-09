@@ -39,7 +39,7 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
  *
  * <p>Submitting a task returns a {@link Promise}. Scheduling returns a
  * {@link ScheduledPromise} that is executed by the same event-loop thread when its deadline
- * is reached.</p>
+ * is reached. Tasks submitted to an event loop should not run blocking code.</p>
  *
  * @author yungwang-o
  */
@@ -52,22 +52,51 @@ public interface EventLoop extends EventLoopLifeCycle {
 
     /**
      * Enqueues a task without wrapping it in a new promise.
+     *
+     * <p>Do not run blocking code in the submitted task.</p>
      */
     void register(Runnable task);
 
     /**
      * Enqueues a task and returns a promise completed by that task.
+     *
+     * <p>Do not run blocking code in the submitted task.</p>
      */
     <V> Promise<V> submit(Runnable task);
 
+    /**
+     * Enqueues a callable task and returns a promise completed with its result.
+     *
+     * <p>Do not run blocking code in the submitted task.</p>
+     */
     <V> Promise<V> submit(Callable<V> task);
 
+    /**
+     * Schedules a task to run once after the given delay.
+     *
+     * <p>Do not run blocking code in the scheduled task.</p>
+     */
     <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit);
 
+    /**
+     * Schedules a callable task to run once after the given delay.
+     *
+     * <p>Do not run blocking code in the scheduled task.</p>
+     */
     <V> ScheduledPromise<V> schedule(Callable<V> task, long delay, TimeUnit unit);
 
+    /**
+     * Schedules a task to run repeatedly at a fixed rate.
+     *
+     * <p>Do not run blocking code in the scheduled task.</p>
+     */
     <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit);
 
+    /**
+     * Schedules a task to run repeatedly with a fixed delay between runs.
+     *
+     * <p>Do not run blocking code in the scheduled task.</p>
+     */
     <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit);
 
     default <V> Promise<V> newPromise(Runnable task) {
@@ -87,10 +116,16 @@ public interface EventLoop extends EventLoopLifeCycle {
 
     boolean inEventLoop(Thread thread);
 
+    /**
+     * Shuts down the event loop using the default timeout.
+     */
     default void gracefullyShutdown() {
         gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
     }
 
+    /**
+     * Shuts down the event loop after waiting up to the given timeout.
+     */
     void gracefullyShutdown(long timeout, TimeUnit unit);
 
     void close();

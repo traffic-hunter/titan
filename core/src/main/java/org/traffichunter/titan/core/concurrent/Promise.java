@@ -39,7 +39,8 @@ import org.traffichunter.titan.core.channel.EventLoop;
  *
  * <p>A promise is both a {@link RunnableFuture} and a {@link Completable}. Event loops submit
  * promises as runnable tasks, while transport code can also complete them manually when an I/O
- * event happens later. Listener notification is serialized through the owning {@link EventLoop}.</p>
+ * event happens later. Listener notification is serialized through the owning {@link EventLoop}.
+ * Promise callbacks should not run blocking code.</p>
  *
  * @author yungwang-o
  */
@@ -84,6 +85,8 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
     /**
      * Registers a listener that will be notified on the owning event loop.
+     *
+     * <p>Do not run blocking code in the listener.</p>
      */
     @CanIgnoreReturnValue
     Promise<C> addListener(AsyncListener<C> listener);
@@ -93,6 +96,8 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
     /**
      * Creates a promise that maps this promise's successful result.
+     *
+     * <p>Do not run blocking code in the mapper.</p>
      */
     @CanIgnoreReturnValue
     <R> Promise<R> map(Function<? super C, ? extends R> mapper);
@@ -105,13 +110,25 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
     /**
      * Creates a promise that follows the promise returned by the mapper.
+     *
+     * <p>Do not run blocking code in the mapper.</p>
      */
     @CanIgnoreReturnValue
     <R> Promise<R> thenCompose(Function<? super C, ? extends Promise<R>> mapper);
 
+    /**
+     * Registers a callback for successful completion.
+     *
+     * <p>Do not run blocking code in the callback.</p>
+     */
     @CanIgnoreReturnValue
     Promise<C> onSuccess(Consumer<? super C> success);
 
+    /**
+     * Registers a callback for failed completion.
+     *
+     * <p>Do not run blocking code in the callback.</p>
+     */
     @CanIgnoreReturnValue
     Promise<C> onFailure(Consumer<? super Throwable> failure);
 

@@ -33,7 +33,20 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
 /**
- * @author yun
+ * {@link NetServerChannel} implementation backed by Java NIO
+ * {@link ServerSocketChannel}.
+ *
+ * <p>This channel represents the listening socket owned by the server primary
+ * I/O event loop. It accepts inbound TCP connections and wraps each accepted
+ * {@link SocketChannel} as a {@link NewIONetChannel}. The accepted child channel
+ * receives the same handshake initializer so the server transport can run its
+ * channel setup consistently after the child is assigned to a secondary I/O
+ * event loop.</p>
+ *
+ * <p>{@link #accept()} is non-blocking when the underlying
+ * {@code ServerSocketChannel} is configured that way by the transport. A
+ * {@code null} return value means the selector reported an accept-ready event
+ * but no additional connection is currently available.</p>
  */
 public class NewIONetServerChannel extends AbstractChannel implements NetServerChannel {
 

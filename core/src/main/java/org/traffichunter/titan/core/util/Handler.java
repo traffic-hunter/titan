@@ -24,10 +24,18 @@
 package org.traffichunter.titan.core.util;
 
 /**
+ * General callback interface.
+ *
+ * <p>When a handler is invoked from an event loop, implementations should keep the callback
+ * lightweight and must not run blocking code.</p>
+ *
  * @author yungwang-o
  */
 @FunctionalInterface
 public interface Handler<T> {
 
+    /**
+     * Handles the given value.
+     */
     void handle(T t);
 }

@@ -101,6 +101,11 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         return this;
     }
 
+    /**
+     * Registers a callback invoked for accepted child channels.
+     *
+     * <p>The callback may run on an event-loop thread. Do not run blocking code here.</p>
+     */
     @CanIgnoreReturnValue
     public InetServer onChannel(Handler<Channel> handler) {
         this.acceptor.setChildHandler(handler);
