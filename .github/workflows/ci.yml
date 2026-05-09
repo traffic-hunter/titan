@@ -38,7 +38,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        run: ./gradlew --no-daemon build
+        run: ./gradlew --no-daemon build --stacktrace
 
       - name: Upload test reports
         if: always()
