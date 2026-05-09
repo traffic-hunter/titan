@@ -120,7 +120,5 @@ public final class ChannelWriteBuffer {
         writeBuffer.clear();
         PENDING_BYTES_UPDATER.set(this, 0);
         isWritable = false;
-
-        channel.onWritabilityChanged(false);
     }
 }
