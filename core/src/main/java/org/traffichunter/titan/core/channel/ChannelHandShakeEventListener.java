@@ -24,10 +24,21 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 /**
+ * Listener invoked when a channel completes or reports a handshake step.
+ *
+ * <p>The listener receives the {@link Channel} that produced the event, allowing
+ * handlers to inspect channel state or continue any handshake-dependent setup.</p>
+ *
  * @author yun
  */
 @FunctionalInterface
 public interface ChannelHandShakeEventListener {
 
+    /**
+     * Handles the handshake event for the given channel.
+     *
+     * <p>Implementations should keep this callback lightweight because it may be
+     * invoked from the channel's event-loop thread. Do not run blocking code here.</p>
+     */
     void accept(Channel channel);
 }

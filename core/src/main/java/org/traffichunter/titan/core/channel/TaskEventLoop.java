@@ -3,6 +3,9 @@ package org.traffichunter.titan.core.channel;
 import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
+/**
+ * @author yun
+ */
 public class TaskEventLoop extends SingleThreadEventLoop {
 
     public TaskEventLoop() {

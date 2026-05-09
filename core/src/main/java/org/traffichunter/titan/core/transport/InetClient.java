@@ -83,6 +83,11 @@ public class InetClient extends AbstractTransport<NetChannel> {
         return new InetClient(groups, option);
     }
 
+    /**
+     * Registers a callback invoked for the opened channel.
+     *
+     * <p>The callback may run on an event-loop thread. Do not run blocking code here.</p>
+     */
     @CanIgnoreReturnValue
     public InetClient onChannel(Handler<Channel> channelHandler) {
         this.channelHandler = channelHandler;
