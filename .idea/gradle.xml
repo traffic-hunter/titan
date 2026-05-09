@@ -16,6 +16,7 @@
             <option value="$PROJECT_DIR$/monitor" />
             <option value="$PROJECT_DIR$/smoke-test" />
             <option value="$PROJECT_DIR$/smoke-test/smoke-spring" />
+            <option value="$PROJECT_DIR$/smoke-test/smoke-titan" />
             <option value="$PROJECT_DIR$/titan-spring-client" />
             <option value="$PROJECT_DIR$/titan-stomp" />
           </set>
