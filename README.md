@@ -1,52 +1,25 @@
 # Titan
 
 Titan is a lightweight message dispatch platform focused on STOMP over TCP.
-It provides a fast NIO-based server, destination routing, fanout delivery, and a Spring client integration for application developers.
+It provides a custom NIO transport, destination routing, fanout delivery, and
+Spring Boot client integration.
 
-## Why Titan
+## Highlights
 
-- Low-latency message delivery on a custom event-loop based transport layer.
-- Destination-based routing (`/queue/foo`, `/topic/bar`) with strict destination validation.
-- STOMP server engine with configurable protocol and transport options.
-- Pluggable runtime via SPI (`NetworkServerEngineProvider`, `FanoutLauncher`).
-- Spring Boot integration (`@EnableTitan`, `TitanTemplate`, `@TitanListener`) for easy adoption.
+- STOMP over TCP server and client.
+- Destination-based routing with `/queue/...` and `/topic/...` style paths.
+- Fanout delivery for publish-subscribe scenarios.
+- Pluggable runtime through SPI.
+- Spring Boot integration with `TitanTemplate` and `@TitanListener`.
 
-## Where It Fits Best
+Titan is best suited for real-time, in-memory dispatch scenarios such as
+internal event buses, notifications, chat-style messaging, telemetry fanout, and
+live interaction backends. It is not currently positioned as a durable
+queue/broker replacement.
 
-Titan is best suited for real-time, in-memory dispatch scenarios where speed and integration simplicity are more important than durable storage.
+## Installation
 
-- Internal event bus between services in a private network.
-- Real-time notifications, chat-style messaging, collaboration updates.
-- IoT/device telemetry fanout to multiple subscribers.
-- Gaming/live interaction backends that need fast publish-subscribe dispatch.
-
-Titan is currently not positioned as a durable queue/broker replacement (no built-in persistence/replay semantics documented in this repository).
-
-## Architecture
-
-![image](./docs/image/titan-archtecture.png)
-
-## Core Design
-
-1. Bootstrap phase
-   `TitanBootstrap` reads `titan-env.yml` and maps it to `Settings`/`ServerSettings`.
-
-2. Engine selection phase
-   `TitanApplication` loads `NetworkServerEngineProvider` implementations via `ServiceLoader` and selects one by `protocol` + `transport`.
-
-3. Extension phase
-   `FanoutLauncher` implementations are discovered by `ServiceLoader` and attached to managed servers when supported.
-
-4. Runtime phase
-   Event loops + channel pipelines process inbound/outbound frames and dispatch by destination.
-
-## Quick Start
-
-### Maven Central
-
-Titan artifacts are available from Maven Central.
-
-Gradle:
+Titan artifacts are published to Maven Central.
 
 ```kotlin
 repositories {
@@ -79,28 +52,25 @@ implementation("org.traffichunter.titan:titan-bootstrap:0.5.2")
 implementation("org.traffichunter.titan:titan-core:0.5.2")
 ```
 
-Published modules:
+## Standalone Server
 
-- `titan-bootstrap`: loads `titan-env.yml` and starts Titan runtime modules.
-- `titan-core`: provides the event loop, channel, transport, and runtime primitives.
-- `titan-stomp`: provides STOMP codec, server, client, and STOMP transport integration.
-- `titan-fanout`: routes one published message to all matching subscribers.
-- `titan-spring-client`: provides Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener`.
+Download the executable server jar from GitHub Releases.
 
-### Examples
+Using `curl`:
 
-- [Spring client usage](./docs/examples/spring-client.md)
-- [STOMP client usage](./docs/examples/client.md)
-- [Server usage](./docs/examples/server.md)
+```bash
+curl -L -o titan-server-0.5.2.jar \
+  https://github.com/traffic-hunter/titan/releases/download/0.5.2/titan-server-0.5.2.jar
+```
 
-### Prerequisites
+Using `wget`:
 
-- JDK 21+
-- Gradle wrapper (`./gradlew`)
+```bash
+wget -O titan-server-0.5.2.jar \
+  https://github.com/traffic-hunter/titan/releases/download/0.5.2/titan-server-0.5.2.jar
+```
 
-### 1) Configure server
-
-Default config file is `./titan-env.yml` (or JVM property `-Dtitan.environment.path=/path/to/file.yml`).
+Create `titan-env.yml`.
 
 ```yaml
 titan:
@@ -120,105 +90,77 @@ titan:
         fanout-mode: "virtual"
 ```
 
-### 2) Verify build and tests
+Run Titan.
 
 ```bash
-./gradlew test
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.5.2.jar
 ```
 
-### 3) Run smoke integration test
+## Examples
 
-```bash
-./gradlew :smoke-test:smoke-spring:test
-```
+- [Spring client usage](./docs/examples/spring-client.md)
+- [STOMP client usage](./docs/examples/client.md)
+- [Server usage](./docs/examples/server.md)
 
-This test boots Titan using `TitanBootstrap` and validates Spring-side subscribe/send scenarios.
+## Architecture
 
-## Spring Client Integration
+![image](./docs/image/titan-archtecture.png)
 
-`titan-spring-client` provides an annotation-driven integration layer.
+1. `TitanBootstrap` reads `titan-env.yml` and builds runtime settings.
+2. `TitanApplication` selects protocol/transport engines through `ServiceLoader`.
+3. `FanoutLauncher` implementations attach optional fanout behavior.
+4. Event loops and channel pipelines process frames and dispatch messages.
 
-### Dependency
+## Published Modules
 
-For Spring applications that only need to connect to a running Titan STOMP server,
-add `titan-spring-client`.
+- `titan-bootstrap`: loads `titan-env.yml` and starts Titan runtime modules.
+- `titan-core`: provides event loop, channel, transport, and runtime primitives.
+- `titan-stomp`: provides STOMP codec, server, client, and STOMP transport integration.
+- `titan-fanout`: routes one published message to all matching subscribers.
+- `titan-spring-client`: provides Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener`.
 
-Gradle:
-
-```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.5.2")
-```
-
-Use `titan-stomp` and `titan-fanout` when you are building or embedding a Titan
-STOMP server directly. Most Spring client applications should start with only
-`titan-spring-client`.
-
-### Enable Titan in your Spring app
-
-```java
-@EnableTitan
-@SpringBootApplication
-public class Application {
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
-}
-```
-
-### Configuration properties (`spring.titan.*`)
-
-Important options:
-
-- `host`, `port`
-- `auto-start`, `auto-connect`
-- `connect-timeout-millis`
-- `heartbeat-x`, `heartbeat-y`
-- `login`, `passcode`, `virtual-host`
-
-Example:
-
-```yaml
-spring:
-  titan:
-    auto-start: true
-    auto-connect: true
-    host: 127.0.0.1
-    port: 61613
-    login: guest
-    passcode: guest
-    virtual-host: guest
-```
-
-## Current Strengths
-
-- Protocol/transport-specific engine abstraction through SPI.
-- Clear separation between bootstrap, core runtime, STOMP protocol layer, and Spring adapter.
-- Route key validation for predictable destination contracts.
-- Fanout mode abstraction (`virtual`, `thread-pool`) for different concurrency strategies.
-
-## Current Scope and Limits
-
-- Primary production focus in this repository is STOMP over TCP.
-- Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
-- Monitoring module currently provides JMX collectors; full operational dashboards/alerts are out of scope here.
-
-## Project Modules
+## Repository Modules
 
 - `bootstrap`: startup, environment loading, lifecycle bootstrap.
 - `core`: transport/event loop/channel/dispatcher/concurrency primitives.
 - `titan-stomp`: STOMP codec, STOMP server/client transport, STOMP engine provider.
 - `fanout`: fanout gateway and exporter implementations.
-- `monitor`: JMX metric collectors (heap/cpu/thread).
+- `monitor`: experimental monitoring module, not ready for general use.
 - `titan-spring-client`: Spring Boot auto-configuration and listener/template API.
-- `smoke-test`: Spring smoke application and integration tests.
+- `smoke-test`: smoke applications and integration tests.
 - `benchmark`: JMH benchmark setup.
 
-## Roadmap Suggestions
+## Development
 
-- Add explicit error handler + nack/retry policy for Spring listener container.
-- Expand test coverage in low-test modules (`bootstrap`, `monitor`).
-- Add CI workflows for build + test + smoke test on pull requests.
-- Add a deployment/operations guide (health checks, thread sizing, protocol tuning).
+Requirements:
+
+- JDK 21+
+- Gradle wrapper (`./gradlew`)
+
+Run tests:
+
+```bash
+./gradlew test
+```
+
+Run smoke tests:
+
+```bash
+./gradlew :smoke-test:smoke-spring:test
+./gradlew :smoke-test:smoke-titan:test
+```
+
+Build the standalone server jar:
+
+```bash
+./gradlew :bootstrap:shadowJar
+```
+
+## Scope
+
+- Primary production focus is STOMP over TCP.
+- Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
+- Monitoring is still under development and not ready for general use.
 
 ## License
 
