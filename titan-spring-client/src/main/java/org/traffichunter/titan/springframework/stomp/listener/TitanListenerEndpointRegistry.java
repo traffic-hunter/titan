@@ -31,6 +31,7 @@ public final class TitanListenerEndpointRegistry implements SmartLifecycle {
     /**
      * Start all registered listener containers.
      */
+    @Override
     public void start() {
         containers.forEach(TitanListenerContainer::start);
     }
@@ -38,6 +39,7 @@ public final class TitanListenerEndpointRegistry implements SmartLifecycle {
     /**
      * Stop all registered listener containers.
      */
+    @Override
     public void stop() {
         containers.forEach(TitanListenerContainer::stop);
     }
@@ -45,6 +47,7 @@ public final class TitanListenerEndpointRegistry implements SmartLifecycle {
     /**
      * Return whether all registered containers are running.
      */
+    @Override
     public boolean isRunning() {
         return containers.stream().allMatch(TitanListenerContainer::isRunning);
     }
