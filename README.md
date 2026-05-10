@@ -42,6 +42,57 @@ Titan is currently not positioned as a durable queue/broker replacement (no buil
 
 ## Quick Start
 
+### Maven Central
+
+Titan artifacts are available from Maven Central.
+
+Gradle:
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+```
+
+Spring client:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-spring-client:0.5.2")
+```
+
+STOMP client/server:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-stomp:0.5.2")
+```
+
+Fanout support:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-fanout:0.5.2")
+```
+
+Bootstrap/runtime support:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-bootstrap:0.5.2")
+implementation("org.traffichunter.titan:titan-core:0.5.2")
+```
+
+Published modules:
+
+- `titan-bootstrap`: loads `titan-env.yml` and starts Titan runtime modules.
+- `titan-core`: provides the event loop, channel, transport, and runtime primitives.
+- `titan-stomp`: provides STOMP codec, server, client, and STOMP transport integration.
+- `titan-fanout`: routes one published message to all matching subscribers.
+- `titan-spring-client`: provides Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener`.
+
+### Examples
+
+- [Spring client usage](./docs/examples/spring-client.md)
+- [STOMP client usage](./docs/examples/client.md)
+- [Server usage](./docs/examples/server.md)
+
 ### Prerequisites
 
 - JDK 21+
@@ -86,6 +137,21 @@ This test boots Titan using `TitanBootstrap` and validates Spring-side subscribe
 ## Spring Client Integration
 
 `titan-spring-client` provides an annotation-driven integration layer.
+
+### Dependency
+
+For Spring applications that only need to connect to a running Titan STOMP server,
+add `titan-spring-client`.
+
+Gradle:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-spring-client:0.5.2")
+```
+
+Use `titan-stomp` and `titan-fanout` when you are building or embedding a Titan
+STOMP server directly. Most Spring client applications should start with only
+`titan-spring-client`.
 
 ### Enable Titan in your Spring app
 
