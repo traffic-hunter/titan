@@ -3,7 +3,6 @@ plugins {
 }
 
 group = "org.traffichunter.titan.bootstrap"
-version = "1.0-SNAPSHOT"
 
 dependencies {
     implementation(project.libs.snakeyaml)
@@ -17,6 +16,7 @@ val manifestPath = "src/main/resources/META-INF/MANIFEST.MF"
 
 tasks.jar {
     manifest.from(manifestPath)
+    manifest.attributes("Implementation-Version" to project.version)
 }
 
 tasks.shadowJar {
@@ -24,4 +24,5 @@ tasks.shadowJar {
     archiveClassifier.set("")
 
     manifest.from(manifestPath)
+    manifest.attributes("Implementation-Version" to project.version)
 }
