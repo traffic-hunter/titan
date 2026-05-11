@@ -7,11 +7,20 @@ plugins {
 
 group = "org.traffichunter.titan"
 
+fun resolveGitTagVersion(): String? {
+    return providers.exec {
+        commandLine("git", "describe", "--tags", "--exact-match")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get()
+        .trim()
+        .takeIf { it.isNotBlank() }
+}
+
 fun resolveVersion(): String = providers.gradleProperty("versionName")
     .orElse(providers.gradleProperty("VERSION_NAME"))
     .orElse(providers.environmentVariable("GITHUB_REF_NAME"))
     .map { refName -> refName.removePrefix("refs/tags/") }
-    .getOrElse("1.0-SNAPSHOT")
+    .getOrElse(resolveGitTagVersion() ?: "1.0-SNAPSHOT")
 
 allprojects {
     version = resolveVersion()
