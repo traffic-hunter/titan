@@ -10,6 +10,11 @@ dependencies {
     implementation(project.libs.jetty.servlet)
     implementation(project.libs.jetty.http)
 
+    // netty
+    implementation(project.libs.netty.transport)
+    implementation(project.libs.netty.codec)
+    implementation(project.libs.netty.handler)
+
     // jackson
     implementation(project.libs.jackson.databind)
 

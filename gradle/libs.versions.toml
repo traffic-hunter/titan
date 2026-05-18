@@ -2,7 +2,7 @@
 lombok = "1.18.46"
 slf4j = "2.0.17"
 google-guava = "33.6.0-jre"
-netty-buffer = "4.2.12.Final"
+netty = "4.2.12.Final"
 assertj = "3.27.7"
 mokito = "5.23.0"
 jetty = "12.1.9"
@@ -18,7 +18,10 @@ lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 mokito = { module = "org.mockito:mockito-core", version.ref = "mokito" }
 slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 google-guava = { module = "com.google.guava:guava", version.ref = "google-guava" }
-netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty-buffer" }
+netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
+netty-transport = { module = "io.netty:netty-transport", version.ref = "netty" }
+netty-codec = { module = "io.netty:netty-codec", version.ref = "netty" }
+netty-handler = { module = "io.netty:netty-handler", version.ref = "netty" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 jetty-server = { module = "org.eclipse.jetty:jetty-server", version.ref = "jetty" }
 jetty-servlet = { module = "org.eclipse.jetty.ee10:jetty-ee10-servlet", version.ref = "jetty"}
