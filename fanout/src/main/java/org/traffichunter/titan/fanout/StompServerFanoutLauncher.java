@@ -4,8 +4,8 @@ import java.util.Locale;
 import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.spi.*;
-import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
 
 /**
  * SPI launcher that installs fanout behavior into a managed STOMP server.
@@ -13,7 +13,7 @@ import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
  * <p>The bootstrap/core SPI discovers this class as a {@link FanoutLauncher}.
  * When the managed server is STOMP, the launcher creates a fanout gateway,
  * connects it to the server-side STOMP connection registry through
- * {@link StompFanoutExporter}, and registers {@link StompSendToFanoutHandler}
+ * {@link StompServerFanoutLauncher}, and registers {@link StompSendToFanoutHandler}
  * as the SEND command ingress.</p>
  *
  * <pre>{@code
@@ -23,7 +23,7 @@ import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
  * Managed STOMP server
  *      |
  *      v
- * FanoutStompServerLauncher.apply(...)
+ * StompServerFanoutLauncher.apply(...)
  *      |
  *      v
  * SEND handler -> FanoutGateway -> StompFanoutExporter
@@ -31,7 +31,7 @@ import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
  */
 @Slf4j
 @SuppressWarnings("unused")
-public final class FanoutStompServerLauncher implements FanoutLauncher {
+public final class StompServerFanoutLauncher implements FanoutLauncher {
 
     private static final String OPTION_FANOUT_MODE = "fanout-mode";
 
@@ -42,8 +42,7 @@ public final class FanoutStompServerLauncher implements FanoutLauncher {
             final Map<String, String> protocolOptions,
             final ManagedServer managedServer
     ) {
-        return managedServer instanceof StompManagedServer
-                && "stomp".equalsIgnoreCase(protocol);
+        return "stomp".equalsIgnoreCase(protocol) && findAdapter(protocol, transport, protocolOptions, managedServer) != null;
     }
 
     @Override
@@ -53,16 +52,29 @@ public final class FanoutStompServerLauncher implements FanoutLauncher {
             final Map<String, String> protocolOptions,
             final ManagedServer managedServer
     ) {
-        StompManagedServer stompManagedServer = (StompManagedServer) managedServer;
         FanoutMode mode = resolveMode(protocolOptions);
-        FanoutGateway fanoutGateway = mode.fanoutGateway(new StompFanoutExporter(stompManagedServer.server().connection()));
-        StompSendToFanoutHandler stompSendToFanoutHandler = new StompSendToFanoutHandler(fanoutGateway);
+        ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
+        if (adapter == null) {
+            throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
+        }
 
-        stompManagedServer.server().onStomp(handler ->
-                handler.sendHandler(stompSendToFanoutHandler)
-        );
+        adapter.apply(protocol, transport, protocolOptions, managedServer, mode::fanoutGateway);
+        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
+    }
 
-        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), stompManagedServer.name());
+    private static @Nullable ManagedServerFanoutAdapter findAdapter(
+            final String protocol,
+            final String transport,
+            final Map<String, String> protocolOptions,
+            final ManagedServer managedServer
+    ) {
+        for (ManagedServerFanoutAdapter adapter : ManagedServerFanoutAdapter.load()) {
+            if (adapter.supports(protocol, transport, protocolOptions, managedServer)) {
+                return adapter;
+            }
+        }
+
+        return null;
     }
 
     private static FanoutMode resolveMode(final Map<String, String> protocolOptions) {
