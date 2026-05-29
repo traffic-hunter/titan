@@ -31,7 +31,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -49,7 +48,7 @@ import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.channel.ChannelRegistry;
-import org.traffichunter.titan.fanout.CompletableResult;
+import org.traffichunter.titan.fanout.AggregationResult;
 
 @ExtendWith(MockitoExtension.class)
 class FanoutExporterTest {
@@ -64,22 +63,18 @@ class FanoutExporterTest {
     private InetServer inetServer;
 
     @Test
-    void completableResult_completes_when_done_reaches_attempted() throws Exception {
-        IOEventLoop loop = immediateEventLoop();
-        Promise<CompletableResult> promise = Promise.newPromise(loop);
-        CompletableResult result = CompletableResult.create(
+    void aggregationResult_completes_when_done_reaches_attempted() {
+        AggregationResult result = AggregationResult.create(
                 List.of(Destination.create("/topic/test")),
-                2,
-                promise
+                2
         );
 
-        result.markSuccess();
-        assertThat(result.promise().isDone()).isFalse();
+        result.success();
+        assertThat(result.isDone()).isFalse();
 
-        result.markFailure();
-        result.promise().await(1, TimeUnit.SECONDS);
+        result.fail();
 
-        assertThat(result.promise().isDone()).isTrue();
+        assertThat(result.isDone()).isTrue();
         assertThat(result.done()).isEqualTo(2);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);
@@ -89,9 +84,6 @@ class FanoutExporterTest {
     @Test
     void stompFanoutExporter_aggregates_success_and_failure() throws Exception {
         IOEventLoop loop = immediateEventLoop();
-
-        when(serverConnection.channel()).thenReturn(serverChannel);
-        when(serverChannel.eventLoop()).thenReturn(loop);
 
         StompServerSubscriptions subscriptions = new StompServerSubscriptions();
         when(serverConnection.subscriptions()).thenReturn(subscriptions);
@@ -124,8 +116,7 @@ class FanoutExporterTest {
                 .build());
 
         StompFanoutExporter exporter = new StompFanoutExporter(serverConnection);
-        CompletableResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
-        result.promise().await(1, TimeUnit.SECONDS);
+        AggregationResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isEqualTo(2);
         assertThat(result.done()).isEqualTo(2);
@@ -135,12 +126,7 @@ class FanoutExporterTest {
 
     @Test
     void tcpFanoutExporter_returns_completed_result_counts() {
-        IOEventLoop loop = immediateEventLoop();
-
         when(inetServer.isStart()).thenReturn(true);
-
-        when(inetServer.channel()).thenReturn(serverChannel);
-        when(serverChannel.eventLoop()).thenReturn(loop);
 
         ChannelRegistry<NetChannel> registry = new ChannelRegistry<>();
         NetChannel channelOk = mock(NetChannel.class);
@@ -159,9 +145,9 @@ class FanoutExporterTest {
         when(inetServer.childChannel()).thenReturn(registry.getChannels());
 
         TcpFanoutExporter exporter = new TcpFanoutExporter(inetServer);
-        CompletableResult result = exporter.export(Destination.create("/topic/a"), Buffer.alloc("p".getBytes()));
+        AggregationResult result = exporter.export(Destination.create("/topic/a"), Buffer.alloc("p".getBytes()));
 
-        assertThat(result.promise().isDone()).isTrue();
+        assertThat(result.isDone()).isTrue();
         assertThat(result.totalAttempted()).isEqualTo(2);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);

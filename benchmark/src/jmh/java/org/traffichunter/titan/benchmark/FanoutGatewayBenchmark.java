@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -24,7 +27,7 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.CompletableResult;
+import org.traffichunter.titan.fanout.AggregationResult;
 import org.traffichunter.titan.fanout.FanoutGateway;
 import org.traffichunter.titan.fanout.FanoutMode;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
@@ -109,6 +112,7 @@ public class FanoutGatewayBenchmark {
         return messages;
     }
 
+    @NullMarked
     private static final class CountingNoopExporter implements FanoutExporter {
         private final LongAdder count;
 
@@ -122,13 +126,13 @@ public class FanoutGatewayBenchmark {
         }
 
         @Override
-        public CompletableResult export(Destination destination, Buffer payload) {
+        public @Nullable AggregationResult export(Destination destination, Buffer payload) {
             count.increment();
             return null;
         }
 
         @Override
-        public CompletableResult export(Destination destination, Message payload) {
+        public @Nullable AggregationResult export(Destination destination, Message payload) {
             count.increment();
             return null;
         }

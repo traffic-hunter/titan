@@ -24,8 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
@@ -33,73 +31,63 @@ import org.traffichunter.titan.core.util.Destination;
  *
  * <p>Fanout delivery can target zero, one, or many consumers. This object keeps
  * the destination set, the number of attempted writes, and the success/failure
- * counters in one place. Its promise is completed when all attempted writes have
- * reported a result. An export with no targets completes immediately.</p>
+ * counters in one place.</p>
  */
-public final class CompletableResult {
+public final class AggregationResult {
 
     private final Collection<Destination> destinations;
     private final int totalAttempted;
-    private final Promise<CompletableResult> promise;
-    private final AtomicInteger done;
-    private final AtomicInteger succeeded;
-    private final AtomicInteger failed;
+    private int done;
+    private int succeeded;
+    private int failed;
 
-    private CompletableResult(
+    private AggregationResult(
             Collection<Destination> destinations,
             int totalAttempted,
-            Promise<CompletableResult> promise,
             int done,
             int succeeded,
             int failed
     ) {
         this.destinations = destinations;
         this.totalAttempted = totalAttempted;
-        this.promise = promise;
-        this.done = new AtomicInteger(done);
-        this.succeeded = new AtomicInteger(succeeded);
-        this.failed = new AtomicInteger(failed);
+        this.done = done;
+        this.succeeded = succeeded;
+        this.failed = failed;
     }
 
-    public static CompletableResult create(
-            Collection<Destination> destinations,
-            int attempted,
-            Promise<CompletableResult> promise
-    ) {
-        CompletableResult result = new CompletableResult(destinations, attempted, promise, 0, 0, 0);
-        if (attempted == 0) {
-            promise.trySuccess(result);
-        }
-        return result;
+    public static AggregationResult create(Collection<Destination> destinations, int attempted) {
+        return new AggregationResult(
+                destinations,
+                attempted,
+                0,
+                0,
+                0
+        );
     }
 
-    public static CompletableResult completed(
+    public static AggregationResult completed(
             Collection<Destination> destinations,
             int attempted,
             int succeeded,
-            int failed,
-            Promise<CompletableResult> promise
+            int failed
     ) {
-        CompletableResult result = new CompletableResult(
+        return new AggregationResult(
                 destinations,
                 attempted,
-                promise,
                 attempted,
                 succeeded,
                 failed
         );
-        promise.trySuccess(result);
-        return result;
     }
 
-    public void markSuccess() {
-        succeeded.incrementAndGet();
-        completeIfDone();
+    public void success() {
+        succeeded++;
+        incrementDone();
     }
 
-    public void markFailure() {
-        failed.incrementAndGet();
-        completeIfDone();
+    public void fail() {
+        failed++;
+        incrementDone();
     }
 
     public Collection<Destination> destinations() {
@@ -111,28 +99,26 @@ public final class CompletableResult {
     }
 
     public int done() {
-        return done.get();
+        return done;
     }
 
     public int succeeded() {
-        return succeeded.get();
+        return succeeded;
     }
 
     public int failed() {
-        return failed.get();
+        return failed;
     }
 
     public boolean isSuccess() {
-        return done() == totalAttempted && failed() == 0;
+        return isDone() && failed() == 0;
     }
 
-    public Promise<CompletableResult> promise() {
-        return promise;
+    public boolean isDone() {
+        return done() >= totalAttempted;
     }
 
-    private void completeIfDone() {
-        if (done.incrementAndGet() == totalAttempted) {
-            promise.trySuccess(this);
-        }
+    private void incrementDone() {
+        done++;
     }
 }

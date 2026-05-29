@@ -28,14 +28,14 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.inet.Frame;
-import org.traffichunter.titan.fanout.CompletableResult;
+import org.traffichunter.titan.fanout.AggregationResult;
 
 /**
  * Protocol boundary for writing a fanout payload to subscribed clients.
  *
  * <p>The gateway calls exporters after a message has been routed to a
  * destination queue. Implementations should find the currently eligible
- * consumers for the destination and return a {@link CompletableResult} that
+ * consumers for the destination and return a {@link AggregationResult} that
  * reports how many writes were attempted and completed.</p>
  */
 public interface FanoutExporter {
@@ -43,15 +43,15 @@ public interface FanoutExporter {
     String name();
 
     @CanIgnoreReturnValue
-    default CompletableResult export(Destination destination, Frame<?, ?> payload) {
+    default AggregationResult export(Destination destination, Frame<?, ?> payload) {
         return export(destination, payload.toBuffer());
     }
 
     @CanIgnoreReturnValue
-    default CompletableResult export(Destination destination, Message payload) {
+    default AggregationResult export(Destination destination, Message payload) {
         return export(destination, Buffer.alloc(payload.getBody()));
     }
 
     @CanIgnoreReturnValue
-    CompletableResult export(Destination destination, Buffer payload);
+    AggregationResult export(Destination destination, Buffer payload);
 }

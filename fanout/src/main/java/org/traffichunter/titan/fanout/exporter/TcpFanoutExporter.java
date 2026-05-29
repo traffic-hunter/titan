@@ -24,12 +24,11 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout.exporter;
 
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.CompletableResult;
+import org.traffichunter.titan.fanout.AggregationResult;
 
 import java.util.List;
 
@@ -56,7 +55,7 @@ public class TcpFanoutExporter implements FanoutExporter {
     }
 
     @Override
-    public CompletableResult export(Destination destination, Buffer payload) {
+    public AggregationResult export(Destination destination, Buffer payload) {
         Assert.checkState(inetServer.isStart(), "Cannot send an unstarted inet server");
 
         int attempted = 0;
@@ -78,13 +77,11 @@ public class TcpFanoutExporter implements FanoutExporter {
             }
         }
 
-        Promise<CompletableResult> resultPromise = Promise.newPromise(inetServer.channel().eventLoop());
-        return CompletableResult.completed(
+        return AggregationResult.completed(
                 List.of(destination),
                 attempted,
                 succeeded,
-                failed,
-                resultPromise
+                failed
         );
     }
 }

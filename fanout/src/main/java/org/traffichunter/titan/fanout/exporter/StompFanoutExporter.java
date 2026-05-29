@@ -32,7 +32,7 @@ import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.CompletableResult;
+import org.traffichunter.titan.fanout.AggregationResult;
 
 import java.util.List;
 
@@ -63,15 +63,13 @@ public class StompFanoutExporter implements FanoutExporter {
     }
 
     @Override
-    public CompletableResult export(Destination destination, Buffer message) {
+    public AggregationResult export(Destination destination, Buffer message) {
         List<StompServerSubscription> subscriptions =
                 serverConnection.subscriptions().findByDestination(destination);
 
-        Promise<CompletableResult> resultPromise = Promise.newPromise(serverConnection.channel().eventLoop());
-        CompletableResult result = CompletableResult.create(
+        AggregationResult result = AggregationResult.create(
                 List.of(destination),
-                subscriptions.size(),
-                resultPromise
+                subscriptions.size()
         );
 
         subscriptions.forEach(subscription -> {
@@ -83,9 +81,9 @@ public class StompFanoutExporter implements FanoutExporter {
             Promise<StompFrame> sendPromise = subscription.getConnection().send(frame);
             sendPromise.addListener(sendFuture -> {
                 if (sendFuture.isSuccess()) {
-                    result.markSuccess();
+                    result.success();
                 } else {
-                    result.markFailure();
+                    result.fail();
                 }
             });
         });
