@@ -26,7 +26,7 @@ import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
+import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
@@ -39,7 +39,7 @@ class TitanListenerContainerFactoryTest {
 
     @BeforeEach
     void setUp() {
-        StompClient stompClient = mock(StompClient.class);
+        TitanStompClient stompClient = mock(TitanStompClient.class);
         connection = mock(StompClientConnection.class);
         manager = new TitanClientManager(stompClient, new TitanProperties());
 

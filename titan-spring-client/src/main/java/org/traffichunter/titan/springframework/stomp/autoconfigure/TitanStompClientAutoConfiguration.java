@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
+import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
@@ -21,7 +21,7 @@ import org.traffichunter.titan.springframework.stomp.TitanTemplate;
  * @author yun
  */
 @AutoConfiguration
-@ConditionalOnClass({StompClient.class, EventLoopGroups.class})
+@ConditionalOnClass({TitanStompClient.class, EventLoopGroups.class})
 @EnableConfigurationProperties(TitanProperties.class)
 @ConditionalOnProperty(prefix = "titan.stomp.client", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class TitanStompClientAutoConfiguration {
@@ -52,17 +52,17 @@ public class TitanStompClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public StompClient titanStompClient(
+    public TitanStompClient titanStompClient(
             EventLoopGroups titanStompClientEventLoopGroups,
             StompClientOption titanStompClientOption
     ) {
-        return StompClient.open(titanStompClientEventLoopGroups, titanStompClientOption);
+        return TitanStompClient.open(titanStompClientEventLoopGroups, titanStompClientOption);
     }
 
     @Bean
     @ConditionalOnMissingBean
     public TitanClientManager titanStompClientManager(
-            StompClient titanStompClient,
+            TitanStompClient titanStompClient,
             TitanProperties properties
     ) {
         return new TitanClientManager(titanStompClient, properties);

@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
+import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 
 /**
  * Spring lifecycle adapter for a Titan STOMP client.
@@ -20,11 +20,11 @@ public final class TitanClientManager implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(TitanClientManager.class);
 
-    private final StompClient stompClient;
+    private final TitanStompClient stompClient;
     private final TitanProperties properties;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public TitanClientManager(StompClient stompClient, TitanProperties properties) {
+    public TitanClientManager(TitanStompClient stompClient, TitanProperties properties) {
         this.stompClient = stompClient;
         this.properties = properties;
     }

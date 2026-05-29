@@ -52,7 +52,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  * @author yun
  */
 @Slf4j
-public final class StompClient {
+public final class TitanStompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
@@ -60,7 +60,7 @@ public final class StompClient {
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private @Nullable StompClientConnection connection;
 
-    private StompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
+    private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
 
         if (inetClient == null) {
@@ -69,22 +69,22 @@ public final class StompClient {
         this.inetClient = inetClient;
     }
 
-    public static StompClient open(EventLoopGroups groups, StompClientOption option) {
+    public static TitanStompClient open(EventLoopGroups groups, StompClientOption option) {
         return open(groups, null, option);
     }
 
-    public static StompClient open(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
-        return new StompClient(groups, inetClient, option);
+    public static TitanStompClient open(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
+        return new TitanStompClient(groups, inetClient, option);
     }
 
     @CanIgnoreReturnValue
-    public StompClient onChannel(Handler<Channel> channelHandler) {
+    public TitanStompClient onChannel(Handler<Channel> channelHandler) {
         inetClient.onChannel(channelHandler);
         return this;
     }
 
     @CanIgnoreReturnValue
-    public StompClient onStomp(Handler<StompClientHandler> stompClientHandler) {
+    public TitanStompClient onStomp(Handler<StompClientHandler> stompClientHandler) {
         this.stompClientHandler = stompClientHandler;
         return this;
     }
