@@ -58,7 +58,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 @Slf4j
 public class StompClientConnectionImpl implements StompClientConnection {
 
-    private final String sessionId = IdGenerator.uuid();
+    private final String sessionId = IdGenerator.randomId("session");
     private final NetChannel netChannel;
     private final StompClientHandler stompClientHandler;
     private final StompClientOption option;
