@@ -60,7 +60,7 @@ public abstract class AbstractTransport<C extends Channel> {
 
     public abstract void start();
 
-    public boolean isStart() {
+    public boolean isStarted() {
         return channelRegistry.isActive();
     }
 

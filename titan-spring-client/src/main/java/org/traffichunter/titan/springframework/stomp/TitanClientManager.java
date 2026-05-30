@@ -37,7 +37,7 @@ public final class TitanClientManager implements SmartLifecycle {
         }
 
         try {
-            if (!stompClient.isStart()) {
+            if (!stompClient.isStarted()) {
                 stompClient.start();
             }
             if (properties.isAutoConnect()) {
@@ -83,8 +83,11 @@ public final class TitanClientManager implements SmartLifecycle {
     }
 
     public StompClientOperations connect() throws Exception {
-        return stompClient
-                .connect()
+        if (!stompClient.isStarted()) {
+            stompClient.start();
+        }
+
+        return stompClient.connect()
                 .get(properties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
     }
 

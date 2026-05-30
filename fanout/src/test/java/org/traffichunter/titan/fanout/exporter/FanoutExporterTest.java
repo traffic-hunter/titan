@@ -126,7 +126,7 @@ class FanoutExporterTest {
 
     @Test
     void tcpFanoutExporter_returns_completed_result_counts() {
-        when(inetServer.isStart()).thenReturn(true);
+        when(inetServer.isStarted()).thenReturn(true);
 
         ChannelRegistry<NetChannel> registry = new ChannelRegistry<>();
         NetChannel channelOk = mock(NetChannel.class);

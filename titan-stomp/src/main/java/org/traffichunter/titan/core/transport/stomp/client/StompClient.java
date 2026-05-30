@@ -39,7 +39,7 @@ public interface StompClient {
 
     StompClientOperations operations();
 
-    boolean isStart();
+    boolean isStarted();
 
     boolean isShutdown();
 

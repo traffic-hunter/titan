@@ -138,7 +138,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
     }
 
     @Override
-    public boolean isStart() {
+    public boolean isStarted() {
         return client != null && !client.isClosed();
     }
 

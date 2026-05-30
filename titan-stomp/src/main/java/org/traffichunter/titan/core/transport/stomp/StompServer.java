@@ -154,7 +154,7 @@ public final class StompServer {
     }
 
     public boolean isStart() {
-        return inetServer.isStart();
+        return inetServer.isStarted();
     }
 
     public StompServerOption option() {
@@ -166,7 +166,7 @@ public final class StompServer {
     }
 
     public void shutdown(long timeout, TimeUnit unit) {
-        Assert.checkState(inetServer.isStart(), "inetServer is not started");
+        Assert.checkState(inetServer.isStarted(), "inetServer is not started");
         ScheduledPromise<?> task = inactiveConnectionCleanupTask;
         if (task != null) {
             task.cancel();
@@ -180,7 +180,7 @@ public final class StompServer {
     }
 
     private void listen(InetSocketAddress address, ChannelPromise resultPromise) {
-        Assert.checkState(inetServer.isStart(), "inetServer is not started");
+        Assert.checkState(inetServer.isStarted(), "inetServer is not started");
 
         inetServer.listen(address)
                 .addListener(listenFuture -> {

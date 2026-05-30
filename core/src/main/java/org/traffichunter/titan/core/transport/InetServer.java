@@ -203,7 +203,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
     }
 
     @Override
-    public boolean isStart() {
+    public boolean isStarted() {
         State current = state.get();
         return current == State.STARTED || current == State.LISTENING;
     }

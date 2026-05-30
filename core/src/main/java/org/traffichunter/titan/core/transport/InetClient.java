@@ -235,7 +235,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
     }
 
     @Override
-    public boolean isStart() {
+    public boolean isStarted() {
         return state.get() == State.STARTED;
     }
 

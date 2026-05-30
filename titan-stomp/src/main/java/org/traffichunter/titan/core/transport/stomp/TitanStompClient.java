@@ -27,7 +27,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -110,7 +109,7 @@ public final class TitanStompClient implements StompClient {
     }
 
     public void start() {
-        if(inetClient.isStart()) {
+        if(inetClient.isStarted()) {
             throw new StompException("Client already started");
         }
 
@@ -162,8 +161,8 @@ public final class TitanStompClient implements StompClient {
         return inetClient.remoteAddress();
     }
 
-    public boolean isStart() {
-        return inetClient.isStart();
+    public boolean isStarted() {
+        return inetClient.isStarted();
     }
 
     public boolean isClosed() {
