@@ -1,5 +1,6 @@
 # Titan
 
+[![Release](https://img.shields.io/github/v/release/traffic-hunter/titan)](https://github.com/traffic-hunter/titan/releases)
 [![Maven Central](https://img.shields.io/maven-central/v/org.traffichunter.titan/titan-stomp)](https://central.sonatype.com/artifact/org.traffichunter.titan/titan-stomp)
 [![CI](https://github.com/traffic-hunter/titan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/traffic-hunter/titan/actions/workflows/ci.yml)
 
