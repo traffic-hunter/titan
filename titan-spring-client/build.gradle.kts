@@ -6,11 +6,11 @@ dependencies {
     api(project(":titan-stomp"))
     implementation(project(":core"))
 
-    implementation("org.springframework.boot:spring-boot-autoconfigure:3.3.5")
-    implementation("org.springframework:spring-context:6.1.14")
-    implementation("org.springframework:spring-beans:6.1.14")
-    implementation("org.springframework:spring-messaging:6.1.14")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
+    implementation(project.libs.spring.boot.autoconfigure)
+    implementation(project.libs.spring.context)
+    implementation(project.libs.spring.beans)
+    implementation(project.libs.spring.messaging)
+    implementation(project.libs.jackson.databind)
 
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:3.3.5")
+    annotationProcessor(project.libs.spring.boot.configure.processor)
 }

@@ -13,6 +13,8 @@ logback = "1.5.27"
 awaitility = "4.3.0"
 snakeyaml = "2.3"
 jetbrains-annotations = "26.1.0"
+spring = "6.1.14"
+spring-boot = "3.3.5"
 
 [libraries]
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
@@ -34,3 +36,8 @@ logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml"}
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
+spring-context = { module = "org.springframework:spring-context", version.ref = "spring"}
+spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
+spring-messaging = { module = "org.springframework:spring-messaging", version.ref = "spring" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot"}
+spring-boot-configure-processor = { module = "org.springframework.boot:spring-boot-configuration-processor", version.ref = "spring-boot"}
