@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.converter.*;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
+import org.springframework.util.ClassUtils;
 import org.traffichunter.titan.springframework.stomp.beans.TitanListenerAnnotationBeanPostProcessor;
 import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListenerContainerFactory;
 import org.traffichunter.titan.springframework.stomp.factory.TitanListenerContainerFactory;
@@ -34,6 +35,7 @@ import org.traffichunter.titan.springframework.stomp.messaging.converter.StompFr
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanPayloadHandlerMethodArgumentResolver;
 import org.traffichunter.titan.springframework.stomp.messaging.resolver.TitanStompHandlerMethodArgumentResolver;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -58,12 +60,13 @@ public class TitanListenerConfiguration {
 
     @Bean
     public SmartMessageConverter titanMessageConverter() {
-        List<MessageConverter> converters = List.of(
-                new StompFrameMessageConverter(),
-                new ByteArrayMessageConverter(),
-                new StringMessageConverter(),
-                new MappingJackson2MessageConverter()
-        );
+        List<MessageConverter> converters = new ArrayList<>();
+        converters.add(new StompFrameMessageConverter());
+        converters.add(new ByteArrayMessageConverter());
+        converters.add(new StringMessageConverter());
+        if (ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", getClass().getClassLoader())) {
+            converters.add(new MappingJackson2MessageConverter());
+        }
 
         return new CompositeMessageConverter(converters);
     }

@@ -13,6 +13,7 @@ import org.springframework.messaging.handler.invocation.HandlerMethodArgumentRes
 import org.springframework.messaging.support.MessageBuilder;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConfiguration;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
@@ -32,7 +33,7 @@ class TitanListenerConfigurationTest {
         );
         Message<byte[]> stompMessage = TitanSpringMessageAdapter.from(frame);
 
-        Object resolvedFrame = composite.resolveArgument(parameter("onFrame", StompFrame.class), stompMessage);
+        Object resolvedFrame = composite.resolveArgument(parameter("onFrame", StompFrames.class), stompMessage);
         Object resolvedPayload = composite.resolveArgument(parameter("onPayload", String.class), stompMessage);
 
         assertSame(frame, resolvedFrame);
@@ -57,7 +58,7 @@ class TitanListenerConfigurationTest {
     }
 
     static final class FixtureHandler {
-        void onFrame(StompFrame frame) {}
+        void onFrame(StompFrames frame) {}
         void onPayload(String payload) {}
         void onMessage(Message<byte[]> message) {}
     }

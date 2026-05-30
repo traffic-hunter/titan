@@ -34,7 +34,9 @@ public interface StompClientProvider {
 
     String name();
 
-    boolean supports(String transport);
+    String version();
+
+    boolean supports(String transport, String version);
 
     StompClient create(StompClientOption option);
 }

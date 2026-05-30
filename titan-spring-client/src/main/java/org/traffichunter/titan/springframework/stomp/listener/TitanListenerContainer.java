@@ -5,9 +5,9 @@ import org.springframework.messaging.handler.invocation.HandlerMethodArgumentRes
 import org.springframework.messaging.handler.invocation.InvocableHandlerMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
+import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 import org.springframework.util.ErrorHandler;
@@ -55,11 +55,11 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompClientConnection conn = manager.connection();
-            conn.subscribe(endpoint.destination(), frame -> {
+            StompClientOperations operations = manager.operations();
+            operations.subscribe(endpoint.destination(), frame -> {
                 try {
                     invoke(frame);
-                    acknowledgeIfPossible(frame, conn);
+                    acknowledgeIfPossible(frame, operations);
                 } catch (Exception e) {
                     log.error(
                             "Failed to invoke Titan listener handler. id={}, destination={}",
@@ -68,7 +68,7 @@ public final class TitanListenerContainer {
                             e
                     );
                     handleListenerError(e);
-                    negativeAcknowledgeIfPossible(frame, conn);
+                    negativeAcknowledgeIfPossible(frame, operations);
                 }
             });
             log.info("Started Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());
@@ -87,13 +87,13 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompClientConnection conn = manager.currentConnection();
-            if(conn == null) {
+            StompClientOperations operations = manager.currentOperations();
+            if(operations == null) {
                 return;
             }
 
-            if (conn.isConnected()) {
-                conn.unsubscribe(endpoint.destination());
+            if (operations.isConnected()) {
+                operations.unsubscribe(endpoint.destination());
             }
 
             log.info("Stopped Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());
@@ -132,7 +132,7 @@ public final class TitanListenerContainer {
         return listenerErrorHandler;
     }
 
-    private void invoke(StompFrame frame) throws Exception {
+    private void invoke(StompFrames frame) throws Exception {
         Message<byte[]> springMessage = TitanSpringMessageAdapter.from(frame);
 
         InvocableHandlerMethod invocable = new InvocableHandlerMethod(endpoint.bean(), endpoint.method());
@@ -143,8 +143,8 @@ public final class TitanListenerContainer {
     /**
      * Send ACK for MESSAGE frames that include a message-id.
      */
-    private void acknowledgeIfPossible(StompFrame frame, StompClientConnection connection) {
-        if (frame.getCommand() != StompCommand.MESSAGE) {
+    private void acknowledgeIfPossible(StompFrames frame, StompClientOperations operations) {
+        if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
 
@@ -154,14 +154,14 @@ public final class TitanListenerContainer {
             return;
         }
 
-        connection.ack(messageId);
+        operations.ack(messageId);
     }
 
     /**
      * Send NACK for MESSAGE frames that include a message-id.
      */
-    private void negativeAcknowledgeIfPossible(StompFrame frame, StompClientConnection connection) {
-        if (frame.getCommand() != StompCommand.MESSAGE) {
+    private void negativeAcknowledgeIfPossible(StompFrames frame, StompClientOperations operations) {
+        if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
 
@@ -171,7 +171,7 @@ public final class TitanListenerContainer {
             return;
         }
 
-        connection.nack(messageId);
+        operations.nack(messageId);
     }
 
     private void handleListenerError(Throwable error) {

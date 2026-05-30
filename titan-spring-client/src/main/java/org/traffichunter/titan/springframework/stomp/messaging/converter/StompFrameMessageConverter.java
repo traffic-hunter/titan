@@ -27,13 +27,13 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.converter.AbstractMessageConverter;
 import org.springframework.util.MimeTypeUtils;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 
 /**
- * Message converter that resolves the original {@link StompFrame}.
+ * Message converter that resolves the original {@link StompFrames}.
  * The frame is read from the internal Spring message header.
- * This supports listener method parameters of type {@code StompFrame}.
+ * This supports listener method parameters of type {@code StompFrames}.
  *
  * @author yun
  */
@@ -45,15 +45,15 @@ public final class StompFrameMessageConverter extends AbstractMessageConverter {
 
     @Override
     protected boolean supports(Class<?> clazz) {
-        return StompFrame.class.isAssignableFrom(clazz);
+        return StompFrames.class.isAssignableFrom(clazz);
     }
 
     @Override
     protected @Nullable Object convertFromInternal(Message<?> message, Class<?> targetClass, @Nullable Object conversionHint) {
-        if (!StompFrame.class.isAssignableFrom(targetClass)) {
+        if (!StompFrames.class.isAssignableFrom(targetClass)) {
             return null;
         }
 
-        return message.getHeaders().get(TitanSpringMessageAdapter.HDR_STOMP_FRAME, StompFrame.class);
+        return message.getHeaders().get(TitanSpringMessageAdapter.HDR_STOMP_FRAME, StompFrames.class);
     }
 }

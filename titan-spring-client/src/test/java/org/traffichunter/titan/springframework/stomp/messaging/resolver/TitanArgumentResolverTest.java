@@ -14,14 +14,13 @@ import org.springframework.core.MethodParameter;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.converter.ByteArrayMessageConverter;
 import org.springframework.messaging.converter.CompositeMessageConverter;
-import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.converter.MessageConversionException;
-import org.springframework.messaging.converter.MessageConverter;
 import org.springframework.messaging.converter.SmartMessageConverter;
 import org.springframework.messaging.converter.StringMessageConverter;
 import org.springframework.messaging.support.MessageBuilder;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 import org.traffichunter.titan.springframework.stomp.messaging.converter.StompFrameMessageConverter;
@@ -31,16 +30,15 @@ class TitanArgumentResolverTest {
     private static final SmartMessageConverter CONVERTER = new CompositeMessageConverter(List.of(
             new StompFrameMessageConverter(),
             new ByteArrayMessageConverter(),
-            new StringMessageConverter(),
-            new MappingJackson2MessageConverter()
+            new StringMessageConverter()
     ));
 
     @Test
-    void stomp_resolver_supports_message_and_stomp_frame() throws Exception {
+    void stomp_resolver_supports_message_and_stomp_frames() throws Exception {
         TitanStompHandlerMethodArgumentResolver resolver = new TitanStompHandlerMethodArgumentResolver(CONVERTER);
 
         assertTrue(resolver.supportsParameter(parameter("onMessage", Message.class)));
-        assertTrue(resolver.supportsParameter(parameter("onFrame", StompFrame.class)));
+        assertTrue(resolver.supportsParameter(parameter("onFrame", StompFrames.class)));
         assertFalse(resolver.supportsParameter(parameter("onPayload", String.class)));
     }
 
@@ -55,12 +53,12 @@ class TitanArgumentResolverTest {
     }
 
     @Test
-    void stomp_resolver_converts_to_stomp_frame_parameter() throws Exception {
+    void stomp_resolver_converts_to_stomp_frames_parameter() throws Exception {
         TitanStompHandlerMethodArgumentResolver resolver = new TitanStompHandlerMethodArgumentResolver(CONVERTER);
         StompFrame frame = createFrame("hello");
         Message<byte[]> message = TitanSpringMessageAdapter.from(frame);
 
-        Object resolved = resolver.resolveArgument(parameter("onFrame", StompFrame.class), message);
+        Object resolved = resolver.resolveArgument(parameter("onFrame", StompFrames.class), message);
 
         assertSame(frame, resolved);
     }
@@ -71,7 +69,7 @@ class TitanArgumentResolverTest {
 
         assertTrue(resolver.supportsParameter(parameter("onPayload", String.class)));
         assertFalse(resolver.supportsParameter(parameter("onMessage", Message.class)));
-        assertFalse(resolver.supportsParameter(parameter("onFrame", StompFrame.class)));
+        assertFalse(resolver.supportsParameter(parameter("onFrame", StompFrames.class)));
     }
 
     @Test
@@ -106,7 +104,7 @@ class TitanArgumentResolverTest {
 
     static final class FixtureHandler {
         void onMessage(Message<byte[]> message) {}
-        void onFrame(StompFrame frame) {}
+        void onFrame(StompFrames frame) {}
         void onPayload(String payload) {}
         void onNumber(Integer number) {}
     }
