@@ -8,11 +8,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.codec.stomp.StompVersion;
-import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
+import org.traffichunter.titan.core.transport.stomp.client.TitanStompClientProvider;
+import org.traffichunter.titan.core.transport.stomp.client.VertxStompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
@@ -61,54 +61,14 @@ public class TitanStompClientAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "titanStompClientProvider")
     public StompClientProvider titanStompClientProvider(ObjectProvider<EventLoopGroups> titanStompClientEventLoopGroups) {
-        return new StompClientProvider() {
-            @Override
-            public String name() {
-                return "titan";
-            }
-
-            @Override
-            public String version() {
-                return StompVersion.STOMP_1_2.getVersion();
-            }
-
-            @Override
-            public boolean supports(String transport, String version) {
-                return name().equalsIgnoreCase(transport) && version().equals(version);
-            }
-
-            @Override
-            public StompClient create(StompClientOption option) {
-                return TitanStompClient.open(titanStompClientEventLoopGroups.getObject(), option);
-            }
-        };
+        return new TitanStompClientProvider(titanStompClientEventLoopGroups::getObject);
     }
 
     @Bean
     @ConditionalOnClass(VertxStompClient.class)
     @ConditionalOnMissingBean(name = "vertxStompClientProvider")
     public StompClientProvider vertxStompClientProvider() {
-        return new StompClientProvider() {
-            @Override
-            public String name() {
-                return "vertx";
-            }
-
-            @Override
-            public String version() {
-                return StompVersion.STOMP_1_2.getVersion();
-            }
-
-            @Override
-            public boolean supports(String transport, String version) {
-                return name().equalsIgnoreCase(transport) && version().equals(version);
-            }
-
-            @Override
-            public StompClient create(StompClientOption option) {
-                return VertxStompClient.open(option);
-            }
-        };
+        return new VertxStompClientProvider();
     }
 
     @Bean
