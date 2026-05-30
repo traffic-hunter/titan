@@ -28,7 +28,6 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.core.util.Assert;
 
 import java.util.HashMap;
 import java.util.Map;

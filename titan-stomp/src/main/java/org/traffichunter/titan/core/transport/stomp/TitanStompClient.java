@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -42,6 +43,9 @@ import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.InetClient;
+import org.traffichunter.titan.core.transport.stomp.client.StompClient;
+import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.TitanStompClientOperations;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 
@@ -52,13 +56,14 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  * @author yun
  */
 @Slf4j
-public final class TitanStompClient {
+public final class TitanStompClient implements StompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
 
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private @Nullable StompClientConnection connection;
+    private @Nullable TitanStompClientOperations operations;
 
     private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
@@ -75,6 +80,21 @@ public final class TitanStompClient {
 
     public static TitanStompClient open(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         return new TitanStompClient(groups, inetClient, option);
+    }
+
+    @Override
+    public StompClientOperations operations() {
+        TitanStompClientOperations operations = this.operations;
+        if (operations == null) {
+            operations = new TitanStompClientOperations(connection());
+            this.operations = operations;
+        }
+        return operations;
+    }
+
+    @Override
+    public boolean isShutdown() {
+        return inetClient.isShutdown();
     }
 
     @CanIgnoreReturnValue
@@ -95,6 +115,17 @@ public final class TitanStompClient {
         }
 
         inetClient.start();
+    }
+
+    @Override
+    public Future<StompClientOperations> connect() {
+        return connect(option.host(), option.port())
+                .map(connection -> {
+                    TitanStompClientOperations operations = new TitanStompClientOperations(connection);
+                    this.operations = operations;
+                    return (StompClientOperations) operations;
+                })
+                .future();
     }
 
     public Promise<StompClientConnection> connect(String host, int port) {
@@ -164,6 +195,7 @@ public final class TitanStompClient {
         stompClientHandler.handle(connection.handler());
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
+        this.operations = new TitanStompClientOperations(connection);
         return connection;
     }
 

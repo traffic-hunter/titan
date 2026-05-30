@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp.client;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -41,9 +39,7 @@ public interface StompClient {
 
     StompClientOperations operations();
 
-    @Nullable StompClientOperations currentOperations();
-
-    boolean isStarted();
+    boolean isStart();
 
     boolean isShutdown();
 
