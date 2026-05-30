@@ -1,5 +1,7 @@
 # Titan
 
+[![Maven Central](https://img.shields.io/maven-central/v/org.traffichunter.titan/titan-stomp)](https://central.sonatype.com/artifact/org.traffichunter.titan/titan-stomp)
+
 Titan is a lightweight message dispatch platform focused on STOMP over TCP.
 It provides a custom NIO transport, destination routing, fanout delivery, and
 Spring Boot client integration.
