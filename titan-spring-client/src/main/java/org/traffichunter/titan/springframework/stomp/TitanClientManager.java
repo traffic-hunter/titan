@@ -19,6 +19,7 @@ import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations
 public final class TitanClientManager implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(TitanClientManager.class);
+    public static final int PHASE = Integer.MAX_VALUE - 100;
 
     private final StompClient stompClient;
     private final TitanProperties properties;
@@ -78,7 +79,7 @@ public final class TitanClientManager implements SmartLifecycle {
 
     @Override
     public int getPhase() {
-        return Integer.MAX_VALUE;
+        return PHASE;
     }
 
     public StompClientOperations connect() throws Exception {

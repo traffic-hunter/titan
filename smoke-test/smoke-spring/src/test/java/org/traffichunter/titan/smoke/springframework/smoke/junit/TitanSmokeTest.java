@@ -30,15 +30,13 @@ import java.lang.annotation.Target;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.traffichunter.titan.smoke.springframework.smoke.junit.TitanBootstrapper;
+import org.springframework.test.annotation.DirtiesContext;
 
-/**
- * @author yun
- */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @TitanBootstrapper
-@SpringBootTest
+@SpringBootTest(properties = "spring.titan.client=titan")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
-public @interface LocalSmokeTest {
+public @interface TitanSmokeTest {
 }

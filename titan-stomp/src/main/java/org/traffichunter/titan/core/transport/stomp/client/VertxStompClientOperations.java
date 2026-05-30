@@ -28,6 +28,7 @@ import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.codec.stomp.vertx.VertxStompFrame;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -52,16 +53,19 @@ public final class VertxStompClientOperations implements StompClientOperations {
 
     @Override
     public Future<StompFrames> send(String destination, Buffer payload) {
+        validateDestination(destination);
         return toFuture(connection.send(destination, toVertxBuffer(payload)));
     }
 
     @Override
     public Future<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
+        validateDestination(destination);
         return toFuture(connection.send(destination, toVertxHeaders(headers), toVertxBuffer(payload)));
     }
 
     @Override
     public Future<String> subscribe(String destination, Handler<StompFrames> handler) {
+        validateDestination(destination);
         return VertxFutureWrapper.wrap(connection.subscribe(
                 destination,
                 frame -> handler.handle(VertxStompFrame.wrap(frame))
@@ -70,6 +74,7 @@ public final class VertxStompClientOperations implements StompClientOperations {
 
     @Override
     public Future<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler) {
+        validateDestination(destination);
         return VertxFutureWrapper.wrap(connection.subscribe(
                 destination,
                 toVertxHeaders(headers),
@@ -156,5 +161,9 @@ public final class VertxStompClientOperations implements StompClientOperations {
         Map<String, String> converted = new HashMap<>();
         headers.forEach((element, value) -> converted.put(element.getName(), value));
         return converted;
+    }
+
+    private static void validateDestination(String destination) {
+        Destination.create(destination);
     }
 }

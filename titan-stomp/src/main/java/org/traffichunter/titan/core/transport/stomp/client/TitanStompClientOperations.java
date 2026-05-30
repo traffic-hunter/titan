@@ -27,6 +27,7 @@ import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -46,6 +47,7 @@ public final class TitanStompClientOperations implements StompClientOperations {
 
     @Override
     public Future<StompFrames> send(String destination, Buffer payload) {
+        validateDestination(destination);
         return connection.send(destination, payload)
                 .map(f -> (StompFrames) f)
                 .future();
@@ -53,6 +55,7 @@ public final class TitanStompClientOperations implements StompClientOperations {
 
     @Override
     public Future<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
+        validateDestination(destination);
         return connection.send(destination, payload, toHeaders(headers))
                 .map(f -> (StompFrames) f)
                 .future();
@@ -65,6 +68,7 @@ public final class TitanStompClientOperations implements StompClientOperations {
 
     @Override
     public Future<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler) {
+        validateDestination(destination);
         StompHeaders stompHeaders = toHeaders(headers);
         String subscriptionId = stompHeaders.getOrDefault(Elements.ID, destination);
         return connection.subscribe(destination, stompHeaders, handler::handle)
@@ -116,5 +120,9 @@ public final class TitanStompClientOperations implements StompClientOperations {
         StompHeaders stompHeaders = StompHeaders.create();
         headers.forEach(stompHeaders::put);
         return stompHeaders;
+    }
+
+    private static void validateDestination(String destination) {
+        Destination.create(destination);
     }
 }
