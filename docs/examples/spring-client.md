@@ -28,7 +28,7 @@ import org.traffichunter.titan.springframework.stomp.annotation.EnableTitan;
 @SpringBootApplication
 public class Application {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
 }
@@ -41,6 +41,7 @@ spring:
   titan:
     auto-start: true
     auto-connect: true
+    client: titan # titan or vertx
     host: 127.0.0.1
     port: 61613
     login: guest
@@ -77,7 +78,7 @@ public class NotificationPublisher {
 ```java
 import java.util.concurrent.Future;
 import org.springframework.stereotype.Service;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.springframework.stomp.TitanTemplate;
 
 @Service
@@ -89,7 +90,7 @@ public class AsyncNotificationPublisher {
         this.titanTemplate = titanTemplate;
     }
 
-    public Future<StompFrame> publish(String payload) throws Exception {
+    public Future<StompFrames> publish(String payload) throws Exception {
         return titanTemplate.async().send("/topic/notifications", payload);
     }
 }
@@ -114,3 +115,19 @@ public class NotificationListener {
 Use `TitanTemplate` for imperative send/subscribe operations and
 `TitanTemplate.async()` when the caller wants a `Future`. Use `@TitanListener`
 for annotation-driven message handling.
+
+## Lifecycle And Acknowledgement
+
+`spring.titan.client` selects the STOMP client implementation. `titan` uses the
+native Titan client, while `vertx` uses the Vert.x STOMP client adapter. Both are
+exposed through the same Spring API.
+
+When `auto-start` is enabled, the Spring context starts the configured client.
+When `auto-connect` is enabled, the manager connects during startup. If a caller
+uses `TitanTemplate` or a listener before a connection exists, the manager starts
+and connects the client before resolving operations.
+
+`@TitanListener` acknowledges `MESSAGE` frames after the listener method returns
+successfully. If listener invocation fails, the configured error handler is
+called and the frame is negatively acknowledged when a `message-id` header is
+available.

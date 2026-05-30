@@ -3,6 +3,7 @@ package org.traffichunter.titan.springframework.stomp.listener;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -110,6 +111,31 @@ class TitanListenerContainerFactoryTest {
         assertTrue(errorHandled.get());
         verify(operations).nack("msg-2");
         verify(operations, never()).ack(anyString());
+    }
+
+    @Test
+    void listener_container_stops_by_unsubscribing_active_destination() throws Exception {
+        when(operations.unsubscribe("/topic/test"))
+                .thenReturn(CompletableFuture.completedFuture(mock(StompFrames.class)));
+        TitanListenerContainer container = listenerContainer(endpoint("handle"));
+
+        container.start();
+        container.stop();
+
+        verify(operations).unsubscribe("/topic/test");
+        assertTrue(container.isStopped());
+    }
+
+    @Test
+    void listener_container_resets_running_when_subscribe_fails() throws Exception {
+        when(operations.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("subscribe failed")));
+        TitanListenerContainer container = listenerContainer(endpoint("handle"));
+
+        assertThatThrownBy(container::start)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Failed to start listener");
+        assertTrue(container.isStopped());
     }
 
     private static TitanListenerEndpoint endpoint() throws NoSuchMethodException {
