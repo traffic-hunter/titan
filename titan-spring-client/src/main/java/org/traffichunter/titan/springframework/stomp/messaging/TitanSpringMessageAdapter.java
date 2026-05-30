@@ -26,7 +26,7 @@ package org.traffichunter.titan.springframework.stomp.messaging;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 
 /**
  * Converts Titan STOMP frames into Spring messaging messages.
@@ -40,12 +40,11 @@ public final class TitanSpringMessageAdapter {
 
     public static final String HDR_STOMP_FRAME = "titan.stomp.frame";
 
-    public static Message<byte[]> from(StompFrame frame) {
-        MessageBuilder<byte[]> builder = MessageBuilder.withPayload(frame.getBody().getBytes());
+    public static Message<byte[]> from(StompFrames frame) {
+        MessageBuilder<byte[]> builder = MessageBuilder.withPayload(frame.body());
 
-        frame.getHeaders()
-                .entrySet()
-                .forEach(entry -> builder.setHeader(entry.getKey().getName(), entry.getValue()));
+        frame.headers()
+                .forEach((key, value) -> builder.setHeader(key.getName(), value));
 
         builder.setHeader(HDR_STOMP_FRAME, frame);
         return builder.build();

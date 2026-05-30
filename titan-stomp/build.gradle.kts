@@ -8,4 +8,6 @@ version = "1.0-SNAPSHOT"
 dependencies {
     api(project(":bootstrap"))
     api(project(":core"))
+
+    implementation(project.libs.vertx.stomp)
 }

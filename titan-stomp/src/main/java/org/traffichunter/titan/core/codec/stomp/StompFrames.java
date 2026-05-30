@@ -21,24 +21,27 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.smoke.springframework.smoke.junit;
+package org.traffichunter.titan.core.codec.stomp;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.junit.jupiter.api.DisplayNameGeneration;
-import org.junit.jupiter.api.DisplayNameGenerator;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.traffichunter.titan.smoke.springframework.smoke.junit.TitanBootstrapper;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Map;
+
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 /**
  * @author yun
  */
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-@TitanBootstrapper
-@SpringBootTest
-@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
-public @interface LocalSmokeTest {
+public interface StompFrames {
+
+    StompCommand command();
+
+    @Nullable String getHeader(final Elements key);
+
+    /**
+     * These headers are read-only.
+     */
+    Map<Elements, String> headers();
+
+    byte[] body();
 }

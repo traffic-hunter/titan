@@ -29,10 +29,10 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.messaging.converter.SmartMessageConverter;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolver;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 
 /**
- * Resolves Spring {@link Message} and Titan {@link StompFrame} parameters.
+ * Resolves Spring {@link Message} and Titan {@link StompFrames} parameters.
  * Delegates frame conversion to the configured Spring message converter.
  * Runs before payload conversion in the listener resolver chain.
  *
@@ -50,7 +50,7 @@ public class TitanStompHandlerMethodArgumentResolver implements HandlerMethodArg
     public boolean supportsParameter(MethodParameter parameter) {
         Class<?> type = parameter.getParameterType();
 
-        return Message.class.isAssignableFrom(type) || StompFrame.class.isAssignableFrom(type);
+        return Message.class.isAssignableFrom(type) || StompFrames.class.isAssignableFrom(type);
     }
 
     @Override

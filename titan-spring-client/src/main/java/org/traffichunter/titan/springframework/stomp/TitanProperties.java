@@ -18,6 +18,8 @@ public class TitanProperties {
 
     private boolean autoConnect = true;
 
+    private String client = "titan";
+
     private int primaryThreads = 1;
 
     private int secondaryThreads = Runtime.getRuntime().availableProcessors();
@@ -184,5 +186,13 @@ public class TitanProperties {
 
     public void setBypassHostHeader(boolean bypassHostHeader) {
         this.bypassHostHeader = bypassHostHeader;
+    }
+
+    public String getClient() {
+        return client;
+    }
+
+    public void setClient(String client) {
+        this.client = client;
     }
 }

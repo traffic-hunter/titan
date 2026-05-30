@@ -1,18 +1,13 @@
-## Overview.
+## Motivation:
 
-<!---- Resolves: #(Isuue Number) [FEAT] ... -->
+Explain here the context, and why you're making that change. What is the problem you're trying to solve.
 
-## Pull Request Convention.
+## Modification:
 
-- [ ] New feature. (feat)
-- [ ] Fix bug. (fix)
-- [ ] Changes that do not affect the code (correct typos, change tab size, change variable names) (style)
-- [ ] Refactor code (refactor)
-- [ ] Add and edit comments (style)
-- [ ] Edit docs (docs)
-- [ ] Add and refactor tests (test)
-- [ ] Edit the build part or package manager (chore)
-- [ ] Rename file or directory (rename)
-- [ ] Remove file or directory (remove)
+Describe the modifications you've done.
 
-## Opinion.
+## Result:
+
+Fixes #.
+
+If there is no issue then describe the changes introduced by this PR.

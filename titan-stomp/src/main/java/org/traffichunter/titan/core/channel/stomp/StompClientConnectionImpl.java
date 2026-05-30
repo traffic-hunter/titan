@@ -400,8 +400,14 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
+        if (!netChannel.isActive() || !netChannel.isConnected()) {
+            close();
+            receiptPromise.fail(new StompNetChannelException("Channel is closed"));
+            return;
+        }
+
         Buffer body = frame.getBody();
-        if (!frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
+        if (body.length() > 0 && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
             frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
         }
 

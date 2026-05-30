@@ -35,7 +35,7 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@ExtendWith(org.traffichunter.titan.smoke.springframework.smoke.junit.TitanBootstrapExtension.class)
+@ExtendWith(TitanBootstrapExtension.class)
 public @interface TitanBootstrapper {
 
     String environmentPath() default "./titan-env.yml";

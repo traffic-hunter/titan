@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.codec.stomp;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -44,7 +45,7 @@ import org.traffichunter.titan.core.util.inet.Frame;
  */
 @Getter
 @Slf4j
-public final class StompFrame implements Frame<Elements, String> {
+public final class StompFrame implements Frame<Elements, String>, StompFrames {
 
     public static final StompFrame ERR_STOMP_FRAME =
             new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.ERROR);
@@ -88,6 +89,21 @@ public final class StompFrame implements Frame<Elements, String> {
                                     final byte[] body) {
 
         return new StompFrame(headers, command, body);
+    }
+
+    @Override
+    public StompCommand command() {
+        return command;
+    }
+
+    @Override
+    public Map<Elements, String> headers() {
+        return headers.toMap();
+    }
+
+    @Override
+    public byte[] body() {
+        return body.getBytes();
     }
 
     @Override

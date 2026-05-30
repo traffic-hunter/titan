@@ -29,7 +29,7 @@ import java.lang.annotation.*;
  * Marks a method as a Titan STOMP message listener.
  * The annotated method is registered against a destination.
  * Listener endpoints are created during Spring bean initialization.
- * Typical listener methods receive a payload, Spring {@code Message}, or {@code StompFrame}.
+ * Typical listener methods receive a payload, Spring {@code Message}, or {@code StompFrames}.
  *
  * <pre> {@code
  * @TitanListener(destination = "/topic/alerts")

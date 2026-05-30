@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,11 +23,12 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolver;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 import org.springframework.util.ErrorHandler;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
+import org.traffichunter.titan.core.transport.stomp.client.StompClient;
+import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
@@ -34,17 +36,19 @@ import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListener
 
 class TitanListenerContainerFactoryTest {
 
-    private StompClientConnection connection;
+    private StompClientOperations operations;
     private TitanClientManager manager;
 
     @BeforeEach
     void setUp() {
         StompClient stompClient = mock(StompClient.class);
-        connection = mock(StompClientConnection.class);
+        operations = mock(StompClientOperations.class);
         manager = new TitanClientManager(stompClient, new TitanProperties());
 
-        when(stompClient.connection()).thenReturn(connection);
-        when(connection.isConnected()).thenReturn(true);
+        when(stompClient.operations()).thenReturn(operations);
+        when(operations.isConnected()).thenReturn(true);
+        when(operations.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
+                .thenReturn(CompletableFuture.completedFuture("/topic/test"));
     }
 
     @Test
@@ -88,8 +92,8 @@ class TitanListenerContainerFactoryTest {
         container.start();
         subscribedHandler().handle(messageFrame("msg-1"));
 
-        verify(connection).ack("msg-1");
-        verify(connection, never()).nack(anyString());
+        verify(operations).ack("msg-1");
+        verify(operations, never()).nack(anyString());
     }
 
     @Test
@@ -104,8 +108,8 @@ class TitanListenerContainerFactoryTest {
         subscribedHandler().handle(messageFrame("msg-2"));
 
         assertTrue(errorHandled.get());
-        verify(connection).nack("msg-2");
-        verify(connection, never()).ack(anyString());
+        verify(operations).nack("msg-2");
+        verify(operations, never()).ack(anyString());
     }
 
     private static TitanListenerEndpoint endpoint() throws NoSuchMethodException {
@@ -131,9 +135,9 @@ class TitanListenerContainerFactoryTest {
     }
 
     @SuppressWarnings("unchecked")
-    private Handler<StompFrame> subscribedHandler() {
-        ArgumentCaptor<Handler<StompFrame>> captor = ArgumentCaptor.forClass(Handler.class);
-        verify(connection).subscribe(eq("/topic/test"), captor.capture());
+    private Handler<StompFrames> subscribedHandler() {
+        ArgumentCaptor<Handler<StompFrames>> captor = ArgumentCaptor.forClass(Handler.class);
+        verify(operations).subscribe(eq("/topic/test"), captor.capture());
         return captor.getValue();
     }
 

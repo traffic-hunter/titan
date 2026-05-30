@@ -88,6 +88,10 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         return sb.toString();
     }
 
+    public Map<StompHeaders.Elements, String> toMap() {
+        return Map.copyOf(map);
+    }
+
     public static String decode(final String value, final StompCommand command) {
 
         final boolean skipCommand = (command == StompCommand.CONNECT || command == StompCommand.CONNECTED);

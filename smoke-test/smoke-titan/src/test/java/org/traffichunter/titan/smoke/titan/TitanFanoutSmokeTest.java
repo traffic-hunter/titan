@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
+import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
@@ -69,9 +69,9 @@ class TitanFanoutSmokeTest {
         EventLoopGroups producerGroups = EventLoopGroups.group(1, 2);
         EventLoopGroups firstConsumerGroups = EventLoopGroups.group(1, 2);
         EventLoopGroups secondConsumerGroups = EventLoopGroups.group(1, 2);
-        StompClient producer = null;
-        StompClient firstConsumer = null;
-        StompClient secondConsumer = null;
+        TitanStompClient producer = null;
+        TitanStompClient firstConsumer = null;
+        TitanStompClient secondConsumer = null;
 
         try {
             server.start();
@@ -128,8 +128,8 @@ class TitanFanoutSmokeTest {
                 .build();
     }
 
-    private static StompClient newStompClient(EventLoopGroups groups, int port) {
-        return StompClient.open(groups, StompClientOption.builder()
+    private static TitanStompClient newStompClient(EventLoopGroups groups, int port) {
+        return TitanStompClient.open(groups, StompClientOption.builder()
                 .host(HOST)
                 .port(port)
                 .heartbeatX(0L)
@@ -137,7 +137,7 @@ class TitanFanoutSmokeTest {
                 .build());
     }
 
-    private static StompClientConnection connect(StompClient client, int port) throws Exception {
+    private static StompClientConnection connect(TitanStompClient client, int port) throws Exception {
         return client.connect(HOST, port, TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
@@ -149,7 +149,7 @@ class TitanFanoutSmokeTest {
         return ((InetSocketAddress) localAddress).getPort();
     }
 
-    private static void shutdown(StompClient client) {
+    private static void shutdown(TitanStompClient client) {
         if (client != null && client.isStart()) {
             client.shutdown(10, TimeUnit.SECONDS);
         }

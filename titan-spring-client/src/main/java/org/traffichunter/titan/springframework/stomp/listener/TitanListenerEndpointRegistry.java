@@ -52,6 +52,11 @@ public final class TitanListenerEndpointRegistry implements SmartLifecycle {
         return containers.stream().allMatch(TitanListenerContainer::isRunning);
     }
 
+    @Override
+    public int getPhase() {
+        return TitanClientManager.PHASE + 1;
+    }
+
     /**
      * Return whether all registered containers are stopped.
      */
