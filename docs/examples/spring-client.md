@@ -50,6 +50,13 @@ spring:
     connect-timeout-millis: 30000
     heartbeat-x: 1000
     heartbeat-y: 1000
+    retry:
+      enabled: false
+      type: exp # fix or exp
+      max-attempts: 3
+      delay: 1s
+      max-delay: 30s
+      multiplier: 2
 ```
 
 ## Send Messages

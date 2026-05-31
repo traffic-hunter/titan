@@ -24,13 +24,31 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.resilience.retry;
 
 /**
+ * Handle for a retry sequence scheduled by a {@link RetryExecutor}.
+ *
+ * <p>Cancellation is best-effort. It cancels the currently scheduled attempt when one
+ * exists and prevents future attempts from being scheduled.</p>
+ *
  * @author yun
  */
 public interface RetryResult {
 
-    default void cancel() {cancel(false); }
+    /**
+     * Cancels the retry sequence without interrupting a running attempt.
+     */
+    default void cancel() { cancel(false); }
 
+    /**
+     * Cancels the retry sequence.
+     *
+     * @param mayInterruptIfRunning whether a running scheduled task may be interrupted
+     */
     void cancel(boolean mayInterruptIfRunning);
 
+    /**
+     * Returns whether cancellation has been requested or observed by the scheduled task.
+     *
+     * @return {@code true} when this retry sequence is cancelled
+     */
     boolean isCancelled();
 }

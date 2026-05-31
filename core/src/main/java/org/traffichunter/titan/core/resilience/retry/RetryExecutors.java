@@ -28,6 +28,11 @@ import org.traffichunter.titan.core.channel.EventLoop;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
+ * Factory methods for retry executors.
+ *
+ * <p>Use these helpers when callers should not depend on concrete executor
+ * constructors directly.</p>
+ *
  * @author yun
  */
 public final class RetryExecutors {

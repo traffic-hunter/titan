@@ -28,6 +28,9 @@ import java.time.Duration;
 /**
  * Retry policy that returns the same delay for every retry attempt.
  *
+ * @param maxAttempts maximum number of attempts, or {@link RetryPolicy#UNLIMITED_ATTEMPTS}
+ * @param delay positive delay used for every attempt
+ *
  * @author yun
  */
 public record FixedRetryPolicy(
@@ -39,8 +42,8 @@ public record FixedRetryPolicy(
     private static final Duration DEFAULT_DELAY = Duration.ofSeconds(1);
 
     public FixedRetryPolicy {
-        validateMaxAttempts(maxAttempts);
-        validateDelay(delay);
+        RetryPolicy.validateMaxAttempts(maxAttempts);
+        RetryPolicy.validateDelay(delay);
     }
 
     @Override
@@ -55,19 +58,9 @@ public record FixedRetryPolicy(
         return new Builder();
     }
 
-    static void validateMaxAttempts(int maxAttempts) {
-        if (maxAttempts == RetryPolicy.UNLIMITED_ATTEMPTS || maxAttempts > 0) {
-            return;
-        }
-        throw new IllegalArgumentException("maxAttempts must be positive or UNLIMITED_ATTEMPTS");
-    }
-
-    static void validateDelay(Duration delay) {
-        if (delay.isNegative() || delay.isZero()) {
-            throw new IllegalArgumentException("delay must be positive");
-        }
-    }
-
+    /**
+     * Builder for {@link FixedRetryPolicy}.
+     */
     public static final class Builder {
 
         private int maxAttempts = DEFAULT_MAX_ATTEMPTS;

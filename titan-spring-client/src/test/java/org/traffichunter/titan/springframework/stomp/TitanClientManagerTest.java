@@ -1,18 +1,19 @@
 package org.traffichunter.titan.springframework.stomp;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
-
-import static org.mockito.Mockito.mock;
 
 class TitanClientManagerTest {
 
@@ -52,6 +53,24 @@ class TitanClientManagerTest {
         verify(client).start();
         verify(client, never()).connect();
         assertThat(manager.isRunning()).isTrue();
+    }
+
+    @Test
+    void start_connects_immediately_and_retries_when_retry_is_enabled() {
+        properties.getRetry().setEnabled(true);
+        properties.getRetry().setType(TitanProperties.Retry.Type.FIX);
+        properties.getRetry().setMaxAttempts(2);
+        properties.getRetry().setDelay(Duration.ofMillis(10));
+        when(client.connect())
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connect failed")))
+                .thenReturn(CompletableFuture.completedFuture(operations));
+        TitanClientManager manager = new TitanClientManager(client, properties);
+
+        manager.start();
+
+        verify(client).connect();
+        verify(client, timeout(1000).times(2)).connect();
+        manager.stop();
     }
 
     @Test

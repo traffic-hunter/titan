@@ -36,6 +36,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ * Retry executor backed by Titan's {@link EventLoop}.
+ *
+ * <p>This executor is useful when retry callbacks must run on Titan's event loop
+ * instead of a JDK scheduler thread. When constructed without an event loop, it
+ * creates and owns a {@link TaskEventLoop}.</p>
+ *
  * @author yun
  */
 public class EventLoopRetryExecutor implements RetryExecutor {
@@ -95,7 +101,7 @@ public class EventLoopRetryExecutor implements RetryExecutor {
         }
 
         Duration delay = retryPolicy.delay(attempt);
-        retryListener.onRetryScheduled(attempt, delay);
+        retryListener.onRetry(attempt, delay);
         ScheduledPromise<?> scheduledPromise = eventLoop.schedule(() ->
                 run(callback, result, attempt), delay.toNanos(), TimeUnit.NANOSECONDS);
 
@@ -115,6 +121,7 @@ public class EventLoopRetryExecutor implements RetryExecutor {
                 retryListener.onRetryExhausted(attempt, e);
                 return;
             }
+
             schedule(callback, result, attempt + 1);
         }
     }
@@ -146,6 +153,7 @@ public class EventLoopRetryExecutor implements RetryExecutor {
                 scheduledPromise.set(promise);
                 return;
             }
+
             promise.cancel(false);
         }
     }

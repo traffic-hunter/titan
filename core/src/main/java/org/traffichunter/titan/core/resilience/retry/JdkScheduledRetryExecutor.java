@@ -31,6 +31,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ * Retry executor backed by a JDK {@link ScheduledExecutorService}.
+ *
+ * <p>This implementation is suitable for integration layers that do not need to
+ * run retry callbacks on Titan's event loop. When constructed without an executor,
+ * it creates and owns a single-threaded scheduled executor.</p>
+ *
  * @author yun
  */
 public class JdkScheduledRetryExecutor implements RetryExecutor {
@@ -94,7 +100,7 @@ public class JdkScheduledRetryExecutor implements RetryExecutor {
         }
 
         Duration delay = retryPolicy.delay(attempt);
-        retryListener.onRetryScheduled(attempt, delay);
+        retryListener.onRetry(attempt, delay);
         ScheduledFuture<?> future = executor.schedule(() -> run(callback, result, attempt), delay.toNanos(), TimeUnit.NANOSECONDS);
         result.set(future);
     }

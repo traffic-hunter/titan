@@ -5,6 +5,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
@@ -14,6 +15,7 @@ import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -122,6 +124,36 @@ class TitanStompClientAutoConfigurationTest {
                     assertThat(context.getBean(TitanClientManager.class).isRunning()).isFalse();
                     verify(client, never()).start();
                     verify(client, never()).connect();
+                });
+    }
+
+    @Test
+    void binds_retry_properties() {
+        StompClient client = lifecycleClient(mock(StompClientOperations.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues(
+                        "spring.titan.auto-start=false",
+                        "spring.titan.retry.enabled=true",
+                        "spring.titan.retry.type=fix",
+                        "spring.titan.retry.max-attempts=7",
+                        "spring.titan.retry.delay=250ms",
+                        "spring.titan.retry.max-delay=5s",
+                        "spring.titan.retry.multiplier=3"
+                )
+                .run(context -> {
+                    TitanProperties.Retry retry = context.getBean(TitanProperties.class).getRetry();
+                    RetryPolicy policy = retry.toPolicy();
+
+                    assertThat(retry.isEnabled()).isTrue();
+                    assertThat(retry.getType()).isEqualTo(TitanProperties.Retry.Type.FIX);
+                    assertThat(retry.getMaxAttempts()).isEqualTo(7);
+                    assertThat(retry.getDelay()).isEqualTo(Duration.ofMillis(250));
+                    assertThat(retry.getMaxDelay()).isEqualTo(Duration.ofSeconds(5));
+                    assertThat(retry.getMultiplier()).isEqualTo(3);
+                    assertThat(policy.maxAttempts()).isEqualTo(7);
+                    assertThat(policy.delay(1)).isEqualTo(Duration.ofMillis(250));
                 });
     }
 

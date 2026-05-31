@@ -28,6 +28,14 @@ import java.time.Duration;
 /**
  * Retry policy that increases delay exponentially and caps it at a maximum delay.
  *
+ * <p>Attempt {@code 1} uses {@code initialDelay}. Each later attempt multiplies
+ * the previous delay by {@code multiplier} until {@code maxDelay} is reached.</p>
+ *
+ * @param maxAttempts maximum number of attempts, or {@link RetryPolicy#UNLIMITED_ATTEMPTS}
+ * @param initialDelay positive delay used for attempt {@code 1}
+ * @param maxDelay maximum delay returned by this policy
+ * @param multiplier multiplier applied between attempts
+ *
  * @author yun
  */
 public record ExponentialRetryPolicy(
@@ -43,9 +51,10 @@ public record ExponentialRetryPolicy(
     private static final int DEFAULT_MULTIPLIER = 2;
 
     public ExponentialRetryPolicy {
-        FixedRetryPolicy.validateMaxAttempts(maxAttempts);
-        FixedRetryPolicy.validateDelay(initialDelay);
-        FixedRetryPolicy.validateDelay(maxDelay);
+        RetryPolicy.validateMaxAttempts(maxAttempts);
+        RetryPolicy.validateDelay(initialDelay);
+        RetryPolicy.validateDelay(maxDelay);
+
         if (maxDelay.compareTo(initialDelay) < 0) {
             throw new IllegalArgumentException("maxDelay must be greater than or equal to initialDelay");
         }
@@ -77,10 +86,13 @@ public record ExponentialRetryPolicy(
         try {
             return delay.multipliedBy(multiplier);
         } catch (ArithmeticException e) {
-            return Duration.ofMillis(Long.MAX_VALUE);
+            return Duration.ofMillis(Long.MAX_VALUE); // Prevent numeric overflow.
         }
     }
 
+    /**
+     * Builder for {@link ExponentialRetryPolicy}.
+     */
     public static final class Builder {
 
         private int maxAttempts = DEFAULT_MAX_ATTEMPTS;

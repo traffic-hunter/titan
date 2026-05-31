@@ -186,7 +186,7 @@ class RetryExecutorTest {
         private final List<String> events = java.util.Collections.synchronizedList(new ArrayList<>());
 
         @Override
-        public void onRetryScheduled(int attempt, Duration delay) {
+        public void onRetry(int attempt, Duration delay) {
             events.add("scheduled:" + attempt);
         }
 
