@@ -69,7 +69,11 @@ public class StompClientConnectionImpl implements StompClientConnection {
     private final AtomicLong timer = new AtomicLong();
 
     private final Promise<Void> connectPromise;
+    private Handler<StompClientConnection> closeHandler = connection -> {};
+    private Handler<StompClientConnection> connectionDroppedHandler = connection -> {};
+    private Handler<Throwable> exceptionHandler = error -> {};
     private volatile boolean stompConnected;
+    private volatile boolean closeNotified;
 
     private long pingTimer = -1;
     private long pongTimer = -1;
@@ -336,6 +340,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
             pongTimer = setInterval(pong, pong, () -> {
                 long d = Duration.between(netChannel.lastActivatedAt(), Instant.now()).toMillis();
                 if (d > pong * 2) {
+                    connectionDroppedHandler.handle(this);
                     close();
                 }
             });
@@ -373,6 +378,24 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
+    public StompClientConnection closeHandler(Handler<StompClientConnection> handler) {
+        this.closeHandler = handler;
+        return this;
+    }
+
+    @Override
+    public StompClientConnection connectionDroppedHandler(Handler<StompClientConnection> handler) {
+        this.connectionDroppedHandler = handler;
+        return this;
+    }
+
+    @Override
+    public StompClientConnection exceptionHandler(Handler<Throwable> handler) {
+        this.exceptionHandler = handler;
+        return this;
+    }
+
+    @Override
     public Promise<Void> connectedPromise() {
         return connectPromise;
     }
@@ -397,6 +420,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
         receiptMap.clear();
         pingPongTaskMap.clear();
         netChannel.close();
+        notifyClosed();
     }
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
@@ -434,9 +458,18 @@ public class StompClientConnectionImpl implements StompClientConnection {
                 receiptMap.remove(receiptId);
             }
             log.error("Failed to write STOMP frame. session={}, command={}", sessionId, frame.getCommand(), e);
+            exceptionHandler.handle(e);
             close();
             receiptPromise.fail(new StompNetChannelException("Failed to write STOMP frame", e));
         }
+    }
+
+    private void notifyClosed() {
+        if (closeNotified) {
+            return;
+        }
+        closeNotified = true;
+        closeHandler.handle(this);
     }
 
     private void cancelHeartbeat() {

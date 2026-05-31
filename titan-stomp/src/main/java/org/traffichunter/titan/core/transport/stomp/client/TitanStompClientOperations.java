@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.transport.stomp.client;
 
 import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
@@ -109,6 +110,40 @@ public final class TitanStompClientOperations implements StompClientOperations {
         return connection.disconnect()
                 .map(f -> (StompFrames) f)
                 .future();
+    }
+
+    @Override
+    public StompClientOperations errorHandler(Handler<StompFrames> handler) {
+        connection.handler().errorHandler((event, context) -> {
+            handler.handle(event.frame());
+            event.connection().failConnect(new StompException("Received ERROR frame from server"));
+            event.connection().error(event.frame());
+        });
+        return this;
+    }
+
+    @Override
+    public StompClientOperations closeHandler(Handler<StompClientOperations> handler) {
+        connection.closeHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations connectionDroppedHandler(Handler<StompClientOperations> handler) {
+        connection.connectionDroppedHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations pingHandler(Handler<StompClientOperations> handler) {
+        connection.handler().pingHandler((event, context) -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations exceptionHandler(Handler<Throwable> handler) {
+        connection.exceptionHandler(handler);
+        return this;
     }
 
     @Override

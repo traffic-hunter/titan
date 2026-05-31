@@ -12,6 +12,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -100,5 +101,45 @@ class VertxStompClientOperationsTest {
         VertxStompClientOperations operations = new VertxStompClientOperations(connection);
 
         assertThat(operations.isConnected()).isTrue();
+    }
+
+    @Test
+    void delegates_lifecycle_handlers() {
+        StompClientConnection connection = mock(StompClientConnection.class);
+        VertxStompClientOperations operations = new VertxStompClientOperations(connection);
+        AtomicBoolean closed = new AtomicBoolean(false);
+        AtomicBoolean dropped = new AtomicBoolean(false);
+        AtomicBoolean ping = new AtomicBoolean(false);
+        AtomicReference<Throwable> exception = new AtomicReference<>();
+
+        operations.closeHandler(value -> closed.set(value == operations));
+        operations.connectionDroppedHandler(value -> dropped.set(value == operations));
+        operations.pingHandler(value -> ping.set(value == operations));
+        operations.exceptionHandler(exception::set);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<io.vertx.core.Handler<StompClientConnection>> closeHandler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<io.vertx.core.Handler<StompClientConnection>> droppedHandler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<io.vertx.core.Handler<StompClientConnection>> pingHandler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<io.vertx.core.Handler<Throwable>> exceptionHandler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
+
+        verify(connection).closeHandler(closeHandler.capture());
+        verify(connection).connectionDroppedHandler(droppedHandler.capture());
+        verify(connection).pingHandler(pingHandler.capture());
+        verify(connection).exceptionHandler(exceptionHandler.capture());
+
+        RuntimeException error = new RuntimeException("failed");
+        closeHandler.getValue().handle(connection);
+        droppedHandler.getValue().handle(connection);
+        pingHandler.getValue().handle(connection);
+        exceptionHandler.getValue().handle(error);
+
+        assertThat(closed).isTrue();
+        assertThat(dropped).isTrue();
+        assertThat(ping).isTrue();
+        assertThat(exception).hasValue(error);
     }
 }

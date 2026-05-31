@@ -155,6 +155,12 @@ public interface StompClientConnection extends StompConnection {
 
     void failConnect(Throwable error);
 
+    StompClientConnection closeHandler(Handler<StompClientConnection> handler);
+
+    StompClientConnection connectionDroppedHandler(Handler<StompClientConnection> handler);
+
+    StompClientConnection exceptionHandler(Handler<Throwable> handler);
+
     Promise<Void> connectedPromise();
 
     boolean isConnected();

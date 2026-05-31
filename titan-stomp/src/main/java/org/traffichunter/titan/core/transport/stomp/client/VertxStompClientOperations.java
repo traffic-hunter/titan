@@ -108,6 +108,36 @@ public final class VertxStompClientOperations implements StompClientOperations {
     }
 
     @Override
+    public StompClientOperations errorHandler(Handler<StompFrames> handler) {
+        connection.errorHandler(frame -> handler.handle(VertxStompFrame.wrap(frame)));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations closeHandler(Handler<StompClientOperations> handler) {
+        connection.closeHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations connectionDroppedHandler(Handler<StompClientOperations> handler) {
+        connection.connectionDroppedHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations pingHandler(Handler<StompClientOperations> handler) {
+        connection.pingHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompClientOperations exceptionHandler(Handler<Throwable> handler) {
+        connection.exceptionHandler(handler::handle);
+        return this;
+    }
+
+    @Override
     public boolean isConnected() {
         return connection.isConnected();
     }

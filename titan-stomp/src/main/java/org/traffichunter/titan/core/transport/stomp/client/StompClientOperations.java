@@ -57,5 +57,15 @@ public interface StompClientOperations {
 
     Future<StompFrames> disconnect();
 
+    StompClientOperations errorHandler(Handler<StompFrames> handler);
+
+    StompClientOperations closeHandler(Handler<StompClientOperations> handler);
+
+    StompClientOperations connectionDroppedHandler(Handler<StompClientOperations> handler);
+
+    StompClientOperations pingHandler(Handler<StompClientOperations> handler);
+
+    StompClientOperations exceptionHandler(Handler<Throwable> handler);
+
     boolean isConnected();
 }

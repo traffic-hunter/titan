@@ -148,6 +148,10 @@ public final class TitanClientManager implements SmartLifecycle {
         }
     }
 
+    private void reconnect() {
+
+    }
+
     private static final class LoggingRetryListener implements RetryListener {
 
         @Override
