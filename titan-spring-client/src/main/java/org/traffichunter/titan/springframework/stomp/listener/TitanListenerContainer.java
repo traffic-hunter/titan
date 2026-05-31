@@ -13,6 +13,7 @@ import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessag
 import org.springframework.util.ErrorHandler;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
@@ -56,7 +57,7 @@ public final class TitanListenerContainer {
 
         try {
             StompClientOperations operations = manager.operations();
-            operations.subscribe(endpoint.destination(), frame -> {
+            String subscriptionId = operations.subscribe(endpoint.destination(), frame -> {
                 try {
                     invoke(frame);
                     acknowledgeIfPossible(frame, operations);
@@ -70,8 +71,14 @@ public final class TitanListenerContainer {
                     handleListenerError(e);
                     negativeAcknowledgeIfPossible(frame, operations);
                 }
-            });
-            log.info("Started Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());
+            }).get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+            log.info(
+                    "Started Titan listener. id={}, destination={}, subscriptionId={}",
+                    endpoint.id(),
+                    endpoint.destination(),
+                    subscriptionId
+            );
         } catch (Exception e) {
             running.set(false);
             throw new IllegalStateException("Failed to start listener " + endpoint.id(), e);
@@ -93,7 +100,8 @@ public final class TitanListenerContainer {
             }
 
             if (operations.isConnected()) {
-                operations.unsubscribe(endpoint.destination());
+                operations.unsubscribe(endpoint.destination())
+                        .get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
             }
 
             log.info("Stopped Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());

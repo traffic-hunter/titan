@@ -150,7 +150,7 @@ class TitanFanoutSmokeTest {
     }
 
     private static void shutdown(TitanStompClient client) {
-        if (client != null && client.isStart()) {
+        if (client != null && client.isStarted()) {
             client.shutdown(10, TimeUnit.SECONDS);
         }
     }

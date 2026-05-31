@@ -23,16 +23,18 @@ import static org.mockito.Mockito.when;
 class TitanTemplateTest {
 
     private StompClientOperations operations;
+    private StompClient client;
     private TitanTemplate template;
     private StompFrames frame;
 
     @BeforeEach
     void setUp() {
-        StompClient client = mock(StompClient.class);
+        client = mock(StompClient.class);
         operations = mock(StompClientOperations.class);
         frame = mock(StompFrames.class);
 
         when(client.operations()).thenReturn(operations);
+        when(client.connect()).thenReturn(CompletableFuture.completedFuture(operations));
         when(operations.isConnected()).thenReturn(true);
         template = new TitanTemplate(new TitanClientManager(client, new TitanProperties()));
     }
@@ -48,6 +50,21 @@ class TitanTemplateTest {
         verify(operations).send(eq("/topic/test"), payload.capture());
         assertThat(result).isSameAs(frame);
         assertThat(new String(payload.getValue().getBytes(), StandardCharsets.UTF_8)).isEqualTo("hello");
+    }
+
+    @Test
+    void sends_after_manager_connects_when_no_connection_exists() throws Exception {
+        when(client.operations())
+                .thenThrow(new IllegalStateException("not connected"))
+                .thenReturn(operations);
+        when(operations.send(eq("/topic/test"), any(Buffer.class)))
+                .thenReturn(CompletableFuture.completedFuture(frame));
+
+        StompFrames result = template.send("/topic/test", "hello");
+
+        verify(client).start();
+        verify(client).connect();
+        assertThat(result).isSameAs(frame);
     }
 
     @Test

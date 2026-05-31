@@ -12,5 +12,7 @@ dependencies {
     implementation(project.libs.spring.messaging)
     implementation(project.libs.jackson.databind)
 
+    testImplementation(project.libs.spring.boot.test)
+
     annotationProcessor(project.libs.spring.boot.configure.processor)
 }

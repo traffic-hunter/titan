@@ -21,27 +21,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.transport.stomp.client;
-
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+package org.traffichunter.titan.core.resilience.retry;
 
 /**
- * Transport-neutral lifecycle for a STOMP client.
+ * Handle for a retry sequence scheduled by a {@link RetryExecutor}.
+ *
+ * <p>Cancellation is best-effort. It cancels the currently scheduled attempt when one
+ * exists and prevents future attempts from being scheduled.</p>
  *
  * @author yun
  */
-public interface StompClient {
+public interface RetryResult {
 
-    void start();
+    /**
+     * Cancels the retry sequence without interrupting a running attempt.
+     */
+    default void cancel() { cancel(false); }
 
-    Future<StompClientOperations> connect();
+    /**
+     * Cancels the retry sequence.
+     *
+     * @param mayInterruptIfRunning whether a running scheduled task may be interrupted
+     */
+    void cancel(boolean mayInterruptIfRunning);
 
-    StompClientOperations operations();
-
-    boolean isStarted();
-
-    boolean isShutdown();
-
-    void shutdown(long timeout, TimeUnit unit);
+    /**
+     * Returns whether cancellation has been requested or observed by the scheduled task.
+     *
+     * @return {@code true} when this retry sequence is cancelled
+     */
+    boolean isCancelled();
 }

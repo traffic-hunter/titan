@@ -40,4 +40,5 @@ spring-context = { module = "org.springframework:spring-context", version.ref = 
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring" }
 spring-messaging = { module = "org.springframework:spring-messaging", version.ref = "spring" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot"}
+spring-boot-test = { module = "org.springframework.boot:spring-boot-test", version.ref = "spring-boot"}
 spring-boot-configure-processor = { module = "org.springframework.boot:spring-boot-configuration-processor", version.ref = "spring-boot"}

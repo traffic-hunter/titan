@@ -56,7 +56,7 @@ public class TcpFanoutExporter implements FanoutExporter {
 
     @Override
     public AggregationResult export(Destination destination, Buffer payload) {
-        Assert.checkState(inetServer.isStart(), "Cannot send an unstarted inet server");
+        Assert.checkState(inetServer.isStarted(), "Cannot send an unstarted inet server");
 
         int attempted = 0;
         int succeeded = 0;

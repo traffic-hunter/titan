@@ -21,27 +21,27 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.transport.stomp.client;
+package org.traffichunter.titan.core.util;
 
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Transport-neutral lifecycle for a STOMP client.
+ * Marks APIs that are intentionally public but may still change.
  *
  * @author yun
  */
-public interface StompClient {
-
-    void start();
-
-    Future<StompClientOperations> connect();
-
-    StompClientOperations operations();
-
-    boolean isStarted();
-
-    boolean isShutdown();
-
-    void shutdown(long timeout, TimeUnit unit);
+@Documented
+@Retention(RetentionPolicy.CLASS)
+@Target({
+        ElementType.ANNOTATION_TYPE,
+        ElementType.CONSTRUCTOR,
+        ElementType.METHOD,
+        ElementType.PACKAGE,
+        ElementType.TYPE
+})
+public @interface Unstable {
 }
