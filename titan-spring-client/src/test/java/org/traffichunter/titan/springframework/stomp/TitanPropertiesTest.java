@@ -26,6 +26,7 @@ class TitanPropertiesTest {
         assertFalse(properties.isUseStompFrame());
         assertFalse(properties.isBypassHostHeader());
         assertFalse(properties.getRetry().isEnabled());
+        assertTrue(properties.getReconnect().isEnabled());
         assertEquals(TitanProperties.Retry.Type.EXP, properties.getRetry().getType());
         assertEquals(3, properties.getRetry().getMaxAttempts());
         assertEquals(Duration.ofSeconds(1), properties.getRetry().getDelay());

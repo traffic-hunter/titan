@@ -52,6 +52,8 @@ public class TitanProperties {
 
     private final Retry retry = new Retry();
 
+    private final Reconnect reconnect = new Reconnect();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -202,6 +204,23 @@ public class TitanProperties {
 
     public Retry getRetry() {
         return retry;
+    }
+
+    public Reconnect getReconnect() {
+        return reconnect;
+    }
+
+    public static class Reconnect {
+
+        private boolean enabled = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
     }
 
     public static class Retry {

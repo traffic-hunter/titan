@@ -57,6 +57,8 @@ spring:
       delay: 1s
       max-delay: 30s
       multiplier: 2
+    reconnect:
+      enabled: true
 ```
 
 ## Send Messages
