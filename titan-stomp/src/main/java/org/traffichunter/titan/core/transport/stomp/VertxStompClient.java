@@ -31,8 +31,8 @@ import io.vertx.ext.stomp.StompClientConnection;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
-import org.traffichunter.titan.core.transport.stomp.client.VertxStompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.VertxStompOperations;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 
 import java.net.SocketOption;
@@ -55,7 +55,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
     private @Nullable Vertx vertx;
     private @Nullable StompClient client;
     private @Nullable StompClientConnection connection;
-    private @Nullable VertxStompClientOperations operations;
+    private @Nullable VertxStompOperations operations;
     private volatile boolean isShutdown;
 
     private VertxStompClient(
@@ -100,7 +100,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
     }
 
     @Override
-    public Future<StompClientOperations> connect() {
+    public Future<StompOperations> connect() {
         StompClientConnection connection = this.connection;
         if (connection != null && connection.isConnected()) {
             return CompletableFuture.failedFuture(new StompException("STOMP client is already connected"));
@@ -111,10 +111,10 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
             return CompletableFuture.failedFuture(new StompException("Client is not started"));
         }
 
-        io.vertx.core.Future<StompClientOperations> client = nativeClient
+        io.vertx.core.Future<StompOperations> client = nativeClient
                 .connect(option.port(), option.host())
                 .map(conn -> {
-                    VertxStompClientOperations operations = new VertxStompClientOperations(conn);
+                    VertxStompOperations operations = new VertxStompOperations(conn);
                     this.connection = conn;
                     this.operations = operations;
                     return operations;
@@ -124,14 +124,14 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
     }
 
     @Override
-    public StompClientOperations operations() {
-        VertxStompClientOperations operations = this.operations;
+    public StompOperations operations() {
+        VertxStompOperations operations = this.operations;
         if (operations == null) {
             StompClientConnection connection = this.connection;
             if (connection == null) {
                 throw new IllegalStateException("STOMP client is not connected");
             }
-            operations = new VertxStompClientOperations(connection);
+            operations = new VertxStompOperations(connection);
             this.operations = operations;
         }
         return operations;

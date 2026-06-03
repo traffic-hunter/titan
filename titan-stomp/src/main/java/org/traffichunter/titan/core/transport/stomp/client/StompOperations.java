@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp.client;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -37,7 +38,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
  *
  * @author yun
  */
-public interface StompClientOperations {
+public interface StompOperations {
 
     Future<StompFrames> send(String destination, Buffer payload);
 
@@ -57,15 +58,20 @@ public interface StompClientOperations {
 
     Future<StompFrames> disconnect();
 
-    StompClientOperations errorHandler(Handler<StompFrames> handler);
+    @CanIgnoreReturnValue
+    StompOperations errorHandler(Handler<StompFrames> handler);
 
-    StompClientOperations closeHandler(Handler<StompClientOperations> handler);
+    @CanIgnoreReturnValue
+    StompOperations closeHandler(Handler<StompOperations> handler);
 
-    StompClientOperations connectionDroppedHandler(Handler<StompClientOperations> handler);
+    @CanIgnoreReturnValue
+    StompOperations connectionDroppedHandler(Handler<StompOperations> handler);
 
-    StompClientOperations pingHandler(Handler<StompClientOperations> handler);
+    @CanIgnoreReturnValue
+    StompOperations pingHandler(Handler<StompOperations> handler);
 
-    StompClientOperations exceptionHandler(Handler<Throwable> handler);
+    @CanIgnoreReturnValue
+    StompOperations exceptionHandler(Handler<Throwable> handler);
 
     boolean isConnected();
 }

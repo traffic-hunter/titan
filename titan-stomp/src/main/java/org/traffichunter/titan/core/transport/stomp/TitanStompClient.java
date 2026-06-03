@@ -43,8 +43,8 @@ import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
-import org.traffichunter.titan.core.transport.stomp.client.TitanStompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.TitanStompOperations;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 
@@ -62,7 +62,7 @@ public final class TitanStompClient implements StompClient {
 
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private @Nullable StompClientConnection connection;
-    private @Nullable TitanStompClientOperations operations;
+    private @Nullable TitanStompOperations operations;
 
     private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
@@ -82,10 +82,10 @@ public final class TitanStompClient implements StompClient {
     }
 
     @Override
-    public StompClientOperations operations() {
-        TitanStompClientOperations operations = this.operations;
+    public StompOperations operations() {
+        TitanStompOperations operations = this.operations;
         if (operations == null) {
-            operations = new TitanStompClientOperations(connection());
+            operations = new TitanStompOperations(connection());
             this.operations = operations;
         }
         return operations;
@@ -117,12 +117,12 @@ public final class TitanStompClient implements StompClient {
     }
 
     @Override
-    public Future<StompClientOperations> connect() {
+    public Future<StompOperations> connect() {
         return connect(option.host(), option.port())
                 .map(connection -> {
-                    TitanStompClientOperations operations = new TitanStompClientOperations(connection);
+                    TitanStompOperations operations = new TitanStompOperations(connection);
                     this.operations = operations;
-                    return (StompClientOperations) operations;
+                    return (StompOperations) operations;
                 })
                 .future();
     }
@@ -194,7 +194,7 @@ public final class TitanStompClient implements StompClient {
         stompClientHandler.handle(connection.handler());
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
-        this.operations = new TitanStompClientOperations(connection);
+        this.operations = new TitanStompOperations(connection);
         return connection;
     }
 

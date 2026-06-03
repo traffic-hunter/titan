@@ -43,11 +43,11 @@ import java.util.concurrent.TimeoutException;
 /**
  * @author yun
  */
-public final class VertxStompClientOperations implements StompClientOperations {
+public final class VertxStompOperations implements StompOperations {
 
     private final StompClientConnection connection;
 
-    public VertxStompClientOperations(StompClientConnection connection) {
+    public VertxStompOperations(StompClientConnection connection) {
         this.connection = connection;
     }
 
@@ -108,31 +108,31 @@ public final class VertxStompClientOperations implements StompClientOperations {
     }
 
     @Override
-    public StompClientOperations errorHandler(Handler<StompFrames> handler) {
+    public StompOperations errorHandler(Handler<StompFrames> handler) {
         connection.errorHandler(frame -> handler.handle(VertxStompFrame.wrap(frame)));
         return this;
     }
 
     @Override
-    public StompClientOperations closeHandler(Handler<StompClientOperations> handler) {
+    public StompOperations closeHandler(Handler<StompOperations> handler) {
         connection.closeHandler(connection -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompClientOperations connectionDroppedHandler(Handler<StompClientOperations> handler) {
+    public StompOperations connectionDroppedHandler(Handler<StompOperations> handler) {
         connection.connectionDroppedHandler(connection -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompClientOperations pingHandler(Handler<StompClientOperations> handler) {
+    public StompOperations pingHandler(Handler<StompOperations> handler) {
         connection.pingHandler(connection -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompClientOperations exceptionHandler(Handler<Throwable> handler) {
+    public StompOperations exceptionHandler(Handler<Throwable> handler) {
         connection.exceptionHandler(handler::handle);
         return this;
     }

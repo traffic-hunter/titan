@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 import org.springframework.util.ErrorHandler;
@@ -56,7 +56,7 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompClientOperations operations = manager.operations();
+            StompOperations operations = manager.operations();
             String subscriptionId = operations.subscribe(endpoint.destination(), frame -> {
                 try {
                     invoke(frame);
@@ -94,7 +94,7 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompClientOperations operations = manager.currentOperations();
+            StompOperations operations = manager.currentOperations();
             if(operations == null) {
                 return;
             }
@@ -151,7 +151,7 @@ public final class TitanListenerContainer {
     /**
      * Send ACK for MESSAGE frames that include a message-id.
      */
-    private void acknowledgeIfPossible(StompFrames frame, StompClientOperations operations) {
+    private void acknowledgeIfPossible(StompFrames frame, StompOperations operations) {
         if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
@@ -168,7 +168,7 @@ public final class TitanListenerContainer {
     /**
      * Send NACK for MESSAGE frames that include a message-id.
      */
-    private void negativeAcknowledgeIfPossible(StompFrames frame, StompClientOperations operations) {
+    private void negativeAcknowledgeIfPossible(StompFrames frame, StompOperations operations) {
         if (frame.command() != StompCommand.MESSAGE) {
             return;
         }

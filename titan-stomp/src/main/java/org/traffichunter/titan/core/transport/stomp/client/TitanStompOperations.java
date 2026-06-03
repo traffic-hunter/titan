@@ -38,11 +38,11 @@ import java.util.concurrent.Future;
 /**
  * @author yun
  */
-public final class TitanStompClientOperations implements StompClientOperations {
+public final class TitanStompOperations implements StompOperations {
 
     private final StompClientConnection connection;
 
-    public TitanStompClientOperations(StompClientConnection connection) {
+    public TitanStompOperations(StompClientConnection connection) {
         this.connection = connection;
     }
 
@@ -113,7 +113,7 @@ public final class TitanStompClientOperations implements StompClientOperations {
     }
 
     @Override
-    public StompClientOperations errorHandler(Handler<StompFrames> handler) {
+    public StompOperations errorHandler(Handler<StompFrames> handler) {
         connection.handler().errorHandler((event, context) -> {
             handler.handle(event.frame());
             event.connection().failConnect(new StompException("Received ERROR frame from server"));
@@ -123,25 +123,25 @@ public final class TitanStompClientOperations implements StompClientOperations {
     }
 
     @Override
-    public StompClientOperations closeHandler(Handler<StompClientOperations> handler) {
+    public StompOperations closeHandler(Handler<StompOperations> handler) {
         connection.closeHandler(connection -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompClientOperations connectionDroppedHandler(Handler<StompClientOperations> handler) {
+    public StompOperations connectionDroppedHandler(Handler<StompOperations> handler) {
         connection.connectionDroppedHandler(connection -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompClientOperations pingHandler(Handler<StompClientOperations> handler) {
+    public StompOperations pingHandler(Handler<StompOperations> handler) {
         connection.handler().pingHandler((event, context) -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompClientOperations exceptionHandler(Handler<Throwable> handler) {
+    public StompOperations exceptionHandler(Handler<Throwable> handler) {
         connection.exceptionHandler(handler);
         return this;
     }
