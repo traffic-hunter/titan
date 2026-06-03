@@ -26,8 +26,8 @@ package org.traffichunter.titan.smoke.springframework.smoke.local;
 import org.springframework.context.annotation.Import;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
-import org.traffichunter.titan.core.transport.stomp.client.TitanStompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.TitanStompOperations;
 import org.traffichunter.titan.smoke.springframework.smoke.junit.TitanSmokeTest;
 
 /**
@@ -43,7 +43,7 @@ class TitanSmokeLocalTest extends AbstractTitanSmokeLocalTest {
     }
 
     @Override
-    protected Class<? extends StompClientOperations> operationsType() {
-        return TitanStompClientOperations.class;
+    protected Class<? extends StompOperations> operationsType() {
+        return TitanStompOperations.class;
     }
 }

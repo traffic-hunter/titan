@@ -6,7 +6,7 @@ import org.mockito.ArgumentCaptor;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.nio.charset.StandardCharsets;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 
 class TitanTemplateTest {
 
-    private StompClientOperations operations;
+    private StompOperations operations;
     private StompClient client;
     private TitanTemplate template;
     private StompFrames frame;
@@ -30,7 +30,7 @@ class TitanTemplateTest {
     @BeforeEach
     void setUp() {
         client = mock(StompClient.class);
-        operations = mock(StompClientOperations.class);
+        operations = mock(StompOperations.class);
         frame = mock(StompFrames.class);
 
         when(client.operations()).thenReturn(operations);

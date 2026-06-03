@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class VertxStompClientOperationsTest {
+class VertxStompOperationsTest {
 
     @Test
     void sends_with_converted_headers_and_payload() throws Exception {
@@ -32,7 +32,7 @@ class VertxStompClientOperationsTest {
         when(connection.send(eq("/topic/test"), anyMap(), any(io.vertx.core.buffer.Buffer.class)))
                 .thenReturn(io.vertx.core.Future.succeededFuture(receipt));
 
-        VertxStompClientOperations operations = new VertxStompClientOperations(connection);
+        VertxStompOperations operations = new VertxStompOperations(connection);
 
         StompFrames result = operations.send(
                 "/topic/test",
@@ -64,7 +64,7 @@ class VertxStompClientOperationsTest {
                 any()
         )).thenReturn(io.vertx.core.Future.succeededFuture("sub-1"));
 
-        VertxStompClientOperations operations = new VertxStompClientOperations(connection);
+        VertxStompOperations operations = new VertxStompOperations(connection);
         AtomicReference<StompFrames> received = new AtomicReference<>();
 
         String subscriptionId = operations.subscribe(
@@ -98,7 +98,7 @@ class VertxStompClientOperationsTest {
         StompClientConnection connection = mock(StompClientConnection.class);
         when(connection.isConnected()).thenReturn(true);
 
-        VertxStompClientOperations operations = new VertxStompClientOperations(connection);
+        VertxStompOperations operations = new VertxStompOperations(connection);
 
         assertThat(operations.isConnected()).isTrue();
     }
@@ -106,7 +106,7 @@ class VertxStompClientOperationsTest {
     @Test
     void delegates_lifecycle_handlers() {
         StompClientConnection connection = mock(StompClientConnection.class);
-        VertxStompClientOperations operations = new VertxStompClientOperations(connection);
+        VertxStompOperations operations = new VertxStompOperations(connection);
         AtomicBoolean closed = new AtomicBoolean(false);
         AtomicBoolean dropped = new AtomicBoolean(false);
         AtomicBoolean ping = new AtomicBoolean(false);

@@ -9,7 +9,7 @@ import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
@@ -84,7 +84,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_starts_and_connects_client_when_auto_start_and_auto_connect_are_enabled() {
-        StompClientOperations operations = mock(StompClientOperations.class);
+        StompOperations operations = mock(StompOperations.class);
         StompClient client = lifecycleClient(operations);
 
         contextRunner
@@ -99,7 +99,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_only_starts_client_when_auto_connect_is_disabled() {
-        StompClientOperations operations = mock(StompClientOperations.class);
+        StompOperations operations = mock(StompOperations.class);
         StompClient client = lifecycleClient(operations);
 
         contextRunner
@@ -114,7 +114,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_does_not_start_client_when_auto_start_is_disabled() {
-        StompClientOperations operations = mock(StompClientOperations.class);
+        StompOperations operations = mock(StompOperations.class);
         StompClient client = lifecycleClient(operations);
 
         contextRunner
@@ -129,7 +129,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void binds_retry_properties() {
-        StompClient client = lifecycleClient(mock(StompClientOperations.class));
+        StompClient client = lifecycleClient(mock(StompOperations.class));
 
         contextRunner
                 .withBean(StompClient.class, () -> client)
@@ -140,13 +140,16 @@ class TitanStompClientAutoConfigurationTest {
                         "spring.titan.retry.max-attempts=7",
                         "spring.titan.retry.delay=250ms",
                         "spring.titan.retry.max-delay=5s",
-                        "spring.titan.retry.multiplier=3"
+                        "spring.titan.retry.multiplier=3",
+                        "spring.titan.reconnect.enabled=false"
                 )
                 .run(context -> {
-                    TitanProperties.Retry retry = context.getBean(TitanProperties.class).getRetry();
+                    TitanProperties properties = context.getBean(TitanProperties.class);
+                    TitanProperties.Retry retry = properties.getRetry();
                     RetryPolicy policy = retry.toPolicy();
 
                     assertThat(retry.isEnabled()).isTrue();
+                    assertThat(properties.getReconnect().isEnabled()).isFalse();
                     assertThat(retry.getType()).isEqualTo(TitanProperties.Retry.Type.FIX);
                     assertThat(retry.getMaxAttempts()).isEqualTo(7);
                     assertThat(retry.getDelay()).isEqualTo(Duration.ofMillis(250));
@@ -157,7 +160,7 @@ class TitanStompClientAutoConfigurationTest {
                 });
     }
 
-    private static StompClient lifecycleClient(StompClientOperations operations) {
+    private static StompClient lifecycleClient(StompOperations operations) {
         AtomicBoolean started = new AtomicBoolean(false);
         StompClient client = mock(StompClient.class);
         when(client.isStarted()).thenAnswer(invocation -> started.get());

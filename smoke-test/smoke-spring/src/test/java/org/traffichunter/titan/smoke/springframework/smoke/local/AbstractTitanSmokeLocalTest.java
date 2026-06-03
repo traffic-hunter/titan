@@ -10,7 +10,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanTemplate;
 
@@ -32,7 +32,7 @@ public abstract class AbstractTitanSmokeLocalTest {
 
     protected abstract Class<? extends StompClient> clientType();
 
-    protected abstract Class<? extends StompClientOperations> operationsType();
+    protected abstract Class<? extends StompOperations> operationsType();
 
     @Test
     void configured_client_matches_smoke_client() throws Exception {
