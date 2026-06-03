@@ -23,43 +23,24 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.resilience.retry;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+
 /**
- * Handle for a retry sequence scheduled by a {@link RetryExecutor}.
- *
- * <p>Cancellation is best-effort. It cancels the currently scheduled attempt when one
- * exists and prevents future attempts from being scheduled.</p>
- *
  * @author yun
  */
-public interface RetryResult {
+public final class NoopRetryExecutor implements RetryExecutor {
 
-    static RetryResult noop() {
-        return new RetryResult() {
-            @Override
-            public void cancel() { }
-            @Override
-            public void cancel(boolean mayInterruptIfRunning) { }
-            @Override
-            public boolean isCancelled() { return false; }
-        };
+    @Override
+    public RetryResult retry(Runnable callback) {
+        return RetryResult.noop();
     }
 
-    /**
-     * Cancels the retry sequence without interrupting a running attempt.
-     */
-    default void cancel() { cancel(false); }
+    @Override
+    public <T> RetryResult retry(Callable<T> callback) {
+        return RetryResult.noop();
+    }
 
-    /**
-     * Cancels the retry sequence.
-     *
-     * @param mayInterruptIfRunning whether a running scheduled task may be interrupted
-     */
-    void cancel(boolean mayInterruptIfRunning);
-
-    /**
-     * Returns whether cancellation has been requested or observed by the scheduled task.
-     *
-     * @return {@code true} when this retry sequence is cancelled
-     */
-    boolean isCancelled();
+    @Override
+    public void shutdown(long timeout, TimeUnit timeUnit) { }
 }

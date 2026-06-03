@@ -76,5 +76,9 @@ public final class RetryExecutors {
         return new JdkScheduledRetryExecutor(scheduledExecutorService, retryPolicy, retryListener);
     }
 
+    public static RetryExecutor noopRetryExecutor() {
+        return new NoopRetryExecutor();
+    }
+
     private RetryExecutors() { }
 }
