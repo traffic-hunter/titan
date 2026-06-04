@@ -21,29 +21,26 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.smoke.springframework.smoke.local;
+package org.traffichunter.titan.core.resilience.retry;
 
-import org.springframework.context.annotation.Import;
-import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
-import org.traffichunter.titan.core.transport.stomp.client.TitanStompOperations;
-import org.traffichunter.titan.smoke.springframework.smoke.junit.TitanSmokeTest;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yun
  */
-@TitanSmokeTest
-@Import(SmokeConfiguration.class)
-class TitanSmokeLocalTest extends AbstractTitanSmokeLocalTest {
+public final class NoopRetryExecutor implements RetryExecutor {
 
     @Override
-    protected Class<? extends StompClient> clientType() {
-        return TitanStompClient.class;
+    public RetryResult retry(Runnable callback) {
+        return RetryResult.noop();
     }
 
     @Override
-    protected Class<? extends StompOperations> operationsType() {
-        return TitanStompOperations.class;
+    public <T> RetryResult retry(Callable<T> callback) {
+        return RetryResult.noop();
     }
+
+    @Override
+    public void shutdown(long timeout, TimeUnit timeUnit) { }
 }

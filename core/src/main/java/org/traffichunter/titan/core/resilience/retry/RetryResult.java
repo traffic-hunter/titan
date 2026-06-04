@@ -33,6 +33,17 @@ package org.traffichunter.titan.core.resilience.retry;
  */
 public interface RetryResult {
 
+    static RetryResult noop() {
+        return new RetryResult() {
+            @Override
+            public void cancel() { }
+            @Override
+            public void cancel(boolean mayInterruptIfRunning) { }
+            @Override
+            public boolean isCancelled() { return false; }
+        };
+    }
+
     /**
      * Cancels the retry sequence without interrupting a running attempt.
      */

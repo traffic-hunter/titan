@@ -1,8 +1,5 @@
 package org.traffichunter.titan.springframework.stomp;
 
-import java.time.Duration;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +8,11 @@ import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
 import org.traffichunter.titan.core.resilience.retry.RetryExecutors;
 import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
+
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Spring lifecycle adapter for a Titan STOMP client.
@@ -29,9 +30,9 @@ public final class TitanClientManager implements SmartLifecycle {
 
     private final StompClient stompClient;
     private final TitanProperties properties;
-    private final @Nullable RetryExecutor retryExecutor;
+    private final RetryExecutor retryExecutor;
 
-    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicReference<Status> status = new AtomicReference<>(Status.INITIALIZED);
 
     public TitanClientManager(StompClient stompClient, TitanProperties properties) {
         this.stompClient = stompClient;
@@ -41,13 +42,32 @@ public final class TitanClientManager implements SmartLifecycle {
         if (retry.isEnabled()) {
             this.retryExecutor = RetryExecutors.eventLoopRetryExecutor(retry.toPolicy(), new LoggingRetryListener());
         } else {
-            this.retryExecutor = null;
+            this.retryExecutor = RetryExecutors.noopRetryExecutor();
+        }
+    }
+
+    private enum Status {
+        INITIALIZED,
+        STARTING,
+        STARTED,
+        CONNECTING,
+        CONNECTED,
+        RECONNECTING,
+        SHUTTING_DOWN,
+        SHUTDOWN,
+        ;
+
+        static boolean isRunning(Status status) {
+            return switch (status) {
+                case STARTING, STARTED, CONNECTING, CONNECTED, RECONNECTING -> true;
+                case INITIALIZED, SHUTTING_DOWN, SHUTDOWN -> false;
+            };
         }
     }
 
     @Override
     public void start() {
-        if (!running.compareAndSet(false, true)) {
+        if (!status.compareAndSet(Status.INITIALIZED, Status.STARTING)) {
             return;
         }
 
@@ -55,39 +75,41 @@ public final class TitanClientManager implements SmartLifecycle {
             if (!stompClient.isStarted()) {
                 stompClient.start();
             }
+            status.set(Status.STARTED);
             if (properties.isAutoConnect()) {
-                if (retryExecutor == null) {
+                try {
                     connect();
-                } else {
-                    try {
-                        connect();
-                    } catch (Exception e) {
-                        log.warn("Failed to connect Titan STOMP client. Scheduling retry.", e);
-                        retryExecutor.retry(this::connect);
+                } catch (Exception e) {
+                    if (!properties.getRetry().isEnabled()) {
+                        log.error("Disable retry", e);
+                        throw e;
                     }
+
+                    log.warn("Failed to connect Titan STOMP client. Scheduling retry.", e);
+                    retryExecutor.retry(this::connect);
                 }
             }
             log.info("Started Titan Client Manager");
         } catch (Exception e) {
-            running.set(false);
+            status.set(Status.INITIALIZED);
             throw new IllegalStateException("Failed to start Titan STOMP client manager", e);
         }
     }
 
     @Override
     public void stop() {
-        if (!running.compareAndSet(true, false)) {
+        if (!transitionToShuttingDown()) {
             return;
         }
 
         try {
             stompClient.shutdown(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
-            if (retryExecutor != null) {
-                retryExecutor.shutdown(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
-            }
+            retryExecutor.shutdown(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
             log.info("Shutting down Titan STOMP client manager");
         } catch (Exception e) {
             log.warn("Failed to shutdown STOMP client cleanly", e);
+        } finally {
+            status.set(Status.SHUTDOWN);
         }
     }
 
@@ -99,7 +121,15 @@ public final class TitanClientManager implements SmartLifecycle {
 
     @Override
     public boolean isRunning() {
-        return running.get();
+        return Status.isRunning(status.get());
+    }
+
+    public boolean isShuttingDown() {
+        return status.get() == Status.SHUTTING_DOWN;
+    }
+
+    public boolean isShutdown() {
+        return status.get() == Status.SHUTDOWN;
     }
 
     @Override
@@ -112,19 +142,11 @@ public final class TitanClientManager implements SmartLifecycle {
         return PHASE;
     }
 
-    public StompClientOperations connect() throws Exception {
-        if (!stompClient.isStarted()) {
-            stompClient.start();
-        }
-
-        return stompClient.connect()
-                .get(properties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
-    }
-
-    public StompClientOperations operations() throws Exception {
+    public StompOperations operations() throws Exception {
         if (isConnected()) {
             return stompClient.operations();
         }
+
         return connect();
     }
 
@@ -132,12 +154,16 @@ public final class TitanClientManager implements SmartLifecycle {
         return properties.getConnectTimeoutMillis();
     }
 
-    public @Nullable StompClientOperations currentOperations() {
+    public @Nullable StompOperations currentOperations() {
         try {
             return stompClient.operations();
         } catch (IllegalStateException e) {
             return null;
         }
+    }
+
+    public boolean isReconnecting() {
+        return status.get() == Status.RECONNECTING;
     }
 
     public boolean isConnected() {
@@ -146,6 +172,80 @@ public final class TitanClientManager implements SmartLifecycle {
         } catch (IllegalStateException e) {
             return false;
         }
+    }
+
+    private StompOperations connect() throws Exception {
+        if (isShutdown()) {
+            throw new IllegalStateException("Titan STOMP client manager has been shut down");
+        }
+
+        Status previous = status.get();
+        if (previous == Status.SHUTTING_DOWN || previous == Status.SHUTDOWN) {
+            throw new IllegalStateException("Titan STOMP client manager is shutting down");
+        }
+
+        if (!isReconnecting()) {
+            status.set(Status.CONNECTING);
+        }
+
+        if (!stompClient.isStarted()) {
+            stompClient.start();
+        }
+
+        try {
+            StompOperations operations = stompClient.connect()
+                    .get(properties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+            registerReconnectOperation(operations);
+            status.set(Status.CONNECTED);
+            return operations;
+        } catch (Exception e) {
+            restoreAfterConnectFailure(previous);
+            throw e;
+        }
+    }
+
+    private void registerReconnectOperation(StompOperations operations) {
+        if (isShutdown()) {
+            throw new IllegalStateException("Titan STOMP client manager has been shut down");
+        }
+
+        operations.connectionDroppedHandler(oper -> reconnect());
+        operations.exceptionHandler(throwable -> reconnect());
+    }
+
+    private void reconnect() {
+        if (!properties.getRetry().isEnabled() || !properties.getReconnect().isEnabled()) {
+            return;
+        }
+        if (!transitionToReconnecting()) {
+            return;
+        }
+
+        retryExecutor.retry(this::connect);
+    }
+
+    private boolean transitionToShuttingDown() {
+        while (true) {
+            Status current = status.get();
+            if (!Status.isRunning(current)) {
+                return false;
+            }
+            if (status.compareAndSet(current, Status.SHUTTING_DOWN)) {
+                return true;
+            }
+        }
+    }
+
+    private boolean transitionToReconnecting() {
+        return status.compareAndSet(Status.CONNECTED, Status.RECONNECTING);
+    }
+
+    private void restoreAfterConnectFailure(Status previous) {
+        if (status.get() == Status.SHUTTING_DOWN || status.get() == Status.SHUTDOWN) {
+            return;
+        }
+        status.set(previous == Status.STARTING ? Status.STARTED : previous);
     }
 
     private static final class LoggingRetryListener implements RetryListener {

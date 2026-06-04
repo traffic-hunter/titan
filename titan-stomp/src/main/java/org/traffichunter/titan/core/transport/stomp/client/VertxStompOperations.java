@@ -43,11 +43,11 @@ import java.util.concurrent.TimeoutException;
 /**
  * @author yun
  */
-public final class VertxStompClientOperations implements StompClientOperations {
+public final class VertxStompOperations implements StompOperations {
 
     private final StompClientConnection connection;
 
-    public VertxStompClientOperations(StompClientConnection connection) {
+    public VertxStompOperations(StompClientConnection connection) {
         this.connection = connection;
     }
 
@@ -105,6 +105,36 @@ public final class VertxStompClientOperations implements StompClientOperations {
     @Override
     public Future<StompFrames> disconnect() {
         return toFuture(connection.disconnect());
+    }
+
+    @Override
+    public StompOperations errorHandler(Handler<StompFrames> handler) {
+        connection.errorHandler(frame -> handler.handle(VertxStompFrame.wrap(frame)));
+        return this;
+    }
+
+    @Override
+    public StompOperations closeHandler(Handler<StompOperations> handler) {
+        connection.closeHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompOperations connectionDroppedHandler(Handler<StompOperations> handler) {
+        connection.connectionDroppedHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompOperations pingHandler(Handler<StompOperations> handler) {
+        connection.pingHandler(connection -> handler.handle(this));
+        return this;
+    }
+
+    @Override
+    public StompOperations exceptionHandler(Handler<Throwable> handler) {
+        connection.exceptionHandler(handler::handle);
+        return this;
     }
 
     @Override

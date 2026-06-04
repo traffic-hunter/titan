@@ -9,7 +9,7 @@ import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
@@ -40,7 +40,7 @@ class TitanStompClientAutoConfigurationTest {
         when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
         StompClientProvider provider = configuration.titanStompClientProvider(eventLoopGroups);
         TitanProperties properties = new TitanProperties();
-        properties.setClient("titan");
+        properties.setClient(TitanProperties.Client.TITAN);
 
         StompClient client = configuration.titanStompClient(
                 List.of(provider),
@@ -56,7 +56,7 @@ class TitanStompClientAutoConfigurationTest {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
         StompClientProvider provider = configuration.vertxStompClientProvider();
         TitanProperties properties = new TitanProperties();
-        properties.setClient("vertx");
+        properties.setClient(TitanProperties.Client.VERTX);
 
         StompClient client = configuration.titanStompClient(
                 List.of(provider),
@@ -68,23 +68,8 @@ class TitanStompClientAutoConfigurationTest {
     }
 
     @Test
-    void fails_when_client_has_no_provider() {
-        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        TitanProperties properties = new TitanProperties();
-        properties.setClient("missing");
-
-        assertThatThrownBy(() -> configuration.titanStompClient(
-                List.of(configuration.vertxStompClientProvider()),
-                StompClientOption.builder().build(),
-                properties
-        ))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("missing");
-    }
-
-    @Test
     void lifecycle_starts_and_connects_client_when_auto_start_and_auto_connect_are_enabled() {
-        StompClientOperations operations = mock(StompClientOperations.class);
+        StompOperations operations = mock(StompOperations.class);
         StompClient client = lifecycleClient(operations);
 
         contextRunner
@@ -99,7 +84,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_only_starts_client_when_auto_connect_is_disabled() {
-        StompClientOperations operations = mock(StompClientOperations.class);
+        StompOperations operations = mock(StompOperations.class);
         StompClient client = lifecycleClient(operations);
 
         contextRunner
@@ -114,7 +99,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_does_not_start_client_when_auto_start_is_disabled() {
-        StompClientOperations operations = mock(StompClientOperations.class);
+        StompOperations operations = mock(StompOperations.class);
         StompClient client = lifecycleClient(operations);
 
         contextRunner
@@ -129,7 +114,7 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void binds_retry_properties() {
-        StompClient client = lifecycleClient(mock(StompClientOperations.class));
+        StompClient client = lifecycleClient(mock(StompOperations.class));
 
         contextRunner
                 .withBean(StompClient.class, () -> client)
@@ -140,13 +125,16 @@ class TitanStompClientAutoConfigurationTest {
                         "spring.titan.retry.max-attempts=7",
                         "spring.titan.retry.delay=250ms",
                         "spring.titan.retry.max-delay=5s",
-                        "spring.titan.retry.multiplier=3"
+                        "spring.titan.retry.multiplier=3",
+                        "spring.titan.reconnect.enabled=false"
                 )
                 .run(context -> {
-                    TitanProperties.Retry retry = context.getBean(TitanProperties.class).getRetry();
+                    TitanProperties properties = context.getBean(TitanProperties.class);
+                    TitanProperties.Retry retry = properties.getRetry();
                     RetryPolicy policy = retry.toPolicy();
 
                     assertThat(retry.isEnabled()).isTrue();
+                    assertThat(properties.getReconnect().isEnabled()).isFalse();
                     assertThat(retry.getType()).isEqualTo(TitanProperties.Retry.Type.FIX);
                     assertThat(retry.getMaxAttempts()).isEqualTo(7);
                     assertThat(retry.getDelay()).isEqualTo(Duration.ofMillis(250));
@@ -157,7 +145,24 @@ class TitanStompClientAutoConfigurationTest {
                 });
     }
 
-    private static StompClient lifecycleClient(StompClientOperations operations) {
+    @Test
+    void binds_client_property_to_client_enum() {
+        StompClient client = lifecycleClient(mock(StompOperations.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues(
+                        "spring.titan.auto-start=false",
+                        "spring.titan.client=vertx"
+                )
+                .run(context -> {
+                    TitanProperties properties = context.getBean(TitanProperties.class);
+
+                    assertThat(properties.getClient()).isEqualTo(TitanProperties.Client.VERTX);
+                });
+    }
+
+    private static StompClient lifecycleClient(StompOperations operations) {
         AtomicBoolean started = new AtomicBoolean(false);
         StompClient client = mock(StompClient.class);
         when(client.isStarted()).thenAnswer(invocation -> started.get());

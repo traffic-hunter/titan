@@ -19,6 +19,7 @@ class TitanPropertiesTest {
         assertTrue(properties.isEnabled());
         assertTrue(properties.isAutoStart());
         assertTrue(properties.isAutoConnect());
+        assertEquals(TitanProperties.Client.TITAN, properties.getClient());
         assertEquals("127.0.0.1", properties.getHost());
         assertEquals(61613, properties.getPort());
         assertEquals(30000L, properties.getConnectTimeoutMillis());
@@ -26,6 +27,7 @@ class TitanPropertiesTest {
         assertFalse(properties.isUseStompFrame());
         assertFalse(properties.isBypassHostHeader());
         assertFalse(properties.getRetry().isEnabled());
+        assertTrue(properties.getReconnect().isEnabled());
         assertEquals(TitanProperties.Retry.Type.EXP, properties.getRetry().getType());
         assertEquals(3, properties.getRetry().getMaxAttempts());
         assertEquals(Duration.ofSeconds(1), properties.getRetry().getDelay());

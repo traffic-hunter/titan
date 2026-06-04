@@ -4,8 +4,8 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.stomp.StompClientConnection;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.codec.stomp.StompException;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientOperations;
-import org.traffichunter.titan.core.transport.stomp.client.VertxStompClientOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.VertxStompOperations;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 
 import java.util.concurrent.ExecutionException;
@@ -45,9 +45,9 @@ class VertxStompClientTest {
 
         VertxStompClient client = VertxStompClient.wrap(nativeClient, option);
 
-        StompClientOperations operations = client.connect().get();
+        StompOperations operations = client.connect().get();
 
-        assertThat(operations).isInstanceOf(VertxStompClientOperations.class);
+        assertThat(operations).isInstanceOf(VertxStompOperations.class);
         assertThat(client.operations()).isSameAs(operations);
         assertThat(client.connection()).isSameAs(connection);
     }
