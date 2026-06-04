@@ -79,10 +79,10 @@ public class TitanStompClientAutoConfiguration {
             TitanProperties properties
     ) {
         return stompClientProviders.stream()
-                .filter(provider -> provider.supports(properties.getClient(), titanStompClientOption.stompVersion().getVersion()))
+                .filter(provider -> provider.supports(properties.getClient().getName(), titanStompClientOption.stompVersion().getVersion()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No STOMP client provider found for client: "
-                        + properties.getClient()
+                        + properties.getClient().getName()
                         + ", version: "
                         + titanStompClientOption.stompVersion().getVersion()))
                 .create(titanStompClientOption);

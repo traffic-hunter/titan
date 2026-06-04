@@ -12,7 +12,7 @@ import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
  * @author yun
  */
 @ConfigurationProperties(prefix = "spring.titan")
-public class TitanProperties {
+public final class TitanProperties {
 
     private boolean enabled = true;
 
@@ -20,7 +20,7 @@ public class TitanProperties {
 
     private boolean autoConnect = true;
 
-    private String client = "titan";
+    private Client client = Client.TITAN;
 
     private int primaryThreads = 1;
 
@@ -194,11 +194,11 @@ public class TitanProperties {
         this.bypassHostHeader = bypassHostHeader;
     }
 
-    public String getClient() {
+    public Client getClient() {
         return client;
     }
 
-    public void setClient(String client) {
+    public void setClient(Client client) {
         this.client = client;
     }
 
@@ -208,6 +208,22 @@ public class TitanProperties {
 
     public Reconnect getReconnect() {
         return reconnect;
+    }
+
+    public enum Client {
+        TITAN("titan"),
+        VERTX("vertx"),
+        ;
+
+        private final String name;
+
+        Client(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
     }
 
     public static class Reconnect {

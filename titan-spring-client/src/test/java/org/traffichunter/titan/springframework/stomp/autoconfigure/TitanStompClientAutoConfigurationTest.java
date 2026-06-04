@@ -40,7 +40,7 @@ class TitanStompClientAutoConfigurationTest {
         when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
         StompClientProvider provider = configuration.titanStompClientProvider(eventLoopGroups);
         TitanProperties properties = new TitanProperties();
-        properties.setClient("titan");
+        properties.setClient(TitanProperties.Client.TITAN);
 
         StompClient client = configuration.titanStompClient(
                 List.of(provider),
@@ -56,7 +56,7 @@ class TitanStompClientAutoConfigurationTest {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
         StompClientProvider provider = configuration.vertxStompClientProvider();
         TitanProperties properties = new TitanProperties();
-        properties.setClient("vertx");
+        properties.setClient(TitanProperties.Client.VERTX);
 
         StompClient client = configuration.titanStompClient(
                 List.of(provider),
@@ -65,21 +65,6 @@ class TitanStompClientAutoConfigurationTest {
         );
 
         assertThat(client).isInstanceOf(VertxStompClient.class);
-    }
-
-    @Test
-    void fails_when_client_has_no_provider() {
-        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        TitanProperties properties = new TitanProperties();
-        properties.setClient("missing");
-
-        assertThatThrownBy(() -> configuration.titanStompClient(
-                List.of(configuration.vertxStompClientProvider()),
-                StompClientOption.builder().build(),
-                properties
-        ))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("missing");
     }
 
     @Test
@@ -157,6 +142,23 @@ class TitanStompClientAutoConfigurationTest {
                     assertThat(retry.getMultiplier()).isEqualTo(3);
                     assertThat(policy.maxAttempts()).isEqualTo(7);
                     assertThat(policy.delay(1)).isEqualTo(Duration.ofMillis(250));
+                });
+    }
+
+    @Test
+    void binds_client_property_to_client_enum() {
+        StompClient client = lifecycleClient(mock(StompOperations.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues(
+                        "spring.titan.auto-start=false",
+                        "spring.titan.client=vertx"
+                )
+                .run(context -> {
+                    TitanProperties properties = context.getBean(TitanProperties.class);
+
+                    assertThat(properties.getClient()).isEqualTo(TitanProperties.Client.VERTX);
                 });
     }
 
