@@ -73,6 +73,12 @@ val publishedArtifacts = mapOf(
 configure(publishedArtifacts.keys.map { project(":$it") }) {
     apply(plugin = "com.vanniktech.maven.publish")
 
+    pluginManager.withPlugin("com.gradleup.shadow") {
+        configurations.named("shadowRuntimeElements") {
+            outgoing.artifacts.clear()
+        }
+    }
+
     val artifact = publishedArtifacts[name]!!
     val publicationVersion = rootProject.version.toString()
 
