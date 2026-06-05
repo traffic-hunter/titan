@@ -43,19 +43,10 @@ jobs:
           set -euo pipefail
 
           mkdir -p release-assets
+          server_jar="bootstrap/build/libs/titan-server-${GITHUB_REF_NAME}.jar"
 
-          while IFS= read -r jar; do
-            [[ "$jar" == *"-plain.jar" ]] && continue
-
-            size="$(wc -c < "$jar" | tr -d ' ')"
-            [[ "$size" -le 1024 ]] && continue
-
-            module="${jar%%/build/libs/*}"
-            module="${module#./}"
-            module="${module//\//-}"
-            file="$(basename "$jar")"
-            cp "$jar" "release-assets/${module}-${file}"
-          done < <(find . -path "*/build/libs/*.jar" -type f | sort)
+          test -f "${server_jar}"
+          cp "${server_jar}" release-assets/
 
           ls -la release-assets
 
