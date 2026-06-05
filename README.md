@@ -34,26 +34,26 @@ repositories {
 Spring client:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.6.0")
+implementation("org.traffichunter.titan:titan-spring-client:0.6.1")
 ```
 
 STOMP client/server:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-stomp:0.6.0")
+implementation("org.traffichunter.titan:titan-stomp:0.6.1")
 ```
 
 Fanout support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-fanout:0.6.0")
+implementation("org.traffichunter.titan:titan-fanout:0.6.1")
 ```
 
 Bootstrap/runtime support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-bootstrap:0.6.0")
-implementation("org.traffichunter.titan:titan-core:0.6.0")
+implementation("org.traffichunter.titan:titan-bootstrap:0.6.1")
+implementation("org.traffichunter.titan:titan-core:0.6.1")
 ```
 
 ## Standalone Server
@@ -63,15 +63,15 @@ Download the executable server jar from GitHub Releases.
 Using `curl`:
 
 ```bash
-curl -L -o titan-server-0.6.0.jar \
-  https://github.com/traffic-hunter/titan/releases/download/0.6.0/titan-server-0.6.0.jar
+curl -L -o titan-server-0.6.1.jar \
+  https://github.com/traffic-hunter/titan/releases/download/0.6.1/titan-server-0.6.1.jar
 ```
 
 Using `wget`:
 
 ```bash
-wget -O titan-server-0.6.0.jar \
-  https://github.com/traffic-hunter/titan/releases/download/0.6.0/titan-server-0.6.0.jar
+wget -O titan-server-0.6.1.jar \
+  https://github.com/traffic-hunter/titan/releases/download/0.6.1/titan-server-0.6.1.jar
 ```
 
 Create `titan-env.yml`.
@@ -97,7 +97,7 @@ titan:
 Run Titan.
 
 ```bash
-java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.6.0.jar
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.6.1.jar
 ```
 
 ## Examples
