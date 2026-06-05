@@ -2,7 +2,7 @@
 lombok = "1.18.46"
 slf4j = "2.0.17"
 google-guava = "33.6.0-jre"
-netty = "4.2.12.Final"
+netty = "4.2.14.Final"
 vertx = "5.0.12"
 assertj = "3.27.7"
 mokito = "5.23.0"
