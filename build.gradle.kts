@@ -28,6 +28,53 @@ allprojects {
     version = resolveVersion()
 }
 
+tasks.register("updateReleaseDocsVersion") {
+    group = "documentation"
+    description = "Updates README and docs examples to the release version."
+
+    val releaseVersion = providers.gradleProperty("releaseVersion")
+        .orElse(providers.gradleProperty("versionName"))
+        .orElse(providers.environmentVariable("GITHUB_REF_NAME"))
+        .map { it.removePrefix("refs/tags/") }
+
+    val docs = listOf(
+        layout.projectDirectory.file("README.md"),
+        layout.projectDirectory.file("docs/examples/client.md"),
+        layout.projectDirectory.file("docs/examples/server.md"),
+        layout.projectDirectory.file("docs/examples/spring-client.md"),
+    )
+
+    inputs.property("releaseVersion", releaseVersion)
+    inputs.files(docs)
+    outputs.files(docs)
+
+    doLast {
+        val version = releaseVersion.orNull
+            ?: error("releaseVersion, versionName, or GITHUB_REF_NAME is required")
+        require(Regex("""\d+\.\d+\.\d+""").matches(version)) {
+            "Invalid semantic version: $version"
+        }
+
+        val dependencyPattern = Regex("""(org\.traffichunter\.titan:[^:")]+:)\d+\.\d+\.\d+""")
+        val releasePathPattern = Regex("""(releases/download/)\d+\.\d+\.\d+""")
+        val serverJarPattern = Regex("""(titan-server-)\d+\.\d+\.\d+(\.jar)""")
+
+        docs.forEach { doc ->
+            val file = doc.asFile
+            val text = file.readText()
+            val updated = text
+                .replace(dependencyPattern) { match -> match.groupValues[1] + version }
+                .replace(releasePathPattern) { match -> match.groupValues[1] + version }
+                .replace(serverJarPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
+
+            if (updated != text) {
+                file.writeText(updated)
+                logger.lifecycle("Updated ${file.relativeTo(projectDir).path} to $version")
+            }
+        }
+    }
+}
+
 subprojects {
     apply(plugin = "java")
 
