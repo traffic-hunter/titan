@@ -2,6 +2,7 @@ package org.traffichunter.titan.springframework.stomp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -179,7 +180,8 @@ class TitanClientManagerTest {
         captureConnectionDroppedHandler().handle(operations);
 
         verify(client, timeout(1000).times(2)).connect();
-        assertThat(manager.isReconnecting()).isFalse();
+        await().atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> assertThat(manager.isReconnecting()).isFalse());
     }
 
     @Test
@@ -191,7 +193,8 @@ class TitanClientManagerTest {
         captureExceptionHandler().handle(new IllegalStateException("connection lost"));
 
         verify(client, timeout(1000).times(2)).connect();
-        assertThat(manager.isReconnecting()).isFalse();
+        await().atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> assertThat(manager.isReconnecting()).isFalse());
     }
 
     @Test
