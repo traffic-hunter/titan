@@ -37,7 +37,8 @@ class RetryPolicyTest {
                 5,
                 Duration.ofMillis(100),
                 Duration.ofMillis(1_000),
-                2
+                2,
+                false
         );
 
         assertThat(policy.delay(1)).isEqualTo(Duration.ofMillis(100));
@@ -48,6 +49,22 @@ class RetryPolicyTest {
     }
 
     @Test
+    void exponential_policy_increases_delay_until_max_delay_with_jitter() {
+        RetryPolicy policy = RetryPolicy.exponentialWithJitter(
+                5,
+                Duration.ofMillis(100),
+                Duration.ofMillis(1_000),
+                2
+        );
+
+        assertThat(policy.delay(1)).isEqualTo(Duration.ofMillis(100));
+        assertThat(policy.delay(2)).isBetween(Duration.ofMillis(100), Duration.ofMillis(200));
+        assertThat(policy.delay(3)).isBetween(Duration.ofMillis(100), Duration.ofMillis(400));
+        assertThat(policy.delay(4)).isBetween(Duration.ofMillis(100), Duration.ofMillis(800));
+        assertThat(policy.delay(5)).isBetween(Duration.ofMillis(100), Duration.ofMillis(1_000));
+    }
+
+    @Test
     void policies_reject_invalid_values() {
         assertThatThrownBy(() -> RetryPolicy.fixed(0, Duration.ofMillis(100)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -55,10 +72,10 @@ class RetryPolicyTest {
         assertThatThrownBy(() -> RetryPolicy.fixed(1, Duration.ZERO))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("delay");
-        assertThatThrownBy(() -> RetryPolicy.exponential(1, Duration.ofMillis(100), Duration.ofMillis(50), 2))
+        assertThatThrownBy(() -> RetryPolicy.exponential(1, Duration.ofMillis(100), Duration.ofMillis(50), 2, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("maxDelay");
-        assertThatThrownBy(() -> RetryPolicy.exponential(1, Duration.ofMillis(100), Duration.ofMillis(100), 1))
+        assertThatThrownBy(() -> RetryPolicy.exponential(1, Duration.ofMillis(100), Duration.ofMillis(100), 1, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("multiplier");
         assertThatThrownBy(() -> RetryPolicy.fixed(1, Duration.ofMillis(100)).delay(0))

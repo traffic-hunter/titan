@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.resilience.retry;
 
 import java.time.Duration;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Retry policy that increases delay exponentially and caps it at a maximum delay.
@@ -42,13 +43,16 @@ public record ExponentialRetryPolicy(
         int maxAttempts,
         Duration initialDelay,
         Duration maxDelay,
-        int multiplier
+        int multiplier,
+        boolean jitter
 ) implements RetryPolicy {
 
     private static final int DEFAULT_MAX_ATTEMPTS = 3;
     private static final Duration DEFAULT_INITIAL_DELAY = Duration.ofSeconds(1);
     private static final Duration DEFAULT_MAX_DELAY = Duration.ofSeconds(30);
     private static final int DEFAULT_MULTIPLIER = 2;
+
+    private static final ThreadLocalRandom RANDOM = ThreadLocalRandom.current();
 
     public ExponentialRetryPolicy {
         RetryPolicy.validateMaxAttempts(maxAttempts);
@@ -68,6 +72,7 @@ public record ExponentialRetryPolicy(
         if (attempt < 1) {
             throw new IllegalArgumentException("attempt must be greater than zero");
         }
+
         Duration delay = initialDelay;
         for (int i = 1; i < attempt; i++) {
             delay = multiply(delay, multiplier);
@@ -75,11 +80,26 @@ public record ExponentialRetryPolicy(
                 return maxDelay;
             }
         }
+
+        if (jitter) {
+            return jitter(initialDelay, delay);
+        }
         return delay;
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    private static Duration jitter(Duration initialDelay, Duration delay) {
+        long min = initialDelay.toMillis();
+        long max = delay.toMillis();
+        if (min >= max) {
+            return delay;
+        }
+
+        long jitter = RANDOM.nextLong(min, max + 1);
+        return Duration.ofMillis(jitter);
     }
 
     private static Duration multiply(Duration delay, int multiplier) {
@@ -99,6 +119,7 @@ public record ExponentialRetryPolicy(
         private Duration initialDelay = DEFAULT_INITIAL_DELAY;
         private Duration maxDelay = DEFAULT_MAX_DELAY;
         private int multiplier = DEFAULT_MULTIPLIER;
+        private boolean jitter = false;
 
         private Builder() {
         }
@@ -128,8 +149,13 @@ public record ExponentialRetryPolicy(
             return this;
         }
 
+        public Builder jitter(boolean jitter) {
+            this.jitter = jitter;
+            return this;
+        }
+
         public ExponentialRetryPolicy build() {
-            return new ExponentialRetryPolicy(maxAttempts, initialDelay, maxDelay, multiplier);
+            return new ExponentialRetryPolicy(maxAttempts, initialDelay, maxDelay, multiplier, jitter);
         }
     }
 }
