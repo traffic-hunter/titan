@@ -25,12 +25,14 @@ package org.traffichunter.titan.core.test.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.awaitility.Awaitility;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.*;
@@ -54,11 +56,12 @@ public class ClientToServerTest {
 
     private final DispatcherQueue rq = DispatcherQueue.create(Destination.create("/route/test"), 1001);
     private InetServer server;
+    private int port;
 
     private static final Logger log = LoggerFactory.getLogger(ClientToServerTest.class);
 
     @BeforeEach
-    void setUp() throws InterruptedException {
+    void setUp() throws Exception {
         server = InetServer.open(EventLoopGroups.group(1))
                 .option(InetServerOption.builder().build())
                 .onChannel(ctx -> ctx.chain()
@@ -67,13 +70,10 @@ public class ClientToServerTest {
 
         server.start();
 
-        server.listen("localhost", 7777).addListener(future -> {
-            if(future.isSuccess()) {
-                log.info("Server started successfully");
-            }
-        });
-
-        Thread.sleep(100);
+        server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
+        InetSocketAddress localAddress = (InetSocketAddress) server.localAddress();
+        port = localAddress.getPort();
+        log.info("Server started successfully. port={}", port);
     }
 
     @AfterEach
@@ -90,7 +90,7 @@ public class ClientToServerTest {
                 .onChannel(channel -> channel.chain());
 
         client.start();
-        client.connect("localhost", 7777).get();
+        client.connect("localhost", port).get();
 
         client.send(Buffer.alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
             if(future.isSuccess()) {
@@ -115,7 +115,7 @@ public class ClientToServerTest {
                 .onChannel(channel -> channel.chain());
 
         client.start();
-        client.connect("localhost", 7777).get();
+        client.connect("localhost", port).get();
 
         for (int i = 0; i < count; i++) {
             es.execute(() -> {
