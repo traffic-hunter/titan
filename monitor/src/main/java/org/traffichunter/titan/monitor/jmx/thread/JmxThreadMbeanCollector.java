@@ -49,8 +49,8 @@ public final class JmxThreadMbeanCollector implements JmxMbeanCollector<ThreadDa
 
         return ThreadData.builder()
                 .threadCount(threadMXBean.getThreadCount())
-                .getPeekThreadCount(threadMXBean.getPeakThreadCount())
-                .getTotalStartThreadCount(threadMXBean.getTotalStartedThreadCount())
+                .peakThreadCount(threadMXBean.getPeakThreadCount())
+                .totalStartedThreadCount(threadMXBean.getTotalStartedThreadCount())
                 .build();
     }
 }

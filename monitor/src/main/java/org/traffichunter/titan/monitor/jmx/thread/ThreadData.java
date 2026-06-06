@@ -34,9 +34,9 @@ public record ThreadData(
 
         int threadCount,
 
-        int getPeekThreadCount,
+        int peakThreadCount,
 
-        long getTotalStartThreadCount
+        long totalStartedThreadCount
 
 ) implements ThreshHold {
 

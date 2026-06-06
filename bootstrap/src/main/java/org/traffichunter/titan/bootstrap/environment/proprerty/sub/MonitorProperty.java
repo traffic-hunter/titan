@@ -36,6 +36,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MonitorProperty {
 
+    private boolean enabled;
+
+    private String host;
+
+    private int port;
+
+    private String token;
+
+    private int threadPoolSize;
+
     private long initialDelay;
 
     private long delay;
