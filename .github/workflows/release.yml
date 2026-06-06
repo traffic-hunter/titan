@@ -35,8 +35,37 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Test Go CLI
+        working-directory: titan-cli
+        run: go test ./...
+
       - name: Build
         run: ./gradlew --no-daemon -PversionName="${GITHUB_REF_NAME}" clean build --stacktrace
+
+      - name: Build Go CLI
+        shell: bash
+        working-directory: titan-cli
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            name="titan-cli-${GITHUB_REF_NAME}-${os}-${arch}"
+
+            GOOS="${os}" GOARCH="${arch}" go build \
+              -ldflags "-X main.version=${GITHUB_REF_NAME}" \
+              -o "dist/${name}/titan" \
+              .
+
+            tar -C "dist/${name}" -czf "dist/${name}.tar.gz" titan
+          done
 
       - name: Collect release assets
         shell: bash
@@ -48,13 +77,14 @@ jobs:
 
           test -f "${server_jar}"
           cp "${server_jar}" release-assets/
+          cp titan-cli/dist/*.tar.gz release-assets/
 
           ls -la release-assets
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release-assets/*.jar --verify-tag --title "Release ${GITHUB_REF_NAME}" --generate-notes
+        run: gh release create "${GITHUB_REF_NAME}" release-assets/* --verify-tag --title "Release ${GITHUB_REF_NAME}" --generate-notes
 
       - name: Publish to Maven Central
         env:

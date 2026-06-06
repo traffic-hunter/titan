@@ -37,8 +37,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
       - name: Build
         run: ./gradlew --no-daemon build --stacktrace
+
+      - name: Test Go CLI
+        working-directory: titan-cli
+        run: go test ./...
 
       - name: Upload test reports
         if: always()
