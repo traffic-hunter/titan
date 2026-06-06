@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.ThreadPool;
@@ -56,21 +57,26 @@ public class EmbeddedJettyHttpServer implements HttpServer {
 
     private final int port;
 
+    private final String host;
+
     private EmbeddedJettyHttpServer(final Builder builder) {
         this.handler = builder.handler;
         this.handler.setContextPath(ROOT_PATH);
         this.port = builder.port;
+        this.host = builder.host;
         registerServlets(this.handler, builder.contextServlets);
+        registerServletInstances(this.handler, builder.contextServletInstances);
 
         this.server = new Server(builder.threadPool);
         this.connector = new ServerConnector(server);
+        this.connector.setHost(host);
         this.connector.setPort(port);
         this.server.addConnector(connector);
         this.server.setHandler(handler);
         gracefulShutdown(builder.isGracefulShutdown);
 
         log.info("Embedded Jetty HTTP server ver. {}", server.getServerInfo());
-        log.info("Embedded Jetty HTTP server started on port. {}", this.port);
+        log.info("Embedded Jetty HTTP server started on address. {}:{}", this.host, this.port);
         log.info("Embedded Jetty HTTP server started on servlet context path. {}", this.handler.getContextPath());
     }
 
@@ -111,6 +117,13 @@ public class EmbeddedJettyHttpServer implements HttpServer {
                 servletContextHandler.addServlet(contextServlet.servletClass(), contextServlet.pathSpec()));
     }
 
+    private void registerServletInstances(final ServletContextHandler servletContextHandler,
+                                          final List<ContextServletInstance> contextServlets) {
+
+        contextServlets.forEach(contextServlet ->
+                servletContextHandler.addServlet(new ServletHolder(contextServlet.servlet()), contextServlet.pathSpec()));
+    }
+
     private void gracefulShutdown(final boolean isEnable) {
         server.setStopTimeout(5000);
         server.setStopAtShutdown(isEnable);
@@ -121,11 +134,15 @@ public class EmbeddedJettyHttpServer implements HttpServer {
 
         private ThreadPool threadPool;
 
+        private String host = "0.0.0.0";
+
         private int port = DEFAULT_PORT;
 
         private ServletContextHandler handler;
 
         private final List<ContextServlet> contextServlets = new ArrayList<>();
+
+        private final List<ContextServletInstance> contextServletInstances = new ArrayList<>();
 
         private boolean isGracefulShutdown = false;
 
@@ -159,6 +176,12 @@ public class EmbeddedJettyHttpServer implements HttpServer {
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder host(final String host) {
+            this.host = host;
+            return this;
+        }
+
         // Options is (ServletContextHandler.SESSIONS == 1)
         @CanIgnoreReturnValue
         public Builder contextHandler(final int options) {
@@ -178,10 +201,18 @@ public class EmbeddedJettyHttpServer implements HttpServer {
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder addContextServlet(final ContextServletInstance contextServlet) {
+            this.contextServletInstances.add(contextServlet);
+            return this;
+        }
+
         public EmbeddedJettyHttpServer build() {
             return new EmbeddedJettyHttpServer(this);
         }
     }
 
     public record ContextServlet(Class<? extends Servlet> servletClass, String pathSpec) { }
+
+    public record ContextServletInstance(Servlet servlet, String pathSpec) { }
 }

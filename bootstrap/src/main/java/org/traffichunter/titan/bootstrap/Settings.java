@@ -36,10 +36,42 @@ import lombok.Builder;
  */
 @Builder
 public record Settings(
-        List<ServerSettings> servers
+        List<ServerSettings> servers,
+        MonitorSettings monitor
 ) {
 
     public Settings {
-        servers = List.copyOf(servers);
+        servers = servers == null ? List.of() : List.copyOf(servers);
+        if (monitor == null) {
+            monitor = MonitorSettings.disabled();
+        }
+    }
+
+    public record MonitorSettings(
+            boolean enabled,
+            String host,
+            int port,
+            String token,
+            int threadPoolSize
+    ) {
+
+        public static MonitorSettings disabled() {
+            return new MonitorSettings(false, "127.0.0.1", 7777, "", 8);
+        }
+
+        public MonitorSettings {
+            if (host == null || host.isBlank()) {
+                host = "127.0.0.1";
+            }
+            if (port <= 0 || port > 65535) {
+                port = 7777;
+            }
+            if (token == null) {
+                token = "";
+            }
+            if (threadPoolSize <= 0) {
+                threadPoolSize = 8;
+            }
+        }
     }
 }

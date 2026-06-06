@@ -117,6 +117,7 @@ val publishedArtifacts = mapOf(
     "titan-stomp" to "titan-stomp",
     "titan-spring-client" to "titan-spring-client",
     "fanout" to "titan-fanout",
+    "monitor" to "titan-monitor",
 )
 
 configure(publishedArtifacts.keys.map { project(":$it") }) {
