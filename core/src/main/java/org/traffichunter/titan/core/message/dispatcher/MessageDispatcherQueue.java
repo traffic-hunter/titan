@@ -73,11 +73,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public String getDestination() {
-        return destination.path();
-    }
-
-    @Override
     public boolean equalsTo(final Destination key) {
         return destination.equals(key);
     }
@@ -140,11 +135,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public boolean isPaused() {
-        return isPaused;
-    }
-
-    @Override
     public List<Message> pressure() {
         List<Message> messages = new ArrayList<>();
         queue.drainTo(messages);
@@ -183,18 +173,8 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public int getCapacity() {
-        return capacity();
-    }
-
-    @Override
     public int size() {
         return queue.size();
-    }
-
-    @Override
-    public int getSize() {
-        return size();
     }
 
     @Override

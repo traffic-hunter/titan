@@ -35,7 +35,6 @@ import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.FanoutLauncher;
 import org.traffichunter.titan.core.spi.NetworkServerEngineProvider;
-import org.traffichunter.titan.core.spi.RuntimeLauncher;
 
 /**
  * Core runtime entry point invoked by {@link org.traffichunter.titan.bootstrap.TitanBootstrap}.
@@ -97,22 +96,9 @@ public class TitanApplication implements ApplicationStarter {
             throw new CoreApplicationException("No managed servers found");
         }
 
-        RuntimeLauncher.load().forEach(launcher ->
-                launcher.start(settings, List.copyOf(managedServers))
-                        .forEach(closeable -> SHUTDOWN_HOOK.addShutdownCallback(() -> closeQuietly(closeable)))
-        );
-
         managedServers.forEach(managedServer ->
                 SHUTDOWN_HOOK.addShutdownCallback(managedServer::stop)
         );
-    }
-
-    private static void closeQuietly(AutoCloseable closeable) {
-        try {
-            closeable.close();
-        } catch (Exception e) {
-            log.warn("Failed to stop runtime extension cleanly", e);
-        }
     }
 
     public static class CoreApplicationException extends RuntimeException {
