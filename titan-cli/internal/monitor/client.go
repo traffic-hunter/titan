@@ -16,11 +16,18 @@ type Client struct {
 }
 
 func NewClient(addr string, token string) Client {
+	return NewClientWithTimeout(addr, token, 5*time.Second)
+}
+
+func NewClientWithTimeout(addr string, token string, timeout time.Duration) Client {
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
 	return Client{
 		baseURL: strings.TrimRight(addr, "/"),
 		token:   token,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: timeout,
 		},
 	}
 }

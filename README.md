@@ -119,13 +119,14 @@ CLI from source while developing.
 ```bash
 # prebuilt archive example
 tar -xzf titan-cli-0.6.1-linux-amd64.tar.gz
-./titan monitor status --addr http://localhost:7777
+./titan --addr http://localhost:7777
 
 # source checkout example
 cd titan-cli
-go run . monitor status --addr http://localhost:7777
-go run . monitor queues --addr http://localhost:7777
-go run . monitor watch --addr http://localhost:7777 --interval 1s
+go run . --addr http://localhost:7777
+go run . --addr http://localhost:7777 --view queues
+go run . --addr http://localhost:7777 --view jvm --interval 1s --timeout 3s
+go run . --addr http://localhost:7777 --no-color --once
 ```
 
 The monitor HTTP API is served under `/titan`.

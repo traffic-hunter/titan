@@ -11,10 +11,10 @@ import (
 func TestStatusRendersCoreFields(t *testing.T) {
 	var out bytes.Buffer
 
-	Status(&out, fixture())
+	Status(&out, fixture(), NoColor)
 
 	text := out.String()
-	for _, expected := range []string{"Titan 0.6.1", "CPU", "Heap", "Queues: 1 destinations"} {
+	for _, expected := range []string{"version     0.6.1", "cpu", "heap", "queues      1 destinations"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("expected %q in output:\n%s", expected, text)
 		}
@@ -24,7 +24,7 @@ func TestStatusRendersCoreFields(t *testing.T) {
 func TestQueuesRendersDestinationPressure(t *testing.T) {
 	var out bytes.Buffer
 
-	Queues(&out, fixture().Queues)
+	Queues(&out, fixture().Queues, NoColor)
 
 	text := out.String()
 	for _, expected := range []string{"/queue/orders", "pause", "[#########.........]"} {

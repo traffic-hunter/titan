@@ -41,3 +41,7 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Titan CLI ###
+titan-cli/titan
+titan-cli/dist/

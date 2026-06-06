@@ -2,110 +2,141 @@ package cli
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/traffic-hunter/titan/titan-cli/internal/monitor"
 	"github.com/traffic-hunter/titan/titan-cli/internal/render"
 )
 
 const defaultAddr = "http://localhost:7777"
 
+type exitError struct {
+	code int
+	err  error
+}
+
+func (e exitError) Error() string {
+	return e.err.Error()
+}
+
+type viewOptions struct {
+	addr     string
+	token    string
+	interval time.Duration
+	timeout  time.Duration
+	view     string
+	noClear  bool
+	noColor  bool
+	once     bool
+}
+
 func Run(args []string, stdout io.Writer, stderr io.Writer, version string) int {
-	if len(args) == 0 {
-		usage(stderr)
+	command := newRootCommand(stdout, stderr, version)
+	command.SetArgs(args)
+	if err := command.Execute(); err != nil {
+		var exit exitError
+		if errors.As(err, &exit) {
+			fmt.Fprintln(stderr, exit.err)
+			return exit.code
+		}
+		fmt.Fprintln(stderr, err)
 		return 2
 	}
-	if args[0] == "version" {
-		fmt.Fprintln(stdout, version)
-		return 0
-	}
-	if args[0] != "monitor" {
-		fmt.Fprintf(stderr, "unknown command %q\n", args[0])
-		usage(stderr)
-		return 2
-	}
-	return runMonitor(args[1:], stdout, stderr)
-}
-
-func runMonitor(args []string, stdout io.Writer, stderr io.Writer) int {
-	if len(args) == 0 {
-		monitorUsage(stderr)
-		return 2
-	}
-
-	switch args[0] {
-	case "status":
-		return snapshotCommand(args[1:], stdout, stderr, render.Status)
-	case "queues":
-		return snapshotCommand(args[1:], stdout, stderr, func(w io.Writer, s monitor.Snapshot) {
-			render.Queues(w, s.Queues)
-		})
-	case "jvm":
-		return snapshotCommand(args[1:], stdout, stderr, render.JVM)
-	case "watch":
-		return watchCommand(args[1:], stdout, stderr)
-	default:
-		fmt.Fprintf(stderr, "unknown monitor command %q\n", args[0])
-		monitorUsage(stderr)
-		return 2
-	}
-}
-
-func snapshotCommand(args []string, stdout io.Writer, stderr io.Writer, renderer func(io.Writer, monitor.Snapshot)) int {
-	flags := flag.NewFlagSet("snapshot", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	addr := flags.String("addr", defaultAddr, "Titan monitor HTTP address")
-	token := flags.String("token", "", "Titan monitor bearer token")
-	if err := flags.Parse(args); err != nil {
-		return 2
-	}
-
-	snapshot, err := monitor.NewClient(*addr, *token).Snapshot(context.Background())
-	if err != nil {
-		fmt.Fprintf(stderr, "failed to fetch monitor snapshot: %v\n", err)
-		return 1
-	}
-	renderer(stdout, snapshot)
 	return 0
 }
 
-func watchCommand(args []string, stdout io.Writer, stderr io.Writer) int {
-	flags := flag.NewFlagSet("watch", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	addr := flags.String("addr", defaultAddr, "Titan monitor HTTP address")
-	token := flags.String("token", "", "Titan monitor bearer token")
-	interval := flags.Duration("interval", time.Second, "Refresh interval")
-	once := flags.Bool("once", false, "Render one frame and exit")
-	if err := flags.Parse(args); err != nil {
-		return 2
+func newRootCommand(stdout io.Writer, stderr io.Writer, version string) *cobra.Command {
+	options := &viewOptions{}
+	command := &cobra.Command{
+		Use:           "titan",
+		Short:         "Titan terminal monitor",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDefaultCmd: true,
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runView(cmd.Context(), stdout, options)
+		},
+	}
+	command.SetOut(stdout)
+	command.SetErr(stderr)
+	command.Flags().StringVar(&options.addr, "addr", defaultAddr, "Titan monitor HTTP address")
+	command.Flags().StringVar(&options.token, "token", "", "Titan monitor bearer token")
+	command.Flags().DurationVar(&options.interval, "interval", time.Second, "Polling interval")
+	command.Flags().DurationVar(&options.timeout, "timeout", 5*time.Second, "HTTP request timeout")
+	command.Flags().StringVar(&options.view, "view", "overview", "Initial view: overview, queues, or jvm")
+	command.Flags().BoolVar(&options.noClear, "no-clear", false, "Render without clearing the terminal")
+	command.Flags().BoolVar(&options.noColor, "no-color", false, "Render without ANSI colors")
+	command.Flags().BoolVar(&options.once, "once", false, "Render one frame and exit")
+	command.AddCommand(versionCommand(stdout, version))
+	return command
+}
+
+func versionCommand(stdout io.Writer, version string) *cobra.Command {
+	return &cobra.Command{
+		Use:           "version",
+		Short:         "Print CLI version",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Fprintln(stdout, version)
+		},
+	}
+}
+
+func runView(ctx context.Context, stdout io.Writer, options *viewOptions) error {
+	if err := validate(options); err != nil {
+		return exitError{code: 2, err: err}
 	}
 
-	client := monitor.NewClient(*addr, *token)
+	client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
 	for {
-		snapshot, err := client.Snapshot(context.Background())
+		snapshot, err := client.Snapshot(ctx)
+		if !options.noClear {
+			clear(stdout)
+		}
 		if err != nil {
-			fmt.Fprintf(stderr, "failed to fetch monitor snapshot: %v\n", err)
-			return 1
+			render.Error(stdout, options.addr, err, renderOptions(options))
+			if options.once {
+				return exitError{code: 1, err: err}
+			}
+		} else {
+			render.Dashboard(stdout, snapshot, render.View(options.view), options.addr, renderOptions(options))
+			if options.once {
+				return nil
+			}
 		}
-		fmt.Fprint(stdout, "\033[H\033[2J")
-		render.Status(stdout, snapshot)
-		fmt.Fprintln(stdout)
-		render.Queues(stdout, snapshot.Queues)
-		if *once {
-			return 0
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(options.interval):
 		}
-		time.Sleep(*interval)
 	}
 }
 
-func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: titan <version|monitor>")
-	fmt.Fprintln(w, "usage: titan monitor <status|watch|queues|jvm> [flags]")
+func renderOptions(options *viewOptions) render.Options {
+	return render.Options{Color: !options.noColor}
 }
 
-func monitorUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: titan monitor <status|watch|queues|jvm> [--addr http://localhost:7777] [--token token]")
+func validate(options *viewOptions) error {
+	if options.interval <= 0 {
+		return fmt.Errorf("interval must be greater than 0")
+	}
+	if options.timeout <= 0 {
+		return fmt.Errorf("timeout must be greater than 0")
+	}
+	if !render.ValidView(render.View(options.view)) {
+		return fmt.Errorf("unsupported view %q", options.view)
+	}
+	return nil
+}
+
+func clear(w io.Writer) {
+	fmt.Fprint(w, "\033[H\033[2J")
 }
