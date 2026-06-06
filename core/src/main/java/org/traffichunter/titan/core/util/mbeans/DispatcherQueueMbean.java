@@ -27,12 +27,4 @@ package org.traffichunter.titan.core.util.mbeans;
  * @author yungwang-o
  */
 public interface DispatcherQueueMbean {
-
-    String getDestination();
-
-    int getSize();
-
-    int getCapacity();
-
-    boolean isPaused();
 }

@@ -31,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.bootstrap.environment.proprerty.RootYamlProperty;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -111,21 +110,7 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
 
         return Settings.builder()
                 .servers(servers)
-                .monitor(mapMonitor(root.getTitan() == null ? null : root.getTitan().getMonitor()))
                 .build();
-    }
-
-    private static Settings.MonitorSettings mapMonitor(final MonitorProperty property) {
-        if (property == null) {
-            return Settings.MonitorSettings.disabled();
-        }
-        return new Settings.MonitorSettings(
-                property.isEnabled(),
-                property.getHost(),
-                property.getPort(),
-                property.getToken(),
-                property.getThreadPoolSize()
-        );
     }
 
     private static ServerSettings mapServer(final ServerProperty property) {

@@ -10,7 +10,6 @@ dependencies {
     runtimeOnly(project(":core"))
     runtimeOnly(project(":titan-stomp"))
     runtimeOnly(project(":fanout"))
-    runtimeOnly(project(":monitor"))
 }
 
 val manifestPath = "src/main/resources/META-INF/MANIFEST.MF"

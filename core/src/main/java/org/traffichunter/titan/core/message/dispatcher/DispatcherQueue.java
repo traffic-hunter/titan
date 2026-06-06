@@ -33,7 +33,6 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
 import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
 
 /**
  * Queue of messages for one destination.
@@ -46,15 +45,11 @@ import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
     static DispatcherQueue create(Destination key) {
-        DispatcherQueue queue = new MessageDispatcherQueue(key);
-        DispatcherQueueMbeans.register(queue);
-        return queue;
+        return new MessageDispatcherQueue(key);
     }
 
     static DispatcherQueue create(Destination key, int capacity) {
-        DispatcherQueue queue = new MessageDispatcherQueue(key, capacity);
-        DispatcherQueueMbeans.register(queue);
-        return queue;
+        return new MessageDispatcherQueue(key, capacity);
     }
 
     /**
