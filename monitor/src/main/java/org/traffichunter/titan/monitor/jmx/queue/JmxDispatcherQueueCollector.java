@@ -41,6 +41,10 @@ public final class JmxDispatcherQueueCollector {
     }
 
     private <T> T attribute(ObjectName name, String attribute, Class<T> type) throws Exception {
-        return type.cast(server.getAttribute(name, attribute));
+        Object value = server.getAttribute(name, attribute);
+        if (value == null) {
+            throw new IllegalStateException("Missing dispatcher queue MBean attribute: " + attribute);
+        }
+        return type.cast(value);
     }
 }
