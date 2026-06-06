@@ -65,7 +65,7 @@ public final class MonitoringHttpServer implements HttpServer {
         private String host = DEFAULT_HOST;
         private int port = DEFAULT_PORT;
         private int threadPoolSize = 8;
-        private String token;
+        private String token = "";
 
         private Builder(MonitoringSnapshotService service) {
             this.service = service;

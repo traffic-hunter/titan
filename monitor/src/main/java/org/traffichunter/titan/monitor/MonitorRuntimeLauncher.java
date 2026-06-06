@@ -34,6 +34,9 @@ public final class MonitorRuntimeLauncher implements RuntimeLauncher {
 
     private static String version() {
         Package pkg = MonitorRuntimeLauncher.class.getPackage();
+        if (pkg == null) {
+            return "unknown";
+        }
         String version = pkg.getImplementationVersion();
         return version == null || version.isBlank() ? "unknown" : version;
     }

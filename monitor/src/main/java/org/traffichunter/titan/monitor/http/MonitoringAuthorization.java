@@ -18,6 +18,10 @@ public final class MonitoringAuthorization {
         if (!required()) {
             return true;
         }
-        return ("Bearer " + token).equals(request.getHeader("Authorization"));
+        return getBearerToken(token).equals(request.getHeader("Authorization"));
+    }
+
+    private static String getBearerToken(String token) {
+        return "Bearer " + token;
     }
 }
