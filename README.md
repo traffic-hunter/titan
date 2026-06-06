@@ -14,6 +14,7 @@ Spring Boot client integration.
 - Destination-based routing with `/queue/...` and `/topic/...` style paths.
 - Fanout delivery for publish-subscribe scenarios.
 - Pluggable runtime through SPI.
+- Local HTTP monitoring API with a terminal-first CLI.
 - Spring Boot integration with `TitanTemplate` and `@TitanListener`.
 
 Titan is best suited for real-time, in-memory dispatch scenarios such as
@@ -49,6 +50,12 @@ Fanout support:
 implementation("org.traffichunter.titan:titan-fanout:0.6.1")
 ```
 
+Monitoring support:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-monitor:0.6.1")
+```
+
 Bootstrap/runtime support:
 
 ```kotlin
@@ -78,6 +85,11 @@ Create `titan-env.yml`.
 
 ```yaml
 titan:
+  monitor:
+    enabled: true
+    host: 127.0.0.1
+    port: 7777
+    # token: change-me
   servers:
     - name: stomp-dispatch
       protocol: stomp
@@ -98,6 +110,29 @@ Run Titan.
 
 ```bash
 java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.6.1.jar
+```
+
+Inspect the running server from a terminal. The release page provides
+prebuilt `titan-cli-<version>-<os>-<arch>.tar.gz` archives, or you can run the
+CLI from source while developing.
+
+```bash
+# prebuilt archive example
+tar -xzf titan-cli-0.6.1-linux-amd64.tar.gz
+./titan monitor status --addr http://localhost:7777
+
+# source checkout example
+cd titan-cli
+go run . monitor status --addr http://localhost:7777
+go run . monitor queues --addr http://localhost:7777
+go run . monitor watch --addr http://localhost:7777 --interval 1s
+```
+
+The monitor HTTP API is served under `/titan`.
+
+```bash
+curl http://localhost:7777/titan/monitor/health
+curl http://localhost:7777/titan/monitor/snapshot
 ```
 
 ## Examples
@@ -121,6 +156,7 @@ java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.6.1.jar
 - `titan-core`: provides event loop, channel, transport, and runtime primitives.
 - `titan-stomp`: provides STOMP codec, server, client, and STOMP transport integration.
 - `titan-fanout`: routes one published message to all matching subscribers.
+- `titan-monitor`: exposes JVM and dispatcher queue monitoring snapshots.
 - `titan-spring-client`: provides Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener`.
 
 ## Repository Modules
@@ -129,7 +165,8 @@ java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.6.1.jar
 - `core`: transport/event loop/channel/dispatcher/concurrency primitives.
 - `titan-stomp`: STOMP codec, STOMP server/client transport, STOMP engine provider.
 - `fanout`: fanout gateway and exporter implementations.
-- `monitor`: experimental monitoring module, not ready for general use.
+- `monitor`: monitoring snapshot model, JMX collectors, and Jetty HTTP endpoint.
+- `titan-cli`: Go CLI for rendering monitoring snapshots in the terminal.
 - `titan-spring-client`: Spring Boot auto-configuration and listener/template API.
 - `smoke-test`: smoke applications and integration tests.
 - `benchmark`: JMH benchmark setup.
@@ -140,6 +177,7 @@ Requirements:
 
 - JDK 21+
 - Gradle wrapper (`./gradlew`)
+- Go 1.22+ for `titan-cli`
 
 Run tests:
 
@@ -164,7 +202,7 @@ Build the standalone server jar:
 
 - Primary production focus is STOMP over TCP.
 - Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
-- Monitoring is still under development and not ready for general use.
+- Monitoring currently focuses on local JVM and dispatcher queue visibility.
 
 ## License
 
