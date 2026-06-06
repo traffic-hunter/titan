@@ -58,6 +58,7 @@ tasks.register("updateReleaseDocsVersion") {
         val dependencyPattern = Regex("""(org\.traffichunter\.titan:[^:")]+:)\d+\.\d+\.\d+""")
         val releasePathPattern = Regex("""(releases/download/)\d+\.\d+\.\d+""")
         val serverJarPattern = Regex("""(titan-server-)\d+\.\d+\.\d+(\.jar)""")
+        val cliArchivePattern = Regex("""(titan-cli-)\d+\.\d+\.\d+(-[a-z]+-[a-z0-9]+)\.(tar\.gz|zip)""")
 
         docs.forEach { doc ->
             val file = doc.asFile
@@ -66,6 +67,7 @@ tasks.register("updateReleaseDocsVersion") {
                 .replace(dependencyPattern) { match -> match.groupValues[1] + version }
                 .replace(releasePathPattern) { match -> match.groupValues[1] + version }
                 .replace(serverJarPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
+                .replace(cliArchivePattern) { match -> match.groupValues[1] + version + match.groupValues[2] + "." + match.groupValues[3] }
 
             if (updated != text) {
                 file.writeText(updated)

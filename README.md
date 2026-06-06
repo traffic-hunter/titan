@@ -118,7 +118,7 @@ CLI from source while developing.
 
 ```bash
 # prebuilt archive example
-tar -xzf titan-cli-0.6.1-linux-amd64.tar.gz
+tar -xzf titan-cli-0.7.0-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 
 # source checkout example
