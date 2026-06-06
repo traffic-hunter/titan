@@ -59,12 +59,8 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public void bind(InetSocketAddress address) {
-        try {
-            channel().bind(address);
-        } catch (IOException e) {
-            setState(getState(), ChannelState.INIT);
-        }
+    public void bind(InetSocketAddress address) throws IOException {
+        channel().bind(address);
     }
 
     @Override

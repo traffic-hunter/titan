@@ -64,6 +64,15 @@ public interface RetryPolicy {
         return new FixedRetryPolicy(maxAttempts, delay);
     }
 
+    static RetryPolicy exponentialWithJitter(
+            int maxAttempts,
+            Duration initialDelay,
+            Duration maxDelay,
+            int multiplier
+    ) {
+        return exponential(maxAttempts, initialDelay, maxDelay, multiplier, true);
+    }
+
     /**
      * Creates a policy that multiplies the previous delay until a maximum delay is reached.
      *
@@ -71,10 +80,17 @@ public interface RetryPolicy {
      * @param initialDelay delay used for attempt {@code 1}
      * @param maxDelay upper bound for calculated delays
      * @param multiplier multiplier applied between attempts
+     * @param jitter whether to add random jitter to delays
      * @return exponential retry policy
      */
-    static RetryPolicy exponential(int maxAttempts, Duration initialDelay, Duration maxDelay, int multiplier) {
-        return new ExponentialRetryPolicy(maxAttempts, initialDelay, maxDelay, multiplier);
+    static RetryPolicy exponential(
+            int maxAttempts,
+            Duration initialDelay,
+            Duration maxDelay,
+            int multiplier,
+            boolean jitter
+    ) {
+        return new ExponentialRetryPolicy(maxAttempts, initialDelay, maxDelay, multiplier, jitter);
     }
 
     /**

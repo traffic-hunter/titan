@@ -253,6 +253,8 @@ public final class TitanProperties {
 
         private int multiplier = 2;
 
+        private boolean jitter = false;
+
         public boolean isEnabled() {
             return enabled;
         }
@@ -301,10 +303,18 @@ public final class TitanProperties {
             this.multiplier = multiplier;
         }
 
+        public boolean isJitter() {
+            return jitter;
+        }
+
+        public void setJitter(boolean jitter) {
+            this.jitter = jitter;
+        }
+
         public RetryPolicy toPolicy() {
             return switch (type) {
                 case FIX -> RetryPolicy.fixed(maxAttempts, delay);
-                case EXP -> RetryPolicy.exponential(maxAttempts, delay, maxDelay, multiplier);
+                case EXP -> RetryPolicy.exponential(maxAttempts, delay, maxDelay, multiplier, jitter);
             };
         }
 
