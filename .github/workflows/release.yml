@@ -67,6 +67,17 @@ jobs:
             tar -C "dist/${name}" -czf "dist/${name}.tar.gz" titan
           done
 
+          os="windows"
+          arch="amd64"
+          name="titan-cli-${GITHUB_REF_NAME}-${os}-${arch}"
+
+          GOOS="${os}" GOARCH="${arch}" go build \
+            -ldflags "-X main.version=${GITHUB_REF_NAME}" \
+            -o "dist/${name}/titan.exe" \
+            .
+
+          (cd "dist/${name}" && zip -q "../${name}.zip" titan.exe)
+
       - name: Collect release assets
         shell: bash
         run: |
@@ -77,7 +88,8 @@ jobs:
 
           test -f "${server_jar}"
           cp "${server_jar}" release-assets/
-          cp titan-cli/dist/*.tar.gz release-assets/
+          cp titan-cli/dist/titan-cli-"${GITHUB_REF_NAME}"-*.tar.gz release-assets/
+          cp titan-cli/dist/titan-cli-"${GITHUB_REF_NAME}"-*.zip release-assets/
 
           ls -la release-assets
 
