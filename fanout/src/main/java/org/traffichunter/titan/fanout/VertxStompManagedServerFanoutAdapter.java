@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManagers;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.vertx.VertxStompManagedServer;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
@@ -34,6 +35,8 @@ import java.util.function.Function;
 
 /**
  * Fanout adapter for Vert.x's native STOMP managed server.
+ *
+ * @author yun
  */
 @Slf4j
 public final class VertxStompManagedServerFanoutAdapter implements ManagedServerFanoutAdapter {
@@ -62,6 +65,7 @@ public final class VertxStompManagedServerFanoutAdapter implements ManagedServer
         FanoutGateway fanoutGateway = gatewayFactory.apply(
                 new VertxStompFanoutExporter(vertxStompManagedServer.server())
         );
+        DispatcherQueueManagers.register(managedServer.name(), fanoutGateway);
 
         vertxStompManagedServer.server().stompHandler()
                 .sendHandler(new VertxStompSendToFanoutHandler(fanoutGateway));

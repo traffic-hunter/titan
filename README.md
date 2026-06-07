@@ -127,6 +127,13 @@ go run . --addr http://localhost:7777
 go run . --addr http://localhost:7777 --view queues
 go run . --addr http://localhost:7777 --view jvm --interval 1s --timeout 3s
 go run . --addr http://localhost:7777 --no-color --once
+
+# queue management
+export TITAN_MONITOR_TOKEN=<monitor-token>
+go run . --addr http://localhost:7777 queue list
+go run . --addr http://localhost:7777 queue create /queue/orders --capacity 100
+go run . --addr http://localhost:7777 queue delete /queue/orders
+go run . --addr http://localhost:7777 queue delete /queue/orders --force
 ```
 
 The monitor HTTP API is served under `/titan`.
@@ -134,6 +141,7 @@ The monitor HTTP API is served under `/titan`.
 ```bash
 curl http://localhost:7777/titan/monitor/health
 curl http://localhost:7777/titan/monitor/snapshot
+curl http://localhost:7777/titan/monitor/queues
 ```
 
 ## Examples

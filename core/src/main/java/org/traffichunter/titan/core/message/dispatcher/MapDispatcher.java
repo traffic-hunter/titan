@@ -26,14 +26,10 @@ package org.traffichunter.titan.core.message.dispatcher;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * Hash-map dispatcher implementation.
@@ -64,7 +60,12 @@ public class MapDispatcher implements Dispatcher {
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination) {
-        return map.putIfAbsent(destination, DispatcherQueue.create(destination));
+        return map.computeIfAbsent(destination, DispatcherQueue::create);
+    }
+
+    @Override
+    public DispatcherQueue getOrPut(final Destination destination, int capacity) {
+        return map.computeIfAbsent(destination, key -> DispatcherQueue.create(key, capacity));
     }
 
     @Override

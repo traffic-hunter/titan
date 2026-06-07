@@ -56,6 +56,15 @@ public interface Dispatcher {
     @CanIgnoreReturnValue
     DispatcherQueue getOrPut(Destination destination);
 
+    /**
+     * Returns the existing queue or creates one with the requested capacity.
+     *
+     * <p>If the queue already exists, implementations should return it without
+     * changing its capacity.</p>
+     */
+    @CanIgnoreReturnValue
+    DispatcherQueue getOrPut(Destination destination, int capacity);
+
     boolean exists(Destination destination);
 
     void remove(Destination destination);

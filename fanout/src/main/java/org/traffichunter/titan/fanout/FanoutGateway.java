@@ -31,6 +31,8 @@ import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManager;
 
 /**
  * Asynchronous ingress and routing facade for fanout delivery.
@@ -48,8 +50,10 @@ import java.util.concurrent.Future;
  * matching destination consumer exists. The returned futures represent gateway
  * task submission, not necessarily remote protocol acknowledgement for every
  * subscribed client.</p>
+ *
+ * @author yungwang-o
  */
-public interface FanoutGateway extends Closeable {
+public interface FanoutGateway extends Closeable, DispatcherQueueManager {
 
     static FanoutGateway ofThread(FanoutExporter exporter) {
         return new ThreadPoolExecutorFanoutGateway(exporter);
@@ -59,13 +63,37 @@ public interface FanoutGateway extends Closeable {
         return new VirtualThreadExecutorFanoutGateway(exporter);
     }
 
-    List<Future<Void>> fanout(Collection<Destination> destinations);
+    /**
+     * Starts consumers for the destinations if they are not already running.
+     *
+     * <p>The returned futures complete with {@code null}; the value is only a
+     * completion signal.</p>
+     */
+    List<Future<@Nullable Void>> fanout(Collection<Destination> destinations);
 
-    Future<Void> fanout(Destination destination);
+    /**
+     * Starts the consumer for a destination if it is not already running.
+     *
+     * <p>The returned future completes with {@code null}; the value is only a
+     * completion signal.</p>
+     */
+    Future<@Nullable Void> fanout(Destination destination);
 
-    List<Future<Void>> publish(Collection<Message> messages);
+    /**
+     * Publishes messages into destination queues.
+     *
+     * <p>The returned futures represent enqueue and consumer-start submission,
+     * not delivery acknowledgement from subscribed clients.</p>
+     */
+    List<Future<@Nullable Void>> publish(Collection<Message> messages);
 
-    Future<Void> publish(Message message);
+    /**
+     * Publishes one message into its destination queue.
+     *
+     * <p>The returned future completes with {@code null}; the value is only a
+     * completion signal.</p>
+     */
+    Future<@Nullable Void> publish(Message message);
 
     boolean isOpen();
 

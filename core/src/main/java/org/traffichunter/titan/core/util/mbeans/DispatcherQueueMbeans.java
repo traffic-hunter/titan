@@ -6,6 +6,16 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
 
+/**
+ * Utility for exposing dispatcher queues through the platform MBean server.
+ *
+ * <p>Queue object names are derived from the destination path and use
+ * {@link ObjectName#quote(String)} so STOMP-style paths can be represented
+ * safely in JMX. Registration replaces an existing queue MBean for the same
+ * destination, while unregistration is tolerant when no MBean is present.</p>
+ *
+ * @author yun
+ */
 public final class DispatcherQueueMbeans {
 
     public static final String DOMAIN = "org.traffichunter.titan";
@@ -34,6 +44,21 @@ public final class DispatcherQueueMbeans {
             return name;
         } catch (JMException e) {
             throw new IllegalStateException("Failed to register dispatcher queue MBean: " + name, e);
+        }
+    }
+
+    public static void unregister(String destination) {
+        unregister(ManagementFactory.getPlatformMBeanServer(), destination);
+    }
+
+    public static void unregister(MBeanServer server, String destination) {
+        ObjectName name = objectName(destination);
+        try {
+            if (server.isRegistered(name)) {
+                server.unregisterMBean(name);
+            }
+        } catch (JMException e) {
+            throw new IllegalStateException("Failed to unregister dispatcher queue MBean: " + name, e);
         }
     }
 

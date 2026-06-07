@@ -92,6 +92,60 @@ func TestRunRendersQueueViewOnce(t *testing.T) {
 	}
 }
 
+func TestQueueListRendersQueues(t *testing.T) {
+	server := queueServer(t, http.StatusOK)
+	defer server.Close()
+	var stdout bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "--no-color", "queue", "list"}, &stdout, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	if !strings.Contains(stdout.String(), "/queue/orders") {
+		t.Fatalf("expected queue output, got %q", stdout.String())
+	}
+}
+
+func TestQueueCreateUsesTokenFromEnvironment(t *testing.T) {
+	t.Setenv("TITAN_MONITOR_TOKEN", "env-secret")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer env-secret" {
+			t.Fatalf("missing env bearer token")
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST, got %s", r.Method)
+		}
+		_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"capacity":30,"paused":false}`))
+	}))
+	defer server.Close()
+	var stdout bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "queue", "create", "/queue/orders", "--capacity", "30"}, &stdout, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	if !strings.Contains(stdout.String(), "created /queue/orders") {
+		t.Fatalf("expected create output, got %q", stdout.String())
+	}
+}
+
+func TestQueueDeleteConflictSuggestsForce(t *testing.T) {
+	server := queueServer(t, http.StatusConflict)
+	defer server.Close()
+	var stderr bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "queue", "delete", "/queue/orders"}, &bytes.Buffer{}, &stderr, "test")
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "--force") {
+		t.Fatalf("expected force suggestion, got %q", stderr.String())
+	}
+}
+
 func snapshotServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,5 +161,18 @@ func snapshotServer(t *testing.T) *httptest.Server {
 			},
 			"queues":[{"destination":"/queue/orders","size":5,"capacity":10,"paused":false}]
 		}`))
+	}))
+}
+
+func queueServer(t *testing.T, status int) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/titan/monitor/queues" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.WriteHeader(status)
+		if status == http.StatusOK {
+			_, _ = w.Write([]byte(`[{"destination":"/queue/orders","size":5,"capacity":10,"paused":false}]`))
+		}
 	}))
 }

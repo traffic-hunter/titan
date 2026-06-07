@@ -34,6 +34,8 @@ import java.util.concurrent.ThreadFactory;
  *
  * <p>This mode is useful when fanout work should be bounded by a small number
  * of OS threads. It limits executor parallelism directly through the pool size.</p>
+ *
+ * @author yun
  */
 class ThreadPoolExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
 
