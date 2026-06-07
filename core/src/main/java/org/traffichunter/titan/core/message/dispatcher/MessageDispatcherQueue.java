@@ -58,7 +58,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
      * {@link PriorityBlockingQueue} default capacity 11
      */
     MessageDispatcherQueue(final Destination destination) {
-        this(destination, 11);
+        this(destination, DEFAULT_CAPACITY);
     }
 
     MessageDispatcherQueue(final Destination destination, final int capacity) {

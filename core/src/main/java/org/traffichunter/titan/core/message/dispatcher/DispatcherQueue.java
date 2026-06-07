@@ -45,6 +45,8 @@ import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
+    int DEFAULT_CAPACITY = 11;
+
     static DispatcherQueue create(Destination key) {
         DispatcherQueue queue = new MessageDispatcherQueue(key);
         DispatcherQueueMbeans.register(queue);
@@ -84,7 +86,13 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
      */
     Message dispatch() throws InterruptedException;
 
-    Message dispatch(long timeout, TimeUnit unit) throws InterruptedException;
+    /**
+     * Waits for a message until the timeout expires.
+     *
+     * @return a message, or {@code null} when no message is available before
+     * the timeout
+     */
+    @Nullable Message dispatch(long timeout, TimeUnit unit) throws InterruptedException;
 
     void remove(Message message);
 

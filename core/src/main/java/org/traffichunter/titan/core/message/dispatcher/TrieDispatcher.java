@@ -48,10 +48,15 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     @Override
-    public @Nullable DispatcherQueue getOrPut(final Destination destination) {
+    public DispatcherQueue getOrPut(final Destination destination) {
+        return getOrPut(destination, DispatcherQueue.DEFAULT_CAPACITY);
+    }
+
+    @Override
+    public DispatcherQueue getOrPut(final Destination destination, int capacity) {
         DispatcherQueue v = trie.get(destination.path());
         if (v == null) {
-            v = trie.insert(destination.path(), DispatcherQueue.create(destination));
+            v = trie.insert(destination.path(), DispatcherQueue.create(destination, capacity));
             log.info("Created new dispatcher for path {}", destination.path());
         }
 
