@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -106,55 +105,3 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.GPG_SIGNING_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_PASSWORD }}
         run: ./gradlew --no-daemon -PversionName="${GITHUB_REF_NAME}" publishAndReleaseToMavenCentral
-
-      - name: Update README and docs version
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          git fetch origin main
-          git checkout main
-          git pull --ff-only origin main
-
-          ./gradlew --no-daemon updateReleaseDocsVersion -PreleaseVersion="${GITHUB_REF_NAME}"
-
-          if git diff --quiet -- README.md docs/examples; then
-            echo "README and docs already reference ${GITHUB_REF_NAME}"
-            exit 0
-          fi
-
-          docs_branch="release-docs/${GITHUB_REF_NAME}"
-          git fetch origin "+refs/heads/${docs_branch}:refs/remotes/origin/${docs_branch}" || true
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "${docs_branch}"
-          git add README.md docs/examples
-          git commit -m "Update docs for ${GITHUB_REF_NAME}"
-          git push --force-with-lease origin "HEAD:${docs_branch}"
-
-          if gh pr list --base main --head "${docs_branch}" --state open --json number --jq 'length' | grep -q '^0$'; then
-            cat > pr-body.md <<EOF
-          ## Motivation:
-
-          Keep README and documentation examples aligned with the latest release version.
-
-          ## Modification:
-
-          Update README and docs examples to reference ${GITHUB_REF_NAME}.
-
-          ## Result:
-
-          Docs now reference ${GITHUB_REF_NAME}.
-          EOF
-
-            gh pr create \
-              --base main \
-              --head "${docs_branch}" \
-              --title "Update docs for ${GITHUB_REF_NAME}" \
-              --body-file pr-body.md
-          else
-            echo "Docs update PR already exists for ${docs_branch}"
-          fi
