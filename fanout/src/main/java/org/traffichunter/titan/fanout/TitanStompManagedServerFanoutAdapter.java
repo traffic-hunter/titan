@@ -26,6 +26,7 @@ package org.traffichunter.titan.fanout;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.StompManagedServer;
+import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManagers;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
 
@@ -34,6 +35,8 @@ import java.util.function.Function;
 
 /**
  * Fanout adapter for Titan's own STOMP managed server.
+ *
+ * @author yun
  */
 @Slf4j
 public final class TitanStompManagedServerFanoutAdapter implements ManagedServerFanoutAdapter {
@@ -61,6 +64,7 @@ public final class TitanStompManagedServerFanoutAdapter implements ManagedServer
         FanoutGateway fanoutGateway = gatewayFactory.apply(
                 new StompFanoutExporter(stompManagedServer.server().connection())
         );
+        DispatcherQueueManagers.register(managedServer.name(), fanoutGateway);
 
         stompManagedServer.server().onStomp(handler ->
                 handler.sendHandler(new StompSendToFanoutHandler(fanoutGateway))

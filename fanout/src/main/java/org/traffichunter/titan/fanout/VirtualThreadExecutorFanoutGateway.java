@@ -38,6 +38,8 @@ import java.util.concurrent.ThreadFactory;
  * waiting for dispatcher queues. Virtual threads make that blocking cheap, while
  * the internal damper still caps active dispatch sections so exporter work does
  * not grow without a limit.</p>
+ *
+ * @author yun
  */
 class VirtualThreadExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
 

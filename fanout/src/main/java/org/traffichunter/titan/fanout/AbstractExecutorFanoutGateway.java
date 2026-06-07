@@ -29,19 +29,23 @@ import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueDeleteResult;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.concurrent.Damper;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.NoopDamper;
+import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -71,12 +75,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>The optional {@link Damper} is a small back-pressure hook for executor
  * implementations that can create many concurrent tasks. The virtual-thread
  * gateway uses it to cap active fanout dispatch work.</p>
+ *
+ * @author yun
  */
 abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractExecutorFanoutGateway.class);
 
     private final Map<Destination, Future<?>> consumers = new ConcurrentHashMap<>();
+    private final Set<DispatcherQueue> deletedQueues = ConcurrentHashMap.newKeySet();
 
     private final ExecutorService executor;
     private final FanoutExporter exporter;
@@ -98,14 +105,14 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
             Dispatcher dispatcher,
             Damper damper
     ) {
-        this.executor = Assert.checkNotNull(executor, "executor");
-        this.exporter = Assert.checkNotNull(exporter, "exporter");
-        this.dispatcher = Assert.checkNotNull(dispatcher, "dispatcher");
-        this.damper = Assert.checkNotNull(damper, "damper");
+        this.executor = executor;
+        this.exporter = exporter;
+        this.dispatcher = dispatcher;
+        this.damper = damper;
     }
 
     @Override
-    public List<Future<Void>> fanout(Collection<Destination> destinations) {
+    public List<Future<@Nullable Void>> fanout(Collection<Destination> destinations) {
         Assert.checkNotNull(destinations, "destinations");
 
         if (isClosed.get()) {
@@ -119,18 +126,18 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Future<Void> fanout(Destination destination) {
+    public Future<@Nullable Void> fanout(Destination destination) {
         Assert.checkNotNull(destination, "destination");
 
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
 
-        return (Future<Void>) consumers.computeIfAbsent(destination, this::consume);
+        return (Future<@Nullable Void>) consumers.computeIfAbsent(destination, this::consume);
     }
 
     @Override
-    public List<Future<Void>> publish(Collection<Message> messages) {
+    public List<Future<@Nullable Void>> publish(Collection<Message> messages) {
         Assert.checkNotNull(messages, "messages");
 
         if (isClosed.get()) {
@@ -143,7 +150,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     }
 
     @Override
-    public Future<Void> publish(Message message) {
+    public Future<@Nullable Void> publish(Message message) {
         Assert.checkNotNull(message, "message");
 
         if (isClosed.get()) {
@@ -177,16 +184,77 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         }
     }
 
-    protected CompletableFuture<Void> consume(Destination destination) {
+    /**
+     * Creates a dispatcher queue through the gateway-owned dispatcher.
+     *
+     * <p>Queue creation is idempotent. If the queue already exists, the
+     * existing instance is returned and the supplied capacity is ignored.</p>
+     */
+    @Override
+    public DispatcherQueue createQueue(Destination destination, int capacity) {
+        if (isClosed.get()) {
+            throw new IllegalStateException("FanoutGateway is closed");
+        }
+
+        return dispatcher.getOrPut(destination, capacity);
+    }
+
+    /**
+     * Deletes a dispatcher queue and detaches its consumer.
+     *
+     * <p>Deletion removes the queue from the dispatcher, unregisters its JMX
+     * MBean, and marks the current queue instance as deleted so a running
+     * consumer can exit. Non-empty queues are rejected unless force deletion is
+     * requested.</p>
+     */
+    @Override
+    public DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
+        DispatcherQueue queue = dispatcher.get(destination);
+        if (queue == null) {
+            return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_FOUND, 0);
+        }
+        int size = queue.size();
+        if (size > 0 && !force) {
+            return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_EMPTY, size);
+        }
+        if (force) {
+            queue.clear();
+        }
+
+        deletedQueues.add(queue);
+        Future<?> consumer = consumers.remove(destination);
+        if (consumer != null) {
+            consumer.cancel(true);
+        }
+        dispatcher.remove(destination);
+        DispatcherQueueMbeans.unregister(queue.getDestination());
+        return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.DELETED, size);
+    }
+
+    /**
+     * Runs one destination consumer.
+     *
+     * <p>The loop polls with a timeout instead of blocking indefinitely so it
+     * can observe queue deletion and shutdown state. The returned future uses
+     * {@code @Nullable Void} because successful completion is represented by a
+     * {@code null} value.</p>
+     */
+    protected CompletableFuture<@Nullable Void> consume(Destination destination) {
         DispatcherQueue dispatcherQueue = dispatcher.getOrPut(destination);
         log.info("Starting fanout consumer for destination={}", destination.path());
 
-        return CompletableFuture.runAsync(() -> {
+        CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
+        executor.execute(() -> {
             try {
-                while (!isClosed() && !Thread.currentThread().isInterrupted()) {
+                while (!isClosed()
+                        && !Thread.currentThread().isInterrupted()
+                        && !deletedQueues.contains(dispatcherQueue)) {
                     damper.acquire();
                     try {
-                        Message message = dispatcherQueue.dispatch();
+                        Message message = dispatcherQueue.dispatch(1, TimeUnit.SECONDS);
+                        if (message == null) {
+                            continue;
+                        }
 
                         exporter.export(destination, message);
                     } catch (InterruptedException e) {
@@ -202,10 +270,15 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                         damper.release();
                     }
                 }
+                result.complete(null);
+            } catch (Exception e) {
+                result.completeExceptionally(e);
             } finally {
-                consumers.remove(destination);
+                deletedQueues.remove(dispatcherQueue);
+                consumers.remove(destination, result);
             }
-        }, executor);
+        });
+        return result;
     }
 
     protected @Nullable Message route(Message message) {
