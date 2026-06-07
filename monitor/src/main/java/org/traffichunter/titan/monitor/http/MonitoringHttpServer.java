@@ -8,10 +8,14 @@ import org.traffichunter.titan.core.httpserver.jetty.EmbeddedJettyHttpServer;
 import org.traffichunter.titan.core.httpserver.threadpool.JettyThreadPool;
 import org.traffichunter.titan.monitor.MonitoringSnapshotService;
 
+/**
+ * @author yun
+ */
 public final class MonitoringHttpServer implements HttpServer {
 
     public static final String SNAPSHOT_PATH = "/monitor/snapshot";
     public static final String HEALTH_PATH = "/monitor/health";
+    public static final String QUEUES_PATH = "/monitor/queues";
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 7777;
 
@@ -32,6 +36,7 @@ public final class MonitoringHttpServer implements HttpServer {
                 .contextHandler(0)
                 .addContextServlet(servlet(new MonitoringSnapshotServlet(builder.service, authorization), SNAPSHOT_PATH))
                 .addContextServlet(servlet(new MonitoringHealthServlet(authorization), HEALTH_PATH))
+                .addContextServlet(servlet(new MonitoringQueueServlet(builder.service, authorization), QUEUES_PATH))
                 .gracefulShutdown(true)
                 .build();
     }

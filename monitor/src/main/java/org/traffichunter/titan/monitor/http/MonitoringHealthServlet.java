@@ -6,6 +6,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.traffichunter.titan.core.httpserver.ContentType;
 
+/**
+ * @author yun
+ */
 public final class MonitoringHealthServlet extends HttpServlet {
 
     private final MonitoringAuthorization authorization;
@@ -16,7 +19,7 @@ public final class MonitoringHealthServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        if (!authorization.allows(request)) {
+        if (!authorization.permit(request)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

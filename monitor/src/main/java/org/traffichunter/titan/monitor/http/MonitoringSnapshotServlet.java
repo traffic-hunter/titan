@@ -8,6 +8,9 @@ import org.traffichunter.titan.core.codec.json.Json;
 import org.traffichunter.titan.core.httpserver.ContentType;
 import org.traffichunter.titan.monitor.MonitoringSnapshotService;
 
+/**
+ * @author yun
+ */
 public final class MonitoringSnapshotServlet extends HttpServlet {
 
     private final MonitoringSnapshotService service;
@@ -20,7 +23,7 @@ public final class MonitoringSnapshotServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        if (!authorization.allows(request)) {
+        if (!authorization.permit(request)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

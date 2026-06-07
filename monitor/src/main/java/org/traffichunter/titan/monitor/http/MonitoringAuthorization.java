@@ -2,6 +2,9 @@ package org.traffichunter.titan.monitor.http;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+/**
+ * @author yun
+ */
 public final class MonitoringAuthorization {
 
     private final String token;
@@ -11,10 +14,10 @@ public final class MonitoringAuthorization {
     }
 
     public boolean required() {
-        return token != null && !token.isBlank();
+        return !token.isBlank();
     }
 
-    public boolean allows(HttpServletRequest request) {
+    public boolean permit(HttpServletRequest request) {
         if (!required()) {
             return true;
         }
