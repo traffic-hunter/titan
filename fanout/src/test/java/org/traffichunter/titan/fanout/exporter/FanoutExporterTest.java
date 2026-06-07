@@ -25,14 +25,21 @@ package org.traffichunter.titan.fanout.exporter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.vertx.ext.stomp.Command;
+import io.vertx.ext.stomp.Frame;
+import io.vertx.ext.stomp.StompServer;
+import io.vertx.ext.stomp.StompServerHandler;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.traffichunter.titan.core.channel.IOEventLoop;
@@ -61,6 +68,15 @@ class FanoutExporterTest {
 
     @Mock
     private InetServer inetServer;
+
+    @Mock
+    private StompServer vertxServer;
+
+    @Mock
+    private StompServerHandler vertxServerHandler;
+
+    @Mock
+    private io.vertx.ext.stomp.Destination vertxDestination;
 
     @Test
     void aggregationResult_completes_when_done_reaches_attempted() {
@@ -122,6 +138,50 @@ class FanoutExporterTest {
         assertThat(result.done()).isEqualTo(2);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);
+    }
+
+    @Test
+    void vertxStompFanoutExporter_dispatches_message_frame_to_subscribers() {
+        Destination destination = Destination.create("/topic/orders");
+        Buffer payload = Buffer.alloc("hello".getBytes());
+
+        when(vertxServer.isListening()).thenReturn(true);
+        when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
+        when(vertxServerHandler.getDestination(destination.path())).thenReturn(vertxDestination);
+        when(vertxDestination.numberOfSubscriptions()).thenReturn(1);
+
+        VertxStompFanoutExporter exporter = new VertxStompFanoutExporter(vertxServer);
+        AggregationResult result = exporter.export(destination, payload);
+
+        ArgumentCaptor<Frame> frameCaptor = ArgumentCaptor.forClass(Frame.class);
+        verify(vertxDestination).dispatch(isNull(), frameCaptor.capture());
+        Frame frame = frameCaptor.getValue();
+
+        assertThat(frame.getCommand()).isEqualTo(Command.MESSAGE);
+        assertThat(frame.getDestination()).isEqualTo(destination.path());
+        assertThat(frame.getHeader(Frame.DESTINATION)).isEqualTo(destination.path());
+        assertThat(frame.getHeader(Frame.MESSAGE_ID)).isNotBlank();
+        assertThat(frame.getHeader(Frame.CONTENT_LENGTH)).isEqualTo(Integer.toString(payload.length()));
+        assertThat(frame.getBodyAsString()).isEqualTo("hello");
+        assertThat(result.totalAttempted()).isEqualTo(1);
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(result.failed()).isZero();
+    }
+
+    @Test
+    void vertxStompFanoutExporter_completes_without_dispatch_when_destination_is_missing() {
+        Destination destination = Destination.create("/topic/missing");
+
+        when(vertxServer.isListening()).thenReturn(true);
+        when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
+        when(vertxServerHandler.getDestination(destination.path())).thenReturn(null);
+
+        VertxStompFanoutExporter exporter = new VertxStompFanoutExporter(vertxServer);
+        AggregationResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
+
+        assertThat(result.totalAttempted()).isZero();
+        assertThat(result.succeeded()).isZero();
+        assertThat(result.failed()).isZero();
     }
 
     @Test

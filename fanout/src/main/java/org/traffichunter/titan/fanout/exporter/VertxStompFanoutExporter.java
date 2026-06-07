@@ -28,6 +28,7 @@ import io.vertx.ext.stomp.Frame;
 import io.vertx.ext.stomp.StompServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.fanout.AggregationResult;
 
@@ -65,9 +66,11 @@ public final class VertxStompFanoutExporter implements FanoutExporter {
 
         try {
             Frame frame = new Frame()
-                    .setCommand(Command.SEND)
+                    .setCommand(Command.MESSAGE)
                     .setDestination(destination.path())
                     .setBody(io.vertx.core.buffer.Buffer.buffer(payload.getBytes()));
+            frame.addHeader(Frame.DESTINATION, destination.path());
+            frame.addHeader(Frame.MESSAGE_ID, IdGenerator.uuid());
             frame.addHeader(Frame.CONTENT_LENGTH, Integer.toString(payload.length()));
             stompDestination.dispatch(null, frame);
             succeeded = attempted;
