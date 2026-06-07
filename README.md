@@ -18,9 +18,9 @@ Spring Boot client integration.
 - Spring Boot integration with `TitanTemplate` and `@TitanListener`.
 
 Titan is best suited for real-time, in-memory dispatch scenarios such as
-internal event buses, notifications, chat-style messaging, telemetry fanout, and
-live interaction backends. It is not currently positioned as a durable
-queue/broker replacement.
+notifications, chat-style messaging, telemetry fanout, and live interaction
+backends. It is not an in-process event bus and is not currently positioned as a
+durable queue/broker replacement.
 
 ## Installation
 
@@ -210,6 +210,7 @@ Build the standalone server jar:
 ## Scope
 
 - Primary production focus is STOMP over TCP.
+- Titan is a networked dispatch/fanout runtime, not an in-process event bus.
 - Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
 - Monitoring currently focuses on local JVM and dispatcher queue visibility.
 
