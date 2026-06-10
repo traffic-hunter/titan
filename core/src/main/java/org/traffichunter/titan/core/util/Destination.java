@@ -59,7 +59,7 @@ public record Destination(String path) {
         return path.contains(prefix.path);
     }
 
-    private boolean matchKey(final String key) {
+    public static boolean matchKey(final String key) {
         return ROUTING_KEY_PATTERN.matcher(key).matches();
     }
 

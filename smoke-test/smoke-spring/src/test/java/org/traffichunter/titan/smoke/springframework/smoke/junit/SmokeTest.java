@@ -23,18 +23,22 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.smoke.springframework.smoke.junit;
 
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.springframework.test.annotation.DirtiesContext;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.junit.jupiter.api.DisplayNameGeneration;
-import org.junit.jupiter.api.DisplayNameGenerator;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
 
+/**
+ * @author yun
+ */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SmokeTest
-@SpringBootTest(properties = "spring.titan.client=vertx")
-public @interface VertxSmokeTest {
+@TitanBootstrapper
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
+public @interface SmokeTest {
 }
