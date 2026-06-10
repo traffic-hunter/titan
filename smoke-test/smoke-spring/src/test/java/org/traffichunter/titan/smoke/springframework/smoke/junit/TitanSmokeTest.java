@@ -34,9 +34,7 @@ import org.springframework.test.annotation.DirtiesContext;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@TitanBootstrapper
+@SmokeTest
 @SpringBootTest(properties = "spring.titan.client=titan")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public @interface TitanSmokeTest {
 }
