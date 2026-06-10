@@ -424,6 +424,11 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().register(() -> send(frame, receiptPromise));
+            return;
+        }
+
         if (!netChannel.isActive() || !netChannel.isConnected()) {
             close();
             receiptPromise.fail(new StompNetChannelException("Channel is closed"));
