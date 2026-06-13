@@ -17,6 +17,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.traffichunter.titan.core.resilience.retry.CompositeRetryListener;
+import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 import org.traffichunter.titan.core.util.Handler;
@@ -118,6 +120,28 @@ class TitanClientManagerTest {
     }
 
     @Test
+    void retry_listener_can_be_added_after_manager_creation() {
+        enableFastRetry();
+        CompositeRetryListener listeners = new CompositeRetryListener();
+        CompletableFuture<Integer> retryAttempt = new CompletableFuture<>();
+        manager = new TitanClientManager(client, properties, listeners);
+        listeners.add(new RetryListener() {
+            @Override
+            public void onRetry(int attempt, Duration delay) {
+                retryAttempt.complete(attempt);
+            }
+        });
+        when(client.connect())
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connect failed")))
+                .thenReturn(CompletableFuture.completedFuture(operations));
+
+        manager.start();
+
+        assertThat(retryAttempt).succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo(1);
+    }
+
+    @Test
     void operations_start_and_connect_client_when_no_connection_exists() throws Exception {
         when(client.operations())
                 .thenThrow(new IllegalStateException("not connected"))
@@ -198,6 +222,104 @@ class TitanClientManagerTest {
     }
 
     @Test
+    void duplicate_connection_dropped_events_schedule_one_reconnect() {
+        enableFastRetry();
+        CompletableFuture<StompOperations> reconnect = new CompletableFuture<>();
+        when(client.connect())
+                .thenReturn(CompletableFuture.completedFuture(operations))
+                .thenReturn(reconnect);
+        manager = new TitanClientManager(client, properties);
+        manager.start();
+        Handler<StompOperations> droppedHandler = captureConnectionDroppedHandler();
+
+        droppedHandler.handle(operations);
+        droppedHandler.handle(operations);
+
+        verify(client, timeout(1000).times(2)).connect();
+        reconnect.complete(operations);
+        await().atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> assertThat(manager.isReconnecting()).isFalse());
+        verify(client, times(2)).connect();
+    }
+
+    @Test
+    void successful_reconnect_registers_handlers_on_the_new_connection() {
+        enableFastRetry();
+        when(client.connect())
+                .thenReturn(CompletableFuture.completedFuture(operations))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connection unavailable")))
+                .thenReturn(CompletableFuture.completedFuture(operations));
+        manager = new TitanClientManager(client, properties);
+        manager.start();
+
+        captureConnectionDroppedHandler().handle(operations);
+
+        verify(client, timeout(1000).times(3)).connect();
+        verify(operations, timeout(1000).times(2)).connectionDroppedHandler(org.mockito.ArgumentMatchers.any());
+        verify(operations, timeout(1000).times(2)).exceptionHandler(org.mockito.ArgumentMatchers.any());
+        assertThat(manager.isReconnecting()).isFalse();
+    }
+
+    @Test
+    void exhausted_reconnect_transitions_to_disconnected() {
+        enableFastRetry();
+        when(client.connect())
+                .thenReturn(CompletableFuture.completedFuture(operations))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connection unavailable")));
+        manager = reconnectAwareManager();
+        manager.start();
+
+        captureConnectionDroppedHandler().handle(operations);
+
+        verify(client, timeout(1000).times(3)).connect();
+        await().atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> assertThat(manager.isReconnecting()).isFalse());
+        assertThat(manager.isRunning()).isTrue();
+        assertThat(manager.isDisconnected()).isTrue();
+    }
+
+    @Test
+    void operations_can_reconnect_after_retry_exhaustion() throws Exception {
+        enableFastRetry();
+        when(client.connect())
+                .thenReturn(CompletableFuture.completedFuture(operations))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connection unavailable")))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connection unavailable")))
+                .thenReturn(CompletableFuture.completedFuture(operations));
+        when(operations.isConnected()).thenReturn(false, true);
+        manager = reconnectAwareManager();
+        manager.start();
+
+        captureConnectionDroppedHandler().handle(operations);
+
+        verify(client, timeout(1000).times(3)).connect();
+        await().atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> assertThat(manager.isDisconnected()).isTrue());
+
+        assertThat(manager.operations()).isSameAs(operations);
+        assertThat(manager.isConnected()).isTrue();
+        assertThat(manager.isDisconnected()).isFalse();
+    }
+
+    @Test
+    void stop_prevents_a_scheduled_reconnect_attempt() {
+        properties.getRetry().setEnabled(true);
+        properties.getRetry().setType(TitanProperties.Retry.Type.FIX);
+        properties.getRetry().setMaxAttempts(2);
+        properties.getRetry().setDelay(Duration.ofMillis(300));
+        manager = new TitanClientManager(client, properties);
+        manager.start();
+
+        captureConnectionDroppedHandler().handle(operations);
+        manager.stop();
+
+        await().during(Duration.ofMillis(400))
+                .atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> verify(client, times(1)).connect());
+        assertThat(manager.isShutdown()).isTrue();
+    }
+
+    @Test
     void connection_dropped_does_not_reconnect_when_retry_is_disabled() {
         manager = new TitanClientManager(client, properties);
         manager.start();
@@ -226,6 +348,13 @@ class TitanClientManagerTest {
         properties.getRetry().setType(TitanProperties.Retry.Type.FIX);
         properties.getRetry().setMaxAttempts(2);
         properties.getRetry().setDelay(Duration.ofMillis(10));
+    }
+
+    private TitanClientManager reconnectAwareManager() {
+        CompositeRetryListener listeners = new CompositeRetryListener();
+        TitanClientManager clientManager = new TitanClientManager(client, properties, listeners);
+        listeners.add(new TitanReconnectStateRetryListener(() -> clientManager));
+        return clientManager;
     }
 
     private Handler<StompOperations> captureConnectionDroppedHandler() {

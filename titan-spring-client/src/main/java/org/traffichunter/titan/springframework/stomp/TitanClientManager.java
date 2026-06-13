@@ -10,7 +10,6 @@ import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
 
-import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -35,12 +34,20 @@ public final class TitanClientManager implements SmartLifecycle {
     private final AtomicReference<Status> status = new AtomicReference<>(Status.INITIALIZED);
 
     public TitanClientManager(StompClient stompClient, TitanProperties properties) {
+        this(stompClient, properties, RetryListener.NOOP);
+    }
+
+    public TitanClientManager(
+            StompClient stompClient,
+            TitanProperties properties,
+            RetryListener retryListener
+    ) {
         this.stompClient = stompClient;
         this.properties = properties;
 
         TitanProperties.Retry retry = properties.getRetry();
         if (retry.isEnabled()) {
-            this.retryExecutor = RetryExecutors.eventLoopRetryExecutor(retry.toPolicy(), new LoggingRetryListener());
+            this.retryExecutor = RetryExecutors.eventLoopRetryExecutor(retry.toPolicy(), retryListener);
         } else {
             this.retryExecutor = RetryExecutors.noopRetryExecutor();
         }
@@ -53,13 +60,14 @@ public final class TitanClientManager implements SmartLifecycle {
         CONNECTING,
         CONNECTED,
         RECONNECTING,
+        DISCONNECTED,
         SHUTTING_DOWN,
         SHUTDOWN,
         ;
 
         static boolean isRunning(Status status) {
             return switch (status) {
-                case STARTING, STARTED, CONNECTING, CONNECTED, RECONNECTING -> true;
+                case STARTING, STARTED, CONNECTING, CONNECTED, RECONNECTING, DISCONNECTED -> true;
                 case INITIALIZED, SHUTTING_DOWN, SHUTDOWN -> false;
             };
         }
@@ -166,6 +174,10 @@ public final class TitanClientManager implements SmartLifecycle {
         return status.get() == Status.RECONNECTING;
     }
 
+    public boolean isDisconnected() {
+        return status.get() == Status.DISCONNECTED;
+    }
+
     public boolean isConnected() {
         try {
             return stompClient.operations().isConnected();
@@ -241,6 +253,10 @@ public final class TitanClientManager implements SmartLifecycle {
         return status.compareAndSet(Status.CONNECTED, Status.RECONNECTING);
     }
 
+    void reconnectExhausted() {
+        status.compareAndSet(Status.RECONNECTING, Status.DISCONNECTED);
+    }
+
     private void restoreAfterConnectFailure(Status previous) {
         if (status.get() == Status.SHUTTING_DOWN || status.get() == Status.SHUTDOWN) {
             return;
@@ -248,21 +264,4 @@ public final class TitanClientManager implements SmartLifecycle {
         status.set(previous == Status.STARTING ? Status.STARTED : previous);
     }
 
-    private static final class LoggingRetryListener implements RetryListener {
-
-        @Override
-        public void onRetry(int attempt, Duration delay) {
-            log.warn("Retry scheduled attempt #{}, delay={}", attempt, delay);
-        }
-
-        @Override
-        public void onRetryFailed(int attempt, Throwable cause) {
-            log.warn("Retry failed attempt #{}, cause={}", attempt, cause.getMessage());
-        }
-
-        @Override
-        public void onRetryExhausted(int attempt, Throwable cause) {
-            log.warn("Retry exhausted attempt #{}, cause={}", attempt, cause.getMessage());
-        }
-    }
 }

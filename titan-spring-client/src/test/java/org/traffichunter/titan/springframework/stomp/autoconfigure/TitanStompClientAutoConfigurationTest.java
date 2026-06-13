@@ -5,6 +5,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.resilience.retry.CompositeRetryListener;
+import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
@@ -14,6 +16,8 @@ import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
+import org.traffichunter.titan.springframework.stomp.TitanReconnectStateRetryListener;
+import org.traffichunter.titan.springframework.stomp.TitanRetryLoggingListener;
 
 import java.time.Duration;
 import java.util.List;
@@ -159,6 +163,44 @@ class TitanStompClientAutoConfigurationTest {
                     TitanProperties properties = context.getBean(TitanProperties.class);
 
                     assertThat(properties.getClient()).isEqualTo(TitanProperties.Client.VERTX);
+                });
+    }
+
+    @Test
+    void creates_default_titan_client_retry_listener() {
+        StompClient client = lifecycleClient(mock(StompOperations.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues("spring.titan.auto-start=false")
+                .run(context -> {
+                    assertThat(context).hasBean("titanClientRetryListener");
+                    CompositeRetryListener listener =
+                            (CompositeRetryListener) context.getBean("titanClientRetryListener");
+                    assertThat(listener.listeners())
+                            .hasExactlyElementsOfTypes(
+                                    TitanRetryLoggingListener.class,
+                                    TitanReconnectStateRetryListener.class
+                            );
+                });
+    }
+
+    @Test
+    void user_retry_listener_replaces_the_default_listener() {
+        StompClient client = lifecycleClient(mock(StompOperations.class));
+        RetryListener listener = new RetryListener() {
+        };
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withBean("titanClientRetryListener", RetryListener.class, () -> listener)
+                .withPropertyValues("spring.titan.auto-start=false")
+                .run(context -> {
+                    assertThat(context.getBean("titanClientRetryListener")).isSameAs(listener);
+                    assertThat(context.getBeansOfType(RetryListener.class))
+                            .containsOnlyKeys("titanClientRetryListener");
+                    assertThat(context).doesNotHaveBean(CompositeRetryListener.class);
+                    assertThat(context).hasSingleBean(TitanClientManager.class);
                 });
     }
 
