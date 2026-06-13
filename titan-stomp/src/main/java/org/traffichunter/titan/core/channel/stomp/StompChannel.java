@@ -31,7 +31,7 @@ import java.time.Instant;
 /**
  * @author yun
  */
-public interface StompConnection {
+public interface StompChannel {
 
     Channel channel();
 

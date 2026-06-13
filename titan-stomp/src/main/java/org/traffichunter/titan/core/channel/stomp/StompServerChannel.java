@@ -37,17 +37,17 @@ import java.util.List;
 /**
  * @author yungwang-o
  */
-public interface StompServerConnection extends StompConnection {
+public interface StompServerChannel extends StompChannel {
 
-    static StompServerConnection open(
+    static StompServerChannel open(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompServerOption option
     ) {
-        return new StompServerConnectionImpl(channelHandShakeEventListener, option);
+        return new StompServerChannelImpl(channelHandShakeEventListener, option);
     }
 
-    static StompServerConnection wrap(NetServerChannel serverChannel, StompServerOption option) {
-        return new StompServerConnectionImpl(serverChannel, option);
+    static StompServerChannel wrap(NetServerChannel serverChannel, StompServerOption option) {
+        return new StompServerChannelImpl(serverChannel, option);
     }
 
     default Promise<Void> write(StompFrame frame) {
@@ -56,19 +56,19 @@ public interface StompServerConnection extends StompConnection {
 
     Promise<Void> write(Buffer buffer);
 
-    void register(StompClientConnection connection);
+    void register(StompClientChannel connection);
 
     void unregister(String sessionId);
 
-    void cleanUp(StompClientConnection connection);
+    void cleanUp(StompClientChannel connection);
 
     void cleanupInactiveConnections();
 
-    @Nullable StompClientConnection findConnection(String sessionId);
+    @Nullable StompClientChannel findConnection(String sessionId);
 
-    List<StompClientConnection> connections();
+    List<StompClientChannel> connections();
 
-    StompClientConnection connection();
+    StompClientChannel connection();
 
     StompServerSubscriptions subscriptions();
 

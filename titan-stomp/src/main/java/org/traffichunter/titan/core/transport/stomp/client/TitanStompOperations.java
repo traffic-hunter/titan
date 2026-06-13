@@ -23,7 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp.client;
 
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
@@ -40,9 +40,9 @@ import java.util.concurrent.Future;
  */
 public final class TitanStompOperations implements StompOperations {
 
-    private final StompClientConnection connection;
+    private final StompClientChannel connection;
 
-    public TitanStompOperations(StompClientConnection connection) {
+    public TitanStompOperations(StompClientChannel connection) {
         this.connection = connection;
     }
 

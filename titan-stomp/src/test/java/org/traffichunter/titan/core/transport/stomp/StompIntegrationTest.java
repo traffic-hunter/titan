@@ -40,7 +40,7 @@ import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
@@ -81,8 +81,8 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
-            assertThat(client.connection().isConnected()).isTrue();
-            assertThat(client.connection().session()).isNotNull();
+            assertThat(client.channel().isConnected()).isTrue();
+            assertThat(client.channel().session()).isNotNull();
             assertThat(client.remoteAddress()).isNotNull();
         } finally {
             client.shutdown();
@@ -136,7 +136,7 @@ class StompIntegrationTest {
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             Buffer body = Buffer.alloc("Hello STOMP!");
-            StompFrame result = client.connection().send("/queue/test", body).get(3, TimeUnit.SECONDS);
+            StompFrame result = client.channel().send("/queue/test", body).get(3, TimeUnit.SECONDS);
 
             assertThat(result).isNotNull();
             assertThat(result.getCommand()).isEqualTo(StompCommand.SEND);
@@ -167,16 +167,16 @@ class StompIntegrationTest {
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             // Subscribe with message handler
-            client.connection().subscribe("/topic/test", frame -> {
+            client.channel().subscribe("/topic/test", frame -> {
                 messageReceived.set(true);
                 receivedFrame.set(frame);
                 latch.countDown();
             }).get(3, TimeUnit.SECONDS);
 
-            assertThat(client.connection().subscriptions()).hasSize(1);
+            assertThat(client.channel().subscriptions()).hasSize(1);
 
             // Publish message
-            client.connection().send("/topic/test", Buffer.alloc("Test message")).get(3, TimeUnit.SECONDS);
+            client.channel().send("/topic/test", Buffer.alloc("Test message")).get(3, TimeUnit.SECONDS);
 
             // Wait for message
             boolean received = latch.await(5, TimeUnit.SECONDS);
@@ -206,16 +206,16 @@ class StompIntegrationTest {
             // Subscribe
             StompHeaders headers = StompHeaders.create();
             headers.put(Elements.ID, "sub-1");
-            client.connection().subscribe("/topic/unsub", headers, frame -> {}).get(3, TimeUnit.SECONDS);
+            client.channel().subscribe("/topic/unsub", headers, frame -> {}).get(3, TimeUnit.SECONDS);
 
-            assertThat(client.connection().subscriptions()).hasSize(1);
+            assertThat(client.channel().subscriptions()).hasSize(1);
 
             // Unsubscribe
             StompHeaders unsubHeaders = StompHeaders.create();
             unsubHeaders.put(Elements.ID, "sub-1");
-            client.connection().unsubscribe("/topic/unsub", unsubHeaders).get(3, TimeUnit.SECONDS);
+            client.channel().unsubscribe("/topic/unsub", unsubHeaders).get(3, TimeUnit.SECONDS);
 
-            assertThat(client.connection().subscriptions()).hasSize(0);
+            assertThat(client.channel().subscriptions()).hasSize(0);
         } finally {
             client.shutdown();
             dispatcher.remove(key);
@@ -240,19 +240,19 @@ class StompIntegrationTest {
             // AUTO ack
             StompHeaders auto = StompHeaders.create();
             auto.put(Elements.ACK, StompFrame.AckMode.AUTO);
-            client.connection().subscribe("/topic/ack1", auto, frame -> {}).get(3, TimeUnit.SECONDS);
+            client.channel().subscribe("/topic/ack1", auto, frame -> {}).get(3, TimeUnit.SECONDS);
 
             // CLIENT ack
             StompHeaders clientAck = StompHeaders.create();
             clientAck.put(Elements.ACK, StompFrame.AckMode.CLIENT);
-            client.connection().subscribe("/topic/ack2", clientAck, frame -> {}).get(3, TimeUnit.SECONDS);
+            client.channel().subscribe("/topic/ack2", clientAck, frame -> {}).get(3, TimeUnit.SECONDS);
 
             // CLIENT_INDIVIDUAL ack
             StompHeaders individual = StompHeaders.create();
             individual.put(Elements.ACK, StompFrame.AckMode.CLIENT_INDIVIDUAL);
-            client.connection().subscribe("/topic/ack3", individual, frame -> {}).get(3, TimeUnit.SECONDS);
+            client.channel().subscribe("/topic/ack3", individual, frame -> {}).get(3, TimeUnit.SECONDS);
 
-            assertThat(client.connection().subscriptions()).hasSize(3);
+            assertThat(client.channel().subscriptions()).hasSize(3);
         } finally {
             client.shutdown();
             dispatcher.remove(key1);
@@ -270,7 +270,7 @@ class StompIntegrationTest {
         try {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
-            client.connection().ack("msg-1").get(3, TimeUnit.SECONDS);
+            client.channel().ack("msg-1").get(3, TimeUnit.SECONDS);
         } finally {
             client.shutdown();
         }
@@ -283,7 +283,7 @@ class StompIntegrationTest {
         try {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
-            client.connection().nack("msg-2").get(3, TimeUnit.SECONDS);
+            client.channel().nack("msg-2").get(3, TimeUnit.SECONDS);
         } finally {
             client.shutdown();
         }
@@ -297,10 +297,10 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
-            final StompClientConnection serverConnection = awaitSingleServerConnection(testServer);
+            final StompClientChannel serverConnection = awaitSingleServerConnection(testServer);
             String txId = "tx-" + UUID.randomUUID();
-            client.connection().begin(txId).get(3, TimeUnit.SECONDS);
-            client.connection().ack("msg-3", txId).get(3, TimeUnit.SECONDS);
+            client.channel().begin(txId).get(3, TimeUnit.SECONDS);
+            client.channel().ack("msg-3", txId).get(3, TimeUnit.SECONDS);
 
             await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
                 Transaction transaction = Transactions.getInstance().getTransaction(serverConnection, txId);
@@ -310,7 +310,7 @@ class StompIntegrationTest {
                 assertThat(transaction.getFrames().getFirst().getHeader(Elements.ID)).isEqualTo("msg-3");
             });
 
-            client.connection().commit(txId).get(3, TimeUnit.SECONDS);
+            client.channel().commit(txId).get(3, TimeUnit.SECONDS);
 
             await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
                     assertThat(Transactions.getInstance().getTransaction(serverConnection, txId)).isNull());
@@ -329,10 +329,10 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
-            final StompClientConnection serverConnection = awaitSingleServerConnection(testServer);
+            final StompClientChannel serverConnection = awaitSingleServerConnection(testServer);
             String txId = "tx-" + UUID.randomUUID();
-            client.connection().begin(txId).get(3, TimeUnit.SECONDS);
-            client.connection().nack("msg-4", txId).get(3, TimeUnit.SECONDS);
+            client.channel().begin(txId).get(3, TimeUnit.SECONDS);
+            client.channel().nack("msg-4", txId).get(3, TimeUnit.SECONDS);
 
             await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
                 Transaction transaction = Transactions.getInstance().getTransaction(serverConnection, txId);
@@ -342,7 +342,7 @@ class StompIntegrationTest {
                 assertThat(transaction.getFrames().getFirst().getHeader(Elements.ID)).isEqualTo("msg-4");
             });
 
-            client.connection().abort(txId).get(3, TimeUnit.SECONDS);
+            client.channel().abort(txId).get(3, TimeUnit.SECONDS);
 
             await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
                     assertThat(Transactions.getInstance().getTransaction(serverConnection, txId)).isNull());
@@ -364,8 +364,8 @@ class StompIntegrationTest {
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             String txId = "tx-" + UUID.randomUUID();
-            client.connection().begin(txId).get(3, TimeUnit.SECONDS);
-            client.connection().commit(txId).get(3, TimeUnit.SECONDS);
+            client.channel().begin(txId).get(3, TimeUnit.SECONDS);
+            client.channel().commit(txId).get(3, TimeUnit.SECONDS);
         } finally {
             client.shutdown();
         }
@@ -380,8 +380,8 @@ class StompIntegrationTest {
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             String txId = "tx-" + UUID.randomUUID();
-            client.connection().begin(txId).get(3, TimeUnit.SECONDS);
-            client.connection().abort(txId).get(3, TimeUnit.SECONDS);
+            client.channel().begin(txId).get(3, TimeUnit.SECONDS);
+            client.channel().abort(txId).get(3, TimeUnit.SECONDS);
         } finally {
             client.shutdown();
         }
@@ -403,14 +403,14 @@ class StompIntegrationTest {
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             String txId = "tx-" + UUID.randomUUID();
-            client.connection().begin(txId).get(3, TimeUnit.SECONDS);
+            client.channel().begin(txId).get(3, TimeUnit.SECONDS);
 
             // Send within transaction
             StompHeaders headers = StompHeaders.create();
             headers.put(Elements.TRANSACTION, txId);
-            client.connection().send("/queue/tx-test", Buffer.alloc("TX message"), headers).get(3, TimeUnit.SECONDS);
+            client.channel().send("/queue/tx-test", Buffer.alloc("TX message"), headers).get(3, TimeUnit.SECONDS);
 
-            client.connection().commit(txId).get(3, TimeUnit.SECONDS);
+            client.channel().commit(txId).get(3, TimeUnit.SECONDS);
 
             Thread.sleep(100);
             assertThat(queue.size()).isGreaterThan(0);
@@ -430,13 +430,13 @@ class StompIntegrationTest {
 
             // First TX - commit
             String tx1 = "tx-1-" + UUID.randomUUID();
-            client.connection().begin(tx1).get(3, TimeUnit.SECONDS);
-            client.connection().commit(tx1).get(3, TimeUnit.SECONDS);
+            client.channel().begin(tx1).get(3, TimeUnit.SECONDS);
+            client.channel().commit(tx1).get(3, TimeUnit.SECONDS);
 
             // Second TX - abort
             String tx2 = "tx-2-" + UUID.randomUUID();
-            client.connection().begin(tx2).get(3, TimeUnit.SECONDS);
-            client.connection().abort(tx2).get(3, TimeUnit.SECONDS);
+            client.channel().begin(tx2).get(3, TimeUnit.SECONDS);
+            client.channel().abort(tx2).get(3, TimeUnit.SECONDS);
         } finally {
             client.shutdown();
         }
@@ -451,9 +451,9 @@ class StompIntegrationTest {
         try {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
-            assertThat(client.connection().isConnected()).isTrue();
+            assertThat(client.channel().isConnected()).isTrue();
 
-            client.connection().disconnect();
+            client.channel().disconnect();
             await().atMost(1, TimeUnit.SECONDS).until(client::isClosed);
         } finally {
             if (!client.isClosed()) {
@@ -473,7 +473,7 @@ class StompIntegrationTest {
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
             // Subscribe to destination not in dispatcher
-            client.connection().subscribe("/nonexistent", frame -> {}).get(3, TimeUnit.SECONDS);
+            client.channel().subscribe("/nonexistent", frame -> {}).get(3, TimeUnit.SECONDS);
         } finally {
             if (!client.isClosed()) {
                 client.shutdown();
@@ -489,7 +489,7 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
-            client.connection().commit("non-existent-tx").get(3, TimeUnit.SECONDS);
+            client.channel().commit("non-existent-tx").get(3, TimeUnit.SECONDS);
         } finally {
             if (!client.isClosed()) {
                 client.shutdown();
@@ -497,8 +497,8 @@ class StompIntegrationTest {
         }
     }
 
-    private static StompClientConnection awaitSingleServerConnection(StompTestServer testServer) {
-        AtomicReference<StompClientConnection> holder = new AtomicReference<>();
+    private static StompClientChannel awaitSingleServerConnection(StompTestServer testServer) {
+        AtomicReference<StompClientChannel> holder = new AtomicReference<>();
         await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
             assertThat(testServer.server().connection().connections()).isNotEmpty();
             holder.set(testServer.server().connection().connections().getFirst());

@@ -56,12 +56,12 @@ public final class StompServerHandlerImpl implements StompServerHandler {
     private StompServerCommandHandler commitHandler = new DefaultStompServerHandlers.DefaultCommitHandler();
     private StompServerCommandHandler pingHandler = new DefaultStompServerHandlers.DefaultPingHandler();
 
-    public StompServerHandlerImpl(final StompServerConnection serverConnection) {
+    public StompServerHandlerImpl(final StompServerChannel serverConnection) {
         this.context = new StompServerHandlerContext(serverConnection, new AuthenticationImpl());
     }
 
     @Override
-    public void handle(final StompFrame frame, final StompClientConnection connection) {
+    public void handle(final StompFrame frame, final StompClientChannel connection) {
         connection.setLastActivatedAt();
         StompServerEvent event = new StompServerEvent(frame, connection);
         receivedFrameHandler.handle(event);
@@ -160,7 +160,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String accept = Optional.ofNullable(sf.getHeader(StompHeaders.Elements.ACCEPT_VERSION))
                         .orElse(STOMP_1_0.getVersion());
@@ -247,7 +247,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
                 String id = sf.getHeader(StompHeaders.Elements.ID);
@@ -305,7 +305,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 if(id == null) {
@@ -344,7 +344,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
                 String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
                 if(destination == null) {
                     log.warn(
@@ -417,7 +417,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 if(id == null) {
@@ -457,7 +457,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 if(id == null) {
@@ -497,7 +497,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String txId = sf.getHeader(StompHeaders.Elements.TRANSACTION);
                 if (txId == null) {
@@ -529,7 +529,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
 
                 String txId = sf.getHeader(StompHeaders.Elements.TRANSACTION);
                 if (txId == null) {
@@ -561,7 +561,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
             @Override
             public void handle(StompServerEvent event, StompServerHandlerContext context) {
                 StompFrame sf = event.frame();
-                StompClientConnection sc = event.connection();
+                StompClientChannel sc = event.connection();
                 String txId = sf.getHeader(StompHeaders.Elements.TRANSACTION);
                 if(txId == null) {
                     log.warn(

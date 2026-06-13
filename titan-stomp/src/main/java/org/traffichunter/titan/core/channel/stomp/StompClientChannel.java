@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
@@ -39,36 +38,36 @@ import java.util.List;
 /**
  * @author yungwang-o
  */
-public interface StompClientConnection extends StompConnection {
+public interface StompClientChannel extends StompChannel {
 
-    static StompClientConnection open(
+    static StompClientChannel open(
             ChannelHandShakeEventListener handShakeEventListener,
             StompClientOption option
     ) throws IOException {
         return open(handShakeEventListener, option, handler -> {});
     }
 
-    static StompClientConnection open(
+    static StompClientChannel open(
             ChannelHandShakeEventListener handShakeEventListener,
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) throws IOException {
-        return new StompClientConnectionImpl(handShakeEventListener, option, clientHandlerConfigurer);
+        return new StompClientChannelImpl(handShakeEventListener, option, clientHandlerConfigurer);
     }
 
-    static StompClientConnection wrap(
+    static StompClientChannel wrap(
             NetChannel netChannel,
             StompClientOption option
     ) {
         return wrap(netChannel, option, handler -> {});
     }
 
-    static StompClientConnection wrap(
+    static StompClientChannel wrap(
             NetChannel netChannel,
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
-        return new StompClientConnectionImpl(netChannel, option, clientHandlerConfigurer);
+        return new StompClientChannelImpl(netChannel, option, clientHandlerConfigurer);
     }
 
     @Override
@@ -155,11 +154,11 @@ public interface StompClientConnection extends StompConnection {
 
     void failConnect(Throwable error);
 
-    StompClientConnection closeHandler(Handler<StompClientConnection> handler);
+    StompClientChannel closeHandler(Handler<StompClientChannel> handler);
 
-    StompClientConnection connectionDroppedHandler(Handler<StompClientConnection> handler);
+    StompClientChannel connectionDroppedHandler(Handler<StompClientChannel> handler);
 
-    StompClientConnection exceptionHandler(Handler<Throwable> handler);
+    StompClientChannel exceptionHandler(Handler<Throwable> handler);
 
     Promise<Void> connectedPromise();
 

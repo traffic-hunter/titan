@@ -8,7 +8,7 @@ import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.IdGenerator;
@@ -177,7 +177,7 @@ class StompChannelDecoderTest {
     private static class TestStompChannelDecoder extends StompChannelDecoder {
 
         public TestStompChannelDecoder(int maxLength, StompHandler handler) {
-            super(maxLength, StompClientConnection.wrap(channelWithEventLoop(), StompClientOption.builder().build()), handler);
+            super(maxLength, StompClientChannel.wrap(channelWithEventLoop(), StompClientOption.builder().build()), handler);
         }
 
         private static InMemoryNetChannel channelWithEventLoop() {

@@ -42,10 +42,10 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 @Slf4j
 public final class StompFrameDispatchHandler implements ChannelInBoundHandler {
 
-    private final StompClientConnection stompChannel;
+    private final StompClientChannel stompChannel;
     private final StompHandler stompHandler;
 
-    public StompFrameDispatchHandler(StompClientConnection stompChannel, StompHandler stompHandler) {
+    public StompFrameDispatchHandler(StompClientChannel stompChannel, StompHandler stompHandler) {
         this.stompChannel = stompChannel;
         this.stompHandler = stompHandler;
     }

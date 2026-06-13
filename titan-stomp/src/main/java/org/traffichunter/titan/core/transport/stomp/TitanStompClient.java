@@ -35,7 +35,7 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientHandler;
 import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
 import org.traffichunter.titan.core.codec.stomp.*;
@@ -61,7 +61,7 @@ public final class TitanStompClient implements StompClient {
     private final StompClientOption option;
 
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
-    private @Nullable StompClientConnection connection;
+    private @Nullable StompClientChannel connection;
     private @Nullable TitanStompOperations operations;
 
     private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
@@ -85,7 +85,7 @@ public final class TitanStompClient implements StompClient {
     public StompOperations operations() {
         TitanStompOperations operations = this.operations;
         if (operations == null) {
-            operations = new TitanStompOperations(connection());
+            operations = new TitanStompOperations(channel());
             this.operations = operations;
         }
         return operations;
@@ -127,15 +127,15 @@ public final class TitanStompClient implements StompClient {
                 .future();
     }
 
-    public Promise<StompClientConnection> connect(String host, int port) {
+    public Promise<StompClientChannel> connect(String host, int port) {
         return connect(host, port, 30, TimeUnit.SECONDS);
     }
 
-    public Promise<StompClientConnection> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+    public Promise<StompClientChannel> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
         return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
-    public Promise<StompClientConnection> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
+    public Promise<StompClientChannel> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
         if (connection != null && connection.isConnected()) {
             return Promise.failedPromise(connection.channel().eventLoop(), new StompException("STOMP client is already connected"));
         }
@@ -177,20 +177,20 @@ public final class TitanStompClient implements StompClient {
         return option;
     }
 
-    public StompClientConnection connection() {
-        StompClientConnection connection = this.connection;
+    public StompClientChannel channel() {
+        StompClientChannel connection = this.connection;
         if (connection == null) {
             throw new IllegalStateException("STOMP client is not connected");
         }
         return connection;
     }
 
-    public void handler(Consumer<StompClientConnection> connection) {
-        connection.accept(connection());
+    public void handler(Consumer<StompClientChannel> connection) {
+        connection.accept(channel());
     }
 
-    private StompClientConnection createConnection(NetChannel channel) {
-        StompClientConnection connection = StompClientConnection.wrap(channel, option);
+    private StompClientChannel createConnection(NetChannel channel) {
+        StompClientChannel connection = StompClientChannel.wrap(channel, option);
         stompClientHandler.handle(connection.handler());
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
@@ -220,13 +220,13 @@ public final class TitanStompClient implements StompClient {
         return StompFrame.create(headers, command);
     }
 
-    private Promise<StompClientConnection> awaitConnected(
-            StompClientConnection conn,
+    private Promise<StompClientChannel> awaitConnected(
+            StompClientChannel conn,
             InetSocketAddress remoteAddress,
             long timeOut,
             TimeUnit timeUnit
     ) {
-        Promise<StompClientConnection> result = Promise.newPromise(conn.channel().eventLoop());
+        Promise<StompClientChannel> result = Promise.newPromise(conn.channel().eventLoop());
         ScheduledPromise<Object> timeoutTask = conn.channel().eventLoop().schedule(() -> {
             if (result.tryFail(new StompNetChannelException("Timed out waiting for CONNECTED from " + remoteAddress + " in " + timeOut + " " + timeUnit))) {
                 conn.close();

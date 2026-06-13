@@ -56,7 +56,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  * @author yun
  */
 @Slf4j
-public class StompClientConnectionImpl implements StompClientConnection {
+public class StompClientChannelImpl implements StompClientChannel {
 
     private final String sessionId = IdGenerator.randomId("session");
     private final NetChannel netChannel;
@@ -69,8 +69,8 @@ public class StompClientConnectionImpl implements StompClientConnection {
     private final AtomicLong timer = new AtomicLong();
 
     private final Promise<Void> connectPromise;
-    private Handler<StompClientConnection> closeHandler = connection -> {};
-    private Handler<StompClientConnection> connectionDroppedHandler = connection -> {};
+    private Handler<StompClientChannel> closeHandler = connection -> {};
+    private Handler<StompClientChannel> connectionDroppedHandler = connection -> {};
     private Handler<Throwable> exceptionHandler = error -> {};
     private volatile boolean stompConnected;
     private volatile boolean closeNotified;
@@ -78,14 +78,14 @@ public class StompClientConnectionImpl implements StompClientConnection {
     private long pingTimer = -1;
     private long pongTimer = -1;
 
-    StompClientConnectionImpl(
+    StompClientChannelImpl(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompClientOption option
     ) throws IOException {
         this(NetChannel.open(channelHandShakeEventListener), option, handler -> {});
     }
 
-    StompClientConnectionImpl(
+    StompClientChannelImpl(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
@@ -93,11 +93,11 @@ public class StompClientConnectionImpl implements StompClientConnection {
         this(NetChannel.open(channelHandShakeEventListener), option, clientHandlerConfigurer);
     }
 
-    StompClientConnectionImpl(NetChannel netChannel, StompClientOption option) {
+    StompClientChannelImpl(NetChannel netChannel, StompClientOption option) {
         this(netChannel, option, handler -> {});
     }
 
-    StompClientConnectionImpl(
+    StompClientChannelImpl(
             NetChannel netChannel,
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
@@ -378,19 +378,19 @@ public class StompClientConnectionImpl implements StompClientConnection {
     }
 
     @Override
-    public StompClientConnection closeHandler(Handler<StompClientConnection> handler) {
+    public StompClientChannel closeHandler(Handler<StompClientChannel> handler) {
         this.closeHandler = handler;
         return this;
     }
 
     @Override
-    public StompClientConnection connectionDroppedHandler(Handler<StompClientConnection> handler) {
+    public StompClientChannel connectionDroppedHandler(Handler<StompClientChannel> handler) {
         this.connectionDroppedHandler = handler;
         return this;
     }
 
     @Override
-    public StompClientConnection exceptionHandler(Handler<Throwable> handler) {
+    public StompClientChannel exceptionHandler(Handler<Throwable> handler) {
         this.exceptionHandler = handler;
         return this;
     }
@@ -521,7 +521,7 @@ public class StompClientConnectionImpl implements StompClientConnection {
         if (this == other) {
             return true;
         }
-        if (!(other instanceof StompClientConnectionImpl that)) {
+        if (!(other instanceof StompClientChannelImpl that)) {
             return false;
         }
         return this.netChannel.id().equals(that.netChannel.id());

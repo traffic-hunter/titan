@@ -40,7 +40,7 @@ public final class StompClientHandlerImpl implements StompClientHandler {
     private StompClientCommandHandler pingHandler = new DefaultStompClientHandlers.DefaultPingHandler();
 
     @Override
-    public void handle(StompFrame sf, StompClientConnection sc) {
+    public void handle(StompFrame sf, StompClientChannel sc) {
         sc.setLastActivatedAt();
         StompClientEvent event = new StompClientEvent(sf, sc);
         receivedFrameHandler.handle(event);
@@ -97,7 +97,7 @@ public final class StompClientHandlerImpl implements StompClientHandler {
             @Override
             public void handle(StompClientEvent event, StompClientHandlerContext context) {
                 StompFrame frame = event.frame();
-                StompClientConnection connection = event.connection();
+                StompClientChannel connection = event.connection();
                 connection.connected();
 
                 String heartbeat = frame.getHeader(StompHeaders.Elements.HEART_BEAT);
@@ -114,7 +114,7 @@ public final class StompClientHandlerImpl implements StompClientHandler {
             @Override
             public void handle(StompClientEvent event, StompClientHandlerContext context) {
                 StompFrame frame = event.frame();
-                StompClientConnection connection = event.connection();
+                StompClientChannel connection = event.connection();
                 String id = frame.getHeader(StompHeaders.Elements.SUBSCRIPTION);
                 connection.subscriptions()
                         .stream()
@@ -136,7 +136,7 @@ public final class StompClientHandlerImpl implements StompClientHandler {
         static final class DefaultErrorHandler implements StompClientCommandHandler {
             @Override
             public void handle(StompClientEvent event, StompClientHandlerContext context) {
-                StompClientConnection connection = event.connection();
+                StompClientChannel connection = event.connection();
                 connection.failConnect(new StompException("Received ERROR frame from server"));
                 connection.error(event.frame());
             }

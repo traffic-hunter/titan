@@ -24,7 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec.stomp;
 
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.util.Destination;
 
 import java.util.List;
@@ -48,7 +48,7 @@ public final class StompServerSubscriptions {
                 .putIfAbsent(subscription.id(), subscription) == null;
     }
 
-    public @Nullable StompServerSubscription unregister(StompClientConnection connection, String subscriptionId) {
+    public @Nullable StompServerSubscription unregister(StompClientChannel connection, String subscriptionId) {
         ConcurrentMap<String, StompServerSubscription> sessionSubscriptions =
                 subscriptions.get(connection.session());
         if (sessionSubscriptions == null) {
@@ -62,7 +62,7 @@ public final class StompServerSubscriptions {
         return removed;
     }
 
-    public List<StompServerSubscription> unregisterAll(StompClientConnection connection) {
+    public List<StompServerSubscription> unregisterAll(StompClientChannel connection) {
         ConcurrentMap<String, StompServerSubscription> removed = subscriptions.remove(connection.session());
         if (removed == null) {
             return List.of();
@@ -70,7 +70,7 @@ public final class StompServerSubscriptions {
         return List.copyOf(removed.values());
     }
 
-    public @Nullable StompServerSubscription find(StompClientConnection connection, String subscriptionId) {
+    public @Nullable StompServerSubscription find(StompClientChannel connection, String subscriptionId) {
         ConcurrentMap<String, StompServerSubscription> sessionSubscriptions =
                 subscriptions.get(connection.session());
         if (sessionSubscriptions == null) {
