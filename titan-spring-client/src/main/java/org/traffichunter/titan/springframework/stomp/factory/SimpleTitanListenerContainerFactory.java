@@ -24,7 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.springframework.stomp.factory;
 
 import org.springframework.util.ErrorHandler;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerContainer;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;

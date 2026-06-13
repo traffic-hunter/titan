@@ -7,8 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 import org.springframework.util.ErrorHandler;
 
@@ -56,11 +56,11 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompOperations operations = manager.operations();
-            String subscriptionId = operations.subscribe(endpoint.destination(), frame -> {
+            StompConnection connection = manager.connection();
+            String subscriptionId = connection.subscribe(endpoint.destination(), frame -> {
                 try {
                     invoke(frame);
-                    acknowledgeIfPossible(frame, operations);
+                    acknowledgeIfPossible(frame, connection);
                 } catch (Exception e) {
                     log.error(
                             "Failed to invoke Titan listener handler. id={}, destination={}",
@@ -69,7 +69,7 @@ public final class TitanListenerContainer {
                             e
                     );
                     handleListenerError(e);
-                    negativeAcknowledgeIfPossible(frame, operations);
+                    negativeAcknowledgeIfPossible(frame, connection);
                 }
             }).get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
 
@@ -94,13 +94,13 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompOperations operations = manager.currentOperations();
-            if(operations == null) {
+            StompConnection connection = manager.currentConnection();
+            if(connection == null) {
                 return;
             }
 
-            if (operations.isConnected()) {
-                operations.unsubscribe(endpoint.destination())
+            if (connection.isConnected()) {
+                connection.unsubscribe(endpoint.destination())
                         .get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
             }
 
@@ -151,7 +151,7 @@ public final class TitanListenerContainer {
     /**
      * Send ACK for MESSAGE frames that include a message-id.
      */
-    private void acknowledgeIfPossible(StompFrames frame, StompOperations operations) {
+    private void acknowledgeIfPossible(StompFrames frame, StompConnection connection) {
         if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
@@ -162,13 +162,13 @@ public final class TitanListenerContainer {
             return;
         }
 
-        operations.ack(messageId);
+        connection.ack(messageId);
     }
 
     /**
      * Send NACK for MESSAGE frames that include a message-id.
      */
-    private void negativeAcknowledgeIfPossible(StompFrames frame, StompOperations operations) {
+    private void negativeAcknowledgeIfPossible(StompFrames frame, StompConnection connection) {
         if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
@@ -179,7 +179,7 @@ public final class TitanListenerContainer {
             return;
         }
 
-        operations.nack(messageId);
+        connection.nack(messageId);
     }
 
     private void handleListenerError(Throwable error) {

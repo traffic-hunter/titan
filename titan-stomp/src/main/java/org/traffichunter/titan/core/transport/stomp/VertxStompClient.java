@@ -28,11 +28,14 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.stomp.StompClient;
 import io.vertx.ext.stomp.StompClientOptions;
 import io.vertx.ext.stomp.StompClientConnection;
+import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.StompException;
+import org.traffichunter.titan.core.resilience.retry.RetryListener;
+import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
-import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
-import org.traffichunter.titan.core.transport.stomp.client.VertxStompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.core.transport.stomp.client.VertxStompConnection;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 
 import java.net.SocketOption;
@@ -44,6 +47,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author yun
@@ -52,10 +57,16 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
 
     private final StompClientOption option;
     private final boolean managedVertx;
+
+    private final RetryPolicy reconnectPolicy;
+    private final RetryListener reconnectListener;
+    private final AtomicReference<Status> status;
+    private final AtomicLong reconnectTimerId = new AtomicLong(-1);
+
     private @Nullable Vertx vertx;
     private @Nullable StompClient client;
-    private @Nullable StompClientConnection connection;
-    private @Nullable VertxStompOperations operations;
+    private volatile @Nullable StompClientConnection connection;
+    private volatile @Nullable VertxStompConnection stompConnection;
     private volatile boolean isShutdown;
 
     private VertxStompClient(
@@ -68,6 +79,11 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         this.client = client;
         this.option = option;
         this.managedVertx = managedVertx;
+        this.reconnectPolicy = option.reconnectPolicy();
+        this.reconnectListener = option.reconnectListener();
+        this.status = new AtomicReference<>(
+                client != null && !client.isClosed() ? Status.STARTED : Status.INITIALIZED
+        );
     }
 
     public static VertxStompClient open(StompClientOption option) {
@@ -87,54 +103,78 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         if (isShutdown) {
             throw new StompException("Client has been shut down");
         }
-        if (client != null && !client.isClosed()) {
+        if (!status.compareAndSet(Status.INITIALIZED, Status.STARTING)) {
             throw new StompException("Client already started");
         }
 
-        Vertx vertx = this.vertx;
-        if (vertx == null) {
-            vertx = Vertx.vertx();
-            this.vertx = vertx;
+        try {
+            Vertx vertx = this.vertx;
+            if (vertx == null) {
+                vertx = Vertx.vertx();
+                this.vertx = vertx;
+            }
+            client = StompClient.create(vertx, toVertxOptions(option));
+            status.set(Status.STARTED);
+        } catch (RuntimeException e) {
+            status.set(Status.INITIALIZED);
+            throw e;
         }
-        client = StompClient.create(vertx, toVertxOptions(option));
     }
 
     @Override
-    public Future<StompOperations> connect() {
+    public Future<StompConnection> connect() {
+        if (!status.compareAndSet(Status.STARTED, Status.CONNECTING)) {
+            return CompletableFuture.failedFuture(
+                    new StompException(status.get() == Status.INITIALIZED
+                            ? "Client is not started"
+                            : "STOMP client is not ready to connect")
+            );
+        }
+
+        io.vertx.core.Future<StompConnection> result = connectStompConnection();
+        result.onFailure(error -> status.compareAndSet(Status.CONNECTING, Status.STARTED));
+        return VertxFutureWrapper.wrap(result);
+    }
+
+    private io.vertx.core.Future<StompConnection> connectStompConnection() {
         StompClientConnection connection = this.connection;
         if (connection != null && connection.isConnected()) {
-            return CompletableFuture.failedFuture(new StompException("STOMP client is already connected"));
+            return io.vertx.core.Future.failedFuture(
+                    new StompException("STOMP client is already connected")
+            );
         }
 
         StompClient nativeClient = this.client;
         if (nativeClient == null || nativeClient.isClosed()) {
-            return CompletableFuture.failedFuture(new StompException("Client is not started"));
+            return io.vertx.core.Future.failedFuture(new StompException("Client is not started"));
         }
 
-        io.vertx.core.Future<StompOperations> client = nativeClient
+        return nativeClient
                 .connect(option.port(), option.host())
                 .map(conn -> {
-                    VertxStompOperations operations = new VertxStompOperations(conn);
+                    VertxStompConnection stompConnection = createStompConnection(conn);
+                    if (!status.compareAndSet(Status.CONNECTING, Status.CONNECTED)) {
+                        conn.close();
+                        throw new StompException("STOMP client stopped while connecting");
+                    }
                     this.connection = conn;
-                    this.operations = operations;
-                    return operations;
+                    this.stompConnection = stompConnection;
+                    return stompConnection;
                 });
-
-        return VertxFutureWrapper.wrap(client);
     }
 
     @Override
-    public StompOperations operations() {
-        VertxStompOperations operations = this.operations;
-        if (operations == null) {
+    public StompConnection connection() {
+        VertxStompConnection stompConnection = this.stompConnection;
+        if (stompConnection == null) {
             StompClientConnection connection = this.connection;
             if (connection == null) {
                 throw new IllegalStateException("STOMP client is not connected");
             }
-            operations = new VertxStompOperations(connection);
-            this.operations = operations;
+            stompConnection = createStompConnection(connection);
+            this.stompConnection = stompConnection;
         }
-        return operations;
+        return stompConnection;
     }
 
     @Override
@@ -150,6 +190,11 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
 
     @Override
     public void shutdown(long timeout, TimeUnit unit) {
+        if (!transitionToShuttingDown()) {
+            return;
+        }
+
+        cancelReconnect();
         StompClient client = this.client;
         try {
             if (client != null && !client.isClosed()) {
@@ -163,6 +208,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
             throw new StompException("Timed out shutting down Vert.x STOMP client", e);
         } finally {
             isShutdown = true;
+            status.set(Status.SHUTDOWN);
         }
     }
 
@@ -178,12 +224,83 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         return client;
     }
 
-    public StompClientConnection connection() {
+    public StompClientConnection channel() {
         StompClientConnection connection = this.connection;
         if (connection == null) {
             throw new IllegalStateException("STOMP client is not connected");
         }
         return connection;
+    }
+
+    private VertxStompConnection createStompConnection(StompClientConnection connection) {
+        return new VertxStompConnection(
+                connection,
+                this::disconnecting,
+                ignored -> connectionLost(),
+                ignored -> connectionLost()
+        );
+    }
+
+    private void connectionLost() {
+        if (!status.compareAndSet(Status.CONNECTED, Status.CONNECTING)) {
+            return;
+        }
+
+        scheduleReconnect(1);
+    }
+
+    private void disconnecting() {
+        cancelReconnect();
+        status.compareAndSet(Status.CONNECTED, Status.STARTED);
+    }
+
+    private void scheduleReconnect(int attempt) {
+        if (status.get() != Status.CONNECTING || !reconnectPolicy.canRetry(attempt)) {
+            return;
+        }
+
+        Vertx vertx = this.vertx;
+        if (vertx == null) {
+            return;
+        }
+
+        Duration delay = reconnectPolicy.delay(attempt);
+        reconnectListener.onRetry(attempt, delay);
+        long timerId = vertx.setTimer(Math.max(1, delay.toMillis()), ignored -> {
+            if (status.get() != Status.CONNECTING) {
+                return;
+            }
+
+            connectStompConnection().onFailure(error -> {
+                reconnectListener.onRetryFailed(attempt, error);
+                scheduleReconnect(nextAttempt(attempt));
+            });
+        });
+        reconnectTimerId.set(timerId);
+    }
+
+    private void cancelReconnect() {
+        long timerId = reconnectTimerId.getAndSet(-1);
+        Vertx vertx = this.vertx;
+        if (timerId >= 0 && vertx != null) {
+            vertx.cancelTimer(timerId);
+        }
+    }
+
+    private static int nextAttempt(int attempt) {
+        return attempt == Integer.MAX_VALUE ? Integer.MAX_VALUE : attempt + 1;
+    }
+
+    private boolean transitionToShuttingDown() {
+        while (true) {
+            Status current = status.get();
+            if (current == Status.SHUTTING_DOWN || current == Status.SHUTDOWN) {
+                return false;
+            }
+            if (status.compareAndSet(current, Status.SHUTTING_DOWN)) {
+                return true;
+            }
+        }
     }
 
     private static StompClientOptions toVertxOptions(StompClientOption option) {

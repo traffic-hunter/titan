@@ -10,19 +10,15 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.resilience.retry.CompositeRetryListener;
-import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.client.TitanStompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.client.VertxStompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
-import org.traffichunter.titan.springframework.stomp.TitanReconnectStateRetryListener;
-import org.traffichunter.titan.springframework.stomp.TitanTemplate;
-import org.traffichunter.titan.springframework.stomp.TitanRetryLoggingListener;
+import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 
 /**
  * Autoconfiguration for Titan's Spring STOMP client integration.
@@ -93,21 +89,12 @@ public class TitanStompClientAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(name = "titanClientRetryListener")
-    public CompositeRetryListener titanClientRetryListener(ObjectProvider<TitanClientManager> titanClientManager) {
-        return new CompositeRetryListener()
-                .add(new TitanRetryLoggingListener())
-                .add(new TitanReconnectStateRetryListener(titanClientManager::getObject));
-    }
-
-    @Bean
     @ConditionalOnMissingBean
     public TitanClientManager titanClientManager(
             StompClient titanStompClient,
-            TitanProperties properties,
-            RetryListener titanClientRetryListener
+            TitanProperties properties
     ) {
-        return new TitanClientManager(titanStompClient, properties, titanClientRetryListener);
+        return new TitanClientManager(titanStompClient, properties);
     }
 
     @Bean

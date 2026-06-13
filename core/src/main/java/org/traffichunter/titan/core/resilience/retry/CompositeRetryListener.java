@@ -125,8 +125,4 @@ public final class CompositeRetryListener implements RetryListener {
         listeners.forEach(listener -> listener.onRetryFailed(attempt, cause));
     }
 
-    @Override
-    public void onRetryExhausted(int attempt, Throwable cause) {
-        listeners.forEach(listener -> listener.onRetryExhausted(attempt, cause));
-    }
 }

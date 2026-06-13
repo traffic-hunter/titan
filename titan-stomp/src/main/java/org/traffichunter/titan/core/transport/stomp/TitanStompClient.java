@@ -25,8 +25,11 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -41,10 +44,13 @@ import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
+import org.traffichunter.titan.core.resilience.retry.RetryExecutors;
+import org.traffichunter.titan.core.resilience.retry.RetryResult;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
-import org.traffichunter.titan.core.transport.stomp.client.TitanStompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.core.transport.stomp.client.TitanStompConnection;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
 
@@ -59,10 +65,13 @@ public final class TitanStompClient implements StompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
+    private final RetryExecutor reconnectExecutor;
+    private final AtomicReference<Status> status;
 
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
-    private @Nullable StompClientChannel connection;
-    private @Nullable TitanStompOperations operations;
+    private volatile @Nullable StompClientChannel connection;
+    private volatile @Nullable TitanStompConnection stompConnection;
+    private volatile RetryResult reconnectResult = RetryResult.noop();
 
     private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
@@ -71,6 +80,13 @@ public final class TitanStompClient implements StompClient {
             inetClient = InetClient.open(groups, option.inetClientOption());
         }
         this.inetClient = inetClient;
+        this.reconnectExecutor = RetryExecutors.eventLoopRetryExecutor(
+                option.reconnectPolicy(),
+                option.reconnectListener()
+        );
+        this.status = new AtomicReference<>(
+                inetClient.isStarted() ? Status.STARTED : Status.INITIALIZED
+        );
     }
 
     public static TitanStompClient open(EventLoopGroups groups, StompClientOption option) {
@@ -82,13 +98,13 @@ public final class TitanStompClient implements StompClient {
     }
 
     @Override
-    public StompOperations operations() {
-        TitanStompOperations operations = this.operations;
-        if (operations == null) {
-            operations = new TitanStompOperations(channel());
-            this.operations = operations;
+    public StompConnection connection() {
+        TitanStompConnection stompConnection = this.stompConnection;
+        if (stompConnection == null) {
+            stompConnection = createStompConnection(channel());
+            this.stompConnection = stompConnection;
         }
-        return operations;
+        return stompConnection;
     }
 
     @Override
@@ -109,22 +125,37 @@ public final class TitanStompClient implements StompClient {
     }
 
     public void start() {
-        if(inetClient.isStarted()) {
+        if (!status.compareAndSet(Status.INITIALIZED, Status.STARTING)) {
             throw new StompException("Client already started");
         }
 
-        inetClient.start();
+        try {
+            inetClient.start();
+            status.set(Status.STARTED);
+        } catch (RuntimeException e) {
+            status.set(Status.INITIALIZED);
+            throw e;
+        }
     }
 
     @Override
-    public Future<StompOperations> connect() {
-        return connect(option.host(), option.port())
-                .map(connection -> {
-                    TitanStompOperations operations = new TitanStompOperations(connection);
-                    this.operations = operations;
-                    return (StompOperations) operations;
-                })
-                .future();
+    public Future<StompConnection> connect() {
+        if (!status.compareAndSet(Status.STARTED, Status.CONNECTING)) {
+            return CompletableFuture.failedFuture(
+                    new StompException(status.get() == Status.INITIALIZED
+                            ? "Client is not started"
+                            : "STOMP client is not ready to connect")
+            );
+        }
+
+        Promise<StompConnection> result = connectStompConnection()
+                .addListener(future -> {
+                    if (future.isFailed()) {
+                        status.compareAndSet(Status.CONNECTING, Status.STARTED);
+                    }
+                });
+
+        return result.future();
     }
 
     public Promise<StompClientChannel> connect(String host, int port) {
@@ -154,7 +185,17 @@ public final class TitanStompClient implements StompClient {
     }
 
     public void shutdown(long timeout, TimeUnit unit) {
-        inetClient.shutdown(timeout, unit);
+        if (!transitionToShuttingDown()) {
+            return;
+        }
+
+        reconnectResult.cancel();
+        try {
+            reconnectExecutor.shutdown(timeout, unit);
+            inetClient.shutdown(timeout, unit);
+        } finally {
+            status.set(Status.SHUTDOWN);
+        }
     }
 
     public @Nullable SocketAddress remoteAddress() {
@@ -194,8 +235,64 @@ public final class TitanStompClient implements StompClient {
         stompClientHandler.handle(connection.handler());
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
-        this.operations = new TitanStompOperations(connection);
         return connection;
+    }
+
+    private Promise<StompConnection> connectStompConnection() {
+        return connect(option.host(), option.port())
+                .map(connection -> {
+                    TitanStompConnection stompConnection = createStompConnection(connection);
+                    if (!status.compareAndSet(Status.CONNECTING, Status.CONNECTED)) {
+                        connection.close();
+                        throw new StompException("STOMP client stopped while connecting");
+                    }
+                    this.stompConnection = stompConnection;
+                    return stompConnection;
+                });
+    }
+
+    private TitanStompConnection createStompConnection(StompClientChannel connection) {
+        return new TitanStompConnection(
+                connection,
+                this::disconnecting,
+                ignored -> connectionLost(),
+                ignored -> connectionLost()
+        );
+    }
+
+    private void connectionLost() {
+        if (!status.compareAndSet(Status.CONNECTED, Status.CONNECTING)) {
+            return;
+        }
+
+        reconnectResult = reconnectExecutor.retry(() -> {
+            try {
+                return connectStompConnection().future().get();
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof Exception exception) {
+                    throw exception;
+                }
+                throw e;
+            }
+        });
+    }
+
+    private void disconnecting() {
+        reconnectResult.cancel();
+        status.compareAndSet(Status.CONNECTED, Status.STARTED);
+    }
+
+    private boolean transitionToShuttingDown() {
+        while (true) {
+            Status current = status.get();
+            if (current == Status.SHUTTING_DOWN || current == Status.SHUTDOWN) {
+                return false;
+            }
+            if (status.compareAndSet(current, Status.SHUTTING_DOWN)) {
+                return true;
+            }
+        }
     }
 
     private StompFrame generateConnectFrame(String host) {

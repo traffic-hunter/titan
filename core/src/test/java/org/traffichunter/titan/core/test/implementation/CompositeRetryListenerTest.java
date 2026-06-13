@@ -22,15 +22,12 @@ class CompositeRetryListenerTest {
 
         listeners.onRetry(1, Duration.ofMillis(10));
         listeners.onRetryFailed(1, failure);
-        listeners.onRetryExhausted(1, failure);
 
         assertThat(events).containsExactly(
                 "first:retry",
                 "second:retry",
                 "first:failed",
-                "second:failed",
-                "first:exhausted",
-                "second:exhausted"
+                "second:failed"
         );
     }
 
@@ -209,11 +206,6 @@ class CompositeRetryListenerTest {
             @Override
             public void onRetryFailed(int attempt, Throwable cause) {
                 events.add(name + ":failed");
-            }
-
-            @Override
-            public void onRetryExhausted(int attempt, Throwable cause) {
-                events.add(name + ":exhausted");
             }
         };
     }
