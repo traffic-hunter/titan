@@ -18,6 +18,7 @@ import org.traffichunter.titan.springframework.stomp.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import org.traffichunter.titan.springframework.stomp.TitanReconnectStateRetryListener;
 import org.traffichunter.titan.springframework.stomp.TitanRetryLoggingListener;
+import org.traffichunter.titan.springframework.stomp.TitanTemplate;
 
 import java.time.Duration;
 import java.util.List;
@@ -113,6 +114,23 @@ class TitanStompClientAutoConfigurationTest {
                     assertThat(context.getBean(TitanClientManager.class).isRunning()).isFalse();
                     verify(client, never()).start();
                     verify(client, never()).connect();
+                });
+    }
+
+    @Test
+    void exposes_client_manager_and_template_with_public_bean_names() {
+        StompClient client = lifecycleClient(mock(StompOperations.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues("spring.titan.auto-start=false")
+                .run(context -> {
+                    assertThat(context).hasBean("titanClientManager");
+                    assertThat(context.getBean("titanClientManager"))
+                            .isInstanceOf(TitanClientManager.class);
+                    assertThat(context).hasBean("titanTemplate");
+                    assertThat(context.getBean("titanTemplate"))
+                            .isInstanceOf(TitanTemplate.class);
                 });
     }
 

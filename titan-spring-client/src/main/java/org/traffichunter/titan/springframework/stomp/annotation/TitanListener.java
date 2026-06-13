@@ -51,5 +51,5 @@ public @interface TitanListener {
 
     int concurrency() default 1;
 
-    String clientRef() default "titanStompClientManager";
+    String clientRef() default "titanClientManager";
 }

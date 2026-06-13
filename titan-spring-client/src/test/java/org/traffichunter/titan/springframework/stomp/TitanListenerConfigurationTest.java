@@ -15,10 +15,20 @@ import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.springframework.stomp.annotation.TitanListener;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerConfiguration;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 
 class TitanListenerConfigurationTest {
+
+    @Test
+    void listener_uses_titan_client_manager_by_default() throws NoSuchMethodException {
+        Object defaultClientRef = TitanListener.class
+                .getDeclaredMethod("clientRef")
+                .getDefaultValue();
+
+        assertEquals("titanClientManager", defaultClientRef);
+    }
 
     @Test
     void resolver_composite_resolves_stomp_frame_and_payload() throws Exception {
