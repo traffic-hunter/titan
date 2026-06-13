@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
@@ -86,9 +86,9 @@ class TitanFanoutSmokeTest {
             firstConsumer.start();
             secondConsumer.start();
 
-            StompClientConnection producerConnection = connect(producer, port);
-            StompClientConnection firstConsumerConnection = connect(firstConsumer, port);
-            StompClientConnection secondConsumerConnection = connect(secondConsumer, port);
+            StompClientChannel producerConnection = connect(producer, port);
+            StompClientChannel firstConsumerConnection = connect(firstConsumer, port);
+            StompClientChannel secondConsumerConnection = connect(secondConsumer, port);
 
             StompHeaders firstSubscribeHeaders = StompHeaders.create();
             firstSubscribeHeaders.put(ID, "smoke-fanout-first");
@@ -137,7 +137,7 @@ class TitanFanoutSmokeTest {
                 .build());
     }
 
-    private static StompClientConnection connect(TitanStompClient client, int port) throws Exception {
+    private static StompClientChannel connect(TitanStompClient client, int port) throws Exception {
         return client.connect(HOST, port, TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }

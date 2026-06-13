@@ -34,11 +34,11 @@ import java.util.concurrent.Future;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 /**
- * Transport-neutral STOMP client operations.
+ * Transport-neutral active STOMP client connection.
  *
  * @author yun
  */
-public interface StompOperations {
+public interface StompConnection {
 
     Future<StompFrames> send(String destination, Buffer payload);
 
@@ -59,19 +59,19 @@ public interface StompOperations {
     Future<StompFrames> disconnect();
 
     @CanIgnoreReturnValue
-    StompOperations errorHandler(Handler<StompFrames> handler);
+    StompConnection errorHandler(Handler<StompFrames> handler);
 
     @CanIgnoreReturnValue
-    StompOperations closeHandler(Handler<StompOperations> handler);
+    StompConnection closeHandler(Handler<StompConnection> handler);
 
     @CanIgnoreReturnValue
-    StompOperations connectionDroppedHandler(Handler<StompOperations> handler);
+    StompConnection connectionDroppedHandler(Handler<StompConnection> handler);
 
     @CanIgnoreReturnValue
-    StompOperations pingHandler(Handler<StompOperations> handler);
+    StompConnection pingHandler(Handler<StompConnection> handler);
 
     @CanIgnoreReturnValue
-    StompOperations exceptionHandler(Handler<Throwable> handler);
+    StompConnection exceptionHandler(Handler<Throwable> handler);
 
     boolean isConnected();
 }

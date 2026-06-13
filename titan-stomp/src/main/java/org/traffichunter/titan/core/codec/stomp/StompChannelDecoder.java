@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -46,18 +46,18 @@ public class StompChannelDecoder extends ChannelDecoder {
     private static final int DEFAULT_MAX_LENGTH = 65536;
 
     private final StompParser stompParser;
-    private final StompClientConnection stompChannel;
+    private final StompClientChannel stompChannel;
     private final StompHandler handler;
 
-    public StompChannelDecoder(StompClientConnection stompChannel) {
+    public StompChannelDecoder(StompClientChannel stompChannel) {
         this(stompChannel, stompChannel.handler());
     }
 
-    public StompChannelDecoder(StompClientConnection stompChannel, StompHandler handler) {
+    public StompChannelDecoder(StompClientChannel stompChannel, StompHandler handler) {
         this(DEFAULT_MAX_LENGTH, stompChannel, handler);
     }
 
-    public StompChannelDecoder(int maxLength, StompClientConnection stompChannel, StompHandler handler) {
+    public StompChannelDecoder(int maxLength, StompClientChannel stompChannel, StompHandler handler) {
         this.stompParser = new StompParser(maxLength);
         this.stompChannel = stompChannel;
         this.handler = handler;

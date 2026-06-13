@@ -43,11 +43,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * @author yungwang-o
  */
-public class StompServerConnectionImpl implements StompServerConnection {
+public class StompServerChannelImpl implements StompServerChannel {
 
     private final NetServerChannel serverChannel;
     private final StompServerOption option;
-    private final Map<String, StompClientConnection> connections = new ConcurrentHashMap<>();
+    private final Map<String, StompClientChannel> connections = new ConcurrentHashMap<>();
     private final AtomicInteger roundRobinSequence = new AtomicInteger();
     private final StompServerSubscriptions subscriptions = new StompServerSubscriptions();
 
@@ -60,7 +60,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
         CLOSED
     }
 
-    StompServerConnectionImpl(
+    StompServerChannelImpl(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompServerOption option
     ) {
@@ -73,7 +73,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
         }
     }
 
-    StompServerConnectionImpl(NetServerChannel serverChannel, StompServerOption option) {
+    StompServerChannelImpl(NetServerChannel serverChannel, StompServerOption option) {
         this.serverChannel = serverChannel;
         this.option = option;
         state.set(State.RUNNING);
@@ -91,7 +91,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
 
     @Override
     public Promise<Void> write(Buffer buffer) {
-        StompClientConnection connection = nextConnection();
+        StompClientChannel connection = nextConnection();
         if (connection == null) {
             return Promise.failedPromise(
                     serverChannel.eventLoop(),
@@ -104,7 +104,7 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public void register(StompClientConnection connection) {
+    public void register(StompClientChannel connection) {
 
         State current = state.get();
         if (current != State.RUNNING) {
@@ -123,14 +123,14 @@ public class StompServerConnectionImpl implements StompServerConnection {
 
     @Override
     public void unregister(String sessionId) {
-        StompClientConnection connection = connections.get(sessionId);
+        StompClientChannel connection = connections.get(sessionId);
         if (connection != null) {
             cleanUp(connection);
         }
     }
 
     @Override
-    public void cleanUp(StompClientConnection connection) {
+    public void cleanUp(StompClientChannel connection) {
         if (state.get() == State.CLOSED) {
             return;
         }
@@ -158,18 +158,18 @@ public class StompServerConnectionImpl implements StompServerConnection {
     }
 
     @Override
-    public @Nullable StompClientConnection findConnection(String sessionId) {
+    public @Nullable StompClientChannel findConnection(String sessionId) {
         return connections.get(sessionId);
     }
 
     @Override
-    public List<StompClientConnection> connections() {
+    public List<StompClientChannel> connections() {
         return List.copyOf(connections.values());
     }
 
     @Override
-    public StompClientConnection connection() {
-        StompClientConnection stompClientConnection = nextConnection();
+    public StompClientChannel connection() {
+        StompClientChannel stompClientConnection = nextConnection();
         if (stompClientConnection == null) {
             throw new StompNetServeChannelException("No active STOMP client connection");
         }
@@ -205,9 +205,9 @@ public class StompServerConnectionImpl implements StompServerConnection {
         }
 
         try {
-            Collection<StompClientConnection> activeConnections = connections.values();
+            Collection<StompClientChannel> activeConnections = connections.values();
             activeConnections.forEach(this::cleanUp);
-            activeConnections.forEach(StompClientConnection::close);
+            activeConnections.forEach(StompClientChannel::close);
             connections.clear();
             serverChannel.close();
         } finally {
@@ -220,8 +220,8 @@ public class StompServerConnectionImpl implements StompServerConnection {
         return option;
     }
 
-    private @Nullable StompClientConnection nextConnection() {
-        List<StompClientConnection> activeConnections = activeConnections();
+    private @Nullable StompClientChannel nextConnection() {
+        List<StompClientChannel> activeConnections = activeConnections();
         if (activeConnections.isEmpty()) {
             return null;
         }
@@ -230,18 +230,18 @@ public class StompServerConnectionImpl implements StompServerConnection {
         return activeConnections.get(index);
     }
 
-    private List<StompClientConnection> activeConnections() {
+    private List<StompClientChannel> activeConnections() {
         return connections.values().stream()
                 .filter(this::isActive)
                 .toList();
     }
 
-    private boolean isActive(StompClientConnection connection) {
+    private boolean isActive(StompClientChannel connection) {
         Channel channel = connection.channel();
         return !(channel.isClosed() || !channel.isActive());
     }
 
-    private NetChannel asNetChannel(StompClientConnection connection) {
+    private NetChannel asNetChannel(StompClientChannel connection) {
         return connection.channel();
     }
 

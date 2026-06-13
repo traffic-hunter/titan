@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.codec.stomp;
 import lombok.Builder;
 import lombok.Getter;
 import org.traffichunter.titan.core.channel.Subscription;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
@@ -36,14 +36,14 @@ import org.traffichunter.titan.core.util.Destination;
 public class StompServerSubscription extends Subscription implements StompSubscription {
 
     private final String ackMode;
-    private final StompClientConnection connection;
+    private final StompClientChannel connection;
 
     @Builder
     public StompServerSubscription(
             Destination destination,
             String id,
             String ackMode,
-            StompClientConnection connection
+            StompClientChannel connection
     ) {
         super(destination, id);
         this.ackMode = ackMode;

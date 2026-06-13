@@ -29,26 +29,26 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
+import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListenerContainerFactory;
 
 class TitanListenerContainerFactoryTest {
 
-    private StompOperations operations;
+    private StompConnection connection;
     private TitanClientManager manager;
 
     @BeforeEach
     void setUp() {
         StompClient stompClient = mock(StompClient.class);
-        operations = mock(StompOperations.class);
+        connection = mock(StompConnection.class);
         manager = new TitanClientManager(stompClient, new TitanProperties());
 
-        when(stompClient.operations()).thenReturn(operations);
-        when(operations.isConnected()).thenReturn(true);
-        when(operations.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
+        when(stompClient.connection()).thenReturn(connection);
+        when(connection.isConnected()).thenReturn(true);
+        when(connection.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
                 .thenReturn(CompletableFuture.completedFuture("/topic/test"));
     }
 
@@ -93,8 +93,8 @@ class TitanListenerContainerFactoryTest {
         container.start();
         subscribedHandler().handle(messageFrame("msg-1"));
 
-        verify(operations).ack("msg-1");
-        verify(operations, never()).nack(anyString());
+        verify(connection).ack("msg-1");
+        verify(connection, never()).nack(anyString());
     }
 
     @Test
@@ -109,26 +109,26 @@ class TitanListenerContainerFactoryTest {
         subscribedHandler().handle(messageFrame("msg-2"));
 
         assertTrue(errorHandled.get());
-        verify(operations).nack("msg-2");
-        verify(operations, never()).ack(anyString());
+        verify(connection).nack("msg-2");
+        verify(connection, never()).ack(anyString());
     }
 
     @Test
     void listener_container_stops_by_unsubscribing_active_destination() throws Exception {
-        when(operations.unsubscribe("/topic/test"))
+        when(connection.unsubscribe("/topic/test"))
                 .thenReturn(CompletableFuture.completedFuture(mock(StompFrames.class)));
         TitanListenerContainer container = listenerContainer(endpoint("handle"));
 
         container.start();
         container.stop();
 
-        verify(operations).unsubscribe("/topic/test");
+        verify(connection).unsubscribe("/topic/test");
         assertTrue(container.isStopped());
     }
 
     @Test
     void listener_container_resets_running_when_subscribe_fails() throws Exception {
-        when(operations.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
+        when(connection.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
                 .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("subscribe failed")));
         TitanListenerContainer container = listenerContainer(endpoint("handle"));
 
@@ -163,7 +163,7 @@ class TitanListenerContainerFactoryTest {
     @SuppressWarnings("unchecked")
     private Handler<StompFrames> subscribedHandler() {
         ArgumentCaptor<Handler<StompFrames>> captor = ArgumentCaptor.forClass(Handler.class);
-        verify(operations).subscribe(eq("/topic/test"), captor.capture());
+        verify(connection).subscribe(eq("/topic/test"), captor.capture());
         return captor.getValue();
     }
 

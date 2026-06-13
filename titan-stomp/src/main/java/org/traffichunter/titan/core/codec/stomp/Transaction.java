@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import lombok.Getter;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 
 /**
  * Transaction is thread safe.
@@ -37,19 +37,19 @@ import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
 @Getter
 public final class Transaction {
 
-    private final StompClientConnection stompClientConnection;
+    private final StompClientChannel stompClientChannel;
     private final String txId;
 
     private final List<StompFrame> frames = new ArrayList<>();
 
     private int DEFAULT_TX_SIZE = 1000;
 
-    private Transaction(final StompClientConnection stompClientConnection, final String txId) {
-        this.stompClientConnection = stompClientConnection;
+    private Transaction(final StompClientChannel stompClientChannel, final String txId) {
+        this.stompClientChannel = stompClientChannel;
         this.txId = txId;
     }
 
-    public static Transaction create(final StompClientConnection serverConnection, final String txId) {
+    public static Transaction create(final StompClientChannel serverConnection, final String txId) {
         return new Transaction(serverConnection, txId);
     }
 

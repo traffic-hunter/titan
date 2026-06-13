@@ -23,8 +23,11 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp.option;
 
+import java.time.Duration;
 import lombok.Builder;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
+import org.traffichunter.titan.core.resilience.retry.RetryListener;
+import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 
 public record StompClientOption(
@@ -40,7 +43,9 @@ public record StompClientOption(
         String virtualHost,
         int maxFrameLength,
         StompVersion stompVersion,
-        InetClientOption inetClientOption
+        InetClientOption inetClientOption,
+        RetryPolicy reconnectPolicy,
+        RetryListener reconnectListener
 ) {
 
     public static final StompClientOption DEFAULT_STOMP_CLIENT_OPTION = StompClientOption.builder().build();
@@ -50,6 +55,12 @@ public record StompClientOption(
     public static final int DEFAULT_MAX_FRAME_LENGTH = 65536;
     public static final long DEFAULT_HEARTBEAT_X = 1000L;
     public static final long DEFAULT_HEARTBEAT_Y = 1000L;
+    public static final RetryPolicy DEFAULT_RECONNECT_POLICY = RetryPolicy.exponentialWithJitter(
+            RetryPolicy.UNLIMITED_ATTEMPTS,
+            Duration.ofSeconds(1),
+            Duration.ofSeconds(30),
+            2
+    );
 
     public static final String SUPPORTED_VERSION = "1.2";
 
@@ -82,7 +93,9 @@ public record StompClientOption(
             Long heartbeatY,
             String virtualHost,
             Integer maxFrameLength,
-            InetClientOption inetClientOption
+            InetClientOption inetClientOption,
+            RetryPolicy reconnectPolicy,
+            RetryListener reconnectListener
     ) {
         StompVersion resolvedVersion = version == null ? StompVersion.STOMP_1_2 : version;
         if (resolvedVersion != StompVersion.STOMP_1_2) {
@@ -102,7 +115,9 @@ public record StompClientOption(
                 virtualHost,
                 maxFrameLength == null ? DEFAULT_MAX_FRAME_LENGTH : maxFrameLength,
                 StompVersion.STOMP_1_2,
-                inetClientOption == null ? InetClientOption.DEFAULT_INET_CLIENT_OPTION : inetClientOption
+                inetClientOption == null ? InetClientOption.DEFAULT_INET_CLIENT_OPTION : inetClientOption,
+                reconnectPolicy == null ? DEFAULT_RECONNECT_POLICY : reconnectPolicy,
+                reconnectListener == null ? RetryListener.NOOP : reconnectListener
         );
     }
 }

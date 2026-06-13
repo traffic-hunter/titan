@@ -2,7 +2,7 @@ package org.traffichunter.titan.springframework.stomp.listener;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.context.SmartLifecycle;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.factory.TitanListenerContainerFactory;
 
 import java.util.ArrayList;

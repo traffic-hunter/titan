@@ -26,7 +26,7 @@ package org.traffichunter.titan.fanout.exporter;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.channel.stomp.StompServerConnection;
+import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
@@ -51,9 +51,9 @@ import java.util.List;
  */
 public class StompFanoutExporter implements FanoutExporter {
 
-    private final StompServerConnection serverConnection;
+    private final StompServerChannel serverConnection;
 
-    public StompFanoutExporter(StompServerConnection serverConnection) {
+    public StompFanoutExporter(StompServerChannel serverConnection) {
         this.serverConnection = serverConnection;
     }
 

@@ -23,18 +23,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class VertxStompOperationsTest {
+class VertxStompChannelTest {
 
     @Test
     void sends_with_converted_headers_and_payload() throws Exception {
-        StompClientConnection connection = mock(StompClientConnection.class);
+        StompClientConnection nativeConnection = mock(StompClientConnection.class);
         Frame receipt = new Frame().setCommand(Command.RECEIPT);
-        when(connection.send(eq("/topic/test"), anyMap(), any(io.vertx.core.buffer.Buffer.class)))
+        when(nativeConnection.send(eq("/topic/test"), anyMap(), any(io.vertx.core.buffer.Buffer.class)))
                 .thenReturn(io.vertx.core.Future.succeededFuture(receipt));
 
-        VertxStompOperations operations = new VertxStompOperations(connection);
+        VertxStompConnection stompConnection = new VertxStompConnection(nativeConnection);
 
-        StompFrames result = operations.send(
+        StompFrames result = stompConnection.send(
                 "/topic/test",
                 Buffer.alloc("hello"),
                 Map.of(
@@ -46,7 +46,7 @@ class VertxStompOperationsTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, String>> headers = ArgumentCaptor.forClass(Map.class);
         ArgumentCaptor<io.vertx.core.buffer.Buffer> payload = ArgumentCaptor.forClass(io.vertx.core.buffer.Buffer.class);
-        verify(connection).send(eq("/topic/test"), headers.capture(), payload.capture());
+        verify(nativeConnection).send(eq("/topic/test"), headers.capture(), payload.capture());
 
         assertThat(result.command()).isEqualTo(StompCommand.RECEIPT);
         assertThat(headers.getValue())
@@ -57,17 +57,17 @@ class VertxStompOperationsTest {
 
     @Test
     void subscribes_with_converted_headers_and_wrapped_message_handler() throws Exception {
-        StompClientConnection connection = mock(StompClientConnection.class);
-        when(connection.subscribe(
+        StompClientConnection nativeConnection = mock(StompClientConnection.class);
+        when(nativeConnection.subscribe(
                 eq("/topic/test"),
                 anyMap(),
                 any()
         )).thenReturn(io.vertx.core.Future.succeededFuture("sub-1"));
 
-        VertxStompOperations operations = new VertxStompOperations(connection);
+        VertxStompConnection stompConnection = new VertxStompConnection(nativeConnection);
         AtomicReference<StompFrames> received = new AtomicReference<>();
 
-        String subscriptionId = operations.subscribe(
+        String subscriptionId = stompConnection.subscribe(
                 "/topic/test",
                 Map.of(Elements.ID, "sub-1"),
                 received::set
@@ -77,7 +77,7 @@ class VertxStompOperationsTest {
         ArgumentCaptor<Map<String, String>> headers = ArgumentCaptor.forClass(Map.class);
         @SuppressWarnings("unchecked")
         ArgumentCaptor<io.vertx.core.Handler<Frame>> handler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
-        verify(connection).subscribe(eq("/topic/test"), headers.capture(), handler.capture());
+        verify(nativeConnection).subscribe(eq("/topic/test"), headers.capture(), handler.capture());
 
         Frame message = new Frame(
                 Command.MESSAGE,
@@ -95,27 +95,34 @@ class VertxStompOperationsTest {
 
     @Test
     void delegates_connection_state() {
-        StompClientConnection connection = mock(StompClientConnection.class);
-        when(connection.isConnected()).thenReturn(true);
+        StompClientConnection nativeConnection = mock(StompClientConnection.class);
+        when(nativeConnection.isConnected()).thenReturn(true);
 
-        VertxStompOperations operations = new VertxStompOperations(connection);
+        VertxStompConnection stompConnection = new VertxStompConnection(nativeConnection);
 
-        assertThat(operations.isConnected()).isTrue();
+        assertThat(stompConnection.isConnected()).isTrue();
     }
 
     @Test
     void delegates_lifecycle_handlers() {
-        StompClientConnection connection = mock(StompClientConnection.class);
-        VertxStompOperations operations = new VertxStompOperations(connection);
+        StompClientConnection nativeConnection = mock(StompClientConnection.class);
+        AtomicBoolean internalConnectionLost = new AtomicBoolean(false);
+        AtomicReference<Throwable> internalException = new AtomicReference<>();
+        VertxStompConnection stompConnection = new VertxStompConnection(
+                nativeConnection,
+                () -> {},
+                value -> internalConnectionLost.set(value != null),
+                internalException::set
+        );
         AtomicBoolean closed = new AtomicBoolean(false);
         AtomicBoolean dropped = new AtomicBoolean(false);
         AtomicBoolean ping = new AtomicBoolean(false);
         AtomicReference<Throwable> exception = new AtomicReference<>();
 
-        operations.closeHandler(value -> closed.set(value == operations));
-        operations.connectionDroppedHandler(value -> dropped.set(value == operations));
-        operations.pingHandler(value -> ping.set(value == operations));
-        operations.exceptionHandler(exception::set);
+        stompConnection.closeHandler(value -> closed.set(value == stompConnection));
+        stompConnection.connectionDroppedHandler(value -> dropped.set(value == stompConnection));
+        stompConnection.pingHandler(value -> ping.set(value == stompConnection));
+        stompConnection.exceptionHandler(exception::set);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<io.vertx.core.Handler<StompClientConnection>> closeHandler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
@@ -126,20 +133,22 @@ class VertxStompOperationsTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<io.vertx.core.Handler<Throwable>> exceptionHandler = ArgumentCaptor.forClass(io.vertx.core.Handler.class);
 
-        verify(connection).closeHandler(closeHandler.capture());
-        verify(connection).connectionDroppedHandler(droppedHandler.capture());
-        verify(connection).pingHandler(pingHandler.capture());
-        verify(connection).exceptionHandler(exceptionHandler.capture());
+        verify(nativeConnection).closeHandler(closeHandler.capture());
+        verify(nativeConnection).connectionDroppedHandler(droppedHandler.capture());
+        verify(nativeConnection).pingHandler(pingHandler.capture());
+        verify(nativeConnection).exceptionHandler(exceptionHandler.capture());
 
         RuntimeException error = new RuntimeException("failed");
-        closeHandler.getValue().handle(connection);
-        droppedHandler.getValue().handle(connection);
-        pingHandler.getValue().handle(connection);
+        closeHandler.getValue().handle(nativeConnection);
+        droppedHandler.getValue().handle(nativeConnection);
+        pingHandler.getValue().handle(nativeConnection);
         exceptionHandler.getValue().handle(error);
 
         assertThat(closed).isTrue();
         assertThat(dropped).isTrue();
         assertThat(ping).isTrue();
         assertThat(exception).hasValue(error);
+        assertThat(internalConnectionLost).isTrue();
+        assertThat(internalException).hasValue(error);
     }
 }

@@ -53,7 +53,7 @@ class RetryExecutorTest {
     }
 
     @Test
-    void jdk_executor_stops_when_attempts_are_exhausted() {
+    void jdk_executor_stops_after_max_attempts() {
         RecordingRetryListener listener = new RecordingRetryListener();
         JdkScheduledRetryExecutor executor = new JdkScheduledRetryExecutor(
                 java.util.concurrent.Executors.newSingleThreadScheduledExecutor(),
@@ -75,8 +75,7 @@ class RetryExecutorTest {
                 "scheduled:2",
                 "failed:2",
                 "scheduled:3",
-                "failed:3",
-                "exhausted:3"
+                "failed:3"
         );
         executor.shutdown();
     }
@@ -193,11 +192,6 @@ class RetryExecutorTest {
         @Override
         public void onRetryFailed(int attempt, Throwable cause) {
             events.add("failed:" + attempt);
-        }
-
-        @Override
-        public void onRetryExhausted(int attempt, Throwable cause) {
-            events.add("exhausted:" + attempt);
         }
 
         private List<String> events() {

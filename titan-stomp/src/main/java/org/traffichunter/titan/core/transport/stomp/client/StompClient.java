@@ -35,9 +35,9 @@ public interface StompClient {
 
     void start();
 
-    Future<StompOperations> connect();
+    Future<StompConnection> connect();
 
-    StompOperations operations();
+    StompConnection connection();
 
     boolean isStarted();
 

@@ -1,5 +1,7 @@
 package org.traffichunter.titan.springframework.stomp.autoconfigure;
 
+import java.util.List;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -14,11 +16,9 @@ import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.client.TitanStompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.client.VertxStompClientProvider;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
-import org.traffichunter.titan.springframework.stomp.TitanTemplate;
-
-import java.util.List;
+import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 
 /**
  * Autoconfiguration for Titan's Spring STOMP client integration.
@@ -90,7 +90,7 @@ public class TitanStompClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public TitanClientManager titanStompClientManager(
+    public TitanClientManager titanClientManager(
             StompClient titanStompClient,
             TitanProperties properties
     ) {
@@ -99,7 +99,7 @@ public class TitanStompClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public TitanTemplate titanStompTemplate(TitanClientManager titanClientManager) {
+    public TitanTemplate titanTemplate(TitanClientManager titanClientManager) {
         return new TitanTemplate(titanClientManager);
     }
 }

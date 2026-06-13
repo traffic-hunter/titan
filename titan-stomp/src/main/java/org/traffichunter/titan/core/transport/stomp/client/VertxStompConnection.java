@@ -43,12 +43,38 @@ import java.util.concurrent.TimeoutException;
 /**
  * @author yun
  */
-public final class VertxStompOperations implements StompOperations {
+public final class VertxStompConnection implements StompConnection {
 
     private final StompClientConnection connection;
+    private final Runnable beforeDisconnect;
+    private volatile Handler<StompConnection> closeHandler = operations -> {};
+    private volatile Handler<StompConnection> connectionDroppedHandler = operations -> {};
+    private volatile Handler<Throwable> exceptionHandler = error -> {};
 
-    public VertxStompOperations(StompClientConnection connection) {
+    public VertxStompConnection(StompClientConnection connection) {
+        this(connection, () -> {}, operations -> {}, error -> {});
+    }
+
+    public VertxStompConnection(
+            StompClientConnection connection,
+            Runnable beforeDisconnect,
+            Handler<StompConnection> connectionLostHandler,
+            Handler<Throwable> internalExceptionHandler
+    ) {
         this.connection = connection;
+        this.beforeDisconnect = beforeDisconnect;
+        connection.closeHandler(ignored -> {
+            connectionLostHandler.handle(this);
+            closeHandler.handle(this);
+        });
+        connection.connectionDroppedHandler(ignored -> {
+            connectionLostHandler.handle(this);
+            connectionDroppedHandler.handle(this);
+        });
+        connection.exceptionHandler(error -> {
+            internalExceptionHandler.handle(error);
+            exceptionHandler.handle(error);
+        });
     }
 
     @Override
@@ -104,36 +130,37 @@ public final class VertxStompOperations implements StompOperations {
 
     @Override
     public Future<StompFrames> disconnect() {
+        beforeDisconnect.run();
         return toFuture(connection.disconnect());
     }
 
     @Override
-    public StompOperations errorHandler(Handler<StompFrames> handler) {
+    public StompConnection errorHandler(Handler<StompFrames> handler) {
         connection.errorHandler(frame -> handler.handle(VertxStompFrame.wrap(frame)));
         return this;
     }
 
     @Override
-    public StompOperations closeHandler(Handler<StompOperations> handler) {
-        connection.closeHandler(connection -> handler.handle(this));
+    public StompConnection closeHandler(Handler<StompConnection> handler) {
+        this.closeHandler = handler;
         return this;
     }
 
     @Override
-    public StompOperations connectionDroppedHandler(Handler<StompOperations> handler) {
-        connection.connectionDroppedHandler(connection -> handler.handle(this));
+    public StompConnection connectionDroppedHandler(Handler<StompConnection> handler) {
+        this.connectionDroppedHandler = handler;
         return this;
     }
 
     @Override
-    public StompOperations pingHandler(Handler<StompOperations> handler) {
+    public StompConnection pingHandler(Handler<StompConnection> handler) {
         connection.pingHandler(connection -> handler.handle(this));
         return this;
     }
 
     @Override
-    public StompOperations exceptionHandler(Handler<Throwable> handler) {
-        connection.exceptionHandler(handler::handle);
+    public StompConnection exceptionHandler(Handler<Throwable> handler) {
+        this.exceptionHandler = handler;
         return this;
     }
 

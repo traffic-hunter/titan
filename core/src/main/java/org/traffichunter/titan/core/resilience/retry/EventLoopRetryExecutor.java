@@ -117,13 +117,12 @@ public class EventLoopRetryExecutor implements RetryExecutor {
             callback.call();
         } catch (Exception e) {
             retryListener.onRetryFailed(attempt, e);
-            if (!retryPolicy.canRetry(attempt + 1)) {
-                retryListener.onRetryExhausted(attempt, e);
-                return;
-            }
-
-            schedule(callback, result, attempt + 1);
+            schedule(callback, result, nextAttempt(attempt));
         }
+    }
+
+    private static int nextAttempt(int attempt) {
+        return attempt == Integer.MAX_VALUE ? Integer.MAX_VALUE : attempt + 1;
     }
 
     private static final class EventLoopRetryResult implements RetryResult {

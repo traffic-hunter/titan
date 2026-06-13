@@ -51,7 +51,7 @@ import org.traffichunter.titan.core.util.Handler;
 public final class StompServer {
 
     private final InetServer inetServer;
-    private final StompServerConnection serverConnection;
+    private final StompServerChannel serverConnection;
     private final StompServerOption option;
 
     private StompClientOption childOption = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
@@ -65,7 +65,7 @@ public final class StompServer {
             inetServer = InetServer.open(groups);
         }
         this.inetServer = inetServer;
-        this.serverConnection = StompServerConnection.wrap(inetServer.channel(), option);
+        this.serverConnection = StompServerChannel.wrap(inetServer.channel(), option);
     }
 
     public static StompServer open(EventLoopGroups groups, StompServerOption option) {
@@ -111,8 +111,8 @@ public final class StompServer {
                         throw new IllegalArgumentException("Unsupported channel: " + channel);
                     }
 
-                    StompClientConnection stompConnection =
-                            StompClientConnection.wrap(netChannel, stompClientOption);
+                    StompClientChannel stompConnection =
+                            StompClientChannel.wrap(netChannel, stompClientOption);
                     serverConnection.register(stompConnection);
 
                     netChannel.chain()
@@ -149,7 +149,7 @@ public final class StompServer {
         return channelPromise;
     }
 
-    public StompServerConnection connection() {
+    public StompServerChannel connection() {
         return serverConnection;
     }
 

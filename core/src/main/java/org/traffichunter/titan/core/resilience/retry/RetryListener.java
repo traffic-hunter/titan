@@ -59,12 +59,4 @@ public interface RetryListener {
     default void onRetryFailed(int attempt, Throwable cause) {
     }
 
-    /**
-     * Called after the final allowed attempt fails.
-     *
-     * @param attempt one-based retry attempt number that exhausted the policy
-     * @param cause exception thrown by the final callback attempt
-     */
-    default void onRetryExhausted(int attempt, Throwable cause) {
-    }
 }

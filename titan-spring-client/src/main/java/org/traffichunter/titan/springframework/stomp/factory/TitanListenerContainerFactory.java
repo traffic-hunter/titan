@@ -23,7 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.springframework.stomp.factory;
 
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerContainer;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 

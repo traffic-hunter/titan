@@ -45,8 +45,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.NetServerChannel;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
-import org.traffichunter.titan.core.channel.stomp.StompServerConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
@@ -61,7 +61,7 @@ import org.traffichunter.titan.fanout.AggregationResult;
 class FanoutExporterTest {
 
     @Mock
-    private StompServerConnection serverConnection;
+    private StompServerChannel serverConnection;
 
     @Mock
     private NetServerChannel serverChannel;
@@ -106,13 +106,13 @@ class FanoutExporterTest {
 
         Destination destination = Destination.create("/topic/orders");
 
-        StompClientConnection successConn = mock(StompClientConnection.class);
+        StompClientChannel successConn = mock(StompClientChannel.class);
         when(successConn.session()).thenReturn("session-1");
         Promise<StompFrame> successPromise = Promise.newPromise(loop);
         successPromise.success(StompFrame.PING);
         when(successConn.send(any(StompFrame.class))).thenReturn(successPromise);
 
-        StompClientConnection failedConn = mock(StompClientConnection.class);
+        StompClientChannel failedConn = mock(StompClientChannel.class);
         when(failedConn.session()).thenReturn("session-2");
         Promise<StompFrame> failedPromise = Promise.newPromise(loop);
         failedPromise.fail(new IllegalStateException("send failed"));

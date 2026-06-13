@@ -1,8 +1,6 @@
 package org.traffichunter.titan.springframework.stomp;
 
-import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 
 /**
  * Configuration properties for the Titan Spring STOMP client.
@@ -49,10 +47,6 @@ public final class TitanProperties {
     private boolean useStompFrame = false;
 
     private boolean bypassHostHeader = false;
-
-    private final Retry retry = new Retry();
-
-    private final Reconnect reconnect = new Reconnect();
 
     public boolean isEnabled() {
         return enabled;
@@ -202,14 +196,6 @@ public final class TitanProperties {
         this.client = client;
     }
 
-    public Retry getRetry() {
-        return retry;
-    }
-
-    public Reconnect getReconnect() {
-        return reconnect;
-    }
-
     public enum Client {
         TITAN("titan"),
         VERTX("vertx"),
@@ -226,101 +212,4 @@ public final class TitanProperties {
         }
     }
 
-    public static class Reconnect {
-
-        private boolean enabled = true;
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-    }
-
-    public static class Retry {
-
-        private boolean enabled = false;
-
-        private Type type = Type.EXP;
-
-        private int maxAttempts = 3;
-
-        private Duration delay = Duration.ofSeconds(1);
-
-        private Duration maxDelay = Duration.ofSeconds(30);
-
-        private int multiplier = 2;
-
-        private boolean jitter = false;
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public Type getType() {
-            return type;
-        }
-
-        public void setType(Type type) {
-            this.type = type;
-        }
-
-        public int getMaxAttempts() {
-            return maxAttempts;
-        }
-
-        public void setMaxAttempts(int maxAttempts) {
-            this.maxAttempts = maxAttempts;
-        }
-
-        public Duration getDelay() {
-            return delay;
-        }
-
-        public void setDelay(Duration delay) {
-            this.delay = delay;
-        }
-
-        public Duration getMaxDelay() {
-            return maxDelay;
-        }
-
-        public void setMaxDelay(Duration maxDelay) {
-            this.maxDelay = maxDelay;
-        }
-
-        public int getMultiplier() {
-            return multiplier;
-        }
-
-        public void setMultiplier(int multiplier) {
-            this.multiplier = multiplier;
-        }
-
-        public boolean isJitter() {
-            return jitter;
-        }
-
-        public void setJitter(boolean jitter) {
-            this.jitter = jitter;
-        }
-
-        public RetryPolicy toPolicy() {
-            return switch (type) {
-                case FIX -> RetryPolicy.fixed(maxAttempts, delay);
-                case EXP -> RetryPolicy.exponential(maxAttempts, delay, maxDelay, multiplier, jitter);
-            };
-        }
-
-        public enum Type {
-            FIX,
-            EXP
-        }
-    }
 }

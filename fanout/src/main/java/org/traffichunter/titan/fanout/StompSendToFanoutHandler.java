@@ -26,7 +26,7 @@ package org.traffichunter.titan.fanout;
 import java.time.Instant;
 
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
 import org.traffichunter.titan.core.channel.stomp.StompServerEvent;
 import org.traffichunter.titan.core.channel.stomp.StompServerHandlerContext;
@@ -59,7 +59,7 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
     @Override
     public void handle(StompServerEvent event, StompServerHandlerContext context) {
         StompFrame sf = event.frame();
-        StompClientConnection connection = event.connection();
+        StompClientChannel connection = event.connection();
         String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
         if (destination == null || destination.isBlank()) {
             log.warn("Rejected fanout publish due to missing destination. session={}", connection.session());

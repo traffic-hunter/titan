@@ -35,16 +35,16 @@ import org.traffichunter.titan.core.util.secure.auth.authentication.Authenticati
 
 public final class StompServerHandlerContext {
 
-    private final StompServerConnection serverConnection;
+    private final StompServerChannel serverConnection;
     private final StompServerOption option;
     private final Authentication authentication;
 
-    public StompServerHandlerContext(StompServerConnection serverConnection) {
+    public StompServerHandlerContext(StompServerChannel serverConnection) {
         this(serverConnection, new AuthenticationImpl());
     }
 
     public StompServerHandlerContext(
-            StompServerConnection serverConnection,
+            StompServerChannel serverConnection,
             Authentication authentication
     ) {
         this.serverConnection = serverConnection;
@@ -52,7 +52,7 @@ public final class StompServerHandlerContext {
         this.authentication = authentication;
     }
 
-    public StompServerConnection serverConnection() {
+    public StompServerChannel serverConnection() {
         return serverConnection;
     }
 
@@ -64,7 +64,7 @@ public final class StompServerHandlerContext {
         return authentication;
     }
 
-    public void receipt(StompFrame frame, StompClientConnection connection) {
+    public void receipt(StompFrame frame, StompClientChannel connection) {
         String receipt = frame.getHeader(Elements.RECEIPT);
         if(receipt != null) {
             StompFrame receiptFrame = create(StompHeaders.create(), StompCommand.RECEIPT);

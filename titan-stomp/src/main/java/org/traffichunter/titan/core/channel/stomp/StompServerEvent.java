@@ -25,5 +25,5 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 
-public record StompServerEvent(StompFrame frame, StompClientConnection connection) {
+public record StompServerEvent(StompFrame frame, StompClientChannel connection) {
 }

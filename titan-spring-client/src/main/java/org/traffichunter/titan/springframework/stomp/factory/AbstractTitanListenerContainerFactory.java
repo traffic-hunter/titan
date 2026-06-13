@@ -29,7 +29,7 @@ import java.util.List;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolver;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 import org.springframework.util.ErrorHandler;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerContainer;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 

@@ -31,5 +31,5 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 @FunctionalInterface
 public interface StompHandler {
 
-    void handle(StompFrame sf, StompClientConnection sc);
+    void handle(StompFrame sf, StompClientChannel sc);
 }

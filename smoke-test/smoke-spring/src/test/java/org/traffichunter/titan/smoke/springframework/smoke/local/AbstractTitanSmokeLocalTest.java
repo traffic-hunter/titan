@@ -16,9 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompOperations;
-import org.traffichunter.titan.springframework.stomp.TitanClientManager;
-import org.traffichunter.titan.springframework.stomp.TitanTemplate;
+import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
+import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpointRegistry;
 
 public abstract class AbstractTitanSmokeLocalTest {
@@ -42,12 +42,12 @@ public abstract class AbstractTitanSmokeLocalTest {
 
     protected abstract Class<? extends StompClient> clientType();
 
-    protected abstract Class<? extends StompOperations> operationsType();
+    protected abstract Class<? extends StompConnection> connectionType();
 
     @Test
     void configured_client_matches_smoke_client() throws Exception {
         assertThat(stompClient).isInstanceOf(clientType());
-        assertThat(clientManager.operations()).isInstanceOf(operationsType());
+        assertThat(clientManager.connection()).isInstanceOf(connectionType());
     }
 
     @Test
@@ -170,7 +170,7 @@ public abstract class AbstractTitanSmokeLocalTest {
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
                 .ignoreExceptions()
-                .untilAsserted(() -> assertThat(clientManager.operations()
+                .untilAsserted(() -> assertThat(clientManager.connection()
                         .subscribe(destination, frame -> received.add(body(frame)))
                         .get(clientManager.connectTimeoutMillis(), TimeUnit.MILLISECONDS)
                 ).isNotNull());
