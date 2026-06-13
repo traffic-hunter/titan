@@ -25,8 +25,8 @@ package org.traffichunter.titan.core.transport.stomp;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,17 +36,18 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
+import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.TaskEventLoop;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientHandler;
 import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
-import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
-import org.traffichunter.titan.core.resilience.retry.RetryExecutors;
-import org.traffichunter.titan.core.resilience.retry.RetryResult;
+import org.traffichunter.titan.core.resilience.retry.RetryListener;
+import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
@@ -65,13 +66,15 @@ public final class TitanStompClient implements StompClient {
 
     private final InetClient inetClient;
     private final StompClientOption option;
-    private final RetryExecutor reconnectExecutor;
+    private final RetryPolicy reconnectPolicy;
+    private final RetryListener reconnectListener;
+    private final EventLoop reconnectEventLoop;
     private final AtomicReference<Status> status;
 
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private volatile @Nullable StompClientChannel connection;
     private volatile @Nullable TitanStompConnection stompConnection;
-    private volatile RetryResult reconnectResult = RetryResult.noop();
+    private final AtomicReference<@Nullable ScheduledPromise<?>> reconnectTask = new AtomicReference<>();
 
     private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
@@ -80,10 +83,9 @@ public final class TitanStompClient implements StompClient {
             inetClient = InetClient.open(groups, option.inetClientOption());
         }
         this.inetClient = inetClient;
-        this.reconnectExecutor = RetryExecutors.eventLoopRetryExecutor(
-                option.reconnectPolicy(),
-                option.reconnectListener()
-        );
+        this.reconnectPolicy = option.reconnectPolicy();
+        this.reconnectListener = option.reconnectListener();
+        this.reconnectEventLoop = new TaskEventLoop();
         this.status = new AtomicReference<>(
                 inetClient.isStarted() ? Status.STARTED : Status.INITIALIZED
         );
@@ -189,9 +191,9 @@ public final class TitanStompClient implements StompClient {
             return;
         }
 
-        reconnectResult.cancel();
+        cancelReconnect();
         try {
-            reconnectExecutor.shutdown(timeout, unit);
+            reconnectEventLoop.gracefullyShutdown(timeout, unit);
             inetClient.shutdown(timeout, unit);
         } finally {
             status.set(Status.SHUTDOWN);
@@ -265,21 +267,49 @@ public final class TitanStompClient implements StompClient {
             return;
         }
 
-        reconnectResult = reconnectExecutor.retry(() -> {
-            try {
-                return connectStompConnection().future().get();
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof Exception exception) {
-                    throw exception;
-                }
-                throw e;
+        scheduleReconnect(1);
+    }
+
+    private void scheduleReconnect(int attempt) {
+        if (status.get() != Status.CONNECTING || !reconnectPolicy.canRetry(attempt)) {
+            return;
+        }
+
+        if (reconnectEventLoop.isNotStarted()) {
+            reconnectEventLoop.start();
+        }
+
+        Duration delay = reconnectPolicy.delay(attempt);
+        reconnectListener.onRetry(attempt, delay);
+        ScheduledPromise<?> task = reconnectEventLoop.schedule(() -> {
+            if (status.get() != Status.CONNECTING) {
+                return;
             }
-        });
+
+            connectStompConnection().addListener(future -> {
+                if (future.isFailed()) {
+                    reconnectListener.onRetryFailed(attempt, future.error());
+                    scheduleReconnect(nextAttempt(attempt));
+                }
+            });
+        }, delay.toNanos(), TimeUnit.NANOSECONDS);
+
+        reconnectTask.set(task);
+    }
+
+    private void cancelReconnect() {
+        ScheduledPromise<?> task = reconnectTask.getAndSet(null);
+        if (task != null) {
+            task.cancel(false);
+        }
+    }
+
+    private static int nextAttempt(int attempt) {
+        return attempt == Integer.MAX_VALUE ? Integer.MAX_VALUE : attempt + 1;
     }
 
     private void disconnecting() {
-        reconnectResult.cancel();
+        cancelReconnect();
         status.compareAndSet(Status.CONNECTED, Status.STARTED);
     }
 
