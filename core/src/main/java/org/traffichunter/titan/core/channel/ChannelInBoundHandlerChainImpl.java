@@ -64,6 +64,7 @@ public final class ChannelInBoundHandlerChainImpl implements ChannelInBoundHandl
     public void sparkChannelRead(NetChannel channel, Buffer buffer) {
         ChannelInBoundHandlerChainImpl chain = next;
         if(chain == null) {
+            buffer.release();
             return;
         }
 

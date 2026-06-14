@@ -170,7 +170,10 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             byteBuf.readerIndex(byteBuf.readerIndex() + written);
 
             if(!byteBuf.isReadable()) {
-                channelWriteBuffer.poll();
+                Buffer consumed = channelWriteBuffer.poll();
+                if (consumed != null) {
+                    consumed.release();
+                }
             }
         }
 

@@ -121,38 +121,42 @@ public class StompChannelDecoder extends ChannelDecoder {
                     .accumulateByte(StompDelimiter.LF.getHex());
 
             List<Buffer> frames = lineFrameDecoder.decodes(channel, stompFrame);
+            try {
+                StompCommand stompCommand = StompCommand.valueOf(frames.getFirst().toString());
 
-            StompCommand stompCommand = StompCommand.valueOf(frames.getFirst().toString());
+                int bodyLength = -1;
+                StompHeaders headers = new StompHeaders(StompVersion.STOMP_1_2);
+                for(int i = 1; i < frames.size(); i++) {
+                    String header = frames.get(i).toString();
+                    if(header.isBlank()) {
+                        break;
+                    } else {
+                        String[] keyValue = header.split(COLON, 2);
+                        if (keyValue.length != 2) {
+                            return StompFrame.ERR_STOMP_FRAME;
+                        }
 
-            int bodyLength = -1;
-            StompHeaders headers = new StompHeaders(StompVersion.STOMP_1_2);
-            for(int i = 1; i < frames.size(); i++) {
-                String header = frames.get(i).toString();
-                if(header.isBlank()) {
-                    break;
-                } else {
-                    String[] keyValue = header.split(COLON, 2);
-                    if (keyValue.length != 2) {
-                        return StompFrame.ERR_STOMP_FRAME;
+                        String key = keyValue[0].trim();
+                        String value = keyValue[1].trim();
+                        if(key.equals(CONTENT_LENGTH)) {
+                            bodyLength = Integer.parseInt(value);
+                        }
+
+                        headers.put(Elements.convertToElements(key), value);
                     }
-
-                    String key = keyValue[0].trim();
-                    String value = keyValue[1].trim();
-                    if(key.equals(CONTENT_LENGTH)) {
-                        bodyLength = Integer.parseInt(value);
-                    }
-
-                    headers.put(Elements.convertToElements(key), value);
                 }
-            }
 
-            Buffer bodyBuffer = frames.getLast();
-            byte[] body = bodyBuffer.getBytes();
-            if(bodyLength > -1 && bodyLength != body.length) {
-                return StompFrame.ERR_STOMP_FRAME;
-            }
+                Buffer bodyBuffer = frames.getLast();
+                byte[] body = bodyBuffer.getBytes();
+                if(bodyLength > -1 && bodyLength != body.length) {
+                    return StompFrame.ERR_STOMP_FRAME;
+                }
 
-            return StompFrame.create(headers, stompCommand, body);
+                return StompFrame.create(headers, stompCommand, body);
+            } finally {
+                stompFrame.release();
+                frames.forEach(Buffer::release);
+            }
         }
 
         private int findEol(Buffer buffer) {
