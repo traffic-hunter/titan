@@ -13,7 +13,6 @@ import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -86,11 +85,11 @@ class TitanTemplateTest {
 
     @Test
     void async_send_buffer_returns_connection_future() {
-        Future<StompFrames> expected = CompletableFuture.completedFuture(frame);
+        CompletableFuture<StompFrames> expected = CompletableFuture.completedFuture(frame);
         Buffer payload = Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8));
         when(connection.send("/topic/test", payload)).thenReturn(expected);
 
-        Future<StompFrames> result = template.send("/topic/test", payload);
+        CompletableFuture<StompFrames> result = template.send("/topic/test", payload);
 
         assertThat(result).isSameAs(expected);
     }
@@ -122,21 +121,21 @@ class TitanTemplateTest {
     @Test
     @SuppressWarnings("unchecked")
     void async_subscribe_returns_connection_future() {
-        Future<String> expected = CompletableFuture.completedFuture("sub-1");
+        CompletableFuture<String> expected = CompletableFuture.completedFuture("sub-1");
         Handler<StompFrames> handler = frame -> { };
         when(connection.subscribe("/topic/test", handler)).thenReturn(expected);
 
-        Future<String> result = template.subscribe("/topic/test", handler);
+        CompletableFuture<String> result = template.subscribe("/topic/test", handler);
 
         assertThat(result).isSameAs(expected);
     }
 
     @Test
     void unsubscribe_uses_subscription_id() {
-        Future<StompFrames> expected = CompletableFuture.completedFuture(frame);
+        CompletableFuture<StompFrames> expected = CompletableFuture.completedFuture(frame);
         when(connection.unsubscribe("sub-1")).thenReturn(expected);
 
-        Future<StompFrames> result = template.unsubscribe("sub-1");
+        CompletableFuture<StompFrames> result = template.unsubscribe("sub-1");
 
         assertThat(result).isSameAs(expected);
         verify(connection).unsubscribe("sub-1");
@@ -144,7 +143,7 @@ class TitanTemplateTest {
 
     @Test
     void ack_delegates_to_connection() {
-        Future<StompFrames> expected = CompletableFuture.completedFuture(frame);
+        CompletableFuture<StompFrames> expected = CompletableFuture.completedFuture(frame);
         when(connection.ack("msg-1")).thenReturn(expected);
 
         assertThat(template.ack("msg-1")).isSameAs(expected);
@@ -152,7 +151,7 @@ class TitanTemplateTest {
 
     @Test
     void nack_delegates_to_connection() {
-        Future<StompFrames> expected = CompletableFuture.completedFuture(frame);
+        CompletableFuture<StompFrames> expected = CompletableFuture.completedFuture(frame);
         when(connection.nack("msg-1")).thenReturn(expected);
 
         assertThat(template.nack("msg-1")).isSameAs(expected);
@@ -160,10 +159,10 @@ class TitanTemplateTest {
 
     @Test
     void disconnect_delegates_to_connection() {
-        Future<StompFrames> expected = CompletableFuture.completedFuture(frame);
+        CompletableFuture<StompFrames> expected = CompletableFuture.completedFuture(frame);
         when(connection.disconnect()).thenReturn(expected);
 
-        Future<StompFrames> result = template.disconnect();
+        CompletableFuture<StompFrames> result = template.disconnect();
 
         verify(connection).disconnect();
         assertThat(result).isSameAs(expected);
