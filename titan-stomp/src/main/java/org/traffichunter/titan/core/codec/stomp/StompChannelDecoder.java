@@ -38,7 +38,7 @@ import java.util.List;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 /**
- * @author yun
+ * @author yun gkdbssla97
  */
 @Slf4j
 public class StompChannelDecoder extends ChannelDecoder {
