@@ -34,7 +34,7 @@ public final class TitanProperties {
 
     private String virtualHost = "guest";
 
-    private long connectTimeoutMillis = 30000L;
+    private long connectTimeoutMillis = 5000L;
 
     private long heartbeatX = 1000L;
 

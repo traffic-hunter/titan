@@ -28,11 +28,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.stomp.StompClient;
 import io.vertx.ext.stomp.StompClientOptions;
 import io.vertx.ext.stomp.StompClientConnection;
-import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.StompException;
-import org.traffichunter.titan.core.resilience.retry.RetryListener;
-import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
+import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
+import org.traffichunter.titan.core.resilience.retry.RetryExecutors;
+import org.traffichunter.titan.core.resilience.retry.RetryResult;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
 import org.traffichunter.titan.core.transport.stomp.client.VertxStompConnection;
@@ -48,7 +48,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author yun
@@ -58,10 +57,9 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
     private final StompClientOption option;
     private final boolean managedVertx;
 
-    private final RetryPolicy reconnectPolicy;
-    private final RetryListener reconnectListener;
+    private final RetryExecutor reconnectExecutor;
     private final AtomicReference<Status> status;
-    private final AtomicLong reconnectTimerId = new AtomicLong(-1);
+    private final AtomicReference<@Nullable RetryResult> reconnectResult = new AtomicReference<>();
 
     private @Nullable Vertx vertx;
     private @Nullable StompClient client;
@@ -79,8 +77,10 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         this.client = client;
         this.option = option;
         this.managedVertx = managedVertx;
-        this.reconnectPolicy = option.reconnectPolicy();
-        this.reconnectListener = option.reconnectListener();
+        this.reconnectExecutor = RetryExecutors.vertxRetryExecutor(
+                option.reconnectPolicy(),
+                option.reconnectListener()
+        );
         this.status = new AtomicReference<>(
                 client != null && !client.isClosed() ? Status.STARTED : Status.INITIALIZED
         );
@@ -197,6 +197,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         cancelReconnect();
         StompClient client = this.client;
         try {
+            reconnectExecutor.shutdown(timeout, unit);
             if (client != null && !client.isClosed()) {
                 client.close().await(timeout, unit);
             }
@@ -246,7 +247,31 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
             return;
         }
 
-        scheduleReconnect(1);
+        RetryResult result = reconnectExecutor.retry(() -> {
+            if (status.get() != Status.CONNECTING) {
+                return Boolean.TRUE;
+            }
+
+            try {
+                connectStompConnection().toCompletionStage().toCompletableFuture().get();
+            } catch (ExecutionException e) {
+                @Nullable Throwable cause = e.getCause();
+                if (cause instanceof Exception retryable) {
+                    throw retryable;
+                }
+                throw cause == null
+                        ? new StompException("STOMP reconnect failed")
+                        : new StompException("STOMP reconnect failed", cause);
+            }
+            return Boolean.TRUE;
+        });
+        RetryResult previous = reconnectResult.getAndSet(result);
+        if (previous != null) {
+            previous.cancel();
+        }
+        if (status.get() != Status.CONNECTING && reconnectResult.compareAndSet(result, null)) {
+            result.cancel();
+        }
     }
 
     private void disconnecting() {
@@ -254,41 +279,11 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         status.compareAndSet(Status.CONNECTED, Status.STARTED);
     }
 
-    private void scheduleReconnect(int attempt) {
-        if (status.get() != Status.CONNECTING || !reconnectPolicy.canRetry(attempt)) {
-            return;
-        }
-
-        Vertx vertx = this.vertx;
-        if (vertx == null) {
-            return;
-        }
-
-        Duration delay = reconnectPolicy.delay(attempt);
-        reconnectListener.onRetry(attempt, delay);
-        long timerId = vertx.setTimer(Math.max(1, delay.toMillis()), ignored -> {
-            if (status.get() != Status.CONNECTING) {
-                return;
-            }
-
-            connectStompConnection().onFailure(error -> {
-                reconnectListener.onRetryFailed(attempt, error);
-                scheduleReconnect(nextAttempt(attempt));
-            });
-        });
-        reconnectTimerId.set(timerId);
-    }
-
     private void cancelReconnect() {
-        long timerId = reconnectTimerId.getAndSet(-1);
-        Vertx vertx = this.vertx;
-        if (timerId >= 0 && vertx != null) {
-            vertx.cancelTimer(timerId);
+        RetryResult result = reconnectResult.getAndSet(null);
+        if (result != null) {
+            result.cancel();
         }
-    }
-
-    private static int nextAttempt(int attempt) {
-        return attempt == Integer.MAX_VALUE ? Integer.MAX_VALUE : attempt + 1;
     }
 
     private boolean transitionToShuttingDown() {
@@ -315,6 +310,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
                         .put("x", option.heartbeatX())
                         .put("y", option.heartbeatY())
                 );
+        vertxOptions.setConnectTimeout(Math.toIntExact(option.connectTimeout().toMillis()));
 
         if (option.login() != null) {
             vertxOptions.setLogin(option.login());
