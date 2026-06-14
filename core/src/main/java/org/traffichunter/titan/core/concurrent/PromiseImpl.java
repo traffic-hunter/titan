@@ -26,17 +26,10 @@ package org.traffichunter.titan.core.concurrent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
@@ -115,16 +108,23 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public <R> Promise<R> map(Function<? super @Nullable C, ? extends R> mapper) {
+    public <R> Promise<R> map(Function<? super C, ? extends R> mapper) {
         Promise<R> next = Promise.newPromise(eventLoop);
         addListener(promise -> {
             if (!promise.isSuccess()) {
-                next.fail(error != null ? error : new PromiseException("Promise failed without error"));
+                Throwable failure = promise.error();
+                next.fail(failure != null ? failure : new PromiseException("Promise failed without error"));
                 return;
             }
 
             try {
-                next.success(mapper.apply(promise.getNow()));
+                C get = promise.getNow();
+                if (get == null) {
+                    next.fail(new PromiseException("Cannot map a promise without a result"));
+                    return;
+                }
+
+                next.success(mapper.apply(get));
             } catch (Exception e) {
                 next.fail(e);
             }
@@ -133,22 +133,24 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public <R> Promise<R> thenCompose(Function<? super @Nullable C, ? extends @Nullable Promise<R>> mapper) {
+    public <R> Promise<R> thenCompose(Function<? super C, ? extends Promise<R>> mapper) {
         Promise<R> next = Promise.newPromise(eventLoop);
 
         addListener(promise -> {
             if (!promise.isSuccess()) {
-                next.fail(error != null ? error : new PromiseException("Promise failed without error"));
+                Throwable failure = promise.error();
+                next.fail(failure != null ? failure : new PromiseException("Promise failed without error"));
                 return;
             }
 
             try {
-                Promise<R> mapped = mapper.apply(promise.getNow());
-                if (mapped == null) {
-                    next.fail(new PromiseException("Composed promise cannot be null"));
+                C get = promise.getNow();
+                if (get == null) {
+                    next.fail(new PromiseException("Cannot compose a promise without a result"));
                     return;
                 }
 
+                Promise<R> mapped = mapper.apply(get);
                 mapped.addListener(result -> {
                     if (result.isSuccess()) {
                         next.success(result.getNow());
@@ -167,7 +169,7 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     @Override
-    public Promise<C> onSuccess(Consumer<? super C> success) {
+    public Promise<C> onSuccess(Consumer<? super @Nullable C> success) {
         addListener(promise -> {
             if (promise.isSuccess()) {
                 success.accept(promise.getNow());

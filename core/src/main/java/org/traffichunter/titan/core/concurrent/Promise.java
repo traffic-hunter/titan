@@ -24,10 +24,12 @@
 package org.traffichunter.titan.core.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -122,7 +124,7 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
      * <p>Do not run blocking code in the callback.</p>
      */
     @CanIgnoreReturnValue
-    Promise<C> onSuccess(Consumer<? super C> success);
+    Promise<C> onSuccess(Consumer<? super @Nullable C> success);
 
     /**
      * Registers a callback for failed completion.
@@ -133,6 +135,26 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
     Promise<C> onFailure(Consumer<? super Throwable> failure);
 
     Future<C> future();
+
+    /**
+     * Convert to CompletableFuture
+     * @return CompletableFuture
+     */
+    default CompletableFuture<@Nullable C> toCompletableFuture() {
+        CompletableFuture<@Nullable C> completableFuture = new CompletableFuture<>();
+        addListener(future -> {
+            if (future.isSuccess()) {
+                completableFuture.complete(future.getNow());
+            } else {
+                Throwable error = future.error();
+                completableFuture.completeExceptionally(
+                        error != null ? error : new PromiseException("Promise failed without error")
+                );
+            }
+        });
+
+        return completableFuture;
+    }
 
     boolean isDone();
 
