@@ -30,7 +30,6 @@ import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 
 import java.time.Duration;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,7 +74,10 @@ public class EventLoopRetryExecutor implements RetryExecutor {
     @Override
     public RetryResult retry(Runnable callback) {
         EventLoopRetryResult result = new EventLoopRetryResult();
-        schedule(Executors.callable(callback), result, 1);
+        schedule(() -> {
+            callback.run();
+            return Boolean.TRUE;
+        }, result, 1);
         return result;
     }
 
