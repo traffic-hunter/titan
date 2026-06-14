@@ -1,5 +1,6 @@
 package org.traffichunter.titan.springframework.stomp.autoconfigure;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,6 +53,7 @@ public class TitanStompClientAutoConfiguration {
                 .heartbeatX(properties.getHeartbeatX())
                 .heartbeatY(properties.getHeartbeatY())
                 .maxFrameLength(properties.getMaxFrameLength())
+                .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMillis()))
                 .autoComputeContentLength(properties.isAutoComputeContentLength())
                 .useStompFrame(properties.isUseStompFrame())
                 .bypassHostHeader(properties.isBypassHostHeader())

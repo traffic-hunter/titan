@@ -25,6 +25,7 @@ netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
 netty-transport = { module = "io.netty:netty-transport", version.ref = "netty" }
 netty-codec = { module = "io.netty:netty-codec", version.ref = "netty" }
 netty-handler = { module = "io.netty:netty-handler", version.ref = "netty" }
+vertx-core = { module = "io.vertx:vertx-core", version.ref = "vertx" }
 vertx-stomp = { module = "io.vertx:vertx-stomp", version.ref = "vertx" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 jetty-server = { module = "org.eclipse.jetty:jetty-server", version.ref = "jetty" }

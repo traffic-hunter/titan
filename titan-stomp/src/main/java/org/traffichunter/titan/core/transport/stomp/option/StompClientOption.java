@@ -44,23 +44,23 @@ public record StompClientOption(
         int maxFrameLength,
         StompVersion stompVersion,
         InetClientOption inetClientOption,
+        Duration connectTimeout,
         RetryPolicy reconnectPolicy,
         RetryListener reconnectListener
 ) {
-
-    public static final StompClientOption DEFAULT_STOMP_CLIENT_OPTION = StompClientOption.builder().build();
-
     public static final String DEFAULT_STOMP_HOST = "127.0.0.1";
     public static final int DEFAULT_STOMP_PORT = 61613;
     public static final int DEFAULT_MAX_FRAME_LENGTH = 65536;
     public static final long DEFAULT_HEARTBEAT_X = 1000L;
     public static final long DEFAULT_HEARTBEAT_Y = 1000L;
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
     public static final RetryPolicy DEFAULT_RECONNECT_POLICY = RetryPolicy.exponentialWithJitter(
             RetryPolicy.UNLIMITED_ATTEMPTS,
             Duration.ofSeconds(1),
             Duration.ofSeconds(30),
             2
     );
+    public static final StompClientOption DEFAULT_STOMP_CLIENT_OPTION = StompClientOption.builder().build();
 
     public static final String SUPPORTED_VERSION = "1.2";
 
@@ -76,6 +76,12 @@ public record StompClientOption(
         }
         if (maxFrameLength <= 0) {
             throw new IllegalArgumentException("maxFrameLength must be greater than zero");
+        }
+        if (connectTimeout.isNegative() || connectTimeout.isZero()) {
+            throw new IllegalArgumentException("connectTimeout must be positive");
+        }
+        if (connectTimeout.toMillis() > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("connectTimeout must not exceed Integer.MAX_VALUE milliseconds");
         }
     }
 
@@ -94,6 +100,7 @@ public record StompClientOption(
             String virtualHost,
             Integer maxFrameLength,
             InetClientOption inetClientOption,
+            Duration connectTimeout,
             RetryPolicy reconnectPolicy,
             RetryListener reconnectListener
     ) {
@@ -116,6 +123,7 @@ public record StompClientOption(
                 maxFrameLength == null ? DEFAULT_MAX_FRAME_LENGTH : maxFrameLength,
                 StompVersion.STOMP_1_2,
                 inetClientOption == null ? InetClientOption.DEFAULT_INET_CLIENT_OPTION : inetClientOption,
+                connectTimeout == null ? DEFAULT_CONNECT_TIMEOUT : connectTimeout,
                 reconnectPolicy == null ? DEFAULT_RECONNECT_POLICY : reconnectPolicy,
                 reconnectListener == null ? RetryListener.NOOP : reconnectListener
         );

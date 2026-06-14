@@ -15,6 +15,7 @@ import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -143,6 +144,17 @@ class TitanStompClientAutoConfigurationTest {
 
                     assertThat(properties.getClient()).isEqualTo(TitanProperties.Client.VERTX);
                 });
+    }
+
+    @Test
+    void applies_connect_timeout_to_stomp_client_option() {
+        TitanProperties properties = new TitanProperties();
+        properties.setConnectTimeoutMillis(2000L);
+
+        StompClientOption option = new TitanStompClientAutoConfiguration()
+                .titanStompClientOption(properties);
+
+        assertThat(option.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
     }
 
     private static StompClient lifecycleClient(StompConnection connection) {

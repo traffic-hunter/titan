@@ -18,7 +18,7 @@ class TitanPropertiesTest {
         assertEquals(TitanProperties.Client.TITAN, properties.getClient());
         assertEquals("127.0.0.1", properties.getHost());
         assertEquals(61613, properties.getPort());
-        assertEquals(30000L, properties.getConnectTimeoutMillis());
+        assertEquals(5000L, properties.getConnectTimeoutMillis());
         assertTrue(properties.isAutoComputeContentLength());
         assertFalse(properties.isUseStompFrame());
         assertFalse(properties.isBypassHostHeader());

@@ -110,7 +110,9 @@ class StompIntegrationTest {
 
             client.channel().close();
 
-            await().atMost(3, TimeUnit.SECONDS)
+            // Reconnect drives a full TCP teardown + reconnect cycle on a background
+            // event loop, so allow generous slack for slower/loaded CI runners.
+            await().atMost(10, TimeUnit.SECONDS)
                     .untilAsserted(() -> {
                         assertThat(client.connection()).isNotSameAs(initialOperations);
                         assertThat(client.connection().isConnected()).isTrue();

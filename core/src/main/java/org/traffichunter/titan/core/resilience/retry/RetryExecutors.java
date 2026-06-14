@@ -23,6 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.resilience.retry;
 
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import org.traffichunter.titan.core.channel.EventLoop;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -74,6 +76,47 @@ public final class RetryExecutors {
             RetryListener retryListener
     ) {
         return new JdkScheduledRetryExecutor(scheduledExecutorService, retryPolicy, retryListener);
+    }
+
+    public static VertxRetryExecutor vertxRetryExecutor(RetryPolicy retryPolicy) {
+        return new VertxRetryExecutor(retryPolicy);
+    }
+
+    public static VertxRetryExecutor vertxRetryExecutor(
+            RetryPolicy retryPolicy,
+            RetryListener retryListener
+    ) {
+        return new VertxRetryExecutor(retryPolicy, retryListener);
+    }
+
+    public static VertxRetryExecutor vertxRetryExecutor(
+            Vertx vertx,
+            RetryPolicy retryPolicy
+    ) {
+        return new VertxRetryExecutor(vertx, retryPolicy);
+    }
+
+    public static VertxRetryExecutor vertxRetryExecutor(
+            Vertx vertx,
+            RetryPolicy retryPolicy,
+            RetryListener retryListener
+    ) {
+        return new VertxRetryExecutor(vertx, retryPolicy, retryListener);
+    }
+
+    public static VertxRetryExecutor vertxRetryExecutor(
+            VertxOptions options,
+            RetryPolicy retryPolicy
+    ) {
+        return new VertxRetryExecutor(options, retryPolicy);
+    }
+
+    public static VertxRetryExecutor vertxRetryExecutor(
+            VertxOptions options,
+            RetryPolicy retryPolicy,
+            RetryListener retryListener
+    ) {
+        return new VertxRetryExecutor(options, retryPolicy, retryListener);
     }
 
     public static RetryExecutor noopRetryExecutor() {

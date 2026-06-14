@@ -71,7 +71,7 @@ public final class TitanStompClient implements StompClient {
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private volatile @Nullable StompClientChannel connection;
     private volatile @Nullable TitanStompConnection stompConnection;
-    private volatile RetryResult reconnectResult = RetryResult.noop();
+    private final AtomicReference<@Nullable RetryResult> reconnectResult = new AtomicReference<>();
 
     private TitanStompClient(EventLoopGroups groups, @Nullable InetClient inetClient, StompClientOption option) {
         this.option = option;
@@ -159,7 +159,12 @@ public final class TitanStompClient implements StompClient {
     }
 
     public Promise<StompClientChannel> connect(String host, int port) {
-        return connect(host, port, 30, TimeUnit.SECONDS);
+        return connect(
+                host,
+                port,
+                option.connectTimeout().toMillis(),
+                TimeUnit.MILLISECONDS
+        );
     }
 
     public Promise<StompClientChannel> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
@@ -189,7 +194,7 @@ public final class TitanStompClient implements StompClient {
             return;
         }
 
-        reconnectResult.cancel();
+        cancelReconnect();
         try {
             reconnectExecutor.shutdown(timeout, unit);
             inetClient.shutdown(timeout, unit);
@@ -265,21 +270,42 @@ public final class TitanStompClient implements StompClient {
             return;
         }
 
-        reconnectResult = reconnectExecutor.retry(() -> {
+        RetryResult result = reconnectExecutor.retry(() -> {
+            if (status.get() != Status.CONNECTING) {
+                return Boolean.TRUE;
+            }
+
             try {
-                return connectStompConnection().future().get();
+                connectStompConnection().get();
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause();
-                if (cause instanceof Exception exception) {
-                    throw exception;
+                if (cause instanceof Exception retryable) {
+                    throw retryable;
                 }
-                throw e;
+                throw cause == null
+                        ? new StompException("STOMP reconnect failed")
+                        : new StompException("STOMP reconnect failed", cause);
             }
+            return Boolean.TRUE;
         });
+        RetryResult previous = reconnectResult.getAndSet(result);
+        if (previous != null) {
+            previous.cancel();
+        }
+        if (status.get() != Status.CONNECTING && reconnectResult.compareAndSet(result, null)) {
+            result.cancel();
+        }
+    }
+
+    private void cancelReconnect() {
+        RetryResult result = reconnectResult.getAndSet(null);
+        if (result != null) {
+            result.cancel();
+        }
     }
 
     private void disconnecting() {
-        reconnectResult.cancel();
+        cancelReconnect();
         status.compareAndSet(Status.CONNECTED, Status.STARTED);
     }
 
