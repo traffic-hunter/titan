@@ -24,7 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.transport.stomp.client;
 
 import io.vertx.ext.stomp.StompClientConnection;
-import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.codec.stomp.vertx.VertxStompFrame;
@@ -35,10 +34,6 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * @author yun
@@ -78,58 +73,62 @@ public final class VertxStompConnection implements StompConnection {
     }
 
     @Override
-    public Future<StompFrames> send(String destination, Buffer payload) {
+    public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
         validateDestination(destination);
         return toFuture(connection.send(destination, toVertxBuffer(payload)));
     }
 
     @Override
-    public Future<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
+    public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
         validateDestination(destination);
         return toFuture(connection.send(destination, toVertxHeaders(headers), toVertxBuffer(payload)));
     }
 
     @Override
-    public Future<String> subscribe(String destination, Handler<StompFrames> handler) {
+    public CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler) {
         validateDestination(destination);
-        return VertxFutureWrapper.wrap(connection.subscribe(
+        return connection.subscribe(
                 destination,
                 frame -> handler.handle(VertxStompFrame.wrap(frame))
-        ));
+        ).toCompletionStage().toCompletableFuture();
     }
 
     @Override
-    public Future<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler) {
+    public CompletableFuture<String> subscribe(
+            String destination,
+            Map<Elements, String> headers,
+            Handler<StompFrames> handler
+    ) {
         validateDestination(destination);
-        return VertxFutureWrapper.wrap(connection.subscribe(
+        return connection.subscribe(
                 destination,
                 toVertxHeaders(headers),
                 frame -> handler.handle(VertxStompFrame.wrap(frame))
-        ));
+        ).toCompletionStage().toCompletableFuture();
     }
 
     @Override
-    public Future<StompFrames> unsubscribe(String subscriptionId) {
+    public CompletableFuture<StompFrames> unsubscribe(String subscriptionId) {
         return toFuture(connection.unsubscribe(subscriptionId));
     }
 
     @Override
-    public Future<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
+    public CompletableFuture<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
         return toFuture(connection.unsubscribe(subscriptionId, toVertxHeaders(headers)));
     }
 
     @Override
-    public Future<StompFrames> ack(String messageId) {
+    public CompletableFuture<StompFrames> ack(String messageId) {
         return toFuture(connection.ack(messageId));
     }
 
     @Override
-    public Future<StompFrames> nack(String messageId) {
+    public CompletableFuture<StompFrames> nack(String messageId) {
         return toFuture(connection.nack(messageId));
     }
 
     @Override
-    public Future<StompFrames> disconnect() {
+    public CompletableFuture<StompFrames> disconnect() {
         beforeDisconnect.run();
         return toFuture(connection.disconnect());
     }
@@ -169,45 +168,12 @@ public final class VertxStompConnection implements StompConnection {
         return connection.isConnected();
     }
 
-    @NullMarked
-    private record VertxFutureWrapper<V>(CompletableFuture<V> future) implements Future<V> {
-
-        private VertxFutureWrapper(io.vertx.core.Future<V> future) {
-            this(future.toCompletionStage().toCompletableFuture());
-        }
-
-        static <V> Future<V> wrap(io.vertx.core.Future<V> future) {
-            return new VertxFutureWrapper<>(future);
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning) {
-            return future.cancel(mayInterruptIfRunning);
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return future.isCancelled();
-        }
-
-        @Override
-        public boolean isDone() {
-            return future.isDone();
-        }
-
-        @Override
-        public V get() throws InterruptedException, ExecutionException {
-            return future.get();
-        }
-
-        @Override
-        public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-            return future.get(timeout, unit);
-        }
-    }
-
-    private static Future<StompFrames> toFuture(io.vertx.core.Future<io.vertx.ext.stomp.Frame> future) {
-        return VertxFutureWrapper.wrap(future.map(VertxStompFrame::wrap));
+    private static CompletableFuture<StompFrames> toFuture(
+            io.vertx.core.Future<io.vertx.ext.stomp.Frame> future
+    ) {
+        return future.map(frame -> (StompFrames) VertxStompFrame.wrap(frame))
+                .toCompletionStage()
+                .toCompletableFuture();
     }
 
     private static io.vertx.core.buffer.Buffer toVertxBuffer(Buffer buffer) {
