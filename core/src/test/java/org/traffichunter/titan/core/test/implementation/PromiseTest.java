@@ -7,11 +7,13 @@ import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.concurrent.AsyncListener;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.PromiseException;
 import org.traffichunter.titan.core.concurrent.PromiseImpl;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -143,6 +145,42 @@ class PromiseTest {
     }
 
     @Test
+    void map_should_fail_without_result() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+
+        Promise<Integer> mapped = promise.map(value -> {
+            invoked.set(true);
+            return value.length();
+        });
+        promise.success();
+
+        assertThatThrownBy(mapped::get)
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(PromiseException.class)
+                .hasRootCauseMessage("Cannot map a promise without a result");
+        assertThat(invoked).isFalse();
+    }
+
+    @Test
+    void map_should_propagate_failure_without_invoking_mapper() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        Promise<Integer> mapped = promise.map(value -> {
+            invoked.set(true);
+            return value.length();
+        });
+        promise.fail(failure);
+
+        assertThatThrownBy(mapped::get)
+                .isInstanceOf(ExecutionException.class)
+                .hasCause(failure);
+        assertThat(invoked).isFalse();
+    }
+
+    @Test
     void thenCompose_should_chain_result_test() throws Exception {
         Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
 
@@ -155,6 +193,24 @@ class PromiseTest {
         promise.success("test");
 
         assertThat(chained.get()).isEqualTo(4);
+    }
+
+    @Test
+    void thenCompose_should_fail_without_result() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+
+        Promise<Integer> chained = promise.thenCompose(value -> {
+            invoked.set(true);
+            return Promise.newPromise(eventLoop, () -> value.length());
+        });
+        promise.success();
+
+        assertThatThrownBy(chained::get)
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(PromiseException.class)
+                .hasRootCauseMessage("Cannot compose a promise without a result");
+        assertThat(invoked).isFalse();
     }
 
     @Test

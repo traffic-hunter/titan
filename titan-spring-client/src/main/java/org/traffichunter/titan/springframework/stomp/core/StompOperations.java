@@ -1,7 +1,7 @@
 package org.traffichunter.titan.springframework.stomp.core;
 
 import java.util.Map;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.util.Handler;
@@ -16,21 +16,21 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
  */
 public interface StompOperations {
 
-    Future<StompFrames> send(String destination, Buffer payload);
+    CompletableFuture<StompFrames> send(String destination, Buffer payload);
 
-    Future<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers);
+    CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers);
 
-    Future<String> subscribe(String destination, Handler<StompFrames> handler);
+    CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler);
 
-    Future<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler);
+    CompletableFuture<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler);
 
-    Future<StompFrames> unsubscribe(String subscriptionId);
+    CompletableFuture<StompFrames> unsubscribe(String subscriptionId);
 
-    Future<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers);
+    CompletableFuture<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers);
 
-    Future<StompFrames> ack(String messageId);
+    CompletableFuture<StompFrames> ack(String messageId);
 
-    Future<StompFrames> nack(String messageId);
+    CompletableFuture<StompFrames> nack(String messageId);
 
-    Future<StompFrames> disconnect();
+    CompletableFuture<StompFrames> disconnect();
 }

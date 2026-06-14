@@ -3,7 +3,7 @@ package org.traffichunter.titan.springframework.stomp.core;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
@@ -16,7 +16,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * Delegates every operation to the active {@link StompConnection} resolved through
  * {@link TitanClientManager}, connecting on demand when no connection exists yet.
  *
- * <p>The {@link StompOperations} contract is asynchronous and returns {@link Future}
+ * <p>The {@link StompOperations} contract is asynchronous and returns {@link CompletableFuture}
  * results. Blocking convenience overloads are provided for the common send and
  * subscribe calls and wait up to {@link TitanClientManager#connectTimeoutMillis()}.
  *
@@ -33,47 +33,47 @@ public final class TitanTemplate implements StompOperations {
     }
 
     @Override
-    public Future<StompFrames> send(String destination, Buffer payload) {
+    public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
         return connection().send(destination, payload);
     }
 
     @Override
-    public Future<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
+    public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
         return connection().send(destination, payload, headers);
     }
 
     @Override
-    public Future<String> subscribe(String destination, Handler<StompFrames> handler) {
+    public CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler) {
         return connection().subscribe(destination, handler);
     }
 
     @Override
-    public Future<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler) {
+    public CompletableFuture<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler) {
         return connection().subscribe(destination, headers, handler);
     }
 
     @Override
-    public Future<StompFrames> unsubscribe(String subscriptionId) {
+    public CompletableFuture<StompFrames> unsubscribe(String subscriptionId) {
         return connection().unsubscribe(subscriptionId);
     }
 
     @Override
-    public Future<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
+    public CompletableFuture<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
         return connection().unsubscribe(subscriptionId, headers);
     }
 
     @Override
-    public Future<StompFrames> ack(String messageId) {
+    public CompletableFuture<StompFrames> ack(String messageId) {
         return connection().ack(messageId);
     }
 
     @Override
-    public Future<StompFrames> nack(String messageId) {
+    public CompletableFuture<StompFrames> nack(String messageId) {
         return connection().nack(messageId);
     }
 
     @Override
-    public Future<StompFrames> disconnect() {
+    public CompletableFuture<StompFrames> disconnect() {
         return connection().disconnect();
     }
 
@@ -96,7 +96,7 @@ public final class TitanTemplate implements StompOperations {
         return await(subscribe(destination, NOOP_HANDLER));
     }
 
-    private <T> T await(Future<T> future) throws Exception {
+    private <T> T await(CompletableFuture<T> future) throws Exception {
         return future.get(clientManager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
     }
 

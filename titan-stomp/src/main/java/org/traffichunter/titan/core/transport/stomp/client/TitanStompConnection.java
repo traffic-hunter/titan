@@ -33,7 +33,7 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.Map;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author yun
@@ -73,70 +73,74 @@ public final class TitanStompConnection implements StompConnection {
     }
 
     @Override
-    public Future<StompFrames> send(String destination, Buffer payload) {
+    public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
         validateDestination(destination);
         return connection.send(destination, payload)
-                .map(f -> (StompFrames) f)
-                .future();
+                .map(StompFrames::from)
+                .toCompletableFuture();
     }
 
     @Override
-    public Future<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
+    public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
         validateDestination(destination);
         return connection.send(destination, payload, toHeaders(headers))
-                .map(f -> (StompFrames) f)
-                .future();
+                .map(StompFrames::from)
+                .toCompletableFuture();
     }
 
     @Override
-    public Future<String> subscribe(String destination, Handler<StompFrames> handler) {
+    public CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler) {
         return subscribe(destination, Map.of(), handler);
     }
 
     @Override
-    public Future<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler) {
+    public CompletableFuture<String> subscribe(
+            String destination,
+            Map<Elements, String> headers,
+            Handler<StompFrames> handler
+    ) {
         validateDestination(destination);
         StompHeaders stompHeaders = toHeaders(headers);
         String subscriptionId = stompHeaders.getOrDefault(Elements.ID, destination);
         return connection.subscribe(destination, stompHeaders, handler::handle)
                 .map(frame -> subscriptionId)
-                .future();
+                .toCompletableFuture();
     }
 
     @Override
-    public Future<StompFrames> unsubscribe(String subscriptionId) {
+    public CompletableFuture<StompFrames> unsubscribe(String subscriptionId) {
         return unsubscribe(subscriptionId, Map.of());
     }
 
     @Override
-    public Future<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
+    public CompletableFuture<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
         StompHeaders stompHeaders = toHeaders(headers);
         stompHeaders.put(Elements.ID, subscriptionId);
         return connection.unsubscribe(subscriptionId, stompHeaders)
-                .map(f -> (StompFrames) f)
-                .future();
+                .map(StompFrames::from)
+                .toCompletableFuture();
     }
 
     @Override
-    public Future<StompFrames> ack(String messageId) {
+    public CompletableFuture<StompFrames> ack(String messageId) {
         return connection.ack(messageId)
-                .map(f -> (StompFrames) f)
-                .future();
+                .map(StompFrames::from)
+                .toCompletableFuture();
     }
 
     @Override
-    public Future<StompFrames> nack(String messageId) {
+    public CompletableFuture<StompFrames> nack(String messageId) {
         return connection.nack(messageId)
-                .map(f -> (StompFrames) f)
-                .future();
+                .map(StompFrames::from)
+                .toCompletableFuture();
     }
 
     @Override
-    public Future<StompFrames> disconnect() {
+    public CompletableFuture<StompFrames> disconnect() {
         beforeDisconnect.run();
         return connection.disconnect()
-                .map(f -> (StompFrames) f)
-                .future();
+                .map(StompFrames::from)
+                .toCompletableFuture();
     }
 
     @Override

@@ -24,6 +24,8 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec.stomp;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.codec.stomp.vertx.VertxStompFrame;
+import org.traffichunter.titan.core.util.inet.Frame;
 
 import java.util.Map;
 
@@ -33,6 +35,14 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
  * @author yun
  */
 public interface StompFrames {
+
+    static StompFrames from(StompFrame frame) {
+        return frame;
+    }
+
+    static StompFrames from(VertxStompFrame frame) {
+        return frame;
+    }
 
     StompCommand command();
 
