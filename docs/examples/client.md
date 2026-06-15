@@ -14,7 +14,7 @@ repositories {
 ```
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-stomp:0.7.1")
+implementation("org.traffichunter.titan:titan-stomp:0.7.2")
 ```
 
 ## Connect, Subscribe, Send
