@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
  * {@link IOEventLoop}, while {@link ChannelWriteBuffer} keeps partially written buffers until
  * the socket becomes writable again.</p>
  *
- * @author yun gkdbssla97
+ * @author yun, gkdbssla97
  */
 @Slf4j
 public class NewIONetChannel extends AbstractChannel implements NetChannel {

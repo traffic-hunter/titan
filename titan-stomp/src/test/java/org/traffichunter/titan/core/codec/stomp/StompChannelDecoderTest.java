@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.DisplayNameGenerator.*;
 
 /**
- * @author yun gkdbssla97
+ * @author yun, gkdbssla97
  */
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class StompChannelDecoderTest {
