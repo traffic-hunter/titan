@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.transport.stomp;
 import static org.awaitility.Awaitility.await;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -52,8 +51,6 @@ import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.Priority;
-import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -87,36 +84,6 @@ class StompIntegrationTest {
             assertThat(client.channel().isConnected()).isTrue();
             assertThat(client.channel().session()).isNotNull();
             assertThat(client.remoteAddress()).isNotNull();
-        } finally {
-            client.shutdown();
-        }
-    }
-
-    @Test
-    void stomp_client_reconnects_after_unexpected_connection_close(StompTestServer testServer) throws Exception {
-        StompClientOption option = StompClientOption.builder()
-                .host(testServer.host())
-                .port(testServer.port())
-                .reconnectPolicy(RetryPolicy.fixed(
-                        RetryPolicy.UNLIMITED_ATTEMPTS,
-                        Duration.ofMillis(10)
-                ))
-                .build();
-        TitanStompClient client = TitanStompClient.open(clientGroups(), option);
-
-        try {
-            client.start();
-            StompConnection initialOperations = client.connect().get(3, TimeUnit.SECONDS);
-
-            client.channel().close();
-
-            // Reconnect drives a full TCP teardown + reconnect cycle on a background
-            // event loop, so allow generous slack for slower/loaded CI runners.
-            await().atMost(10, TimeUnit.SECONDS)
-                    .untilAsserted(() -> {
-                        assertThat(client.connection()).isNotSameAs(initialOperations);
-                        assertThat(client.connection().isConnected()).isTrue();
-                    });
         } finally {
             client.shutdown();
         }

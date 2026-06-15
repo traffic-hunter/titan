@@ -172,7 +172,11 @@ public final class StompServer {
             task.cancel();
             inactiveConnectionCleanupTask = null;
         }
-        inetServer.shutdown(timeout, unit);
+        try {
+            serverConnection.close();
+        } finally {
+            inetServer.shutdown(timeout, unit);
+        }
     }
 
     public boolean isShutdown() {

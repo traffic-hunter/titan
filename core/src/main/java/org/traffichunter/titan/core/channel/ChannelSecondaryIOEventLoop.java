@@ -70,9 +70,9 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
             NetChannel channel = (NetChannel) key.attachment();
             ChannelHandlerChain chain = channel.chain();
 
-            if (key.isConnectable()) {
-                chain.processChannelConnecting(channel);
-                try {
+            try {
+                if (key.isConnectable()) {
+                    chain.processChannelConnecting(channel);
                     if(channel.finishConnect()) {
                         if (channel instanceof NewIONetChannel nioNetChannel) {
                             nioNetChannel.completeConnect();
@@ -86,20 +86,41 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
 
                         ((AbstractChannel) channel).accept(channel);
                     }
-                } catch (Exception e) {
-                    log.error("Failed connect", e);
+                } else if (key.isReadable()) {
+                    processRead(channel, chain);
+                } else if (key.isWritable()) {
+                    channel.flush();
                 }
-            } else if (key.isReadable()) {
-                Buffer buffer = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY);
-                int read = channel.read(buffer);
-                if (read > 0) {
-                    chain.processChannelRead(channel, buffer);
+            } catch (Exception e) {
+                if (channel.isClosed()) {
+                    log.debug("Ignoring I/O event for closed channel. channelId={}", channel.id());
                 } else {
-                    buffer.release();
+                    log.error("Failed to process I/O event. channelId={}", channel.id(), e);
                 }
-            } else if (key.isWritable()) {
-                channel.flush();
+                key.cancel();
+                try {
+                    channel.close();
+                } catch (Exception closeError) {
+                    log.error("Failed to close channel after I/O error. channelId={}", channel.id(), closeError);
+                }
             }
+        }
+    }
+
+    private void processRead(NetChannel channel, ChannelHandlerChain chain) {
+        Buffer buffer = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY);
+        final int read;
+        try {
+            read = channel.read(buffer);
+        } catch (Exception e) {
+            buffer.release();
+            throw e;
+        }
+
+        if (read > 0) {
+            chain.processChannelRead(channel, buffer);
+        } else {
+            buffer.release();
         }
     }
 }

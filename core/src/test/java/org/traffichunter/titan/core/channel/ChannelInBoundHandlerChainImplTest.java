@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 /**
  * Verifies that ChannelInBoundHandlerChainImpl releases the buffer when no next handler exists.
  *
- * @author yun gkdbssla97
+ * @author yun, gkdbssla97
  */
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class ChannelInBoundHandlerChainImplTest {

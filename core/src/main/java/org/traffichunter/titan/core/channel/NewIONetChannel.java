@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
  * {@link IOEventLoop}, while {@link ChannelWriteBuffer} keeps partially written buffers until
  * the socket becomes writable again.</p>
  *
- * @author yun gkdbssla97
+ * @author yun, gkdbssla97
  */
 @Slf4j
 public class NewIONetChannel extends AbstractChannel implements NetChannel {
@@ -72,7 +72,8 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             throw new ChannelException("Channel is closed");
         }
 
-        connectPromise = eventLoop().newPromise(this);
+        ChannelPromise promise = eventLoop().newPromise(this);
+        connectPromise = promise;
 
         if(connect0(remoteAddress)) {
             chain().processChannelConnecting(this);
@@ -86,14 +87,14 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         if(timeOut > 0) {
             ScheduledPromise<?> timeoutPromise = eventLoop().schedule(
                 () -> {
-                    if (connectPromise.isDone()) {
+                    if (promise.isDone()) {
                         return;
                     }
-                    connectPromise.fail(new ChannelException("Connect timeout"));
+                    promise.fail(new ChannelException("Connect timeout"));
                     close();
                 }, timeOut, timeUnit);
 
-            connectPromise.addListener(f -> timeoutPromise.cancel());
+            promise.addListener(f -> timeoutPromise.cancel());
         }
     }
 
