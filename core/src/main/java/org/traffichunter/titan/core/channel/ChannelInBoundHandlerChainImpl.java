@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * @author yun
+ * @author yun gkdbssla97
  */
 @Slf4j
 public final class ChannelInBoundHandlerChainImpl implements ChannelInBoundHandlerChain {
@@ -64,6 +64,7 @@ public final class ChannelInBoundHandlerChainImpl implements ChannelInBoundHandl
     public void sparkChannelRead(NetChannel channel, Buffer buffer) {
         ChannelInBoundHandlerChainImpl chain = next;
         if(chain == null) {
+            buffer.release();
             return;
         }
 

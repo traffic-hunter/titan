@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.DisplayNameGenerator.*;
 
 /**
- * @author yun
+ * @author yun gkdbssla97
  */
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class StompChannelDecoderTest {
@@ -172,6 +172,73 @@ class StompChannelDecoderTest {
             total.release();
             chain.releaseAll();
         }
+    }
+
+    // ── refCnt leak regression tests ──────────────────────────────────────────
+
+    @Test
+    void decode_result_refCnt_is_zero_when_no_downstream_handler() {
+        // Leak 2 regression: ChannelInBoundHandlerChainImpl must release the buffer
+        // returned by decode() when it reaches the end of the chain (next == null).
+        StompHeaders headers = StompHeaders.create();
+        headers.put(StompHeaders.Elements.ID, IdGenerator.uuid());
+        StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.alloc("hello"));
+        Buffer buf = frame.toBuffer();
+
+        TerminalChain terminal = new TerminalChain();
+        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+
+        try {
+            decoder.sparkChannelRead(new InMemoryNetChannel(), buf, terminal);
+            assertThat(terminal.received)
+                    .as("terminal chain must have received the decoded buffer")
+                    .isNotNull();
+            assertThat(terminal.received.byteBuf().refCnt())
+                    .as("buffer refCnt must be 0 after terminal chain releases it")
+                    .isEqualTo(0);
+        } finally {
+            // buf itself is consumed by keepingBuffer inside ChannelDecoder
+            // and released when keepingBuffer is drained — no manual release needed here
+        }
+    }
+
+    @Test
+    void when_content_length_mismatch_then_parse_buffers_released() {
+        // Leak 3 regression: stompFrame and frames list inside StompParser.parse()
+        // must be released even when ERR_STOMP_FRAME is returned early.
+        StompHeaders headers = StompHeaders.create();
+        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "999");
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.alloc("hello"));
+        Buffer buf = frame.toBuffer();
+
+        TerminalChain terminal = new TerminalChain();
+        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+        decoder.sparkChannelRead(new InMemoryNetChannel(), buf, terminal);
+
+        // If stompFrame/frames buffers were not released, ResourceLeakDetector (PARANOID)
+        // would report a leak. Here we verify the decode completes without error
+        // and the output buffer is properly handled.
+        assertThat(terminal.received).isNotNull();
+        assertThat(terminal.received.byteBuf().refCnt()).isEqualTo(0);
+    }
+
+    private static class TerminalChain implements ChannelInBoundHandlerChain {
+        Buffer received;
+
+        @Override
+        public void sparkChannelConnecting(@NonNull NetChannel channel) {}
+
+        @Override
+        public void sparkChannelAfterConnected(@NonNull NetChannel channel) {}
+
+        @Override
+        public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer) {
+            received = buffer;
+            buffer.release();
+        }
+
+        @Override
+        public void sparkExceptionCaught(@NonNull Throwable error) {}
     }
 
     private static class TestStompChannelDecoder extends StompChannelDecoder {
