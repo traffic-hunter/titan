@@ -29,7 +29,7 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.buffer.BufferUtils;
+import org.traffichunter.titan.core.util.buffer.Buffers;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -108,7 +108,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
     }
 
     private void processRead(NetChannel channel, ChannelHandlerChain chain) {
-        Buffer buffer = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, BufferUtils.DEFAULT_MAX_CAPACITY);
+        Buffer buffer = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, Buffers.DEFAULT_MAX_CAPACITY);
         final int read;
         try {
             read = channel.read(buffer);

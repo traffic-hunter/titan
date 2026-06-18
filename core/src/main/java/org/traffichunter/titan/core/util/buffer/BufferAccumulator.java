@@ -37,18 +37,19 @@ import org.traffichunter.titan.core.util.Clearable;
  * @author yun
  */
 @NullMarked
+@Deprecated(since = "0.7.2")
 public final class BufferAccumulator implements Clearable {
 
     private @Nullable Buffer accumulator;
     private final int maxAccumulatedSize;
 
     public BufferAccumulator() {
-        this(BufferUtils.DEFAULT_MAX_CAPACITY);
+        this(Buffers.DEFAULT_MAX_CAPACITY);
     }
 
     public BufferAccumulator(int maxAccumulatedSize) {
         this.maxAccumulatedSize = maxAccumulatedSize;
-        this.accumulator = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
+        this.accumulator = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
     }
 
     /**
@@ -161,7 +162,7 @@ public final class BufferAccumulator implements Clearable {
         if (accumulator != null) {
             accumulator.release();
         }
-        accumulator = Buffer.alloc(BufferUtils.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
+        accumulator = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
     }
 
     /**
