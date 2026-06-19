@@ -21,17 +21,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.buffer;
+package org.traffichunter.titan.core.util.file;
 
 /**
- * Shared buffer sizing defaults.
- *
  * @author yun
  */
-public final class BufferUtils {
+public class FileIOException extends RuntimeException {
 
-    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
-    public static final int DEFAULT_MAX_CAPACITY = 65536;
+    public FileIOException(String message) {
+        super(message);
+    }
 
-    private BufferUtils() {}
+    public FileIOException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
