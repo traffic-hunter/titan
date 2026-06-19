@@ -214,6 +214,16 @@ Build the standalone server jar:
 - Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
 - Monitoring currently focuses on local JVM and dispatcher queue visibility.
 
+## Contributors
+
+Thanks to everyone who has contributed to Titan.
+
+<a href="https://github.com/traffic-hunter/titan/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=traffic-hunter/titan" alt="Titan contributors"/>
+</a>
+
+See the full [GitHub contributors list](https://github.com/traffic-hunter/titan/graphs/contributors).
+
 ## License
 
 MIT License. See [LICENSE](LICENSE).
