@@ -41,6 +41,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 /**
  * File-system utilities used by backup and persistence code.
  *
+ * <p>Methods that receive a {@link Buffer} never release it. Methods that return a
+ * {@code Buffer} allocate a new buffer and transfer release ownership to the caller.</p>
+ *
  * @author yun
  */
 public final class FileUtils {
@@ -128,18 +131,33 @@ public final class FileUtils {
         }
     }
 
+    /**
+     * Reads the whole file into a newly allocated buffer.
+     *
+     * @return buffer owned by the caller
+     */
     public static Buffer read(Path path) {
         try (FileHandle file = FileHandle.openReadOnly(path)) {
             return file.readAll();
         }
     }
 
+    /**
+     * Reads up to {@code length} bytes from {@code position} into a newly allocated buffer.
+     *
+     * @return buffer owned by the caller
+     */
     public static Buffer read(Path path, long position, int length) {
         try (FileHandle file = FileHandle.openReadOnly(path)) {
             return file.read(position, length);
         }
     }
 
+    /**
+     * Replaces the file content with the readable bytes of {@code content}.
+     *
+     * <p>The content buffer remains owned by the caller and is not released.</p>
+     */
     public static void write(Path path, Buffer content) {
         try (FileHandle file = FileHandle.open(path, CREATE, WRITE, TRUNCATE_EXISTING)) {
             file.write(content);
@@ -147,6 +165,13 @@ public final class FileUtils {
         }
     }
 
+    /**
+     * Appends the readable bytes of {@code content} to the file.
+     *
+     * <p>The content buffer remains owned by the caller and is not released.</p>
+     *
+     * @return start offset where the bytes were appended
+     */
     public static long append(Path path, Buffer content) {
         try (FileHandle file = FileHandle.open(path, CREATE, READ, WRITE)) {
             long offset = file.append(content);
@@ -155,6 +180,12 @@ public final class FileUtils {
         }
     }
 
+    /**
+     * Atomically replaces the file content with the readable bytes of {@code content}.
+     *
+     * <p>The content buffer remains owned by the caller and is not released. Temporary files are
+     * cleaned up when the replace step is not reached.</p>
+     */
     public static void atomicWrite(Path path, Buffer content) {
         Path directory = parentOrCurrent(path);
         Path temp = createTempFile(directory, "." + path.getFileName(), ".tmp");

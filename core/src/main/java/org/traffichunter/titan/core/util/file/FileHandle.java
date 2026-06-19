@@ -36,7 +36,12 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Opened file resource backed by a file channel.
+ * High-level handle for a single opened file.
+ *
+ * <p>The handle exposes Titan {@link Buffer} based read and write operations instead of leaking
+ * {@code FileChannel} position management to callers. Methods that receive a {@code Buffer} never
+ * release it. Methods that return a {@code Buffer} allocate a new buffer and transfer release
+ * ownership to the caller.</p>
  *
  * @author yun
  */
@@ -64,18 +69,45 @@ public interface FileHandle extends AutoCloseable {
 
     Path path();
 
+    /**
+     * Reads the whole file into a newly allocated buffer.
+     *
+     * @return buffer owned by the caller
+     */
     Buffer readAll();
 
+    /**
+     * Reads up to {@code length} bytes from {@code position} into a newly allocated buffer.
+     *
+     * @return buffer owned by the caller
+     */
     Buffer read(long position, int length);
 
     Instant lastModified();
 
     long size();
 
+    /**
+     * Writes the readable bytes of {@code source} at the handle's current file position.
+     *
+     * <p>The source buffer remains owned by the caller and is not released.</p>
+     */
     void write(Buffer source);
 
+    /**
+     * Writes the readable bytes of {@code source} starting at {@code position}.
+     *
+     * <p>The source buffer remains owned by the caller and is not released.</p>
+     */
     void write(long position, Buffer source);
 
+    /**
+     * Appends the readable bytes of {@code source} to the end of the file.
+     *
+     * <p>The source buffer remains owned by the caller and is not released.</p>
+     *
+     * @return start offset where the bytes were appended
+     */
     long append(Buffer source);
 
     void truncate(long size);
