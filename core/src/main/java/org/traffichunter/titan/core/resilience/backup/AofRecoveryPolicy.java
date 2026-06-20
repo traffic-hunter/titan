@@ -23,6 +23,9 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.resilience.backup;
 
+import java.util.Locale;
+import org.jspecify.annotations.Nullable;
+
 /**
  * AOF replay behavior when the file ends with a partially written record.
  *
@@ -41,5 +44,19 @@ public enum AofRecoveryPolicy {
     /**
      * Fail replay when a truncated tail record is found.
      */
-    FAIL_ON_TRUNCATED_TAIL
+    FAIL_ON_TRUNCATED_TAIL;
+
+    /**
+     * Maps external configuration values to the internal recovery policy.
+     */
+    public static AofRecoveryPolicy fromConfig(@Nullable String value) {
+        if (value == null || value.isBlank()) {
+            return LOAD_TRUNCATED_TAIL;
+        }
+        return switch (value.toLowerCase(Locale.ROOT).replace('-', '_')) {
+            case "load_truncated_tail" -> LOAD_TRUNCATED_TAIL;
+            case "fail_on_truncated_tail" -> FAIL_ON_TRUNCATED_TAIL;
+            default -> throw new IllegalArgumentException("Unknown AOF recovery policy: " + value);
+        };
+    }
 }

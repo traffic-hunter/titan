@@ -40,14 +40,21 @@ public interface AppendOnlyFile extends AutoCloseable {
      * Opens an append-only file with default sync and recovery policies.
      */
     static AppendOnlyFile open(Path path) {
-        return open(path, AofSyncPolicy.EVERY_SEC, AofRecoveryPolicy.LOAD_TRUNCATED_TAIL);
+        return open(path, BackupOption.defaults());
+    }
+
+    /**
+     * Opens an append-only file with explicit backup options.
+     */
+    static AppendOnlyFile open(Path path, BackupOption option) {
+        return new FileAppendOnlyFile(path, option);
     }
 
     /**
      * Opens an append-only file with explicit sync and recovery policies.
      */
     static AppendOnlyFile open(Path path, AofSyncPolicy syncPolicy, AofRecoveryPolicy recoveryPolicy) {
-        return new FileAppendOnlyFile(path, syncPolicy, recoveryPolicy);
+        return open(path, new BackupOption(BackupType.AOF, syncPolicy, recoveryPolicy));
     }
 
     /**
@@ -57,6 +64,9 @@ public interface AppendOnlyFile extends AutoCloseable {
 
     /**
      * Replays valid records from the beginning of the file.
+     *
+     * <p>Truncated tail records follow the configured recovery policy. Invalid or corrupted
+     * records fail replay immediately.</p>
      */
     void replay(MetadataHandler handler);
 

@@ -27,46 +27,42 @@ import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Sync policy for Titan append-only backup writes.
+ * Backup strategy selected by external configuration.
  *
- * <p>Configuration strings are mapped through {@link #fromConfig(String)}.</p>
+ * <p>{@link #RDB} is reserved for snapshot-based persistence and {@link #ALL} means both append
+ * log and snapshot persistence should be enabled when both implementations exist.</p>
  *
  * @author yun
  */
-public enum AofSyncPolicy {
+public enum BackupType {
 
     /**
-     * Force the AOF file after every append.
+     * Append-only log backup.
      */
-    EVERY,
+    AOF,
 
     /**
-     * Force the AOF file at most once per second during append.
+     * Snapshot backup.
      */
-    EVERY_SEC,
+    RDB,
 
     /**
-     * Do not force during append; leave flushing to the operating system unless {@code fsync()} is
-     * called explicitly.
+     * Enable all available backup strategies.
      */
-    NO;
+    ALL;
 
     /**
-     * Maps external configuration values to the internal policy names.
-     *
-     * @param value configuration value such as {@code every}, {@code every-sec}, {@code every_sec},
-     *              or {@code no}
-     * @return matching AOF sync policy
+     * Maps external configuration values to a backup type.
      */
-    public static AofSyncPolicy fromConfig(@Nullable String value) {
+    public static BackupType fromConfig(@Nullable String value) {
         if (value == null || value.isBlank()) {
-            return EVERY_SEC;
+            return AOF;
         }
-        return switch (value.toLowerCase(Locale.ROOT).replace('-', '_')) {
-            case "every" -> EVERY;
-            case "every_sec" -> EVERY_SEC;
-            case "no" -> NO;
-            default -> throw new IllegalArgumentException("Unknown AOF sync policy: " + value);
+        return switch (value.toLowerCase(Locale.ROOT)) {
+            case "aof" -> AOF;
+            case "rdb" -> RDB;
+            case "all" -> ALL;
+            default -> throw new IllegalArgumentException("Unknown backup type: " + value);
         };
     }
 }

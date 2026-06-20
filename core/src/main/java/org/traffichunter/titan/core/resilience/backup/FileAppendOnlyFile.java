@@ -51,7 +51,14 @@ public final class FileAppendOnlyFile implements AppendOnlyFile {
      * Opens a file-backed append-only log using the given durability and recovery policies.
      */
     public FileAppendOnlyFile(Path path, AofSyncPolicy syncPolicy, AofRecoveryPolicy recoveryPolicy) {
-        this(FileHandle.open(path), syncPolicy, recoveryPolicy, System::currentTimeMillis);
+        this(path, new BackupOption(BackupType.AOF, syncPolicy, recoveryPolicy));
+    }
+
+    /**
+     * Opens a file-backed append-only log using explicit backup options.
+     */
+    public FileAppendOnlyFile(Path path, BackupOption option) {
+        this(FileHandle.open(path), option, System::currentTimeMillis);
     }
 
     /**
@@ -60,13 +67,12 @@ public final class FileAppendOnlyFile implements AppendOnlyFile {
      */
     FileAppendOnlyFile(
             FileHandle fileHandle,
-            AofSyncPolicy syncPolicy,
-            AofRecoveryPolicy recoveryPolicy,
+            BackupOption option,
             LongSupplier clock
     ) {
         this.fileHandle = fileHandle;
-        this.syncPolicy = syncPolicy;
-        this.recoveryPolicy = recoveryPolicy;
+        this.syncPolicy = option.syncPolicy();
+        this.recoveryPolicy = option.recoveryPolicy();
         this.clock = clock;
         this.lastSyncMillis = clock.getAsLong();
     }
@@ -136,7 +142,7 @@ public final class FileAppendOnlyFile implements AppendOnlyFile {
                 }
             }
             case NO -> {
-                // Depend on the OS unless sync() is called explicitly.
+                // Depend on the OS unless fsync() is called explicitly.
             }
         }
     }

@@ -29,14 +29,22 @@ import static org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 class FileAppendOnlyFileTest {
 
     @Test
+    void backup_option_can_be_created_from_config_values() {
+        BackupOption option = BackupOption.fromConfig("all", "no", "fail-on-truncated-tail");
+
+        assertThat(option.type()).isEqualTo(BackupType.ALL);
+        assertThat(option.syncPolicy()).isEqualTo(AofSyncPolicy.NO);
+        assertThat(option.recoveryPolicy()).isEqualTo(AofRecoveryPolicy.FAIL_ON_TRUNCATED_TAIL);
+    }
+
+    @Test
     void append_and_replay_records_in_order() {
         FakeFileHandle fileHandle = new FakeFileHandle();
         MutableClock clock = new MutableClock();
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.NO,
-                AofRecoveryPolicy.LOAD_TRUNCATED_TAIL,
+                BackupOption.fromConfig("no", null),
                 clock
         )) {
             Metadata first = metadata(Type.CREATE_QUEUE, "/queue/a", "first");
@@ -63,8 +71,7 @@ class FileAppendOnlyFileTest {
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.EVERY,
-                AofRecoveryPolicy.LOAD_TRUNCATED_TAIL,
+                BackupOption.fromConfig("every", null),
                 new MutableClock()
         )) {
             file.append(metadata(Type.MESSAGE_APPEND, "/queue/a", "one"));
@@ -81,8 +88,7 @@ class FileAppendOnlyFileTest {
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.EVERY_SEC,
-                AofRecoveryPolicy.LOAD_TRUNCATED_TAIL,
+                BackupOption.defaults(),
                 clock
         )) {
             file.append(metadata(Type.MESSAGE_APPEND, "/queue/a", "one"));
@@ -101,8 +107,7 @@ class FileAppendOnlyFileTest {
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.NO,
-                AofRecoveryPolicy.LOAD_TRUNCATED_TAIL,
+                BackupOption.fromConfig("no", null),
                 new MutableClock()
         )) {
             file.append(metadata(Type.MESSAGE_APPEND, "/queue/a", "one"));
@@ -119,8 +124,7 @@ class FileAppendOnlyFileTest {
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.NO,
-                AofRecoveryPolicy.LOAD_TRUNCATED_TAIL,
+                BackupOption.fromConfig("no", null),
                 new MutableClock()
         )) {
             file.append(metadata(Type.MESSAGE_APPEND, "/queue/a", "one"));
@@ -141,8 +145,7 @@ class FileAppendOnlyFileTest {
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.NO,
-                AofRecoveryPolicy.FAIL_ON_TRUNCATED_TAIL,
+                BackupOption.fromConfig("no", "fail_on_truncated_tail"),
                 new MutableClock()
         )) {
             file.append(metadata(Type.MESSAGE_APPEND, "/queue/a", "one"));
@@ -159,8 +162,7 @@ class FileAppendOnlyFileTest {
 
         try (AppendOnlyFile file = new FileAppendOnlyFile(
                 fileHandle,
-                AofSyncPolicy.NO,
-                AofRecoveryPolicy.LOAD_TRUNCATED_TAIL,
+                BackupOption.fromConfig("no", null),
                 new MutableClock()
         )) {
             file.append(metadata(Type.MESSAGE_APPEND, "/queue/a", "one"));

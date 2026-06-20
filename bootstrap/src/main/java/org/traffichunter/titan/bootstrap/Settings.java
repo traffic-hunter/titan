@@ -24,7 +24,7 @@
 package org.traffichunter.titan.bootstrap;
 
 import java.util.List;
-import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Immutable runtime settings resolved from the bootstrap environment.
@@ -34,17 +34,20 @@ import lombok.Builder;
  * share a {@code Settings} instance without observing accidental caller-side
  * mutation.</p>
  */
-@Builder
 public record Settings(
         List<ServerSettings> servers,
-        MonitorSettings monitor
+        MonitorSettings monitor,
+        BackupSettings backup
 ) {
 
-    public Settings {
-        servers = servers == null ? List.of() : List.copyOf(servers);
-        if (monitor == null) {
-            monitor = MonitorSettings.disabled();
-        }
+    public Settings(
+            @Nullable List<ServerSettings> servers,
+            @Nullable MonitorSettings monitor,
+            @Nullable BackupSettings backup
+    ) {
+        this.servers = servers == null ? List.of() : List.copyOf(servers);
+        this.monitor = monitor == null ? MonitorSettings.disabled() : monitor;
+        this.backup = backup == null ? BackupSettings.disabled() : backup;
     }
 
     public record MonitorSettings(
@@ -59,19 +62,57 @@ public record Settings(
             return new MonitorSettings(false, "127.0.0.1", 7777, "", 8);
         }
 
-        public MonitorSettings {
-            if (host == null || host.isBlank()) {
-                host = "127.0.0.1";
-            }
-            if (port <= 0 || port > 65535) {
-                port = 7777;
-            }
-            if (token == null) {
-                token = "";
-            }
-            if (threadPoolSize <= 0) {
-                threadPoolSize = 8;
-            }
+        public MonitorSettings(
+                boolean enabled,
+                @Nullable String host,
+                int port,
+                @Nullable String token,
+                int threadPoolSize
+        ) {
+            this.enabled = enabled;
+            this.host = host == null || host.isBlank() ? "127.0.0.1" : host;
+            this.port = port <= 0 || port > 65535 ? 7777 : port;
+            this.token = token == null ? "" : token;
+            this.threadPoolSize = threadPoolSize <= 0 ? 8 : threadPoolSize;
+        }
+    }
+
+    public record BackupSettings(
+            boolean enabled,
+            String type,
+            String path,
+            String syncPolicy,
+            String recoveryPolicy
+    ) {
+
+        public static BackupSettings disabled() {
+            return new BackupSettings(false, "aof", "", "every_sec", "load_truncated_tail");
+        }
+
+        public static BackupSettings fromConfig(
+                boolean enabled,
+                @Nullable String type,
+                @Nullable String path,
+                @Nullable String syncPolicy,
+                @Nullable String recoveryPolicy
+        ) {
+            return new BackupSettings(enabled, type, path, syncPolicy, recoveryPolicy);
+        }
+
+        public BackupSettings(
+                boolean enabled,
+                @Nullable String type,
+                @Nullable String path,
+                @Nullable String syncPolicy,
+                @Nullable String recoveryPolicy
+        ) {
+            this.enabled = enabled;
+            this.type = type == null || type.isBlank() ? "aof" : type;
+            this.path = path == null || path.isBlank() ? "" : path;
+            this.syncPolicy = syncPolicy == null || syncPolicy.isBlank() ? "every_sec" : syncPolicy;
+            this.recoveryPolicy = recoveryPolicy == null || recoveryPolicy.isBlank()
+                    ? "load_truncated_tail"
+                    : recoveryPolicy;
         }
     }
 }
