@@ -37,6 +37,28 @@ class ConfigurationInitializerTest {
     }
 
     @Test
+    void load_maps_backup_settings() {
+        String yaml = """
+                titan:
+                  backup:
+                    enabled: true
+                    type: all
+                    path: ./data/titan.aof
+                    sync-policy: every
+                    recovery-policy: fail-on-truncated-tail
+                """;
+
+        Settings settings = ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(settings.backup().enabled()).isTrue();
+        assertThat(settings.backup().type()).isEqualTo("all");
+        assertThat(settings.backup().path()).isEqualTo("./data/titan.aof");
+        assertThat(settings.backup().syncPolicy()).isEqualTo("every");
+        assertThat(settings.backup().recoveryPolicy()).isEqualTo("fail-on-truncated-tail");
+    }
+
+    @Test
     void load_defaults_monitor_to_disabled_when_missing() {
         String yaml = """
                 titan:
@@ -53,15 +75,20 @@ class ConfigurationInitializerTest {
         assertThat(settings.monitor().enabled()).isFalse();
         assertThat(settings.monitor().host()).isEqualTo("127.0.0.1");
         assertThat(settings.monitor().port()).isEqualTo(7777);
+        assertThat(settings.backup().enabled()).isFalse();
+        assertThat(settings.backup().type()).isEqualTo("aof");
+        assertThat(settings.backup().syncPolicy()).isEqualTo("every_sec");
+        assertThat(settings.backup().recoveryPolicy()).isEqualTo("load_truncated_tail");
     }
 
     @Test
     void settings_builder_defaults_missing_sections() {
-        Settings settings = Settings.builder().build();
+        Settings settings = new Settings(null, null, null);
 
         assertThat(settings.servers()).isEmpty();
         assertThat(settings.monitor().enabled()).isFalse();
         assertThat(settings.monitor().host()).isEqualTo("127.0.0.1");
         assertThat(settings.monitor().port()).isEqualTo(7777);
+        assertThat(settings.backup().enabled()).isFalse();
     }
 }

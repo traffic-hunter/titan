@@ -20,10 +20,7 @@ class MonitorRuntimeLauncherTest {
     @Test
     void runtime_launcher_stays_idle_when_monitor_is_disabled() {
         MonitorRuntimeLauncher launcher = new MonitorRuntimeLauncher();
-        Settings settings = Settings.builder()
-                .servers(List.of())
-                .monitor(Settings.MonitorSettings.disabled())
-                .build();
+        Settings settings = new Settings(List.of(), Settings.MonitorSettings.disabled(), null);
 
         assertThat(launcher.start(settings, List.of())).isEmpty();
     }

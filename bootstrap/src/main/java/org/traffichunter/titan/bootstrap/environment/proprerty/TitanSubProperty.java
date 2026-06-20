@@ -28,6 +28,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HttpServerProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
@@ -48,6 +49,8 @@ public class TitanSubProperty {
     private HttpServerProperty httpServer;
 
     private MonitorProperty monitor;
+
+    private BackupProperty backup;
 
     private ServiceDiscoveryProperty serviceDiscovery;
 

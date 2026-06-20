@@ -28,9 +28,11 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.bootstrap.environment.proprerty.RootYamlProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -109,13 +111,27 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
                         .map(YamlConfigurationInitializer::mapServer)
                         .toList();
 
-        return Settings.builder()
-                .servers(servers)
-                .monitor(mapMonitor(root.getTitan() == null ? null : root.getTitan().getMonitor()))
-                .build();
+        return new Settings(
+                servers,
+                mapMonitor(root.getTitan() == null ? null : root.getTitan().getMonitor()),
+                mapBackup(root.getTitan() == null ? null : root.getTitan().getBackup())
+        );
     }
 
-    private static Settings.MonitorSettings mapMonitor(final MonitorProperty property) {
+    private static Settings.BackupSettings mapBackup(final @Nullable BackupProperty property) {
+        if (property == null) {
+            return Settings.BackupSettings.disabled();
+        }
+        return Settings.BackupSettings.fromConfig(
+                property.isEnabled(),
+                property.getType(),
+                property.getPath(),
+                property.getSyncPolicy(),
+                property.getRecoveryPolicy()
+        );
+    }
+
+    private static Settings.MonitorSettings mapMonitor(final @Nullable MonitorProperty property) {
         if (property == null) {
             return Settings.MonitorSettings.disabled();
         }
