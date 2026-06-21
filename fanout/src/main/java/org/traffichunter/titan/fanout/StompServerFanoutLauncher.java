@@ -1,10 +1,14 @@
 package org.traffichunter.titan.fanout;
 
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.bootstrap.Settings;
+import org.traffichunter.titan.core.resilience.backup.BackupOption;
+import org.traffichunter.titan.core.resilience.backup.DestinationBackupSystem;
 import org.traffichunter.titan.core.spi.*;
 
 /**
@@ -47,6 +51,31 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
 
     @Override
     public void apply(
+            Settings settings,
+            final String protocol,
+            final String transport,
+            final Map<String, String> protocolOptions,
+            final ManagedServer managedServer
+    ) {
+        FanoutMode mode = resolveMode(protocolOptions);
+        FanoutHandlerChain fanoutChainHandlers = fanoutHandlers(settings.backup());
+        ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
+        if (adapter == null) {
+            throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
+        }
+
+        adapter.apply(
+                protocol,
+                transport,
+                protocolOptions,
+                managedServer,
+                exporter -> mode.fanoutGateway(exporter, fanoutChainHandlers)
+        );
+        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
+    }
+
+    @Override
+    public void apply(
             final String protocol,
             final String transport,
             final Map<String, String> protocolOptions,
@@ -60,6 +89,23 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
 
         adapter.apply(protocol, transport, protocolOptions, managedServer, mode::fanoutGateway);
         log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
+    }
+
+    private static FanoutHandlerChain fanoutHandlers(Settings.BackupSettings backupSettings) {
+        FanoutHandlerChain chain = FanoutHandlerChain.chain();
+        if (!backupSettings.enabled()) {
+            return chain;
+        }
+
+        BackupOption option = BackupOption.fromConfig(
+                backupSettings.type(),
+                backupSettings.syncPolicy(),
+                backupSettings.recoveryPolicy()
+        );
+        DestinationBackupSystem backupSystem = backupSettings.path().isBlank()
+                ? new DestinationBackupSystem(option)
+                : new DestinationBackupSystem(Path.of(backupSettings.path()), option);
+        return chain.add(new BackupFanoutHandler(backupSystem));
     }
 
     private static @Nullable ManagedServerFanoutAdapter findAdapter(

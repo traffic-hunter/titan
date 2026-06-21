@@ -82,6 +82,7 @@ public class TitanApplication implements ApplicationStarter {
                             server
                     ))
                     .forEach(plugin -> plugin.apply(
+                            settings,
                             serverSettings.protocol(),
                             serverSettings.transport(),
                             serverSettings.resolvedProtocolOptions(),

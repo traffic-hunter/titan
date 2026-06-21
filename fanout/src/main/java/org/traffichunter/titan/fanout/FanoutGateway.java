@@ -23,16 +23,16 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout;
 
-import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
-
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Future;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManager;
+import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 /**
  * Asynchronous ingress and routing facade for fanout delivery.
@@ -59,8 +59,25 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
         return new ThreadPoolExecutorFanoutGateway(exporter);
     }
 
+    static FanoutGateway ofThread(FanoutExporter exporter, FanoutHandlerChain middleHandlers) {
+        return new ThreadPoolExecutorFanoutGateway(
+                Runtime.getRuntime().availableProcessors() * 2,
+                exporter,
+                Dispatcher.getDefault(),
+                middleHandlers
+        );
+    }
+
     static FanoutGateway ofVirtual(FanoutExporter exporter) {
         return new VirtualThreadExecutorFanoutGateway(exporter);
+    }
+
+    static FanoutGateway ofVirtual(FanoutExporter exporter, FanoutHandlerChain middleHandlers) {
+        return new VirtualThreadExecutorFanoutGateway(
+                exporter,
+                Dispatcher.getDefault(),
+                middleHandlers
+        );
     }
 
     /**

@@ -44,11 +44,21 @@ public enum FanoutMode {
         public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter) {
             return FanoutGateway.ofThread(fanoutExporter);
         }
+
+        @Override
+        public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter, FanoutHandlerChain middleHandlers) {
+            return FanoutGateway.ofThread(fanoutExporter, middleHandlers);
+        }
     },
     VT_EXECUTOR("virtual") {
         @Override
         public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter) {
             return FanoutGateway.ofVirtual(fanoutExporter);
+        }
+
+        @Override
+        public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter, FanoutHandlerChain middleHandlers) {
+            return FanoutGateway.ofVirtual(fanoutExporter, middleHandlers);
         }
     },
     ;
@@ -60,6 +70,8 @@ public enum FanoutMode {
     }
 
     public abstract FanoutGateway fanoutGateway(FanoutExporter fanoutExporter);
+
+    public abstract FanoutGateway fanoutGateway(FanoutExporter fanoutExporter, FanoutHandlerChain middleHandlers);
 
     public static FanoutMode resolveMode(String modeName) {
         return switch (modeName) {

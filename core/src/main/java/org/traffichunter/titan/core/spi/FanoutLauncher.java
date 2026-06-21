@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import org.traffichunter.titan.bootstrap.Settings;
 
 /**
  * Hook for optional module integrations, such as fanout.
@@ -41,4 +42,14 @@ public interface FanoutLauncher {
             Map<String, String> protocolOptions,
             ManagedServer managedServer
     );
+
+    default void apply(
+            Settings settings,
+            String protocol,
+            String transport,
+            Map<String, String> protocolOptions,
+            ManagedServer managedServer
+    ) {
+        apply(protocol, transport, protocolOptions, managedServer);
+    }
 }

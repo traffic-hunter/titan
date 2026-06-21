@@ -1,0 +1,56 @@
+/*
+The MIT License
+
+Copyright (c) 2025 traffic-hunter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package org.traffichunter.titan.fanout;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.util.HandlerChain;
+
+/**
+ * Routes a published message into memory before later fanout handlers run.
+ *
+ * @author yun
+ */
+final class RouteFanoutHandler implements FanoutHandler {
+
+    private final Executor executor;
+    private final Function<Message, @Nullable Message> route;
+
+    RouteFanoutHandler(Executor executor, Function<Message, @Nullable Message> route) {
+        this.executor = executor;
+        this.route = route;
+    }
+
+    @Override
+    public CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain) {
+        return CompletableFuture.supplyAsync(() -> route.apply(context.getMessage()), executor)
+                .thenCompose(routed -> {
+                    context.setRoutedMessage(routed);
+                    return chain.next(context);
+                });
+    }
+}
