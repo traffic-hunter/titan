@@ -128,6 +128,11 @@ public final class FileAppendOnlyFile implements AppendOnlyFile {
     }
 
     @Override
+    public void truncate(long size) {
+        fileHandle.truncate(size);
+    }
+
+    @Override
     public void close() {
         fileHandle.close();
     }

@@ -80,6 +80,8 @@ public interface AppendOnlyFile extends AutoCloseable {
      */
     Path path();
 
+    void truncate(long size);
+
     @Override
     void close();
 }

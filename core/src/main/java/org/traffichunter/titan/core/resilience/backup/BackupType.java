@@ -65,4 +65,16 @@ public enum BackupType {
             default -> throw new IllegalArgumentException("Unknown backup type: " + value);
         };
     }
+
+    public boolean isAof() {
+        return this == AOF;
+    }
+
+    public boolean isRdb() {
+        return this == RDB;
+    }
+
+    public boolean isAll() {
+        return this == ALL;
+    }
 }
