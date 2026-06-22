@@ -259,7 +259,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public boolean finishConnect() {
+    public boolean finishConnect() throws IOException {
         if(!eventLoop().inEventLoop()) {
             throw new ChannelException("Should be called in event loop");
         }
@@ -268,7 +268,9 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             return channel().finishConnect();
         } catch (IOException e) {
             log.warn("Failed to finish connect = {}", e.getMessage());
-            return false;
+            failConnect(e);
+            close();
+            throw e;
         }
     }
 
@@ -325,6 +327,19 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         ChannelPromise p = this.connectPromise;
         if (p != null && !p.isDone()) {
             p.success();
+            connectPromise = null;
+        }
+    }
+
+    void failConnect(Throwable error) {
+        if(!eventLoop().inEventLoop()) {
+            eventLoop().register(() -> failConnect(error));
+            return;
+        }
+
+        ChannelPromise p = this.connectPromise;
+        if (p != null && !p.isDone()) {
+            p.fail(error);
             connectPromise = null;
         }
     }

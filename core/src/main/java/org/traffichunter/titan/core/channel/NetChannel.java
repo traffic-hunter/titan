@@ -87,7 +87,7 @@ public interface NetChannel extends Channel {
     /**
      * Completes a pending non-blocking connect from the owning event-loop thread.
      */
-    boolean finishConnect();
+    boolean finishConnect() throws IOException;
 
     boolean isConnected();
 }

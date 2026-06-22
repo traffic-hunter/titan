@@ -128,7 +128,7 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     @Override
     public void gracefullyShutdown(long timeout, TimeUnit unit) {
-        group.forEach(IOEventLoop::gracefullyShutdown);
+        group.forEach(eventLoop -> eventLoop.gracefullyShutdown(timeout, unit));
     }
 
     @Override
