@@ -23,16 +23,19 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout;
 
-import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
-
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Future;
+
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManager;
+import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 /**
  * Asynchronous ingress and routing facade for fanout delivery.
@@ -62,6 +65,21 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
     static FanoutGateway ofVirtual(FanoutExporter exporter) {
         return new VirtualThreadExecutorFanoutGateway(exporter);
     }
+
+    /**
+     * Configures the fanout handler chain used by {@link #publish(Message)}.
+     *
+     * <p>The gateway adds the built-in route handler before invoking the callback and
+     * appends the built-in dispatch handler after the callback returns. Handlers added
+     * by the callback therefore run between routing and dispatch, which is the intended
+     * extension point for cross-cutting fanout behavior such as backup, metrics, or
+     * filtering.</p>
+     *
+     * @param chainHandler callback that adds custom handlers to the chain
+     * @return this gateway
+     */
+    @CanIgnoreReturnValue
+    FanoutGateway chainHandler(Handler<FanoutHandlerChain> chainHandler);
 
     /**
      * Starts consumers for the destinations if they are not already running.

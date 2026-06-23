@@ -129,7 +129,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
 
     @Override
     public void gracefullyShutdown(long timeout, TimeUnit unit) {
-        group.forEach(IOEventLoop::gracefullyShutdown);
+        group.forEach(eventLoop -> eventLoop.gracefullyShutdown(timeout, unit));
     }
 
     @Override

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.file.FileHandle;
-import org.traffichunter.titan.core.util.file.FileUtils;
+import org.traffichunter.titan.core.util.file.FileHandler;
 
 import static org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 
@@ -26,10 +26,20 @@ import static org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
  * @author yun
  */
 @DisplayNameGeneration(ReplaceUnderscores.class)
-class FileUtilsTest {
+class FileHandlerTest {
 
     @TempDir
     private Path tempDir;
+
+    @Test
+    void create_destination_path_name() {
+        String destination = "/queue/orders/test";
+        String destinationPath = "titan_queue_orders_test.aof";
+
+        Path path = FileHandler.resolveDestinationFile(destination);
+
+        assertThat(path.getFileName().toString()).isEqualTo(destinationPath);
+    }
 
     @Test
     void create_directories_and_open_create_file() {
@@ -42,8 +52,8 @@ class FileUtilsTest {
             content.release();
         }
 
-        assertThat(FileUtils.exists(file)).isTrue();
-        assertThat(FileUtils.isFile(file)).isTrue();
+        assertThat(FileHandler.exists(file)).isTrue();
+        assertThat(FileHandler.isFile(file)).isTrue();
     }
 
     @Test
@@ -111,13 +121,13 @@ class FileUtilsTest {
         Path moved = tempDir.resolve("nested/moved.log");
         Files.writeString(source, "data");
 
-        FileUtils.copy(source, copied);
-        FileUtils.move(copied, moved);
-        List<Path> files = FileUtils.list(tempDir);
-        FileUtils.deleteIfExists(source);
+        FileHandler.copy(source, copied);
+        FileHandler.move(copied, moved);
+        List<Path> files = FileHandler.list(tempDir);
+        FileHandler.deleteIfExists(source);
 
-        assertThat(FileUtils.exists(moved)).isTrue();
-        assertThat(FileUtils.exists(source)).isFalse();
+        assertThat(FileHandler.exists(moved)).isTrue();
+        assertThat(FileHandler.exists(source)).isFalse();
         assertThat(files).contains(source);
     }
 
@@ -125,10 +135,10 @@ class FileUtilsTest {
     void create_temp_file_creates_file_under_directory() {
         Path directory = tempDir.resolve("tmp");
 
-        Path temp = FileUtils.createTempFile(directory, "backup-", ".tmp");
+        Path temp = FileHandler.createTempFile(directory, "backup-", ".tmp");
 
         assertThat(temp).hasParent(directory);
-        assertThat(FileUtils.exists(temp)).isTrue();
+        assertThat(FileHandler.exists(temp)).isTrue();
     }
 
     @Test
@@ -138,13 +148,13 @@ class FileUtilsTest {
         Buffer content = Buffer.alloc("new", UTF_8);
 
         try {
-            FileUtils.atomicWrite(file, content);
+            FileHandler.atomicWrite(file, content);
         } finally {
             content.release();
         }
 
         assertThat(Files.readString(file)).isEqualTo("new");
-        assertThat(FileUtils.list(tempDir))
+        assertThat(FileHandler.list(tempDir))
                 .noneMatch(fileItem -> fileItem.getFileName().toString().startsWith(".manifest.json")
                         && fileItem.getFileName().toString().endsWith(".tmp"));
     }
@@ -157,9 +167,9 @@ class FileUtilsTest {
         Buffer read = null;
 
         try {
-            FileUtils.write(file, first);
-            long offset = FileUtils.append(file, second);
-            read = FileUtils.read(file);
+            FileHandler.write(file, first);
+            long offset = FileHandler.append(file, second);
+            read = FileHandler.read(file);
 
             assertThat(offset).isEqualTo(5);
             assertThat(read.toString(UTF_8)).isEqualTo("hello titan");

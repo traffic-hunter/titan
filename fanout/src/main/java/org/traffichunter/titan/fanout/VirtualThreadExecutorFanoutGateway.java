@@ -49,7 +49,10 @@ class VirtualThreadExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
         this(exporter, Dispatcher.getDefault());
     }
 
-    public VirtualThreadExecutorFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
+    public VirtualThreadExecutorFanoutGateway(
+            FanoutExporter exporter,
+            Dispatcher dispatcher
+    ) {
         super(
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,

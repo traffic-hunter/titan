@@ -46,7 +46,19 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  *
  * @author yun
  */
-public final class FileUtils {
+public final class FileHandler {
+
+    private static final String SIGNATURE = "titan";
+    private static final String AOF_SUFFIX = ".aof";
+
+    public static Path resolveDestinationFile(String destination) {
+        return resolveDestinationFile(Path.of("."), destination);
+    }
+
+    public static Path resolveDestinationFile(Path directory, String destination) {
+        String destinationPathName = destination.replace('/', '_').trim();
+        return directory.resolve(SIGNATURE + destinationPathName + AOF_SUFFIX);
+    }
 
     public static void createParentDirectories(Path path) {
         Path parent = path.getParent();
@@ -212,5 +224,5 @@ public final class FileUtils {
         }
     }
 
-    private FileUtils() { }
+    private FileHandler() { }
 }

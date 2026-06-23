@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
+import org.traffichunter.titan.core.util.concurrent.NoopDamper;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 import java.util.concurrent.Executors;
@@ -47,8 +48,17 @@ class ThreadPoolExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
         this(Runtime.getRuntime().availableProcessors() * 2, exporter, dispatcher);
     }
 
-    public ThreadPoolExecutorFanoutGateway(int nThreads, FanoutExporter exporter, Dispatcher dispatcher) {
-        super(Executors.newFixedThreadPool(nThreads, newThreadFactory()), exporter, dispatcher);
+    public ThreadPoolExecutorFanoutGateway(
+            int nThreads,
+            FanoutExporter exporter,
+            Dispatcher dispatcher
+    ) {
+        super(
+                Executors.newFixedThreadPool(nThreads, newThreadFactory()),
+                exporter,
+                dispatcher,
+                NoopDamper.getInstance()
+        );
     }
 
     private static ThreadFactory newThreadFactory() {

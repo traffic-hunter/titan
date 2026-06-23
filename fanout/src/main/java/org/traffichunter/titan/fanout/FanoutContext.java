@@ -21,60 +21,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.resilience.backup;
+package org.traffichunter.titan.fanout;
 
-import java.util.Locale;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.message.Message;
 
 /**
- * Backup strategy selected by external configuration.
- *
- * <p>{@link #RDB} is reserved for snapshot-based persistence and {@link #ALL} means both append
- * log and snapshot persistence should be enabled when both implementations exist.</p>
+ * Mutable state shared while one message moves through the fanout chain.
  *
  * @author yun
  */
-public enum BackupType {
+public class FanoutContext {
 
-    /**
-     * Append-only log backup.
-     */
-    AOF,
+    private final Message message;
+    private @Nullable Message routedMessage;
 
-    /**
-     * Snapshot backup.
-     */
-    RDB,
-
-    /**
-     * Enable all available backup strategies.
-     */
-    ALL;
-
-    /**
-     * Maps external configuration values to a backup type.
-     */
-    public static BackupType fromConfig(@Nullable String value) {
-        if (value == null || value.isBlank()) {
-            return AOF;
-        }
-        return switch (value.toLowerCase(Locale.ROOT)) {
-            case "aof" -> AOF;
-            case "rdb" -> RDB;
-            case "all" -> ALL;
-            default -> throw new IllegalArgumentException("Unknown backup type: " + value);
-        };
+    public FanoutContext(Message message) {
+        this.message = message;
     }
 
-    public boolean isAof() {
-        return this == AOF;
+    public Message getMessage() {
+        return message;
     }
 
-    public boolean isRdb() {
-        return this == RDB;
+    public @Nullable Message getRoutedMessage() {
+        return routedMessage;
     }
 
-    public boolean isAll() {
-        return this == ALL;
+    public void setRoutedMessage(@Nullable Message routedMessage) {
+        this.routedMessage = routedMessage;
     }
 }

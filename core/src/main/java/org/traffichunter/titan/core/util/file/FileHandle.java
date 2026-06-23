@@ -48,22 +48,22 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 public interface FileHandle extends AutoCloseable {
 
     static FileHandle open(Path path) {
-        FileUtils.createParentDirectories(path);
+        FileHandler.createParentDirectories(path);
         return new LocalFileHandle(path, CREATE, READ, WRITE);
     }
 
     static FileHandle openReadOnly(Path path) {
-        FileUtils.createParentDirectories(path);
+        FileHandler.createParentDirectories(path);
         return new LocalFileHandle(path, READ);
     }
 
     static FileHandle newOpen(Path path) {
-        FileUtils.createParentDirectories(path);
+        FileHandler.createParentDirectories(path);
         return new LocalFileHandle(path, CREATE_NEW, READ, WRITE);
     }
 
     static FileHandle open(Path path, OpenOption... options) {
-        FileUtils.createParentDirectories(path);
+        FileHandler.createParentDirectories(path);
         return new LocalFileHandle(path, options);
     }
 

@@ -45,6 +45,7 @@ public final class StompServerExtension implements
         AfterEachCallback,
         ParameterResolver {
 
+    private static final int SHUTDOWN_TIMEOUT_SECONDS = 3;
     private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(StompServerExtension.class);
     private static final String KEY = "stomp-test-server";
 
@@ -87,7 +88,7 @@ public final class StompServerExtension implements
     public void afterEach(ExtensionContext context) {
         StompTestServer testServer = context.getStore(NS).remove(KEY, StompTestServer.class);
         if (testServer != null) {
-            testServer.server().shutdown();
+            testServer.server().shutdown(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
     }
 

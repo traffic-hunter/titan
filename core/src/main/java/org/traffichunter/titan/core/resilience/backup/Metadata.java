@@ -38,13 +38,13 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yun
  */
 public record Metadata(
-        int magic,
-        short version,
-        short type,
-        long timestamp,
-        int destinationLength,
-        int payloadLength,
-        int crc32,
+        int    magic,
+        short  version,
+        short  type,
+        long   timestamp,
+        int    destinationLength,
+        int    payloadLength,
+        int    crc32,
         byte[] destination,
         byte[] payload
 ) {

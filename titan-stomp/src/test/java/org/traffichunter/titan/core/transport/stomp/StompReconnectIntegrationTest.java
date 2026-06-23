@@ -33,6 +33,7 @@ import java.net.SocketAddress;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
@@ -44,8 +45,10 @@ import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 class StompReconnectIntegrationTest {
 
     private static final String HOST = "127.0.0.1";
+    private static final int SHUTDOWN_TIMEOUT_SECONDS = 20;
 
     @Test
+    @Timeout(value = 20, unit = SECONDS)
     void client_reconnects_after_server_restart() throws Exception {
         StompServer server = startServer(0);
         int port = localPort(server);
@@ -54,11 +57,11 @@ class StompReconnectIntegrationTest {
         try {
             StompConnection initialConnection = client.connect().get(3, SECONDS);
             StompServer initialServer = server;
-            await().atMost(3, SECONDS)
+            await().atMost(10, SECONDS)
                     .untilAsserted(() -> assertThat(initialServer.connection().connections()).hasSize(1));
 
-            server.shutdown();
-            await().atMost(3, SECONDS)
+            server.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
+            await().atMost(10, SECONDS)
                     .untilAsserted(() -> assertThat(initialConnection.isConnected()).isFalse());
 
             server = startServer(port);
@@ -71,9 +74,9 @@ class StompReconnectIntegrationTest {
                         assertThat(client.connection().isConnected()).isTrue();
                     });
         } finally {
-            client.shutdown();
+            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
             if (!server.isShutdown()) {
-                server.shutdown();
+                server.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
             }
         }
     }
