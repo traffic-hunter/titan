@@ -27,11 +27,14 @@ import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Future;
+
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManager;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.fanout.exporter.FanoutExporter;
 
 /**
@@ -59,26 +62,24 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
         return new ThreadPoolExecutorFanoutGateway(exporter);
     }
 
-    static FanoutGateway ofThread(FanoutExporter exporter, FanoutHandlerChain middleHandlers) {
-        return new ThreadPoolExecutorFanoutGateway(
-                Runtime.getRuntime().availableProcessors() * 2,
-                exporter,
-                Dispatcher.getDefault(),
-                middleHandlers
-        );
-    }
-
     static FanoutGateway ofVirtual(FanoutExporter exporter) {
         return new VirtualThreadExecutorFanoutGateway(exporter);
     }
 
-    static FanoutGateway ofVirtual(FanoutExporter exporter, FanoutHandlerChain middleHandlers) {
-        return new VirtualThreadExecutorFanoutGateway(
-                exporter,
-                Dispatcher.getDefault(),
-                middleHandlers
-        );
-    }
+    /**
+     * Configures the fanout handler chain used by {@link #publish(Message)}.
+     *
+     * <p>The gateway adds the built-in route handler before invoking the callback and
+     * appends the built-in dispatch handler after the callback returns. Handlers added
+     * by the callback therefore run between routing and dispatch, which is the intended
+     * extension point for cross-cutting fanout behavior such as backup, metrics, or
+     * filtering.</p>
+     *
+     * @param chainHandler callback that adds custom handlers to the chain
+     * @return this gateway
+     */
+    @CanIgnoreReturnValue
+    FanoutGateway chainHandler(Handler<FanoutHandlerChain> chainHandler);
 
     /**
      * Starts consumers for the destinations if they are not already running.

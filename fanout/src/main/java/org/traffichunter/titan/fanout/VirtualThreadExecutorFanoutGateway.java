@@ -49,21 +49,15 @@ class VirtualThreadExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
         this(exporter, Dispatcher.getDefault());
     }
 
-    public VirtualThreadExecutorFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
-        this(exporter, dispatcher, FanoutHandlerChain.chain());
-    }
-
     public VirtualThreadExecutorFanoutGateway(
             FanoutExporter exporter,
-            Dispatcher dispatcher,
-            FanoutHandlerChain fanoutChainHandlers
+            Dispatcher dispatcher
     ) {
         super(
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,
                 dispatcher,
-                new SemaphoreBasedFlowControlDamper(DEFAULT_CONCURRENCY_LIMIT),
-                fanoutChainHandlers
+                new SemaphoreBasedFlowControlDamper(DEFAULT_CONCURRENCY_LIMIT)
         );
     }
 

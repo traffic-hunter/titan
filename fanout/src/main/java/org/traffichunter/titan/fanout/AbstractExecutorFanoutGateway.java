@@ -31,6 +31,7 @@ import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueDeleteResult;
 import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.Damper;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.NoopDamper;
@@ -102,7 +103,8 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     private final Dispatcher dispatcher;
     private final AtomicBoolean isClosed = new AtomicBoolean();
     private final Damper damper;
-    private final FanoutHandlerChain fanoutHandlerChain;
+
+    private FanoutHandlerChain fanoutHandlerChain;
 
     protected AbstractExecutorFanoutGateway(
             ExecutorService executor,
@@ -118,30 +120,27 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
             Dispatcher dispatcher,
             Damper damper
     ) {
-        this(executor, exporter, dispatcher, damper, FanoutHandlerChain.chain());
-    }
-
-    protected AbstractExecutorFanoutGateway(
-            ExecutorService executor,
-            FanoutExporter exporter,
-            Dispatcher dispatcher,
-            Damper damper,
-            FanoutHandlerChain fanoutChainHandlers
-    ) {
         this.executor = executor;
         this.exporter = exporter;
         this.dispatcher = dispatcher;
         this.damper = damper;
         this.fanoutHandlerChain = FanoutHandlerChain.chain()
                 .add(new RouteFanoutHandler(executor, this::route))
-                .addAll(fanoutChainHandlers)
                 .add(new DispatchFanoutHandler(this::fanout));
     }
 
     @Override
-    public List<Future<@Nullable Void>> fanout(Collection<Destination> destinations) {
-        Assert.checkNotNull(destinations, "destinations");
+    public FanoutGateway chainHandler(Handler<FanoutHandlerChain> chainHandler) {
+        FanoutHandlerChain chain = FanoutHandlerChain.chain();
+        chain.add(new RouteFanoutHandler(executor, this::route));
+        chainHandler.handle(chain);
+        chain.add(new DispatchFanoutHandler(this::fanout));
+        this.fanoutHandlerChain = chain;
+        return this;
+    }
 
+    @Override
+    public List<Future<@Nullable Void>> fanout(Collection<Destination> destinations) {
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
@@ -154,8 +153,6 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     @SuppressWarnings("unchecked")
     @Override
     public Future<@Nullable Void> fanout(Destination destination) {
-        Assert.checkNotNull(destination, "destination");
-
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
@@ -165,8 +162,6 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
 
     @Override
     public List<Future<@Nullable Void>> publish(Collection<Message> messages) {
-        Assert.checkNotNull(messages, "messages");
-
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }

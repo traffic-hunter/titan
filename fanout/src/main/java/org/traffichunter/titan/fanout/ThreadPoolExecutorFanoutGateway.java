@@ -48,22 +48,16 @@ class ThreadPoolExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
         this(Runtime.getRuntime().availableProcessors() * 2, exporter, dispatcher);
     }
 
-    public ThreadPoolExecutorFanoutGateway(int nThreads, FanoutExporter exporter, Dispatcher dispatcher) {
-        this(nThreads, exporter, dispatcher, FanoutHandlerChain.chain());
-    }
-
     public ThreadPoolExecutorFanoutGateway(
             int nThreads,
             FanoutExporter exporter,
-            Dispatcher dispatcher,
-            FanoutHandlerChain fanoutChainHanders
+            Dispatcher dispatcher
     ) {
         super(
                 Executors.newFixedThreadPool(nThreads, newThreadFactory()),
                 exporter,
                 dispatcher,
-                NoopDamper.getInstance(),
-                fanoutChainHanders
+                NoopDamper.getInstance()
         );
     }
 

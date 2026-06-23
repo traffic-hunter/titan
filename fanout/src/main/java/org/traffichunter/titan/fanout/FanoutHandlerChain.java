@@ -36,13 +36,11 @@ import org.traffichunter.titan.core.util.HandlerChain;
  */
 public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoCloseable {
 
-    private final FanoutHandler handler;
-    private @Nullable FanoutHandlerChain next;
-    private FanoutHandlerChain tail;
+    private final FanoutHandlerChainImpl head;
+    private FanoutHandlerChainImpl tail;
 
     public FanoutHandlerChain() {
-        this((context, chain) -> chain.next(context));
-        this.tail = this;
+        this.head = this.tail = new FanoutHandlerChainImpl(FanoutHandler.NOOP);
     }
 
     public FanoutHandlerChain(FanoutHandler... handlers) {
@@ -54,18 +52,13 @@ public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoClos
         handlers.forEach(this::add);
     }
 
-    private FanoutHandlerChain(FanoutHandler handler) {
-        this.handler = handler;
-        this.tail = this;
-    }
-
     public static FanoutHandlerChain chain() {
         return new FanoutHandlerChain();
     }
 
     @CanIgnoreReturnValue
     public FanoutHandlerChain add(FanoutHandler handler) {
-        FanoutHandlerChain context = new FanoutHandlerChain(handler);
+        FanoutHandlerChainImpl context = new FanoutHandlerChainImpl(handler);
         tail.next = context;
         tail = context;
         return this;
@@ -73,7 +66,7 @@ public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoClos
 
     @CanIgnoreReturnValue
     public FanoutHandlerChain addAll(FanoutHandlerChain chain) {
-        FanoutHandlerChain context = chain.next;
+        FanoutHandlerChainImpl context = chain.head.next;
         while (context != null) {
             add(context.handler);
             context = context.next;
@@ -83,18 +76,13 @@ public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoClos
 
     @Override
     public CompletableFuture<Void> next(FanoutContext context) {
-        FanoutHandlerChain chain = next;
-        if (chain == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        return chain.handler.handle(context, chain);
+        return head.next(context);
     }
 
     @Override
     public void close() throws Exception {
         Exception failure = null;
-        FanoutHandlerChain context = next;
+        FanoutHandlerChainImpl context = head.next;
         while (context != null) {
             if (context.handler instanceof AutoCloseable closeable) {
                 try {
@@ -112,6 +100,26 @@ public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoClos
 
         if (failure != null) {
             throw failure;
+        }
+    }
+
+    private static final class FanoutHandlerChainImpl implements HandlerChain<FanoutContext> {
+
+        private final FanoutHandler handler;
+        private @Nullable FanoutHandlerChainImpl next;
+
+        private FanoutHandlerChainImpl(FanoutHandler handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        public CompletableFuture<Void> next(FanoutContext context) {
+            FanoutHandlerChainImpl chain = next;
+            if (chain == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return chain.handler.handle(context, chain);
         }
     }
 }

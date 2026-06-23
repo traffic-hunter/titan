@@ -33,5 +33,7 @@ import org.traffichunter.titan.core.util.HandlerChain;
  */
 public interface FanoutHandler {
 
+    FanoutHandler NOOP = (context, chain) -> chain.next(context);
+
     CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain);
 }

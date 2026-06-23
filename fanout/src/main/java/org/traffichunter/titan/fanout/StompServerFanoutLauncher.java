@@ -58,7 +58,6 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
             final ManagedServer managedServer
     ) {
         FanoutMode mode = resolveMode(protocolOptions);
-        FanoutHandlerChain fanoutChainHandlers = fanoutHandlers(settings.backup());
         ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
         if (adapter == null) {
             throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
@@ -69,7 +68,10 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                 transport,
                 protocolOptions,
                 managedServer,
-                exporter -> mode.fanoutGateway(exporter, fanoutChainHandlers)
+                exporter -> mode.fanoutGateway(exporter)
+                        .chainHandler(chain ->
+                                chain.add(backupSystemFanoutHandler(settings.backup()))
+                        )
         );
         log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
     }
@@ -91,10 +93,9 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
         log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
     }
 
-    private static FanoutHandlerChain fanoutHandlers(Settings.BackupSettings backupSettings) {
-        FanoutHandlerChain chain = FanoutHandlerChain.chain();
-        if (!backupSettings.enabled()) {
-            return chain;
+    private FanoutHandler backupSystemFanoutHandler(Settings.BackupSettings backupSettings) {
+        if (backupSettings.enabled()) {
+            return FanoutHandler.NOOP;
         }
 
         BackupOption option = BackupOption.fromConfig(
@@ -105,7 +106,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
         DestinationBackupSystem backupSystem = backupSettings.path().isBlank()
                 ? new DestinationBackupSystem(option)
                 : new DestinationBackupSystem(Path.of(backupSettings.path()), option);
-        return chain.add(new BackupFanoutHandler(backupSystem));
+        return new BackupFanoutHandler(backupSystem);
     }
 
     private static @Nullable ManagedServerFanoutAdapter findAdapter(
