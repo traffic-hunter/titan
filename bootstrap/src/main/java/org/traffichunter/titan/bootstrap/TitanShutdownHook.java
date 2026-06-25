@@ -26,18 +26,25 @@ package org.traffichunter.titan.bootstrap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Registers Titan cleanup callbacks with the JVM shutdown hook mechanism.
  *
  * <p>Callbacks may be added by multiple runtime components. When this hook is
- * enabled and run, each callback is registered as a JVM shutdown hook thread.
- * The indirection allows bootstrap code to decide when shutdown integration is
- * active while still letting modules contribute their own cleanup work.</p>
+ * enabled and registered, the hook itself is installed once with the JVM. At
+ * shutdown time it runs every callback that modules contributed during
+ * bootstrap.</p>
  */
 public class TitanShutdownHook implements Runnable {
 
+    private static final Logger log = LoggerFactory.getLogger(TitanShutdownHook.class);
+
     private final Set<Runnable> shutdownCallbacks = ConcurrentHashMap.newKeySet();
+
+    private final AtomicBoolean registered = new AtomicBoolean();
 
     private volatile boolean enabledShutdown;
 
@@ -47,6 +54,14 @@ public class TitanShutdownHook implements Runnable {
 
     public boolean isEnabled() {
         return this.enabledShutdown;
+    }
+
+    public void register() {
+        if (!enabledShutdown || !registered.compareAndSet(false, true)) {
+            return;
+        }
+
+        Runtime.getRuntime().addShutdownHook(new Thread(this, "titan-shutdown-hook"));
     }
 
     @CanIgnoreReturnValue
@@ -62,8 +77,12 @@ public class TitanShutdownHook implements Runnable {
             return;
         }
 
-        for(Runnable callback : shutdownCallbacks) {
-            Runtime.getRuntime().addShutdownHook(new Thread(callback));
+        for (Runnable callback : shutdownCallbacks) {
+            try {
+                callback.run();
+            } catch (Exception e) {
+                log.warn("Failed to run Titan shutdown callback", e);
+            }
         }
     }
 }

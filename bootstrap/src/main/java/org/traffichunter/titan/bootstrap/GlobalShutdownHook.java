@@ -44,11 +44,13 @@ public enum GlobalShutdownHook {
         return shutdownHook.isEnabled();
     }
 
-    public void addShutdownCallback(final Runnable runnable) {
-        shutdownHook.addShutdownCallback(runnable);
+    public void registerShutdownHook() {
+        shutdownHook.register();
     }
 
-    public Runnable action() {
-        return shutdownHook;
+    public void addShutdownCallback(final Runnable runnable) {
+        if (shutdownHook.isEnabled()) {
+            shutdownHook.addShutdownCallback(runnable);
+        }
     }
 }

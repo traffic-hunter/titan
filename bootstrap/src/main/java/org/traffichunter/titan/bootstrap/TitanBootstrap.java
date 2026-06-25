@@ -77,6 +77,7 @@ public final class TitanBootstrap {
         try {
             ApplicationStarter applicationStarter = invokeCoreApplication(TitanBootstrap.class.getClassLoader());
 
+            GlobalShutdownHook.INSTANCE.registerShutdownHook();
             applicationStarter.start(settings);
         } catch (Exception e) {
             log.error("Failed bootstrapping titan = {}", e.getMessage());
