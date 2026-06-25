@@ -2,7 +2,14 @@ package org.traffichunter.titan.core.test.implementation;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -103,6 +110,27 @@ class TrieImplTest {
                 .containsExactlyInAnyOrderElementsOf(getExpectedKeys(path));
     }
 
+    @Test
+    void searchAll_with_nested_wildcard_returns_descendants_without_prefix_node() {
+        DispatcherQueue parent = DispatcherQueue.create(Destination.create("/a/b"), 1);
+        DispatcherQueue child = DispatcherQueue.create(Destination.create("/a/b/c"), 1);
+        DispatcherQueue grandChild = DispatcherQueue.create(Destination.create("/a/b/c/d"), 1);
+        DispatcherQueue sibling = DispatcherQueue.create(Destination.create("/a/c"), 1);
+
+        Trie<DispatcherQueue> trie = new TrieImpl<>();
+
+        trie.insert(parent.route().path(), parent);
+        trie.insert(child.route().path(), child);
+        trie.insert(grandChild.route().path(), grandChild);
+        trie.insert(sibling.route().path(), sibling);
+
+        List<DispatcherQueue> queues = trie.searchAll("/a/b/*");
+
+        assertThat(queues)
+                .extracting(queue -> queue.route().path())
+                .containsExactlyInAnyOrder("/a/b/c", "/a/b/c/d");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"/*/a", "/*/*/a", "/a/*/a", "/a/bc*", "abc*"})
     void getAll_failed_test(String path) {
@@ -178,6 +206,83 @@ class TrieImplTest {
         assertThatThrownBy(() -> trie.remove("/a/b/c"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("No such word: /a/b/c");
+    }
+
+    @Test
+    void computeIfAbsent_test() {
+        String path = "/a/b/c";
+
+        Trie<DispatcherQueue> trie = new TrieImpl<>();
+        DispatcherQueue dq = trie.computeIfAbsent(path, key -> DispatcherQueue.create(Destination.create(key), 1));
+
+        assertThat(trie.get(path)).isSameAs(dq);
+        assertThat(dq.route().path()).isEqualTo(path);
+    }
+
+    @Test
+    void computeIfAbsent_returns_existing_value_without_invoking_mapping_function() {
+        Trie<String> trie = new TrieImpl<>();
+        AtomicInteger calls = new AtomicInteger();
+
+        trie.insert("/a/b/c", "first");
+        String value = trie.computeIfAbsent("/a/b/c", key -> {
+            calls.incrementAndGet();
+            return "second";
+        });
+
+        assertThat(value).isEqualTo("first");
+        assertThat(trie.get("/a/b/c")).isEqualTo("first");
+        assertThat(calls).hasValue(0);
+    }
+
+    @Test
+    void computeIfAbsent_creates_value_once_when_called_concurrently() throws Exception {
+        Trie<String> trie = new TrieImpl<>();
+        AtomicInteger calls = new AtomicInteger();
+        CountDownLatch start = new CountDownLatch(1);
+        int taskCount = 16;
+        ExecutorService executor = Executors.newFixedThreadPool(taskCount);
+        List<Future<String>> futures = new ArrayList<>();
+
+        try {
+            for (int i = 0; i < taskCount; i++) {
+                futures.add(executor.submit(() -> {
+                    start.await();
+                    return trie.computeIfAbsent("/a/b/c", key -> "value-" + calls.incrementAndGet());
+                }));
+            }
+
+            start.countDown();
+
+            for (Future<String> future : futures) {
+                assertThat(future.get(3, TimeUnit.SECONDS)).isEqualTo("value-1");
+            }
+            assertThat(calls).hasValue(1);
+            assertThat(trie.get("/a/b/c")).isEqualTo("value-1");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void putIfAbsent_inserts_value_and_returns_null_when_missing() {
+        Trie<String> trie = new TrieImpl<>();
+
+        String previous = trie.putIfAbsent("/a/b/c", "first");
+
+        assertThat(previous).isNull();
+        assertThat(trie.get("/a/b/c")).isEqualTo("first");
+    }
+
+    @Test
+    void putIfAbsent_keeps_existing_value_and_returns_previous_value() {
+        Trie<String> trie = new TrieImpl<>();
+
+        trie.insert("/a/b/c", "first");
+        String previous = trie.putIfAbsent("/a/b/c", "second");
+
+        assertThat(previous).isEqualTo("first");
+        assertThat(trie.get("/a/b/c")).isEqualTo("first");
     }
 
     private List<String> getExpectedKeys(String path) {

@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
@@ -40,6 +41,8 @@ import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 @ThreadSafe
 public final class TrieImpl<T> implements Trie<T> {
 
+    private static final String SPLITTER = "/";
+
     private final Node<T> root = new Node<>();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -49,7 +52,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public T insert(final String word, final T value) {
-        String[] split = word.split("/");
+        String[] split = word.split(SPLITTER);
 
         wLock.lock();
         try {
@@ -70,7 +73,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public @Nullable T get(final String word) {
-        String[] split = word.split("/");
+        String[] split = word.split(SPLITTER);
 
         rLock.lock();
         try {
@@ -104,7 +107,7 @@ public final class TrieImpl<T> implements Trie<T> {
             throw new IllegalArgumentException("prefix must be a path ending with '/*'");
         }
 
-        String[] split = prefix.split("/");
+        String[] split = prefix.split(SPLITTER);
 
         validateWildcard(split);
 
@@ -124,7 +127,7 @@ public final class TrieImpl<T> implements Trie<T> {
                 }
             }
 
-            return searchAll(current);
+            return searchChildren(current);
         } finally {
             rLock.unlock();
         }
@@ -132,7 +135,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public boolean startsWith(final String prefix) {
-        String[] split = prefix.split("/");
+        String[] split = prefix.split(SPLITTER);
 
         rLock.lock();
         try {
@@ -156,8 +159,52 @@ public final class TrieImpl<T> implements Trie<T> {
     }
 
     @Override
+    public T computeIfAbsent(String word, Function<? super String, ? extends T> mappingFunction) {
+        wLock.lock();
+        try {
+            Node<T> current = root;
+            for (String str : word.split(SPLITTER)) {
+                if (str.isEmpty()) {
+                    continue;
+                }
+                current = current.children.computeIfAbsent(str, key -> new Node<>());
+            }
+
+            if (current.value == null) {
+                current.value = mappingFunction.apply(word);
+            }
+
+            return current.value;
+        } finally {
+            wLock.unlock();
+        }
+    }
+
+    @Override
+    public @Nullable T putIfAbsent(String word, T value) {
+        wLock.lock();
+        try {
+            Node<T> current = root;
+            for (String str : word.split(SPLITTER)) {
+                if (str.isEmpty()) {
+                    continue;
+                }
+                current = current.children.computeIfAbsent(str, key -> new Node<>());
+            }
+
+            T previous = current.value;
+            if (previous == null) {
+                current.value = value;
+            }
+            return previous;
+        } finally {
+            wLock.unlock();
+        }
+    }
+
+    @Override
     public void remove(final String word) {
-        String[] split = word.split("/");
+        String[] split = word.split(SPLITTER);
 
         wLock.lock();
         try {
@@ -183,6 +230,16 @@ public final class TrieImpl<T> implements Trie<T> {
         List<T> list = new ArrayList<>();
 
         tour(node, list);
+
+        return list;
+    }
+
+    private List<T> searchChildren(final Node<T> node) {
+        List<T> list = new ArrayList<>();
+
+        for (Node<T> child : node.children.values()) {
+            tour(child, list);
+        }
 
         return list;
     }
