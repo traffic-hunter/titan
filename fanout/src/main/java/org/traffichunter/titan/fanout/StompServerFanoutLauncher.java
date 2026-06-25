@@ -94,7 +94,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
     }
 
     private FanoutHandler backupSystemFanoutHandler(Settings.BackupSettings backupSettings) {
-        if (backupSettings.enabled()) {
+        if (!backupSettings.enabled()) {
             return FanoutHandler.NOOP;
         }
 

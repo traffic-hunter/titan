@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import lombok.extern.slf4j.Slf4j;
+import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.StompManagedServer;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManagers;
@@ -40,6 +41,8 @@ import java.util.function.Function;
  */
 @Slf4j
 public final class TitanStompManagedServerFanoutAdapter implements ManagedServerFanoutAdapter {
+
+    private static final GlobalShutdownHook SHUTDOWN_HOOK = GlobalShutdownHook.INSTANCE;
 
     @Override
     public boolean supports(
@@ -64,6 +67,14 @@ public final class TitanStompManagedServerFanoutAdapter implements ManagedServer
         FanoutGateway fanoutGateway = gatewayFactory.apply(
                 new StompFanoutExporter(stompManagedServer.server().connection())
         );
+        SHUTDOWN_HOOK.addShutdownCallback(() -> {
+            try {
+                fanoutGateway.close();
+            } catch (Exception e) {
+                log.warn("Failed to close fanout gateway", e);
+            }
+        });
+
         DispatcherQueueManagers.register(managedServer.name(), fanoutGateway);
 
         stompManagedServer.server().onStomp(handler ->

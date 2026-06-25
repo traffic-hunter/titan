@@ -282,14 +282,18 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                 while (!isClosed()
                         && !Thread.currentThread().isInterrupted()
                         && !deletedQueues.contains(dispatcherQueue)) {
-                    damper.acquire();
                     try {
                         Message message = dispatcherQueue.dispatch(1, TimeUnit.SECONDS);
                         if (message == null) {
                             continue;
                         }
 
-                        exporter.export(destination, message);
+                        damper.acquire();
+                        try {
+                            exporter.export(destination, message);
+                        } finally {
+                            damper.release();
+                        }
                     } catch (InterruptedException e) {
                         log.error("Interrupted while waiting for message to be delivered", e);
                         Thread.currentThread().interrupt();
@@ -299,8 +303,6 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                         if (isClosed() || executor.isShutdown()) {
                             break;
                         }
-                    } finally {
-                        damper.release();
                     }
                 }
                 result.complete(null);
