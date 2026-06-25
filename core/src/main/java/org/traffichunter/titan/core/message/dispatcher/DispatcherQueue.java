@@ -74,12 +74,12 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
 
     boolean contains(Message message);
 
-    Message peek();
+    @Nullable Message peek();
 
     /**
-     * Drains queued messages for pressure inspection or handoff.
+     * Returns a snapshot of queued messages for pressure inspection.
      */
-    List<Message> pressure();
+    List<Message> snapshot();
 
     /**
      * Blocks until a message is available.

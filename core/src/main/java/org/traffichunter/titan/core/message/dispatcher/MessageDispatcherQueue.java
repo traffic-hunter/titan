@@ -23,10 +23,9 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -36,10 +35,10 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
- * Priority queue implementation for one dispatcher destination.
+ * FIFO queue implementation for one dispatcher destination.
  *
- * <p>Messages are ordered by their natural ordering in {@link PriorityBlockingQueue}. Pausing
- * the queue blocks enqueue attempts while consumers can continue draining already queued data.</p>
+ * <p>Messages are dispatched in insertion order through {@link LinkedBlockingQueue}. Pausing the
+ * queue blocks enqueue attempts while consumers can continue draining already queued data.</p>
  *
  * @author yungwang-o
  */
@@ -55,15 +54,15 @@ class MessageDispatcherQueue implements DispatcherQueue {
     private volatile boolean isPaused = false;
 
     /**
-     * {@link PriorityBlockingQueue} default capacity 11
+     * {@link LinkedBlockingQueue} unbounded queue.
      */
     MessageDispatcherQueue(final Destination destination) {
-        this(destination, DEFAULT_CAPACITY);
+        this(destination, Integer.MAX_VALUE);
     }
 
     MessageDispatcherQueue(final Destination destination, final int capacity) {
         this.capacity = capacity;
-        this.queue = new PriorityBlockingQueue<>(capacity);
+        this.queue = new LinkedBlockingQueue<>(capacity);
         this.destination = destination;
     }
 
@@ -86,7 +85,9 @@ class MessageDispatcherQueue implements DispatcherQueue {
     public @Nullable Message enqueue(final Message message) {
         if(isPaused) {
             log.info("Waiting for queue to be resumed");
-            wait0();
+            if (!awaitResume()) {
+                return null;
+            }
         }
 
         if(queue.offer(message)) {
@@ -145,11 +146,8 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public List<Message> pressure() {
-        List<Message> messages = new ArrayList<>();
-        queue.drainTo(messages);
-
-        return messages;
+    public List<Message> snapshot() {
+        return queue.stream().toList();
     }
 
     @Override
@@ -202,14 +200,16 @@ class MessageDispatcherQueue implements DispatcherQueue {
         queue.clear();
     }
 
-    private void wait0() {
+    private boolean awaitResume() {
         pauseLock.lock();
         try {
             while (isPaused) {
                 pauseCondition.await();
             }
+            return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            return false;
         } finally {
             pauseLock.unlock();
         }
