@@ -42,7 +42,6 @@ import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
@@ -145,7 +144,6 @@ public class ClientToServerTest {
         public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer, @NonNull ChannelInBoundHandlerChain chain) {
             final Message msg = Message.builder()
                     .destination(Destination.create("/route/test"))
-                    .priority(Priority.DEFAULT)
                     .body(buffer)
                     .producerId(IdGenerator.uuid())
                     .createdAt(Instant.now())

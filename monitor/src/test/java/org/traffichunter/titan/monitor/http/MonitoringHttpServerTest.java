@@ -16,7 +16,6 @@ import java.time.Duration;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.message.dispatcher.*;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -204,7 +203,6 @@ class MonitoringHttpServerTest {
         TestQueueManager manager = new TestQueueManager();
         DispatcherQueue queue = manager.createQueue(Destination.create("/queue/non-empty"), 10);
         queue.enqueue(Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(Destination.create("/queue/non-empty"))
                 .createdAt(java.time.Instant.now())
                 .producerId("test")

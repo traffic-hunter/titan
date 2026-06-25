@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueDeleteResult;
 import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
@@ -74,7 +73,6 @@ class FanoutGatewayQueueManagementTest {
 
     private static Message message(Destination destination) {
         return Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(destination)
                 .createdAt(Instant.now())
                 .producerId("test")

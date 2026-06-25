@@ -33,7 +33,6 @@ import org.traffichunter.titan.core.channel.stomp.StompServerHandlerContext;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
@@ -69,7 +68,6 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
         }
 
         Message message = Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(Destination.create(destination))
                 .createdAt(Instant.now())
                 .producerId(connection.session())

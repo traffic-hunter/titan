@@ -8,7 +8,6 @@ import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -22,7 +21,6 @@ class JmxDispatcherQueueCollectorTest {
         MBeanServer server = MBeanServerFactory.createMBeanServer();
         DispatcherQueue queue = DispatcherQueue.create(Destination.create("/queue/orders"), 10);
         queue.enqueue(Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(Destination.create("/queue/orders"))
                 .createdAt(Instant.now())
                 .producerId("test")

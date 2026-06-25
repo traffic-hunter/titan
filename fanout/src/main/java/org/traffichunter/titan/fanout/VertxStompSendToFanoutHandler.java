@@ -30,7 +30,6 @@ import io.vertx.ext.stomp.ServerFrame;
 import io.vertx.ext.stomp.utils.Headers;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -65,7 +64,6 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
 
         io.vertx.core.buffer.Buffer body = frame.getBody();
         Message message = Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(Destination.create(destination))
                 .createdAt(Instant.now())
                 .producerId(serverFrame.connection().session())
