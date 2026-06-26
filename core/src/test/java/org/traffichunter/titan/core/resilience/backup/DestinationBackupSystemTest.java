@@ -67,17 +67,6 @@ class DestinationBackupSystemTest {
                 .hasMessageContaining("stopped");
     }
 
-    @Test
-    void unsupported_backup_types_fail_fast() {
-        assertThatThrownBy(() -> new DestinationBackupSystem(tempDir, BackupOption.fromConfig("rdb", "no", null)))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("Only aof backup is supported");
-
-        assertThatThrownBy(() -> new DestinationBackupSystem(tempDir, BackupOption.fromConfig("all", "no", null)))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("Only aof backup is supported");
-    }
-
     private Metadata metadata(String destination, String payload) {
         Buffer buffer = Buffer.alloc(payload, UTF_8);
         try {

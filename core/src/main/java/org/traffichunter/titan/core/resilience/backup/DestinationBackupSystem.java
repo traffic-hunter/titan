@@ -49,9 +49,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
     }
 
     public DestinationBackupSystem(Path backupDirectory, BackupOption options) {
-        if (!options.type().isAof()) {
-            throw new UnsupportedOperationException("Only aof backup is supported: " + options.type());
-        }
         this.backupDirectory = backupDirectory;
         this.options = options;
     }

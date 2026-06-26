@@ -29,9 +29,6 @@ import org.jspecify.annotations.Nullable;
 /**
  * Backup strategy selected by external configuration.
  *
- * <p>{@link #RDB} is reserved for snapshot-based persistence and {@link #ALL} means both append
- * log and snapshot persistence should be enabled when both implementations exist.</p>
- *
  * @author yun
  */
 public enum BackupType {
@@ -39,17 +36,7 @@ public enum BackupType {
     /**
      * Append-only log backup.
      */
-    AOF,
-
-    /**
-     * Snapshot backup.
-     */
-    RDB,
-
-    /**
-     * Enable all available backup strategies.
-     */
-    ALL;
+    AOF;
 
     /**
      * Maps external configuration values to a backup type.
@@ -60,21 +47,11 @@ public enum BackupType {
         }
         return switch (value.toLowerCase(Locale.ROOT)) {
             case "aof" -> AOF;
-            case "rdb" -> RDB;
-            case "all" -> ALL;
             default -> throw new IllegalArgumentException("Unknown backup type: " + value);
         };
     }
 
     public boolean isAof() {
         return this == AOF;
-    }
-
-    public boolean isRdb() {
-        return this == RDB;
-    }
-
-    public boolean isAll() {
-        return this == ALL;
     }
 }
