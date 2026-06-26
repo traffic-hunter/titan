@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
@@ -54,13 +55,21 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination, int capacity) {
-        DispatcherQueue v = trie.get(destination.path());
-        if (v == null) {
-            v = trie.insert(destination.path(), DispatcherQueue.create(destination, capacity));
-            log.info("Created new dispatcher for path {}", destination.path());
-        }
+        return trie.computeIfAbsent(destination.path(), path -> {
+            DispatcherQueue queue = DispatcherQueue.create(destination, capacity);
+            log.info("Created new dispatcher for path {}", path);
+            return queue;
+        });
+    }
 
-        return v;
+    @Override
+    public List<DispatcherQueue> searchAll(Destination destination) {
+        String path = destination.path();
+        if (!path.endsWith("/*")) {
+            DispatcherQueue queue = get(destination);
+            return queue == null ? List.of() : List.of(queue);
+        }
+        return trie.searchAll(path);
     }
 
     @Override

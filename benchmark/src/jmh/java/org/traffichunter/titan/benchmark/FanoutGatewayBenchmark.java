@@ -24,7 +24,6 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.fanout.AggregationResult;
@@ -56,7 +55,6 @@ public class FanoutGatewayBenchmark {
         LongAdder exportCount = new LongAdder();
         destination = Destination.create("/benchmark/fanout");
         message = Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(destination)
                 .createdAt(Instant.now())
                 .producerId("benchmark-producer")
@@ -102,7 +100,6 @@ public class FanoutGatewayBenchmark {
         List<Message> messages = new ArrayList<>(batchSize);
         for (int i = 0; i < batchSize; i++) {
             messages.add(Message.builder()
-                    .priority(Priority.DEFAULT)
                     .destination(destination)
                     .createdAt(Instant.now())
                     .producerId("benchmark-producer-" + i)

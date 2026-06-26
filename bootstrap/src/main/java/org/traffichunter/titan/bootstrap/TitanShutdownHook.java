@@ -56,7 +56,7 @@ public class TitanShutdownHook implements Runnable {
         return this.enabledShutdown;
     }
 
-    public void register() {
+    void register() {
         if (!enabledShutdown || !registered.compareAndSet(false, true)) {
             return;
         }

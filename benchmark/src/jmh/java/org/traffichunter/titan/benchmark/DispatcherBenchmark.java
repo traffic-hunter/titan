@@ -19,7 +19,6 @@ import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.dispatcher.MapDispatcher;
 import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -58,7 +57,6 @@ public class DispatcherBenchmark {
         mapExactQueue = mapDispatcher.get(exactKey);
 
         message = Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(exactKey)
                 .createdAt(Instant.now())
                 .producerId("benchmark-producer")

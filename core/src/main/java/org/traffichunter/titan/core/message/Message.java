@@ -36,11 +36,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yungwang-o
  */
 @Getter
-public final class Message implements Comparable<Message> {
+public final class Message {
 
     private final String uniqueId = IdGenerator.uuid();
-
-    private final Priority priority;
 
     private final Destination destination;
 
@@ -55,13 +53,11 @@ public final class Message implements Comparable<Message> {
     private final byte[] body;
 
     @Builder
-    public Message(final Priority priority,
-                   final Destination destination,
+    public Message(final Destination destination,
                    final Instant createdAt,
                    final String producerId,
                    final Buffer body
     ) {
-        this.priority = Objects.requireNonNull(priority, "priority");
         this.destination = Objects.requireNonNull(destination, "routingKey");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.producerId = Objects.requireNonNull(producerId, "producerId");
@@ -74,14 +70,6 @@ public final class Message implements Comparable<Message> {
     }
 
     @Override
-    public int compareTo(final Message o) {
-        if(this.priority.getPriorityValue() == o.priority.getPriorityValue()) {
-            return this.createdAt.compareTo(o.createdAt);
-        }
-        return this.priority.getPriorityValue() - o.priority.getPriorityValue();
-    }
-
-    @Override
     public boolean equals(final Object o) {
         if (this == o) {
             return true;
@@ -90,7 +78,7 @@ public final class Message implements Comparable<Message> {
             return false;
         }
         return getSize() == message.getSize() && Objects.equals(
-                getUniqueId(), message.getUniqueId()) && getPriority() == message.getPriority() && Objects.equals(
+                getUniqueId(), message.getUniqueId()) && Objects.equals(
                 getDestination(), message.getDestination()) && Objects.equals(getCreatedAt(),
                 message.getCreatedAt()) && Objects.equals(getDispatchedAt(), message.getDispatchedAt())
                 && Objects.equals(getProducerId(), message.getProducerId()) && Objects.deepEquals(
@@ -101,7 +89,6 @@ public final class Message implements Comparable<Message> {
     public int hashCode() {
         return Objects.hash(
                 getUniqueId(),
-                getPriority(),
                 getDestination(),
                 getCreatedAt(),
                 getDispatchedAt(),
@@ -113,7 +100,6 @@ public final class Message implements Comparable<Message> {
     public String toString() {
         return "{" +
                 "uniqueId:'" + uniqueId + '\'' +
-                ", priority:" + priority +
                 ", routingKey:" + destination +
                 ", createdAt:" + createdAt +
                 ", dispatchedAt:" + dispatchedAt +

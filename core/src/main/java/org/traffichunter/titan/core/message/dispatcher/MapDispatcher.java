@@ -23,10 +23,10 @@
  */
 package org.traffichunter.titan.core.message.dispatcher;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
@@ -39,7 +39,6 @@ import org.traffichunter.titan.core.util.Destination;
  *
  * @author yungwang-o
  */
-@Getter
 @Slf4j
 public class MapDispatcher implements Dispatcher {
 
@@ -69,6 +68,22 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
+    public List<DispatcherQueue> searchAll(Destination destination) {
+        String path = destination.path();
+        if (!path.endsWith("/*")) {
+            DispatcherQueue queue = get(destination);
+            return queue == null ? List.of() : List.of(queue);
+        }
+
+        String prefix = path.substring(0, path.length() - 2);
+        return map.entrySet()
+                .stream()
+                .filter(entry -> isDescendant(entry.getKey().path(), prefix))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
+    @Override
     public boolean exists(final Destination destination) {
         return map.containsKey(destination);
     }
@@ -76,5 +91,12 @@ public class MapDispatcher implements Dispatcher {
     @Override
     public void remove(Destination destination) {
         map.remove(destination);
+    }
+
+    private boolean isDescendant(String path, String prefix) {
+        if (prefix.isEmpty()) {
+            return path.startsWith("/");
+        }
+        return path.startsWith(prefix + "/");
     }
 }

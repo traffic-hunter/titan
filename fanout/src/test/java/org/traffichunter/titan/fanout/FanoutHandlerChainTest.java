@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.resilience.backup.BackupOption;
 import org.traffichunter.titan.core.resilience.backup.DestinationBackupSystem;
 import org.traffichunter.titan.core.util.Destination;
@@ -125,7 +124,6 @@ class FanoutHandlerChainTest {
 
     private static Message message(String destination) {
         return Message.builder()
-                .priority(Priority.DEFAULT)
                 .destination(Destination.create(destination))
                 .createdAt(Instant.now())
                 .producerId("test")

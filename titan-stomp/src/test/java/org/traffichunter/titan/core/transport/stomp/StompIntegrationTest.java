@@ -50,7 +50,6 @@ import org.traffichunter.titan.core.codec.stomp.Transactions;
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.Priority;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -518,7 +517,6 @@ class StompIntegrationTest {
         @Override
         public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
             Message message = Message.builder()
-                    .priority(Priority.DEFAULT)
                     .destination(queue.route())
                     .createdAt(Instant.now())
                     .producerId(UUID.randomUUID().toString())

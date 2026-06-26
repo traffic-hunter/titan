@@ -24,6 +24,7 @@
 package org.traffichunter.titan.core.message.dispatcher;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -64,6 +65,14 @@ public interface Dispatcher {
      */
     @CanIgnoreReturnValue
     DispatcherQueue getOrPut(Destination destination, int capacity);
+
+    /**
+     * Returns queues matching the destination pattern.
+     *
+     * <p>Exact destinations return at most one queue. Wildcard destinations such as
+     * {@code /queue/orders/*} return descendant queues under that prefix.</p>
+     */
+    List<DispatcherQueue> searchAll(Destination destination);
 
     boolean exists(Destination destination);
 

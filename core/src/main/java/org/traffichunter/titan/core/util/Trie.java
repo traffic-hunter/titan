@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.util;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * @author yungwang-o
@@ -41,6 +42,10 @@ public interface Trie<T> {
     List<T> searchAll(String word);
 
     boolean startsWith(String prefix);
+
+    T computeIfAbsent(String word, Function<? super String, ? extends T> mappingFunction);
+
+    @Nullable T putIfAbsent(String word, T value);
 
     void remove(String word);
 
