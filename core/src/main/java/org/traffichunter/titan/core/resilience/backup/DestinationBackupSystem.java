@@ -49,6 +49,9 @@ public final class DestinationBackupSystem implements AutoCloseable {
     }
 
     public DestinationBackupSystem(Path backupDirectory, BackupOption options) {
+        if (!options.type().isAof()) {
+            throw new UnsupportedOperationException("Only aof backup is supported: " + options.type());
+        }
         this.backupDirectory = backupDirectory;
         this.options = options;
     }
@@ -57,10 +60,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
         if (closed.get()) {
             throw new BackupException("Backup system is stopped");
         }
-        if (options.type().isRdb()) {
-            return;
-        }
-
         coordinator(metadata.destinationPath()).record(metadata);
     }
 
@@ -68,10 +67,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
         if (closed.get()) {
             return false;
         }
-        if (options.type().isRdb()) {
-            return true;
-        }
-
         return coordinator(destination).inspect();
     }
 
@@ -79,10 +74,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
         if (closed.get()) {
             return false;
         }
-        if (options.type().isRdb()) {
-            return true;
-        }
-
         return coordinator(destination).restore(handler);
     }
 

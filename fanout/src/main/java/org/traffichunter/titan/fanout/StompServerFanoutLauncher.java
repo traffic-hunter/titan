@@ -51,7 +51,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
 
     @Override
     public void apply(
-            Settings settings,
+            final Settings settings,
             final String protocol,
             final String transport,
             final Map<String, String> protocolOptions,
@@ -83,14 +83,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
             final Map<String, String> protocolOptions,
             final ManagedServer managedServer
     ) {
-        FanoutMode mode = resolveMode(protocolOptions);
-        ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
-        if (adapter == null) {
-            throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
-        }
-
-        adapter.apply(protocol, transport, protocolOptions, managedServer, mode::fanoutGateway);
-        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
+        apply(new Settings(null, null, null), protocol, transport, protocolOptions, managedServer);
     }
 
     private FanoutHandler backupSystemFanoutHandler(Settings.BackupSettings backupSettings) {
@@ -103,10 +96,25 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                 backupSettings.syncPolicy(),
                 backupSettings.recoveryPolicy()
         );
-        DestinationBackupSystem backupSystem = backupSettings.path().isBlank()
+        Path backupDirectory = resolveBackupDirectory(backupSettings);
+        DestinationBackupSystem backupSystem = backupDirectory == null
                 ? new DestinationBackupSystem(option)
-                : new DestinationBackupSystem(Path.of(backupSettings.path()), option);
+                : new DestinationBackupSystem(backupDirectory, option);
         return new BackupFanoutHandler(backupSystem);
+    }
+
+    static @Nullable Path resolveBackupDirectory(Settings.BackupSettings backupSettings) {
+        if (backupSettings.path().isBlank()) {
+            return null;
+        }
+
+        Path backupDirectory = Path.of(backupSettings.path());
+        Path fileName = backupDirectory.getFileName();
+        if (fileName != null && fileName.toString().endsWith(".aof")) {
+            throw new IllegalArgumentException("backup.path must be a directory, not an append-only file: "
+                    + backupSettings.path());
+        }
+        return backupDirectory;
     }
 
     private static @Nullable ManagedServerFanoutAdapter findAdapter(

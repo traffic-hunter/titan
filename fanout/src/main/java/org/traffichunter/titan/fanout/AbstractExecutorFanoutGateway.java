@@ -45,7 +45,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -95,7 +94,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     private static final Logger log = LoggerFactory.getLogger(AbstractExecutorFanoutGateway.class);
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 10;
 
-    private final Map<Destination, Future<?>> consumers = new ConcurrentHashMap<>();
+    private final Map<Destination, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
     private final Set<DispatcherQueue> deletedQueues = ConcurrentHashMap.newKeySet();
 
     private final ExecutorService executor;
@@ -140,7 +139,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     }
 
     @Override
-    public List<Future<@Nullable Void>> fanout(Collection<Destination> destinations) {
+    public List<CompletableFuture<@Nullable Void>> fanout(Collection<Destination> destinations) {
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
@@ -150,18 +149,17 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                 .toList();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public Future<@Nullable Void> fanout(Destination destination) {
+    public CompletableFuture<@Nullable Void> fanout(Destination destination) {
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
 
-        return (Future<@Nullable Void>) consumers.computeIfAbsent(destination, this::consume);
+        return consumers.computeIfAbsent(destination, this::consume);
     }
 
     @Override
-    public List<Future<@Nullable Void>> publish(Collection<Message> messages) {
+    public List<CompletableFuture<@Nullable Void>> publish(Collection<Message> messages) {
         if (isClosed.get()) {
             throw new IllegalStateException("FanoutGateway is closed");
         }
@@ -172,7 +170,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     }
 
     @Override
-    public Future<@Nullable Void> publish(Message message) {
+    public CompletableFuture<@Nullable Void> publish(Message message) {
         Assert.checkNotNull(message, "message");
 
         if (isClosed.get()) {
@@ -244,24 +242,24 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     public DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
         DispatcherQueue queue = dispatcher.get(destination);
         if (queue == null) {
-            return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_FOUND, 0);
+            return DispatcherQueueDeleteResult.notFound();
         }
         int size = queue.size();
         if (size > 0 && !force) {
-            return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_EMPTY, size);
+            return DispatcherQueueDeleteResult.notEmpty(size);
         }
         if (force) {
             queue.clear();
         }
 
         deletedQueues.add(queue);
-        Future<?> consumer = consumers.remove(destination);
+        CompletableFuture<@Nullable Void> consumer = consumers.remove(destination);
         if (consumer != null) {
             consumer.cancel(true);
         }
         dispatcher.remove(destination);
         DispatcherQueueMbeans.unregister(queue.getDestination());
-        return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.DELETED, size);
+        return DispatcherQueueDeleteResult.deleted(size);
     }
 
     /**

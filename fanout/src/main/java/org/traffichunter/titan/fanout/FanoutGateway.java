@@ -26,7 +26,7 @@ package org.traffichunter.titan.fanout;
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
@@ -87,7 +87,7 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
      * <p>The returned futures complete with {@code null}; the value is only a
      * completion signal.</p>
      */
-    List<Future<@Nullable Void>> fanout(Collection<Destination> destinations);
+    List<CompletableFuture<@Nullable Void>> fanout(Collection<Destination> destinations);
 
     /**
      * Starts the consumer for a destination if it is not already running.
@@ -95,7 +95,7 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
      * <p>The returned future completes with {@code null}; the value is only a
      * completion signal.</p>
      */
-    Future<@Nullable Void> fanout(Destination destination);
+    CompletableFuture<@Nullable Void> fanout(Destination destination);
 
     /**
      * Publishes messages into destination queues.
@@ -103,7 +103,7 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
      * <p>The returned futures represent enqueue and consumer-start submission,
      * not delivery acknowledgement from subscribed clients.</p>
      */
-    List<Future<@Nullable Void>> publish(Collection<Message> messages);
+    List<CompletableFuture<@Nullable Void>> publish(Collection<Message> messages);
 
     /**
      * Publishes one message into its destination queue.
@@ -111,7 +111,7 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
      * <p>The returned future completes with {@code null}; the value is only a
      * completion signal.</p>
      */
-    Future<@Nullable Void> publish(Message message);
+    CompletableFuture<@Nullable Void> publish(Message message);
 
     boolean isOpen();
 

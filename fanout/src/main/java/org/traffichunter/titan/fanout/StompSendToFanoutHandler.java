@@ -24,8 +24,12 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
-import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
 import org.traffichunter.titan.core.channel.stomp.StompServerEvent;
@@ -46,8 +50,9 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
  * directly to subscribers; the exporter layer owns that protocol-specific
  * delivery step.</p>
  */
-@Slf4j
 public final class StompSendToFanoutHandler implements StompServerCommandHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(StompSendToFanoutHandler.class);
 
     private final FanoutGateway fanoutGateway;
 
@@ -75,19 +80,35 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
                 .build();
 
         try {
-            fanoutGateway.publish(message);
-        } catch (Exception e) {
-            log.error(
-                    "Failed to publish fanout message. session={}, destination={}",
-                    connection.session(),
-                    destination,
-                    e
-            );
-            connection.send(errorFrame("Failed to publish.", "Failed to publish inbound SEND frame."));
-            connection.close();
-            return;
-        }
+            CompletableFuture<@Nullable Void> publish = fanoutGateway.publish(message);
+            publish.whenComplete((ignored, error) -> {
+                if (error != null) {
+                    handlePublishFailure(connection, destination, unwrap(error));
+                    return;
+                }
 
-        context.receipt(sf, connection);
+                context.receipt(sf, connection);
+            });
+        } catch (Exception e) {
+            handlePublishFailure(connection, destination, e);
+        }
+    }
+
+    private static void handlePublishFailure(StompClientChannel connection, String destination, Throwable error) {
+        log.error(
+                "Failed to publish fanout message. session={}, destination={}",
+                connection.session(),
+                destination,
+                error
+        );
+        connection.send(errorFrame("Failed to publish.", "Failed to publish inbound SEND frame."));
+        connection.close();
+    }
+
+    private static Throwable unwrap(Throwable error) {
+        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
+            return completionException.getCause();
+        }
+        return error;
     }
 }
