@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
@@ -16,7 +17,6 @@ import org.traffichunter.titan.core.resilience.backup.BackupOption;
 import org.traffichunter.titan.core.resilience.backup.DestinationBackupSystem;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.file.FileHandler;
 
 class FanoutHandlerChainTest {
 
@@ -45,7 +45,7 @@ class FanoutHandlerChainTest {
     void route_handler_sets_routed_message_before_next_handler() {
         Message message = message("/queue/route");
         FanoutHandlerChain chain = new FanoutHandlerChain(List.of(
-                new RouteFanoutHandler(Runnable::run, ignored -> message),
+                new RouteFanoutHandler(ignored -> message),
                 (context, next) -> {
                     assertThat(context.getRoutedMessage()).isSameAs(message);
                     return next.next(context);
@@ -86,16 +86,22 @@ class FanoutHandlerChainTest {
     }
 
     @Test
-    void route_handler_can_run_on_supplied_executor() {
+    void chain_runs_handlers_on_supplied_executor() {
         try (var executor = Executors.newSingleThreadExecutor()) {
             Message message = message("/queue/async-route");
-            FanoutHandlerChain chain = new FanoutHandlerChain(List.of(
-                    new RouteFanoutHandler(executor, ignored -> message)
+            Thread callerThread = Thread.currentThread();
+            AtomicReference<Thread> handlerThread = new AtomicReference<>();
+            FanoutHandlerChain chain = new FanoutHandlerChain(executor, List.of(
+                    new RouteFanoutHandler(ignored -> {
+                        handlerThread.set(Thread.currentThread());
+                        return message;
+                    })
             ));
 
             CompletableFuture<?> future = chain.next(new FanoutContext(message));
 
             future.join();
+            assertThat(handlerThread.get()).isNotSameAs(callerThread);
         }
     }
 
@@ -110,16 +116,16 @@ class FanoutHandlerChainTest {
         FanoutHandlerChain middleHandlers = FanoutHandlerChain.chain()
                 .add(new BackupFanoutHandler(backupSystem));
         FanoutHandlerChain.chain()
-                .add(new RouteFanoutHandler(Runnable::run, ignored -> message))
+                .add(new RouteFanoutHandler(ignored -> message))
                 .addAll(middleHandlers)
                 .add(new DispatchFanoutHandler(ignored -> fanoutCount.incrementAndGet()))
                 .next(new FanoutContext(message))
                 .join();
 
-        backupSystem.close();
-
         assertThat(fanoutCount).hasValue(1);
-        assertThat(FileHandler.resolveDestinationFile(tempDir, "/queue/backup-chain")).exists();
+        assertThat(backupSystem.inspect("/queue/backup-chain")).isTrue();
+
+        backupSystem.close();
     }
 
     private static Message message(String destination) {

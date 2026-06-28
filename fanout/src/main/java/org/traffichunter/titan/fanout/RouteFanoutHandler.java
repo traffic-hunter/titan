@@ -24,7 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
@@ -37,20 +36,16 @@ import org.traffichunter.titan.core.util.HandlerChain;
  */
 final class RouteFanoutHandler implements FanoutHandler {
 
-    private final Executor executor;
     private final Function<Message, @Nullable Message> route;
 
-    RouteFanoutHandler(Executor executor, Function<Message, @Nullable Message> route) {
-        this.executor = executor;
+    RouteFanoutHandler(Function<Message, @Nullable Message> route) {
         this.route = route;
     }
 
     @Override
     public CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain) {
-        return CompletableFuture.supplyAsync(() -> route.apply(context.getMessage()), executor)
-                .thenCompose(routed -> {
-                    context.setRoutedMessage(routed);
-                    return chain.next(context);
-                });
+        Message routed = route.apply(context.getMessage());
+        context.setRoutedMessage(routed);
+        return chain.next(context);
     }
 }

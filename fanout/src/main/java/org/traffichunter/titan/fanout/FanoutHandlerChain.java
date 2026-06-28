@@ -26,6 +26,8 @@ package org.traffichunter.titan.fanout;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.HandlerChain;
 
@@ -36,10 +38,16 @@ import org.traffichunter.titan.core.util.HandlerChain;
  */
 public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoCloseable {
 
+    private final Executor executor;
     private final FanoutHandlerChainImpl head;
     private FanoutHandlerChainImpl tail;
 
     public FanoutHandlerChain() {
+        this(Runnable::run);
+    }
+
+    public FanoutHandlerChain(Executor executor) {
+        this.executor = executor;
         this.head = this.tail = new FanoutHandlerChainImpl(FanoutHandler.NOOP);
     }
 
@@ -48,12 +56,20 @@ public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoClos
     }
 
     public FanoutHandlerChain(List<FanoutHandler> handlers) {
-        this();
+        this(Runnable::run, handlers);
+    }
+
+    public FanoutHandlerChain(Executor executor, List<FanoutHandler> handlers) {
+        this(executor);
         handlers.forEach(this::add);
     }
 
     public static FanoutHandlerChain chain() {
         return new FanoutHandlerChain();
+    }
+
+    public static FanoutHandlerChain chain(Executor executor) {
+        return new FanoutHandlerChain(executor);
     }
 
     @CanIgnoreReturnValue
@@ -76,7 +92,8 @@ public class FanoutHandlerChain implements HandlerChain<FanoutContext>, AutoClos
 
     @Override
     public CompletableFuture<Void> next(FanoutContext context) {
-        return head.next(context);
+        return CompletableFuture.supplyAsync(() -> head.next(context), executor)
+                .thenCompose(Function.identity());
     }
 
     @Override

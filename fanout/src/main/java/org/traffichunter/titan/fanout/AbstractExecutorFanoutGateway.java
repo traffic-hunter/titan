@@ -123,15 +123,15 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         this.exporter = exporter;
         this.dispatcher = dispatcher;
         this.damper = damper;
-        this.fanoutHandlerChain = FanoutHandlerChain.chain()
-                .add(new RouteFanoutHandler(executor, this::route))
+        this.fanoutHandlerChain = FanoutHandlerChain.chain(executor)
+                .add(new RouteFanoutHandler(this::route))
                 .add(new DispatchFanoutHandler(this::fanout));
     }
 
     @Override
     public FanoutGateway chainHandler(Handler<FanoutHandlerChain> chainHandler) {
-        FanoutHandlerChain chain = FanoutHandlerChain.chain();
-        chain.add(new RouteFanoutHandler(executor, this::route));
+        FanoutHandlerChain chain = FanoutHandlerChain.chain(executor);
+        chain.add(new RouteFanoutHandler(this::route));
         chainHandler.handle(chain);
         chain.add(new DispatchFanoutHandler(this::fanout));
         this.fanoutHandlerChain = chain;
