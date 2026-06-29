@@ -104,7 +104,7 @@ public final class DestinationBackupSystem implements AutoCloseable {
     }
 
     private BackupCoordinator newAofCoordinator(String destination) {
-        Path path = FileHandler.resolveDestinationFile(backupDirectory, destination);
+        Path path = FileHandler.resolveDestinationFile(backupDirectory, destination, true);
         return new AofBackupCoordinator(path, options);
     }
 }

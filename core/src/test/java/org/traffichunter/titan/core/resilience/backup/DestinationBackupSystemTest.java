@@ -34,8 +34,8 @@ class DestinationBackupSystemTest {
             system.record(payments);
         }
 
-        assertThat(FileHandler.exists(FileHandler.resolveDestinationFile(tempDir, "/queue/orders"))).isTrue();
-        assertThat(FileHandler.exists(FileHandler.resolveDestinationFile(tempDir, "/queue/payments"))).isTrue();
+        assertThat(FileHandler.exists(FileHandler.resolveDestinationFile(tempDir, "/queue/orders", true))).isTrue();
+        assertThat(FileHandler.exists(FileHandler.resolveDestinationFile(tempDir, "/queue/payments", true))).isTrue();
     }
 
     @Test
