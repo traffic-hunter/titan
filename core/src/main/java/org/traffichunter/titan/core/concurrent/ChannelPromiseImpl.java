@@ -49,7 +49,7 @@ final class ChannelPromiseImpl extends PromiseImpl<Void> implements ChannelPromi
     }
 
     @Override
-    public ChannelPromise addListener(AsyncListener listener) {
+    public ChannelPromise addListener(AsyncListener<Void> listener) {
         super.addListener(listener);
         return this;
     }

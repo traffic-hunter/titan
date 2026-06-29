@@ -59,7 +59,7 @@ public interface ChannelPromise extends Promise<Void> {
     Channel channel();
 
     @Override
-    ChannelPromise addListener(AsyncListener listener);
+    ChannelPromise addListener(AsyncListener<Void> listener);
 
     @Override
     ChannelPromise await() throws InterruptedException;
