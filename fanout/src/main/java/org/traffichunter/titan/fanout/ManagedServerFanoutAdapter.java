@@ -24,7 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import org.traffichunter.titan.core.spi.ManagedServer;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 import java.util.Comparator;
 import java.util.List;
@@ -61,6 +61,6 @@ public interface ManagedServerFanoutAdapter {
             String transport,
             Map<String, String> protocolOptions,
             ManagedServer managedServer,
-            Function<FanoutExporter, FanoutGateway> gatewayFactory
+            Function<DispatchExporter, DispatchGateway> gatewayFactory
     );
 }

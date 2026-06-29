@@ -46,7 +46,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
  *
  * <p>This handler is deliberately narrow. It validates the required STOMP
  * destination header, maps the frame body into Titan's internal {@link Message}
- * type, and delegates routing to {@link FanoutGateway}. It does not write
+ * type, and delegates routing to {@link DispatchGateway}. It does not write
  * directly to subscribers; the exporter layer owns that protocol-specific
  * delivery step.</p>
  */
@@ -54,10 +54,10 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
 
     private static final Logger log = LoggerFactory.getLogger(StompSendToFanoutHandler.class);
 
-    private final FanoutGateway fanoutGateway;
+    private final DispatchGateway dispatchGateway;
 
-    public StompSendToFanoutHandler(FanoutGateway fanoutGateway) {
-        this.fanoutGateway = fanoutGateway;
+    public StompSendToFanoutHandler(DispatchGateway dispatchGateway) {
+        this.dispatchGateway = dispatchGateway;
     }
 
     @Override
@@ -80,7 +80,7 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
                 .build();
 
         try {
-            CompletableFuture<@Nullable Void> publish = fanoutGateway.publish(message);
+            CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);
             publish.whenComplete((ignored, error) -> {
                 if (error != null) {
                     handlePublishFailure(connection, destination, unwrap(error));

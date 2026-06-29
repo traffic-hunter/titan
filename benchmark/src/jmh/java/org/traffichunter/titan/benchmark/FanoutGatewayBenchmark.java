@@ -27,9 +27,9 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.fanout.AggregationResult;
-import org.traffichunter.titan.fanout.FanoutGateway;
-import org.traffichunter.titan.fanout.FanoutMode;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.DispatchGateway;
+import org.traffichunter.titan.fanout.DispatchMode;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.Throughput)
@@ -45,7 +45,7 @@ public class FanoutGatewayBenchmark {
     @Param({"64", "256"})
     public int batchSize;
 
-    private FanoutGateway gateway;
+    private DispatchGateway gateway;
     private Destination destination;
     private Message message;
     private List<Message> batchMessages;
@@ -62,7 +62,7 @@ public class FanoutGatewayBenchmark {
                 .build();
         batchMessages = createBatchMessages(destination, batchSize);
 
-        gateway = FanoutMode.resolveMode(mode).fanoutGateway(new CountingNoopExporter(exportCount));
+        gateway = DispatchMode.resolveMode(mode).dispatchGateway(new CountingNoopExporter(exportCount));
         gateway.fanout(destination);
         gateway.publish(message).get(1, TimeUnit.SECONDS);
     }
@@ -110,7 +110,7 @@ public class FanoutGatewayBenchmark {
     }
 
     @NullMarked
-    private static final class CountingNoopExporter implements FanoutExporter {
+    private static final class CountingNoopExporter implements DispatchExporter {
         private final LongAdder count;
 
         private CountingNoopExporter(LongAdder count) {

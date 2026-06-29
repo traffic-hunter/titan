@@ -25,32 +25,32 @@ package org.traffichunter.titan.fanout;
 
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.util.concurrent.NoopDamper;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * Fanout gateway backed by a fixed-size platform thread pool.
+ * Dispatch gateway backed by a fixed-size platform thread pool.
  *
- * <p>This mode is useful when fanout work should be bounded by a small number
+ * <p>This mode is useful when dispatch work should be bounded by a small number
  * of OS threads. It limits executor parallelism directly through the pool size.</p>
  *
  * @author yun
  */
-class ThreadPoolExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
+class ThreadPoolExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
 
-    public ThreadPoolExecutorFanoutGateway(FanoutExporter exporter) {
+    public ThreadPoolExecutorDispatchGateway(DispatchExporter exporter) {
         this(exporter, Dispatcher.getDefault());
     }
 
-    public ThreadPoolExecutorFanoutGateway(FanoutExporter exporter, Dispatcher dispatcher) {
+    public ThreadPoolExecutorDispatchGateway(DispatchExporter exporter, Dispatcher dispatcher) {
         this(Runtime.getRuntime().availableProcessors() * 2, exporter, dispatcher);
     }
 
-    public ThreadPoolExecutorFanoutGateway(
+    public ThreadPoolExecutorDispatchGateway(
             int nThreads,
-            FanoutExporter exporter,
+            DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
         super(

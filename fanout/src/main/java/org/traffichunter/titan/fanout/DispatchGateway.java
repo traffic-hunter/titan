@@ -31,11 +31,10 @@ import java.util.concurrent.CompletableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManager;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 /**
  * Asynchronous ingress and routing facade for fanout delivery.
@@ -56,30 +55,29 @@ import org.traffichunter.titan.fanout.exporter.FanoutExporter;
  *
  * @author yungwang-o
  */
-public interface FanoutGateway extends Closeable, DispatcherQueueManager {
+public interface DispatchGateway extends Closeable, DispatcherQueueManager {
 
-    static FanoutGateway ofThread(FanoutExporter exporter) {
-        return new ThreadPoolExecutorFanoutGateway(exporter);
+    static DispatchGateway ofThread(DispatchExporter exporter) {
+        return new ThreadPoolExecutorDispatchGateway(exporter);
     }
 
-    static FanoutGateway ofVirtual(FanoutExporter exporter) {
-        return new VirtualThreadExecutorFanoutGateway(exporter);
+    static DispatchGateway ofVirtual(DispatchExporter exporter) {
+        return new VirtualThreadExecutorDispatchGateway(exporter);
     }
 
     /**
-     * Configures the fanout handler chain used by {@link #publish(Message)}.
+     * Configures the dispatch handler chain used by {@link #publish(Message)}.
      *
-     * <p>The gateway adds the built-in route handler before invoking the callback and
-     * appends the built-in dispatch handler after the callback returns. Handlers added
-     * by the callback therefore run between routing and dispatch, which is the intended
-     * extension point for cross-cutting fanout behavior such as backup, metrics, or
-     * filtering.</p>
+     * <p>The gateway installs routing before the callback and fanout after the
+     * callback. Custom handlers therefore run after the message is routed into
+     * the dispatcher queue and before the destination consumer is started. This
+     * is the extension point for backup, metrics, validation, and filtering.</p>
      *
      * @param chainHandler callback that adds custom handlers to the chain
      * @return this gateway
      */
     @CanIgnoreReturnValue
-    FanoutGateway chainHandler(Handler<FanoutHandlerChain> chainHandler);
+    DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler);
 
     /**
      * Starts consumers for the destinations if they are not already running.
@@ -100,7 +98,7 @@ public interface FanoutGateway extends Closeable, DispatcherQueueManager {
     /**
      * Publishes messages into destination queues.
      *
-     * <p>The returned futures represent enqueue and consumer-start submission,
+     * <p>The returned futures represent dispatch-chain and consumer-start submission,
      * not delivery acknowledgement from subscribed clients.</p>
      */
     List<CompletableFuture<@Nullable Void>> publish(Collection<Message> messages);

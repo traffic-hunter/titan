@@ -37,7 +37,7 @@ import org.traffichunter.titan.fanout.AggregationResult;
 import java.util.List;
 
 /**
- * Fanout exporter for STOMP subscriptions.
+ * Dispatch exporter for STOMP subscriptions.
  *
  * <p>The exporter asks the server connection for subscriptions matching the
  * destination, then emits a STOMP {@code MESSAGE} frame per subscription. The
@@ -49,11 +49,11 @@ import java.util.List;
  * logical message can be written to many clients. Sharing one buffer instance
  * across those writes would couple independent channel write lifecycles.</p>
  */
-public class StompFanoutExporter implements FanoutExporter {
+public class StompDispatchExporter implements DispatchExporter {
 
     private final StompServerChannel serverConnection;
 
-    public StompFanoutExporter(StompServerChannel serverConnection) {
+    public StompDispatchExporter(StompServerChannel serverConnection) {
         this.serverConnection = serverConnection;
     }
 

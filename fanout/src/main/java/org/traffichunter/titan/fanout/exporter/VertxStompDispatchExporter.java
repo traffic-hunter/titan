@@ -37,11 +37,11 @@ import java.util.List;
 /**
  * @author yun
  */
-public final class VertxStompFanoutExporter implements FanoutExporter {
+public final class VertxStompDispatchExporter implements DispatchExporter {
 
     private final StompServer server;
 
-    public VertxStompFanoutExporter(StompServer server) {
+    public VertxStompDispatchExporter(StompServer server) {
         this.server = Assert.checkNotNull(server, "server");
     }
 

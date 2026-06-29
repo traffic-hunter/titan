@@ -33,19 +33,19 @@ import org.traffichunter.titan.fanout.AggregationResult;
 import java.util.List;
 
 /**
- * Fanout exporter that writes raw payload buffers to every active TCP child
+ * Dispatch exporter that writes raw payload buffers to every active TCP child
  * channel owned by an {@link InetServer}.
  *
  * <p>This exporter is intentionally transport-level. It does not inspect
  * protocol subscriptions; all active child channels are considered eligible
- * consumers. Use protocol-aware exporters, such as {@link StompFanoutExporter},
+ * consumers. Use protocol-aware exporters, such as {@link StompDispatchExporter},
  * when delivery must be scoped by session subscription state.</p>
  */
-public class TcpFanoutExporter implements FanoutExporter {
+public class TcpDispatchExporter implements DispatchExporter {
 
     private final InetServer inetServer;
 
-    public TcpFanoutExporter(InetServer inetServer) {
+    public TcpDispatchExporter(InetServer inetServer) {
         this.inetServer = Assert.checkNotNull(inetServer, "inetServer");
     }
 

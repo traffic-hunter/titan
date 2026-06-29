@@ -36,7 +36,7 @@ import org.traffichunter.titan.core.util.concurrent.Damper;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.NoopDamper;
 import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 import java.util.Collection;
 import java.util.List;
@@ -49,18 +49,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Executor-backed {@link FanoutGateway} implementation shared by platform and
+ * Executor-backed {@link DispatchGateway} implementation shared by platform and
  * virtual-thread variants.
  *
  * <p>Each destination has at most one active consumer task in {@link #consumers}.
- * Producer calls are processed through a {@link FanoutHandlerChain}. The gateway
- * always installs routing as the first handler and dispatch as the last handler,
+ * Producer calls are processed through one {@link DispatchHandlerChain}. The
+ * gateway installs routing as the first handler and fanout as the last handler,
  * while optional middle handlers can add behavior such as backup without being
- * embedded in the core fanout flow.</p>
+ * embedded in the core queue and consumer flow.</p>
  *
- * <p>Routing enqueues the message into the dispatcher queue. Dispatch starts the
- * destination consumer if needed, and that consumer drains the queue sequentially
- * into the configured {@link FanoutExporter}. This gives a simple fanout invariant:
+ * <p>Routing enqueues the message into the dispatcher queue. After middle
+ * handlers complete, the terminal fanout handler ensures that a destination
+ * consumer exists. The consumer drains the queue sequentially into the
+ * configured {@link DispatchExporter}. This gives a simple fanout invariant:
  * ordering is preserved per destination queue, while different destinations can
  * progress independently on the executor.</p>
  *
@@ -68,20 +69,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * publish(message)
  *      |
  *      v
- * FanoutHandlerChain
+ * DispatchHandlerChain
  *      |
  *      v
- * RouteFanoutHandler -> DispatcherQueue(destination).enqueue(message)
+ * RouteDispatchChainHandler -> DispatcherQueue(destination).enqueue(message)
  *      |
  *      v
  * optional middle handlers (backup, metrics, ...)
  *      |
  *      v
- * DispatchFanoutHandler -> fanout(destination) -> computeIfAbsent(destination, consume)
- *      |
- *      v
- * consume loop -> dispatcherQueue.dispatch() -> exporter.export(...)
+ * FanoutDispatchChainHandler -> computeIfAbsent(destination, consume)
  * }</pre>
+ *
+ * <p>{@link #fanout(Destination)} starts a destination consumer directly when a
+ * caller wants to pre-warm delivery without publishing a message.</p>
  *
  * <p>The optional {@link Damper} is a small back-pressure hook for executor
  * implementations that can create many concurrent tasks. The virtual-thread
@@ -89,59 +90,59 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author yun
  */
-abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
+abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractExecutorFanoutGateway.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractExecutorDispatchGateway.class);
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 10;
 
     private final Map<Destination, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
     private final Set<DispatcherQueue> deletedQueues = ConcurrentHashMap.newKeySet();
 
-    private final ExecutorService executor;
-    private final FanoutExporter exporter;
+    private final ExecutorService dispatchExecutor;
+    private final DispatchExporter exporter;
     private final Dispatcher dispatcher;
     private final AtomicBoolean isClosed = new AtomicBoolean();
     private final Damper damper;
 
-    private FanoutHandlerChain fanoutHandlerChain;
+    private DispatchHandlerChain dispatchHandlerChain;
 
-    protected AbstractExecutorFanoutGateway(
-            ExecutorService executor,
-            FanoutExporter exporter,
+    protected AbstractExecutorDispatchGateway(
+            ExecutorService dispatchExecutor,
+            DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
-        this(executor, exporter, dispatcher, NoopDamper.getInstance());
+        this(dispatchExecutor, exporter, dispatcher, NoopDamper.getInstance());
     }
 
-    protected AbstractExecutorFanoutGateway(
-            ExecutorService executor,
-            FanoutExporter exporter,
+    protected AbstractExecutorDispatchGateway(
+            ExecutorService dispatchExecutor,
+            DispatchExporter exporter,
             Dispatcher dispatcher,
             Damper damper
     ) {
-        this.executor = executor;
+        this.dispatchExecutor = dispatchExecutor;
         this.exporter = exporter;
         this.dispatcher = dispatcher;
         this.damper = damper;
-        this.fanoutHandlerChain = FanoutHandlerChain.chain(executor)
-                .add(new RouteFanoutHandler(this::route))
-                .add(new DispatchFanoutHandler(this::fanout));
+        this.dispatchHandlerChain = DispatchHandlerChain.chain(dispatchExecutor)
+                .add(new RouteDispatchChainHandler(this::route))
+                .add(new FanoutDispatchChainHandler(this::fanout));
     }
 
     @Override
-    public FanoutGateway chainHandler(Handler<FanoutHandlerChain> chainHandler) {
-        FanoutHandlerChain chain = FanoutHandlerChain.chain(executor);
-        chain.add(new RouteFanoutHandler(this::route));
+    public DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler) {
+        DispatchHandlerChain chain = DispatchHandlerChain.chain(dispatchExecutor);
+        chain.add(new RouteDispatchChainHandler(this::route));
         chainHandler.handle(chain);
-        chain.add(new DispatchFanoutHandler(this::fanout));
-        this.fanoutHandlerChain = chain;
+        chain.add(new FanoutDispatchChainHandler(this::fanout));
+        this.dispatchHandlerChain = chain;
         return this;
     }
 
     @Override
     public List<CompletableFuture<@Nullable Void>> fanout(Collection<Destination> destinations) {
         if (isClosed.get()) {
-            throw new IllegalStateException("FanoutGateway is closed");
+            throw new IllegalStateException("DispatchGateway is closed");
         }
 
         return destinations.stream()
@@ -152,7 +153,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     @Override
     public CompletableFuture<@Nullable Void> fanout(Destination destination) {
         if (isClosed.get()) {
-            throw new IllegalStateException("FanoutGateway is closed");
+            throw new IllegalStateException("DispatchGateway is closed");
         }
 
         return consumers.computeIfAbsent(destination, this::consume);
@@ -161,7 +162,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     @Override
     public List<CompletableFuture<@Nullable Void>> publish(Collection<Message> messages) {
         if (isClosed.get()) {
-            throw new IllegalStateException("FanoutGateway is closed");
+            throw new IllegalStateException("DispatchGateway is closed");
         }
 
         return messages.stream()
@@ -174,10 +175,11 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         Assert.checkNotNull(message, "message");
 
         if (isClosed.get()) {
-            throw new IllegalStateException("FanoutGateway is closed");
+            throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return fanoutHandlerChain.next(new FanoutContext(message));
+        return dispatchHandlerChain.sparkChainHandler(new DispatchContext(message))
+                .thenApply(ignored -> null);
     }
 
     @Override
@@ -195,22 +197,22 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         if (isClosed.compareAndSet(false, true)) {
             consumers.values().forEach(future -> future.cancel(true));
             consumers.clear();
-            executor.shutdown();
+            dispatchExecutor.shutdown();
             try {
-                if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                    executor.shutdownNow();
-                    if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                if (!dispatchExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    dispatchExecutor.shutdownNow();
+                    if (!dispatchExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                         log.warn("Fanout executor did not terminate cleanly");
                     }
                 }
             } catch (InterruptedException e) {
-                executor.shutdownNow();
+                dispatchExecutor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
             try {
-                fanoutHandlerChain.close();
+                dispatchHandlerChain.close();
             } catch (Exception e) {
-                log.warn("Failed to close fanout handler chain", e);
+                log.warn("Failed to close dispatch handler chain", e);
             }
         }
     }
@@ -224,7 +226,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
     @Override
     public DispatcherQueue createQueue(Destination destination, int capacity) {
         if (isClosed.get()) {
-            throw new IllegalStateException("FanoutGateway is closed");
+            throw new IllegalStateException("DispatchGateway is closed");
         }
 
         return dispatcher.getOrPut(destination, capacity);
@@ -275,7 +277,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
         log.info("Starting fanout consumer for destination={}", destination.path());
 
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
-        executor.execute(() -> {
+        dispatchExecutor.execute(() -> {
             try {
                 while (!isClosed()
                         && !Thread.currentThread().isInterrupted()
@@ -298,7 +300,7 @@ abstract class AbstractExecutorFanoutGateway implements FanoutGateway {
                         break;
                     } catch (Exception e) {
                         log.error("Unexpected error while dispatching message", e);
-                        if (isClosed() || executor.isShutdown()) {
+                        if (isClosed() || dispatchExecutor.isShutdown()) {
                             break;
                         }
                     }

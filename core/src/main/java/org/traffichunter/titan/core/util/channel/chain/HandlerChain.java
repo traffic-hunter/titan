@@ -21,31 +21,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.fanout;
+package org.traffichunter.titan.core.util.channel.chain;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.HandlerChain;
 
 /**
- * Routes a published message into memory before later fanout handlers run.
- *
  * @author yun
  */
-final class RouteFanoutHandler implements FanoutHandler {
+public interface HandlerChain<C> {
 
-    private final Function<Message, @Nullable Message> route;
-
-    RouteFanoutHandler(Function<Message, @Nullable Message> route) {
-        this.route = route;
+    default CompletableFuture<Void> sparkChainHandler(C context) {
+        return next(context);
     }
 
-    @Override
-    public CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain) {
-        Message routed = route.apply(context.getMessage());
-        context.setRoutedMessage(routed);
-        return chain.next(context);
-    }
+    CompletableFuture<Void> next(C context);
 }

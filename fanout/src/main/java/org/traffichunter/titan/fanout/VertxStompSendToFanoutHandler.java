@@ -48,10 +48,10 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
 
     private static final Logger log = LoggerFactory.getLogger(VertxStompSendToFanoutHandler.class);
 
-    private final FanoutGateway fanoutGateway;
+    private final DispatchGateway dispatchGateway;
 
-    public VertxStompSendToFanoutHandler(FanoutGateway fanoutGateway) {
-        this.fanoutGateway = fanoutGateway;
+    public VertxStompSendToFanoutHandler(DispatchGateway dispatchGateway) {
+        this.dispatchGateway = dispatchGateway;
     }
 
     @Override
@@ -83,7 +83,7 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
                 .build();
 
         try {
-            CompletableFuture<@Nullable Void> publish = fanoutGateway.publish(message);
+            CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);
             publish.whenComplete((ignored, error) ->
                 vertx.runOnContext(v -> {
                     if (error != null) {

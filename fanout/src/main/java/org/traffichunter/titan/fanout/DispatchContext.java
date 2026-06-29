@@ -23,41 +23,36 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.fanout;
 
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.resilience.backup.DestinationBackupSystem;
-import org.traffichunter.titan.core.resilience.backup.Metadata;
-import org.traffichunter.titan.core.resilience.backup.Type;
-import org.traffichunter.titan.core.util.HandlerChain;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
+ * Mutable state shared while one dispatch operation moves through a handler chain.
+ *
+ * <p>The context starts with the original producer {@link Message}. The route
+ * handler stores the routed message after enqueueing it, and later handlers use
+ * that routed value to decide whether the operation should continue.</p>
+ *
  * @author yun
  */
-public class BackupFanoutHandler implements FanoutHandler, AutoCloseable {
+public class DispatchContext {
 
-    private final DestinationBackupSystem backupSystem;
+    private final Message message;
+    private @Nullable Message routedMessage;
 
-    public BackupFanoutHandler(DestinationBackupSystem backupSystem) {
-        this.backupSystem = backupSystem;
+    public DispatchContext(Message message) {
+        this.message = message;
     }
 
-    @Override
-    public CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain) {
-        Message routed = context.getRoutedMessage();
-        if (routed != null) {
-            backupSystem.record(Metadata.create(
-                    Type.MESSAGE_APPEND,
-                    System.currentTimeMillis(),
-                    routed.getDestination().path(),
-                    routed.getBody()
-            ));
-        }
-        return chain.next(context);
+    public Message getMessage() {
+        return message;
     }
 
-    @Override
-    public void close() throws Exception {
-        backupSystem.close();
+    public @Nullable Message getRoutedMessage() {
+        return routedMessage;
+    }
+
+    public void setRoutedMessage(@Nullable Message routedMessage) {
+        this.routedMessage = routedMessage;
     }
 }
