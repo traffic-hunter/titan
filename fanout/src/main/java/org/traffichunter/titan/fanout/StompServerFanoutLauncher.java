@@ -1,14 +1,11 @@
 package org.traffichunter.titan.fanout;
 
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Settings;
-import org.traffichunter.titan.core.resilience.backup.BackupOption;
-import org.traffichunter.titan.core.resilience.backup.DestinationBackupSystem;
 import org.traffichunter.titan.core.spi.*;
 
 /**
@@ -30,7 +27,7 @@ import org.traffichunter.titan.core.spi.*;
  * StompServerFanoutLauncher.apply(...)
  *      |
  *      v
- * SEND handler -> FanoutGateway -> StompFanoutExporter
+ * SEND handler -> DispatchGateway -> StompDispatchExporter
  * }</pre>
  */
 @Slf4j
@@ -51,13 +48,13 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
 
     @Override
     public void apply(
-            Settings settings,
+            final Settings settings,
             final String protocol,
             final String transport,
             final Map<String, String> protocolOptions,
             final ManagedServer managedServer
     ) {
-        FanoutMode mode = resolveMode(protocolOptions);
+        DispatchMode mode = resolveMode(protocolOptions);
         ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
         if (adapter == null) {
             throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
@@ -68,10 +65,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                 transport,
                 protocolOptions,
                 managedServer,
-                exporter -> mode.fanoutGateway(exporter)
-                        .chainHandler(chain ->
-                                chain.add(backupSystemFanoutHandler(settings.backup()))
-                        )
+                mode::dispatchGateway
         );
         log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
     }
@@ -83,30 +77,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
             final Map<String, String> protocolOptions,
             final ManagedServer managedServer
     ) {
-        FanoutMode mode = resolveMode(protocolOptions);
-        ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
-        if (adapter == null) {
-            throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
-        }
-
-        adapter.apply(protocol, transport, protocolOptions, managedServer, mode::fanoutGateway);
-        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
-    }
-
-    private FanoutHandler backupSystemFanoutHandler(Settings.BackupSettings backupSettings) {
-        if (!backupSettings.enabled()) {
-            return FanoutHandler.NOOP;
-        }
-
-        BackupOption option = BackupOption.fromConfig(
-                backupSettings.type(),
-                backupSettings.syncPolicy(),
-                backupSettings.recoveryPolicy()
-        );
-        DestinationBackupSystem backupSystem = backupSettings.path().isBlank()
-                ? new DestinationBackupSystem(option)
-                : new DestinationBackupSystem(Path.of(backupSettings.path()), option);
-        return new BackupFanoutHandler(backupSystem);
+        apply(new Settings(null, null, null), protocol, transport, protocolOptions, managedServer);
     }
 
     private static @Nullable ManagedServerFanoutAdapter findAdapter(
@@ -124,9 +95,9 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
         return null;
     }
 
-    private static FanoutMode resolveMode(final Map<String, String> protocolOptions) {
+    private static DispatchMode resolveMode(final Map<String, String> protocolOptions) {
         String raw = protocolOptions.getOrDefault(OPTION_FANOUT_MODE, "virtual");
         String normalized = raw.toLowerCase(Locale.ROOT).trim();
-        return FanoutMode.resolveMode(normalized);
+        return DispatchMode.resolveMode(normalized);
     }
 }

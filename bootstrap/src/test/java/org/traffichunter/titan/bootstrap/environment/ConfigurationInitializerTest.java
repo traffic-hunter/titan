@@ -42,8 +42,8 @@ class ConfigurationInitializerTest {
                 titan:
                   backup:
                     enabled: true
-                    type: all
-                    path: ./data/titan.aof
+                    type: aof
+                    path: ./data/backup
                     sync-policy: every
                     recovery-policy: fail-on-truncated-tail
                 """;
@@ -52,8 +52,8 @@ class ConfigurationInitializerTest {
                 .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
         assertThat(settings.backup().enabled()).isTrue();
-        assertThat(settings.backup().type()).isEqualTo("all");
-        assertThat(settings.backup().path()).isEqualTo("./data/titan.aof");
+        assertThat(settings.backup().type()).isEqualTo("aof");
+        assertThat(settings.backup().path()).isEqualTo("./data/backup");
         assertThat(settings.backup().syncPolicy()).isEqualTo("every");
         assertThat(settings.backup().recoveryPolicy()).isEqualTo("fail-on-truncated-tail");
     }

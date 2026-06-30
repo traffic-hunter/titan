@@ -24,30 +24,35 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.HandlerChain;
+import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
  * Starts the destination consumer after a message has been routed.
  *
+ * <p>The consumer task is started but not awaited, because publish
+ * acknowledgements should not wait for the long-lived consumer loop to finish.</p>
+ *
  * @author yun
  */
-final class DispatchFanoutHandler implements FanoutHandler {
+final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
-    private final Consumer<Destination> fanout;
+    private final Function<Destination, CompletableFuture<@Nullable Void>> fanout;
 
-    DispatchFanoutHandler(Consumer<Destination> fanout) {
+    FanoutDispatchChainHandler(Function<Destination, CompletableFuture<@Nullable Void>> fanout) {
         this.fanout = fanout;
     }
 
     @Override
-    public CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain) {
+    public CompletableFuture<Void> handle(DispatchContext context, HandlerChain<DispatchContext> chain) {
         Message routed = context.getRoutedMessage();
-        if (routed != null) {
-            fanout.accept(routed.getDestination());
+        if (routed == null) {
+            return chain.sparkChainHandler(context);
         }
-        return chain.next(context);
+        fanout.apply(routed.getDestination());
+        return chain.sparkChainHandler(context);
     }
 }

@@ -24,12 +24,10 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import lombok.Getter;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
-
-import java.util.Map;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 /**
- * Execution strategy used by a fanout gateway.
+ * Execution strategy used by a dispatch gateway.
  *
  * <p>The mode intentionally selects only the threading model. Routing,
  * destination ownership, and exporter behavior remain the same for every mode,
@@ -37,34 +35,34 @@ import java.util.Map;
  * fanout contract.</p>
  */
 @Getter
-public enum FanoutMode {
+public enum DispatchMode {
 
     PLATFORM_EXECUTOR("platform") {
         @Override
-        public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter) {
-            return FanoutGateway.ofThread(fanoutExporter);
+        public DispatchGateway dispatchGateway(DispatchExporter dispatchExporter) {
+            return DispatchGateway.ofThread(dispatchExporter);
         }
     },
     VT_EXECUTOR("virtual") {
         @Override
-        public FanoutGateway fanoutGateway(FanoutExporter fanoutExporter) {
-            return FanoutGateway.ofVirtual(fanoutExporter);
+        public DispatchGateway dispatchGateway(DispatchExporter dispatchExporter) {
+            return DispatchGateway.ofVirtual(dispatchExporter);
         }
     },
     ;
 
     private final String name;
 
-    FanoutMode(String name) {
+    DispatchMode(String name) {
         this.name = name;
     }
 
-    public abstract FanoutGateway fanoutGateway(FanoutExporter fanoutExporter);
+    public abstract DispatchGateway dispatchGateway(DispatchExporter dispatchExporter);
 
-    public static FanoutMode resolveMode(String modeName) {
+    public static DispatchMode resolveMode(String modeName) {
         return switch (modeName) {
-            case "platform" -> FanoutMode.PLATFORM_EXECUTOR;
-            case "virtual" -> FanoutMode.VT_EXECUTOR;
+            case "platform" -> DispatchMode.PLATFORM_EXECUTOR;
+            case "virtual" -> DispatchMode.VT_EXECUTOR;
             default -> throw new IllegalStateException("Unexpected value: " + modeName);
         };
     }

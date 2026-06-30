@@ -25,9 +25,9 @@ package org.traffichunter.titan.core;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
@@ -58,10 +58,23 @@ public class TitanApplication implements ApplicationStarter {
 
     private static final GlobalShutdownHook SHUTDOWN_HOOK = GlobalShutdownHook.INSTANCE;
 
+    private final AtomicReference<Status> lifeCycle = new AtomicReference<>(Status.INITIALIZING);
+
     static {
         if(!SHUTDOWN_HOOK.isEnabled()) {
             SHUTDOWN_HOOK.enableShutdownHook();
         }
+    }
+
+    enum Status {
+        INITIALIZING,
+        RESTORING,
+        RUNNING,
+        STOPPING,
+        STOPPED,
+        FAILED,
+        ;
+
     }
 
     @Override

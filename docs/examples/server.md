@@ -67,9 +67,9 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
-import org.traffichunter.titan.fanout.FanoutGateway;
+import org.traffichunter.titan.fanout.DispatchGateway;
 import org.traffichunter.titan.fanout.StompSendToFanoutHandler;
-import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
+import org.traffichunter.titan.fanout.exporter.StompDispatchExporter;
 
 public class EmbeddedStompServerExample {
 
@@ -83,19 +83,19 @@ public class EmbeddedStompServerExample {
                         .build()
         );
 
-        FanoutGateway fanoutGateway = FanoutGateway.ofVirtual(
-                new StompFanoutExporter(server.connection())
+        DispatchGateway dispatchGateway = DispatchGateway.ofVirtual(
+                new StompDispatchExporter(server.connection())
         );
 
         try {
             server
                     .onStomp(handler -> handler
-                            .sendHandler(new StompSendToFanoutHandler(fanoutGateway)))
+                            .sendHandler(new StompSendToFanoutHandler(dispatchGateway)))
                     .start()
                     .listen("0.0.0.0", 61613)
                     .get(30, TimeUnit.SECONDS);
         } catch (Exception e) {
-            fanoutGateway.close();
+            dispatchGateway.close();
             if (server.isStart()) {
                 server.shutdown(30, TimeUnit.SECONDS);
             }

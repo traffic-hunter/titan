@@ -28,8 +28,8 @@ import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.StompManagedServer;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueManagers;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
-import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
+import org.traffichunter.titan.fanout.exporter.StompDispatchExporter;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -61,24 +61,24 @@ public final class TitanStompManagedServerFanoutAdapter implements ManagedServer
             String transport,
             Map<String, String> protocolOptions,
             ManagedServer managedServer,
-            Function<FanoutExporter, FanoutGateway> gatewayFactory
+            Function<DispatchExporter, DispatchGateway> gatewayFactory
     ) {
         StompManagedServer stompManagedServer = (StompManagedServer) managedServer;
-        FanoutGateway fanoutGateway = gatewayFactory.apply(
-                new StompFanoutExporter(stompManagedServer.server().connection())
+        DispatchGateway dispatchGateway = gatewayFactory.apply(
+                new StompDispatchExporter(stompManagedServer.server().connection())
         );
         SHUTDOWN_HOOK.addShutdownCallback(() -> {
             try {
-                fanoutGateway.close();
+                dispatchGateway.close();
             } catch (Exception e) {
                 log.warn("Failed to close fanout gateway", e);
             }
         });
 
-        DispatcherQueueManagers.register(managedServer.name(), fanoutGateway);
+        DispatcherQueueManagers.register(managedServer.name(), dispatchGateway);
 
         stompManagedServer.server().onStomp(handler ->
-                handler.sendHandler(new StompSendToFanoutHandler(fanoutGateway))
+                handler.sendHandler(new StompSendToFanoutHandler(dispatchGateway))
         );
 
         log.info("Fanout adapter installed for server={}", managedServer.name());

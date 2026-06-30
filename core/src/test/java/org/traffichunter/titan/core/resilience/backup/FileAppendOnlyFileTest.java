@@ -30,9 +30,9 @@ class FileAppendOnlyFileTest {
 
     @Test
     void backup_option_can_be_created_from_config_values() {
-        BackupOption option = BackupOption.fromConfig("all", "no", "fail-on-truncated-tail");
+        BackupOption option = BackupOption.fromConfig("aof", "no", "fail-on-truncated-tail");
 
-        assertThat(option.type()).isEqualTo(BackupType.ALL);
+        assertThat(option.type()).isEqualTo(BackupType.AOF);
         assertThat(option.syncPolicy()).isEqualTo(AofSyncPolicy.NO);
         assertThat(option.recoveryPolicy()).isEqualTo(AofRecoveryPolicy.FAIL_ON_TRUNCATED_TAIL);
     }

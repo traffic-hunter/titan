@@ -58,7 +58,7 @@ import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 import org.traffichunter.titan.fanout.AggregationResult;
 
 @ExtendWith(MockitoExtension.class)
-class FanoutExporterTest {
+class DispatchExporterTest {
 
     @Mock
     private StompServerChannel serverConnection;
@@ -131,7 +131,7 @@ class FanoutExporterTest {
                 .connection(failedConn)
                 .build());
 
-        StompFanoutExporter exporter = new StompFanoutExporter(serverConnection);
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
         AggregationResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isEqualTo(2);
@@ -141,7 +141,7 @@ class FanoutExporterTest {
     }
 
     @Test
-    void vertxStompFanoutExporter_dispatches_message_frame_to_subscribers() {
+    void vertxStompDispatchExporter_dispatches_message_frame_to_subscribers() {
         Destination destination = Destination.create("/topic/orders");
         Buffer payload = Buffer.alloc("hello".getBytes());
 
@@ -150,7 +150,7 @@ class FanoutExporterTest {
         when(vertxServerHandler.getDestination(destination.path())).thenReturn(vertxDestination);
         when(vertxDestination.numberOfSubscriptions()).thenReturn(1);
 
-        VertxStompFanoutExporter exporter = new VertxStompFanoutExporter(vertxServer);
+        VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
         AggregationResult result = exporter.export(destination, payload);
 
         ArgumentCaptor<Frame> frameCaptor = ArgumentCaptor.forClass(Frame.class);
@@ -169,14 +169,14 @@ class FanoutExporterTest {
     }
 
     @Test
-    void vertxStompFanoutExporter_completes_without_dispatch_when_destination_is_missing() {
+    void vertxStompDispatchExporter_completes_without_dispatch_when_destination_is_missing() {
         Destination destination = Destination.create("/topic/missing");
 
         when(vertxServer.isListening()).thenReturn(true);
         when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
         when(vertxServerHandler.getDestination(destination.path())).thenReturn(null);
 
-        VertxStompFanoutExporter exporter = new VertxStompFanoutExporter(vertxServer);
+        VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
         AggregationResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isZero();
@@ -204,7 +204,7 @@ class FanoutExporterTest {
 
         when(inetServer.childChannel()).thenReturn(registry.getChannels());
 
-        TcpFanoutExporter exporter = new TcpFanoutExporter(inetServer);
+        TcpDispatchExporter exporter = new TcpDispatchExporter(inetServer);
         AggregationResult result = exporter.export(Destination.create("/topic/a"), Buffer.alloc("p".getBytes()));
 
         assertThat(result.isDone()).isTrue();

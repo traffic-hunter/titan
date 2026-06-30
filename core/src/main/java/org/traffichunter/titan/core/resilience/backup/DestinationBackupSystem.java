@@ -57,10 +57,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
         if (closed.get()) {
             throw new BackupException("Backup system is stopped");
         }
-        if (options.type().isRdb()) {
-            return;
-        }
-
         coordinator(metadata.destinationPath()).record(metadata);
     }
 
@@ -68,10 +64,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
         if (closed.get()) {
             return false;
         }
-        if (options.type().isRdb()) {
-            return true;
-        }
-
         return coordinator(destination).inspect();
     }
 
@@ -79,10 +71,6 @@ public final class DestinationBackupSystem implements AutoCloseable {
         if (closed.get()) {
             return false;
         }
-        if (options.type().isRdb()) {
-            return true;
-        }
-
         return coordinator(destination).restore(handler);
     }
 
@@ -116,7 +104,7 @@ public final class DestinationBackupSystem implements AutoCloseable {
     }
 
     private BackupCoordinator newAofCoordinator(String destination) {
-        Path path = FileHandler.resolveDestinationFile(backupDirectory, destination);
+        Path path = FileHandler.resolveDestinationFile(backupDirectory, destination, true);
         return new AofBackupCoordinator(path, options);
     }
 }

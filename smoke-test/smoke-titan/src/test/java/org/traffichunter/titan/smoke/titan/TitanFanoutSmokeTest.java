@@ -43,9 +43,9 @@ import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.FanoutGateway;
+import org.traffichunter.titan.fanout.DispatchGateway;
 import org.traffichunter.titan.fanout.StompSendToFanoutHandler;
-import org.traffichunter.titan.fanout.exporter.StompFanoutExporter;
+import org.traffichunter.titan.fanout.exporter.StompDispatchExporter;
 
 class TitanFanoutSmokeTest {
 
@@ -63,8 +63,8 @@ class TitanFanoutSmokeTest {
 
         EventLoopGroups serverGroups = EventLoopGroups.group(1, 2);
         StompServer server = StompServer.open(serverGroups, stompServerOption());
-        FanoutGateway fanoutGateway = FanoutGateway.ofVirtual(new StompFanoutExporter(server.connection()));
-        server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(fanoutGateway)));
+        DispatchGateway dispatchGateway = DispatchGateway.ofVirtual(new StompDispatchExporter(server.connection()));
+        server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(dispatchGateway)));
 
         EventLoopGroups producerGroups = EventLoopGroups.group(1, 2);
         EventLoopGroups firstConsumerGroups = EventLoopGroups.group(1, 2);
@@ -114,7 +114,7 @@ class TitanFanoutSmokeTest {
             shutdown(secondConsumer);
             shutdown(firstConsumer);
             shutdown(producer);
-            fanoutGateway.close();
+            dispatchGateway.close();
             if (server.isStart()) {
                 server.shutdown(10, TimeUnit.SECONDS);
             }

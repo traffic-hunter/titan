@@ -25,14 +25,14 @@ package org.traffichunter.titan.fanout;
 
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.util.concurrent.Damper;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * Fanout gateway backed by one virtual thread per submitted task.
+ * Dispatch gateway backed by one virtual thread per submitted task.
  *
  * <p>Destination consumers are naturally long-lived and often block while
  * waiting for dispatcher queues. Virtual threads make that blocking cheap, while
@@ -41,16 +41,16 @@ import java.util.concurrent.ThreadFactory;
  *
  * @author yun
  */
-class VirtualThreadExecutorFanoutGateway extends AbstractExecutorFanoutGateway {
+class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
 
     private static final int DEFAULT_CONCURRENCY_LIMIT = 100;
 
-    public VirtualThreadExecutorFanoutGateway(FanoutExporter exporter) {
+    public VirtualThreadExecutorDispatchGateway(DispatchExporter exporter) {
         this(exporter, Dispatcher.getDefault());
     }
 
-    public VirtualThreadExecutorFanoutGateway(
-            FanoutExporter exporter,
+    public VirtualThreadExecutorDispatchGateway(
+            DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
         super(

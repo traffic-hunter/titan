@@ -12,6 +12,18 @@ public record DispatcherQueueDeleteResult(
         int size
 ) {
 
+    public static DispatcherQueueDeleteResult deleted(int size) {
+        return new DispatcherQueueDeleteResult(Status.DELETED, size);
+    }
+
+    public static DispatcherQueueDeleteResult notFound() {
+        return new DispatcherQueueDeleteResult(Status.NOT_FOUND, 0);
+    }
+
+    public static DispatcherQueueDeleteResult notEmpty(int size) {
+        return new DispatcherQueueDeleteResult(Status.NOT_EMPTY, size);
+    }
+
     /**
      * Deletion status values used by management APIs to map domain outcomes to
      * transport-specific responses.

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
@@ -11,14 +12,14 @@ import org.traffichunter.titan.core.message.dispatcher.DispatcherQueueDeleteResu
 import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.exporter.FanoutExporter;
+import org.traffichunter.titan.fanout.exporter.DispatchExporter;
 
-class FanoutGatewayQueueManagementTest {
+class DispatchGatewayQueueManagementTest {
 
     @Test
     void delete_queue_rejects_non_empty_queue_without_force() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorFanoutGateway gateway = new ThreadPoolExecutorFanoutGateway(
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -36,7 +37,7 @@ class FanoutGatewayQueueManagementTest {
     @Test
     void delete_queue_with_force_removes_queue_and_allows_auto_create_later() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorFanoutGateway gateway = new ThreadPoolExecutorFanoutGateway(
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -57,8 +58,28 @@ class FanoutGatewayQueueManagementTest {
         gateway.close();
     }
 
-    private static FanoutExporter noopExporter() {
-        return new FanoutExporter() {
+    @Test
+    void publish_runs_custom_handler_between_route_and_fanout() throws Exception {
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+                noopExporter(),
+                dispatcher
+        );
+        AtomicInteger customHandlerCalls = new AtomicInteger();
+        gateway.chainHandler(chain -> chain.add((context, next) -> {
+            customHandlerCalls.incrementAndGet();
+            return next.sparkChainHandler(context);
+        }));
+
+        gateway.publish(message(Destination.create("/queue/publish-fanout-chain"))).get();
+
+        assertThat(customHandlerCalls).hasValue(1);
+
+        gateway.close();
+    }
+
+    private static DispatchExporter noopExporter() {
+        return new DispatchExporter() {
             @Override
             public String name() {
                 return "noop";

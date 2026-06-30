@@ -11,22 +11,22 @@
  * StompSendToFanoutHandler
  *        |
  *        v
- * FanoutGateway.publish(message)
+ * DispatchGateway.publish(message)
  *        |
  *        v
  * DispatcherQueue per Destination
  *        |
  *        v
- * FanoutGateway consumer task
+ * DispatchGateway consumer task
  *        |
  *        v
- * FanoutExporter (STOMP, TCP, ...)
+ * DispatchExporter (STOMP, TCP, ...)
  *        |
  *        v
  * subscribed clients
  * }</pre>
  *
- * <p>{@link org.traffichunter.titan.fanout.FanoutGateway} owns the asynchronous
+ * <p>{@link org.traffichunter.titan.fanout.DispatchGateway} owns the asynchronous
  * queue consumers, while exporter implementations own protocol-specific delivery.
  * This keeps message routing independent from the protocol used to write the
  * payload to connected clients.</p>

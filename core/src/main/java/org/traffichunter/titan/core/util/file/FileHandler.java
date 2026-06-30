@@ -36,6 +36,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
+
+import org.traffichunter.titan.core.codec.base64.Base64Codec;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
@@ -52,11 +54,23 @@ public final class FileHandler {
     private static final String AOF_SUFFIX = ".aof";
 
     public static Path resolveDestinationFile(String destination) {
-        return resolveDestinationFile(Path.of("."), destination);
+        return resolveDestinationFile(destination, false);
+    }
+
+    public static Path resolveDestinationFile(String destination, boolean encoded) {
+        return resolveDestinationFile(Path.of("."), destination, encoded);
     }
 
     public static Path resolveDestinationFile(Path directory, String destination) {
+        return resolveDestinationFile(directory, destination, false);
+    }
+
+    public static Path resolveDestinationFile(Path directory, String destination, boolean encoded) {
         String destinationPathName = destination.replace('/', '_').trim();
+        if (encoded) {
+            destinationPathName = Base64Codec.encodeToStringUtf8(destinationPathName.getBytes());
+        }
+
         return directory.resolve(SIGNATURE + destinationPathName + AOF_SUFFIX);
     }
 

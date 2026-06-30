@@ -38,7 +38,7 @@ import org.traffichunter.titan.fanout.AggregationResult;
  * consumers for the destination and return a {@link AggregationResult} that
  * reports how many writes were attempted and completed.</p>
  */
-public interface FanoutExporter {
+public interface DispatchExporter {
 
     String name();
 

@@ -24,16 +24,16 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.util.concurrent.CompletableFuture;
-import org.traffichunter.titan.core.util.HandlerChain;
+import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
  * Handles one step in the fanout publish lifecycle.
  *
  * @author yun
  */
-public interface FanoutHandler {
+public interface DispatchChainHandler {
 
-    FanoutHandler NOOP = (context, chain) -> chain.next(context);
+    DispatchChainHandler NOOP = (context, chain) -> chain.sparkChainHandler(context);
 
-    CompletableFuture<Void> handle(FanoutContext context, HandlerChain<FanoutContext> chain);
+    CompletableFuture<Void> handle(DispatchContext context, HandlerChain<DispatchContext> chain);
 }

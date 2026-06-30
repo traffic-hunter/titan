@@ -68,6 +68,14 @@ public final class Base64Codec {
         return BASE64_ENCODER.encode(src).array();
     }
 
+    public static String encodeToStringUtf8(final byte[] src) {
+        return new String(encode(src), StandardCharsets.UTF_8);
+    }
+
+    public static String decodeToStringUtf8(final byte[] src) {
+        return new String(decode(src), StandardCharsets.UTF_8);
+    }
+
     /**
      * Decodes Base64 bytes.
      */
