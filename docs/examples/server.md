@@ -18,10 +18,10 @@ repositories {
 ```
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-bootstrap:0.7.2")
-implementation("org.traffichunter.titan:titan-core:0.7.2")
-implementation("org.traffichunter.titan:titan-stomp:0.7.2")
-implementation("org.traffichunter.titan:titan-fanout:0.7.2")
+implementation("org.traffichunter.titan:titan-bootstrap:0.7.3")
+implementation("org.traffichunter.titan:titan-core:0.7.3")
+implementation("org.traffichunter.titan:titan-stomp:0.7.3")
+implementation("org.traffichunter.titan:titan-fanout:0.7.3")
 ```
 
 ### `titan-env.yml`
