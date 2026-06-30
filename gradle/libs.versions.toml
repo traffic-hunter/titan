@@ -14,7 +14,7 @@ awaitility = "4.3.0"
 snakeyaml = "2.6"
 jetbrains-annotations = "26.1.0"
 spring = "6.1.14"
-spring-boot = "3.3.5"
+spring-boot = "4.1.0"
 
 [libraries]
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
