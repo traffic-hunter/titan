@@ -13,6 +13,7 @@
             <option value="$PROJECT_DIR$/bootstrap" />
             <option value="$PROJECT_DIR$/core" />
             <option value="$PROJECT_DIR$/fanout" />
+            <option value="$PROJECT_DIR$/incubator" />
             <option value="$PROJECT_DIR$/monitor" />
             <option value="$PROJECT_DIR$/smoke-test" />
             <option value="$PROJECT_DIR$/smoke-test/smoke-spring" />
