@@ -12,7 +12,7 @@ class IdGeneratorTest {
 
     @Test
     void generate_random_id_test() {
-        String randomId = IdGenerator.randomId(null);
+        String randomId = IdGenerator.randomId16(null);
 
         assertThat(randomId).isNotNull();
         assertThat(randomId).startsWith("titan-");
@@ -21,7 +21,7 @@ class IdGeneratorTest {
 
     @Test
     void generate_random_id_prefix_test() {
-        String randomId = IdGenerator.randomId("qwer");
+        String randomId = IdGenerator.randomId16("qwer");
 
         assertThat(randomId).isNotNull();
         assertThat(randomId).startsWith("qwer-");

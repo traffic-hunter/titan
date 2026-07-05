@@ -139,8 +139,13 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public void writeAndFlush(Buffer buffer) {
-        chain().processChannelWrite(this, buffer);
-        flush();
+        try {
+            chain().processChannelWrite(this, buffer);
+            flush();
+        } catch (RuntimeException e) {
+            close();
+            throw e;
+        }
     }
 
     @Override
@@ -281,12 +286,8 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public void close() {
+        channelWriteBuffer.close();
         super.close();
-        if(isClosed()) {
-            channelWriteBuffer.close();
-        } else {
-            throw new ChannelException("Channel is not closed");
-        }
     }
 
     private void onWriteabilityChanged(boolean isWritable) {

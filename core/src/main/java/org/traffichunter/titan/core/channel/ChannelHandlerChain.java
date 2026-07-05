@@ -23,9 +23,11 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
  * Owns the inbound and outbound handler pipelines for a channel.
@@ -83,6 +85,31 @@ public class ChannelHandlerChain {
         outHead = outTail = new ChannelOutBoundHandlerChainImpl(new ChannelOutBoundHandlerHead());
     }
 
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addFirst(ChannelInBoundHandler handler) {
+        ChannelInBoundHandlerChainImpl context = new ChannelInBoundHandlerChainImpl(handler);
+        context.next = inHead.next;
+        inHead.next = context;
+        if (inTail == inHead) {
+            inTail = context;
+        }
+
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addFirst(ChannelOutBoundHandler handler) {
+        ChannelOutBoundHandlerChainImpl context = new ChannelOutBoundHandlerChainImpl(handler);
+        context.next = outHead.next;
+        outHead.next = context;
+        if (outTail == outHead) {
+            outTail = context;
+        }
+
+        return this;
+    }
+
+    @CanIgnoreReturnValue
     public ChannelHandlerChain add(ChannelInBoundHandler handler) {
         ChannelInBoundHandlerChainImpl context = new ChannelInBoundHandlerChainImpl(handler);
         inTail.next = context;
@@ -91,12 +118,55 @@ public class ChannelHandlerChain {
         return this;
     }
 
+    @CanIgnoreReturnValue
     public ChannelHandlerChain add(ChannelOutBoundHandler handler) {
         ChannelOutBoundHandlerChainImpl context = new ChannelOutBoundHandlerChainImpl(handler);
         outTail.next = context;
         outTail = context;
 
         return this;
+    }
+
+    public boolean remove(ChannelInBoundHandler handler) {
+        ChannelInBoundHandlerChainImpl previous = inHead;
+        ChannelInBoundHandlerChainImpl current = inHead.next;
+
+        while (current != null) {
+            if (current.handler == handler) {
+                previous.next = current.next;
+                if (inTail == current) {
+                    inTail = previous;
+                }
+                current.next = null;
+                return true;
+            }
+
+            previous = current;
+            current = current.next;
+        }
+
+        return false;
+    }
+
+    public boolean remove(ChannelOutBoundHandler handler) {
+        ChannelOutBoundHandlerChainImpl previous = outHead;
+        ChannelOutBoundHandlerChainImpl current = outHead.next;
+
+        while (current != null) {
+            if (current.handler == handler) {
+                previous.next = current.next;
+                if (outTail == current) {
+                    outTail = previous;
+                }
+                current.next = null;
+                return true;
+            }
+
+            previous = current;
+            current = current.next;
+        }
+
+        return false;
     }
 
     void processChannelConnecting(NetChannel channel) {
@@ -121,6 +191,7 @@ public class ChannelHandlerChain {
             outHead.sparkChannelWrite(channel, buffer);
         } catch (Exception e) {
             log.error("Failed to process write", e);
+            buffer.release();
             channel.close();
         }
     }

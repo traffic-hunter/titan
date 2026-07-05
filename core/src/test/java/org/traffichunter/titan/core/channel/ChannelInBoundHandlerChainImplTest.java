@@ -5,6 +5,9 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 
@@ -57,6 +60,38 @@ class ChannelInBoundHandlerChainImplTest {
         buf.release();
     }
 
+    @Test
+    void addFirst_places_inbound_handler_before_existing_handlers() {
+        Buffer buf = Buffer.alloc("data");
+        List<String> order = new ArrayList<>();
+        ChannelHandlerChain chain = new ChannelHandlerChain();
+        chain.add(new RecordingInboundHandler("second", order));
+        chain.addFirst(new RecordingInboundHandler("first", order));
+
+        chain.processChannelRead(new InMemoryNetChannel(), buf);
+
+        assertThat(order).containsExactly("first", "second");
+    }
+
+    @Test
+    void addFirst_places_outbound_handler_before_existing_handlers() {
+        Buffer buf = Buffer.alloc("data");
+        List<String> order = new ArrayList<>();
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        ChannelHandlerChain chain = channel.chain();
+        chain.add(new RecordingOutboundHandler("second", order));
+        chain.addFirst(new RecordingOutboundHandler("first", order));
+
+        chain.processChannelWrite(channel, buf);
+        channel.flush();
+
+        assertThat(order).containsExactly("first", "second");
+        Buffer written = channel.pollWritten();
+        assertThat(written).isNotNull();
+        written.release();
+        buf.release();
+    }
+
     private static class PassThroughHandler implements ChannelInBoundHandler {
         @Override
         public void sparkChannelRead(@NonNull NetChannel channel,
@@ -73,6 +108,32 @@ class ChannelInBoundHandlerChainImplTest {
                                      @NonNull ChannelInBoundHandlerChain chain) {
             buffer.retain();
             chain.sparkChannelRead(channel, buffer);
+        }
+    }
+
+    private record RecordingInboundHandler(
+            String name,
+            List<String> order
+    ) implements ChannelInBoundHandler {
+
+        @Override
+        public void sparkChannelRead(@NonNull NetChannel channel,
+                                     @NonNull Buffer buffer,
+                                     @NonNull ChannelInBoundHandlerChain chain) {
+            order.add(name);
+            chain.sparkChannelRead(channel, buffer);
+        }
+    }
+
+    private record RecordingOutboundHandler(
+            String name,
+            List<String> order
+    ) implements ChannelOutBoundHandler {
+
+        @Override
+        public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
+            order.add(name);
+            chain.sparkChannelWrite(channel, buffer);
         }
     }
 }

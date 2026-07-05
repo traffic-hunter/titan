@@ -41,15 +41,18 @@ public final class IdGenerator {
         return UUID.randomUUID().toString();
     }
 
-    public static String randomId(@Nullable String prefix) {
-        if (prefix == null) {
-            prefix = "titan";
-        }
-
+    public static String randomId16(@Nullable String prefix) {
         byte[] bytes = new byte[RANDOM_ID_BYTES];
         SECURE_RANDOM.nextBytes(bytes);
 
-        return prefix + "-" + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        if (prefix == null) {
+            return Base64.getEncoder().encodeToString(bytes);
+        }
+
+        if (prefix.isBlank()) {
+            prefix = "titan";
+        }
+        return prefix + "-" + Base64.getEncoder().encodeToString(bytes);
     }
 
     public static String name() {
