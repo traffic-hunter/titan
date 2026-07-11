@@ -35,24 +35,35 @@ import org.traffichunter.titan.bootstrap.Configurations;
 public final class IdGenerator {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final int RANDOM_ID_BYTES = 16;
+    private static final char[] ALPHANUMERIC =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
+    private static final int RANDOM_ID_LENGTH = 16;
 
     public static String uuid() {
         return UUID.randomUUID().toString();
     }
 
     public static String randomId16(@Nullable String prefix) {
-        byte[] bytes = new byte[RANDOM_ID_BYTES];
-        SECURE_RANDOM.nextBytes(bytes);
+        char[] randomId = new char[RANDOM_ID_LENGTH];
+        for (int i = 0; i < randomId.length; i++) {
+            randomId[i] = ALPHANUMERIC[SECURE_RANDOM.nextInt(ALPHANUMERIC.length)];
+        }
+        String value = new String(randomId);
 
         if (prefix == null) {
-            return Base64.getEncoder().encodeToString(bytes);
+            return value;
         }
 
         if (prefix.isBlank()) {
             prefix = "titan";
         }
-        return prefix + "-" + Base64.getEncoder().encodeToString(bytes);
+        return prefix + "-" + value;
+    }
+
+    public static String randomBase64Id16() {
+        byte[] bytes = new byte[RANDOM_ID_LENGTH];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     public static String name() {

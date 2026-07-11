@@ -136,7 +136,7 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
     }
 
     private static String generateKey() {
-        return IdGenerator.randomId16(null);
+        return IdGenerator.randomBase64Id16();
     }
 
     static final class WebSocketUpgradeHandler extends AbstractWebSocketHandshaker.HttpUpgradeHandler {
