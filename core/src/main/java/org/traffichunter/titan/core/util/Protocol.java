@@ -30,15 +30,27 @@ import lombok.Getter;
  */
 @Getter
 public enum Protocol {
-    STOMP("stomp", "1.2"),
-    MQTT("mqtt", "5.0"),
+    STOMP("stomp", "1.2", "v12.stomp"),
+    MQTT("mqtt", "5.0", "v50.mqtt"),
     ;
 
     private final String name;
     private final String version;
+    private final String subProtocol;
 
-    Protocol(final String name, final String version) {
+    Protocol(final String name, final String version, final String subProtocol) {
         this.name = name;
         this.version = version;
+        this.subProtocol = subProtocol;
+    }
+
+    public static Protocol subProtocol(String subProtocol) {
+        for (Protocol protocol : values()) {
+            if (protocol.subProtocol.equals(subProtocol)) {
+                return protocol;
+            }
+        }
+
+        throw new IllegalArgumentException("Unknown sub protocol: " + subProtocol);
     }
 }

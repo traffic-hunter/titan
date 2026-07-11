@@ -44,7 +44,12 @@ public final class ChannelOutBoundHandlerChainImpl implements ChannelOutBoundHan
     public void sparkChannelWrite(NetChannel channel, Buffer buffer) {
         ChannelOutBoundHandlerChainImpl chain = next;
         if(chain == null) {
-            channel.write(buffer);
+            try {
+                channel.write(buffer);
+            } catch (RuntimeException e) {
+                buffer.release();
+                throw e;
+            }
             return;
         }
 

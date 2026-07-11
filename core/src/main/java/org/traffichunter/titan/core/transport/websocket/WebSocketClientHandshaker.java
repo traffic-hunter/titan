@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.transport.HttpRequest;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -156,7 +157,7 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
         @Override
         protected void handleHead(NetChannel channel, String head) {
             handshaker.validateResponse(head, key);
-            installWebSocketCodec(channel);
+            installWebSocketCodec(channel, WebSocketSide.CLIENT, handshaker.subProtocol());
         }
 
         @Override

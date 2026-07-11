@@ -191,7 +191,6 @@ public class ChannelHandlerChain {
             outHead.sparkChannelWrite(channel, buffer);
         } catch (Exception e) {
             log.error("Failed to process write", e);
-            buffer.release();
             channel.close();
         }
     }

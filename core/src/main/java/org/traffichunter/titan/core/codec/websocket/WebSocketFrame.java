@@ -23,26 +23,77 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec.websocket;
 
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+
+import static org.traffichunter.titan.core.codec.websocket.WebSocketFrameHeader.*;
 
 /**
  * @author yun
  */
-public class WebSocketFrame {
-
-    private final WebSocketFrameHeader header;
-    private final Buffer payload;
+public record WebSocketFrame(
+        WebSocketFrameHeader header,
+        Buffer payload,
+        Protocol subProtocol
+) {
 
     public WebSocketFrame(WebSocketFrameHeader header, Buffer payload) {
-        this.header = header;
-        this.payload = payload;
+        this(header, payload, Protocol.STOMP);
     }
 
-    public WebSocketFrameHeader header() {
-        return header;
+    public WebSocketFrame(WebSocketFrameHeader header, Buffer payload, String subProtocol) {
+        this(header, payload, Protocol.subProtocol(subProtocol));
     }
 
-    public Buffer payload() {
-        return payload;
+    /**
+     * Encodes this frame into the RFC 6455 wire representation.
+     *
+     * <p>The returned buffer owns independent storage. This method does not consume or release
+     * the frame payload.</p>
+     */
+    public Buffer toBuffer() {
+        long payloadLength = header.getPayloadLength();
+        if (payloadLength != payload.length()) {
+            throw new WebSocketFrameException(
+                    "Frame payload length mismatch: header=" + payloadLength + ", actual=" + payload.length());
+        }
+
+        Buffer frame = Buffer.alloc(Math.addExact(header.size(), payload.length()));
+        try {
+            int firstByte = (header.isFin() ? 0x80 : 0) | header.getOpCode().code();
+            int maskBit = header.isMasked() ? 0x80 : 0;
+            frame.accumulateByte((byte) firstByte);
+
+            if (payloadLength <= 125) {
+                frame.accumulateByte((byte) (maskBit | (int) payloadLength));
+            } else if (payloadLength <= 0xFFFF) {
+                frame.accumulateByte((byte) (maskBit | 126));
+                frame.accumulateUnsignedShort((int) payloadLength);
+            } else {
+                frame.accumulateByte((byte) (maskBit | 127));
+                frame.accumulateLong(payloadLength);
+            }
+
+            byte[] payloadBytes = payload.getBytes();
+            if (header.isMasked()) {
+                frame.accumulateInt(header.getMaskingKey());
+                payloadBytes = WebSocketFrameHeader.unmask(payloadBytes, header.getMaskingKey());
+            }
+            frame.accumulateBytes(payloadBytes);
+            return frame;
+        } catch (Exception e) {
+            frame.release();
+            throw new WebSocketFrameException("WebSocket frame encoding failed: " + e.getMessage());
+        }
     }
+
+    static boolean isControlFrame(OpCode opcode) {
+        return opcode == OpCode.CLOSE || opcode == OpCode.PING || opcode == OpCode.PONG;
+    }
+
+    static boolean isDataFrame(OpCode opcode) {
+        return opcode == OpCode.TEXT || opcode == OpCode.BINARY;
+    }
+
 }

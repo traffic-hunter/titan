@@ -30,6 +30,7 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameDecoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameEncoder;
+import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -107,10 +108,14 @@ abstract class AbstractWebSocketHandshaker {
         protected void onSuccess(NetChannel channel) {
         }
 
-        protected final void installWebSocketCodec(NetChannel channel) {
+        protected final void installWebSocketCodec(
+                NetChannel channel,
+                WebSocketSide side,
+                String subProtocol
+        ) {
             channel.chain()
-                    .add(new WebSocketFrameEncoder())
-                    .add(new WebSocketFrameDecoder());
+                    .add(new WebSocketFrameEncoder(side, subProtocol))
+                    .add(new WebSocketFrameDecoder(subProtocol));
         }
 
         private static int findEndOfHead(Buffer buffer) {

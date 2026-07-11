@@ -24,14 +24,19 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.codec.websocket;
 
 import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+
+import java.security.SecureRandom;
 
 /**
  * Refer to <a href="https://datatracker.ietf.org/doc/html/rfc6455#section-5.2">RFC 6455</a>
  * <p>
  * WebSocket frame header metadata.
- *
- * <p>Titan does not currently support WebSocket extensions, so RSV1, RSV2, and RSV3 are expected
- * to be {@code 0} when a frame is decoded.</p>
+ *</p>
+ * <p>
+ * Titan does not currently support WebSocket extensions, so RSV1, RSV2, and RSV3 are expected
+ * to be {@code 0} when a frame is decoded.
+ * </p>
  *
  * <pre>
  *  0                   1                   2                   3
@@ -58,7 +63,10 @@ import org.traffichunter.titan.core.util.Assert;
  */
 public class WebSocketFrameHeader {
 
+    public static final int MIN_FRAME_HEADER_LENGTH = 2;
     public static final int MAX_FRAME_HEADER_LENGTH = 14;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final byte firstByte;
     private final boolean masked;
@@ -74,6 +82,42 @@ public class WebSocketFrameHeader {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public static int generateMaskingKey() {
+        return SECURE_RANDOM.nextInt();
+    }
+
+    static Buffer unmask(Buffer payload, int maskingKey) {
+        try {
+            return Buffer.alloc(unmask(payload.getBytes(), maskingKey));
+        } finally {
+            payload.release();
+        }
+    }
+
+    static byte[] unmask(byte[] payload, int maskingKey) {
+        byte[] masked = new byte[payload.length];
+        for (int i = 0; i < payload.length; i++) {
+            masked[i] = (byte) (payload[i] ^ maskByte(maskingKey, i));
+        }
+        return masked;
+    }
+
+    Buffer mask(Buffer payload) {
+        try {
+            return Buffer.alloc(mask(payload.getBytes()));
+        } finally {
+            payload.release();
+        }
+    }
+
+    byte[] mask(byte[] payload) {
+        byte[] masked = new byte[payload.length];
+        for (int i = 0; i < payload.length; i++) {
+            masked[i] = (byte) (payload[i] ^ maskByte(maskingKey, i));
+        }
+        return masked;
     }
 
     public enum OpCode {
@@ -110,6 +154,10 @@ public class WebSocketFrameHeader {
         return payloadLength == 0;
     }
 
+    public long getPayloadLength() {
+        return payloadLength;
+    }
+
     public int getMaskingKey() {
         return maskingKey;
     }
@@ -139,6 +187,11 @@ public class WebSocketFrameHeader {
         return size;
     }
 
+    private static byte maskByte(int maskingKey, int index) {
+        int shift = 24 - ((index % 4) * 8);
+        return (byte) ((maskingKey >> shift) & 0xFF);
+    }
+
     public static class Builder {
 
         private byte firstByte;
@@ -154,11 +207,6 @@ public class WebSocketFrameHeader {
         public Builder masked(int maskingKey) {
             this.masked = true;
             this.maskingKey = maskingKey;
-            return this;
-        }
-
-        public Builder unMasked() {
-            this.masked = false;
             return this;
         }
 
