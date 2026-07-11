@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.transport;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
@@ -45,7 +44,6 @@ import org.traffichunter.titan.core.util.channel.ChannelRegistry;
  *
  * @author yun
  */
-@Slf4j
 public abstract class AbstractTransport<C extends Channel> {
 
     private final EventLoopGroups eventLoopGroups;

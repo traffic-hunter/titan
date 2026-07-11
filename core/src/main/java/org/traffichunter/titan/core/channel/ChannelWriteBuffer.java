@@ -72,6 +72,7 @@ public final class ChannelWriteBuffer {
 
     public void add(Buffer buffer) {
         if(!buffer.hasRemaining()) {
+            buffer.release();
             return;
         }
 

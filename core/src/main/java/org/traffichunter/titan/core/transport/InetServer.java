@@ -38,6 +38,7 @@ import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
+import org.traffichunter.titan.core.transport.websocket.WebSocketServerHandshaker;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
@@ -101,6 +102,12 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         return this;
     }
 
+    @CanIgnoreReturnValue
+    public InetServer upgradeWebsocket() {
+        this.acceptor.setUpgradeWebsocket();
+        return this;
+    }
+
     /**
      * Registers a callback invoked for accepted child channels.
      *
@@ -150,28 +157,6 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         ChannelPromise resultPromise = ChannelPromise.newPromise(channel);
         listen(address, resultPromise);
         return resultPromise;
-    }
-
-    private void listen(InetSocketAddress address, ChannelPromise resultPromise) {
-        bind(address).addListener(future -> {
-            if (!future.isSuccess()) {
-                state.compareAndSet(State.LISTENING, State.STARTED);
-                resultPromise.fail(future.error());
-                return;
-            }
-
-            ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
-            eventLoop.register(() -> {
-                try {
-                    eventLoop.ioSelector().registerAccept(channel);
-                    log.info("InetServer listen ready. session={}, address={}", channel.session(), address);
-                    resultPromise.success();
-                } catch (IOException e) {
-                    state.compareAndSet(State.LISTENING, State.STARTED);
-                    resultPromise.fail(new ServerException("Failed to register accept event", e));
-                }
-            });
-        });
     }
 
     @Override
@@ -243,6 +228,28 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         }
     }
 
+    private void listen(InetSocketAddress address, ChannelPromise resultPromise) {
+        bind(address).addListener(future -> {
+            if (!future.isSuccess()) {
+                state.compareAndSet(State.LISTENING, State.STARTED);
+                resultPromise.fail(future.error());
+                return;
+            }
+
+            ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
+            eventLoop.register(() -> {
+                try {
+                    eventLoop.ioSelector().registerAccept(channel);
+                    log.info("InetServer listen ready. session={}, address={}", channel.session(), address);
+                    resultPromise.success();
+                } catch (IOException e) {
+                    state.compareAndSet(State.LISTENING, State.STARTED);
+                    resultPromise.fail(new ServerException("Failed to register accept event", e));
+                }
+            });
+        });
+    }
+
     private Promise<Void> bind(InetSocketAddress address) {
         return groups().primaryGroup().submit(() -> {
             try {
@@ -267,6 +274,8 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
 
         private volatile InetClientOption childOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
         private volatile Handler<Channel> childHandler = ch -> {};
+        private volatile boolean upgradeWebsocket;
+        private final WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
 
         ServerChannelAcceptor(
                 ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
@@ -282,6 +291,10 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
 
         void setChildHandler(Handler<Channel> childHandler) {
             this.childHandler = childHandler;
+        }
+
+        void setUpgradeWebsocket() {
+            this.upgradeWebsocket = true;
         }
 
         @SuppressWarnings("unchecked")
@@ -304,6 +317,15 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     loop.ioSelector().registerRead(netChannel);
                     loop.register(netChannel);
                     channelRegistry.addChannel(netChannel);
+                    if (upgradeWebsocket) {
+                        webSocketHandshaker.handshake(netChannel).addListener(result -> {
+                            if (result.isSuccess()) {
+                                childHandler.handle(netChannel);
+                            }
+                        });
+                        return;
+                    }
+
                     childHandler.handle(netChannel);
                 } catch (IOException e) {
                     throw new ServerException("Failed to init child channel", e);

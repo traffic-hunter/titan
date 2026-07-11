@@ -58,8 +58,8 @@ public abstract class AbstractChannel implements Channel {
     private final ChannelHandShakeEventListener initializer;
     private final ChannelHandlerChain chain;
     private volatile Instant lastActiveAt = Instant.now();
-    private final String channelId = IdGenerator.randomId("channel");
-    private final String sessionId = IdGenerator.randomId("session");
+    private final String channelId = IdGenerator.randomId16("channel");
+    private final String sessionId = IdGenerator.randomId16("session");
 
     private static final AtomicReferenceFieldUpdater<AbstractChannel, ChannelState> STATE_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(AbstractChannel.class, ChannelState.class, "state");

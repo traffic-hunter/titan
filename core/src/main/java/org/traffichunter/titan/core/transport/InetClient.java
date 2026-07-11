@@ -25,8 +25,6 @@ package org.traffichunter.titan.core.transport;
 
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -42,10 +40,10 @@ import org.traffichunter.titan.core.channel.NewIONetChannel;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
+import org.traffichunter.titan.core.transport.websocket.WebSocketClientHandshaker;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelRegistry;
 
 /**
  * TCP client transport that can own multiple outbound channels.
@@ -61,6 +59,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
     private final InetClientOption option;
+    private boolean upgradeWebsocket = false;
 
     private Handler<Channel> channelHandler = channel -> {};
 
@@ -91,6 +90,12 @@ public class InetClient extends AbstractTransport<NetChannel> {
     @CanIgnoreReturnValue
     public InetClient onChannel(Handler<Channel> channelHandler) {
         this.channelHandler = channelHandler;
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public InetClient upgradeWebsocket() {
+        this.upgradeWebsocket = true;
         return this;
     }
 
@@ -177,6 +182,12 @@ public class InetClient extends AbstractTransport<NetChannel> {
                 }
             });
         });
+
+        if (upgradeWebsocket) {
+            return connectResult.thenCompose(netChannel ->
+                    new WebSocketClientHandshaker(remoteAddress.getHostString()).handshake(netChannel)
+            );
+        }
 
         return connectResult;
     }

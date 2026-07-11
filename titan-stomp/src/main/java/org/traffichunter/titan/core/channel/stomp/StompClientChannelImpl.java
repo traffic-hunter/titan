@@ -48,7 +48,6 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import static org.traffichunter.titan.core.codec.stomp.StompFrame.AckMode;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.create;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 
@@ -58,7 +57,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 @Slf4j
 public class StompClientChannelImpl implements StompClientChannel {
 
-    private final String sessionId = IdGenerator.randomId("session");
+    private final String sessionId = IdGenerator.randomId16("session");
     private final NetChannel netChannel;
     private final StompClientHandler stompClientHandler;
     private final StompClientOption option;
