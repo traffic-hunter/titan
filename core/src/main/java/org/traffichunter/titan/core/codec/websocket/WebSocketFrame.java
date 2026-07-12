@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec.websocket;
 
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -52,11 +51,10 @@ public record WebSocketFrame(
      * <p>The returned buffer owns independent storage. This method does not consume or release
      * the frame payload.</p>
      */
-    public Buffer toBuffer() {
+    public Buffer encode() {
         long payloadLength = header.getPayloadLength();
         if (payloadLength != payload.length()) {
-            throw new WebSocketFrameException(
-                    "Frame payload length mismatch: header=" + payloadLength + ", actual=" + payload.length());
+            throw new WebSocketFrameException("Frame payload length mismatch: header=" + payloadLength + ", actual=" + payload.length());
         }
 
         Buffer frame = Buffer.alloc(Math.addExact(header.size(), payload.length()));
@@ -88,12 +86,19 @@ public record WebSocketFrame(
         }
     }
 
-    static boolean isControlFrame(OpCode opcode) {
+    public static boolean isControlFrame(OpCode opcode) {
         return opcode == OpCode.CLOSE || opcode == OpCode.PING || opcode == OpCode.PONG;
     }
 
-    static boolean isDataFrame(OpCode opcode) {
+    public static boolean isDataFrame(OpCode opcode) {
         return opcode == OpCode.TEXT || opcode == OpCode.BINARY;
     }
 
+    public boolean isControlFrame() {
+        return isControlFrame(header.getOpCode());
+    }
+
+    public boolean isDataFrame() {
+        return isDataFrame(header.getOpCode());
+    }
 }

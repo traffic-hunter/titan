@@ -46,7 +46,7 @@ public enum Protocol {
 
     public static Protocol subProtocol(String subProtocol) {
         for (Protocol protocol : values()) {
-            if (protocol.subProtocol.equals(subProtocol)) {
+            if (protocol.subProtocol.equalsIgnoreCase(subProtocol) || protocol.name.equalsIgnoreCase(subProtocol)) {
                 return protocol;
             }
         }

@@ -40,9 +40,10 @@ import org.traffichunter.titan.core.channel.NewIONetChannel;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
-import org.traffichunter.titan.core.transport.websocket.WebSocketClientHandshaker;
+import org.traffichunter.titan.core.transport.websocket.WebSocketClient;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.Noop;
+import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
@@ -59,8 +60,6 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
     private final InetClientOption option;
-    private boolean upgradeWebsocket = false;
-
     private Handler<Channel> channelHandler = channel -> {};
 
     private enum State {
@@ -94,9 +93,8 @@ public class InetClient extends AbstractTransport<NetChannel> {
     }
 
     @CanIgnoreReturnValue
-    public InetClient upgradeWebsocket() {
-        this.upgradeWebsocket = true;
-        return this;
+    public WebSocketClient upgradeWebsocket(Protocol subProtocol) {
+        return new WebSocketClient(this, subProtocol);
     }
 
     @Override
@@ -183,12 +181,6 @@ public class InetClient extends AbstractTransport<NetChannel> {
             });
         });
 
-        if (upgradeWebsocket) {
-            return connectResult.thenCompose(netChannel ->
-                    new WebSocketClientHandshaker(remoteAddress.getHostString()).handshake(netChannel)
-            );
-        }
-
         return connectResult;
     }
 
@@ -201,6 +193,10 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
         // Outbound sends are distributed across the currently registered client channels.
         NetChannel channel = channelRegistry.selector().next();
+        return send(channel, buffer);
+    }
+
+    public Promise<Void> send(NetChannel channel, Buffer buffer) {
         if (state.get() != State.STARTED || channel.isClosed() || !channel.isConnected()) {
             log.error("Not ready to connect");
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
@@ -216,6 +212,14 @@ public class InetClient extends AbstractTransport<NetChannel> {
                 throw new ClientException("Failed to send data", e);
             }
         });
+    }
+
+    public <C> Promise<C> failedPromise(Throwable error) {
+        return Promise.failedPromise(groups().secondaryGroup(), error);
+    }
+
+    public void disconnect(NetChannel channel) {
+        destroyChannel(channel);
     }
 
     public void shutdown() {
