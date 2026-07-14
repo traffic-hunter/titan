@@ -59,8 +59,8 @@ public record ServerSettings(
         if (name == null) {
             name = "";
         }
-        if (transport == null) {
-            transport = "";
+        if (transport == null || transport.isBlank()) {
+            transport = "tcp";
         }
         if (protocol == null) {
             protocol = "";

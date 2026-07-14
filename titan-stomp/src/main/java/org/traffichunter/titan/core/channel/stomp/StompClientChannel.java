@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.channel.stomp;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
@@ -52,7 +53,7 @@ public interface StompClientChannel extends StompChannel {
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) throws IOException {
-        return new StompClientChannelImpl(handShakeEventListener, option, clientHandlerConfigurer);
+        return new StompClientTcpChannel(handShakeEventListener, option, clientHandlerConfigurer);
     }
 
     static StompClientChannel wrap(
@@ -67,7 +68,22 @@ public interface StompClientChannel extends StompChannel {
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
-        return new StompClientChannelImpl(netChannel, option, clientHandlerConfigurer);
+        return new StompClientTcpChannel(netChannel, option, clientHandlerConfigurer);
+    }
+
+    static StompClientChannel wrap(
+            WebSocketChannel webSocketChannel,
+            StompClientOption option
+    ) {
+        return wrap(webSocketChannel, option, handler -> { });
+    }
+
+    static StompClientChannel wrap(
+            WebSocketChannel webSocketChannel,
+            StompClientOption option,
+            Handler<StompClientHandler> clientHandlerConfigurer
+    ) {
+        return new StompClientWebSocketChannel(webSocketChannel, option, clientHandlerConfigurer);
     }
 
     @Override
@@ -154,10 +170,13 @@ public interface StompClientChannel extends StompChannel {
 
     void failConnect(Throwable error);
 
+    @CanIgnoreReturnValue
     StompClientChannel closeHandler(Handler<StompClientChannel> handler);
 
+    @CanIgnoreReturnValue
     StompClientChannel connectionDroppedHandler(Handler<StompClientChannel> handler);
 
+    @CanIgnoreReturnValue
     StompClientChannel exceptionHandler(Handler<Throwable> handler);
 
     Promise<Void> connectedPromise();

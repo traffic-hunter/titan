@@ -33,6 +33,7 @@ import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.*;
+import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.stomp.StompChannelDecoder;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
@@ -43,6 +44,7 @@ import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.Protocol;
 
 /**
  * @author yun
@@ -53,13 +55,18 @@ public final class StompServer {
     private final InetServer inetServer;
     private final StompServerChannel serverConnection;
     private final StompServerOption option;
+    private @Nullable String webSocketPath;
 
     private StompClientOption childOption = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
     private Handler<StompServerHandler> stompServerHandler = handler -> {};
     private Handler<Channel> channelHandler = channel -> {};
     private @Nullable ScheduledPromise<?> inactiveConnectionCleanupTask;
 
-    private StompServer(EventLoopGroups groups, @Nullable InetServer inetServer, StompServerOption option) {
+    private StompServer(
+            EventLoopGroups groups,
+            @Nullable InetServer inetServer,
+            StompServerOption option
+    ) {
         this.option = option;
         if(inetServer == null) {
             inetServer = InetServer.open(groups);
@@ -74,6 +81,18 @@ public final class StompServer {
 
     public static StompServer open(EventLoopGroups groups, @Nullable InetServer inetServer, StompServerOption option) {
         return new StompServer(groups, inetServer, option);
+    }
+
+    @CanIgnoreReturnValue
+    public StompServer upgradeWebsocket(String path) {
+        if (inetServer.isStarted()) {
+            throw new IllegalStateException("Cannot change STOMP server transport after start");
+        }
+        if (path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        }
+        this.webSocketPath = path;
+        return this;
     }
 
     @CanIgnoreReturnValue
@@ -111,15 +130,25 @@ public final class StompServer {
                         throw new IllegalArgumentException("Unsupported channel: " + channel);
                     }
 
-                    StompClientChannel stompConnection =
-                            StompClientChannel.wrap(netChannel, stompClientOption);
+                    StompClientChannel stompConnection;
+                    if (webSocketPath != null) {
+                        WebSocketChannel webSocketChannel = new WebSocketChannel(netChannel, Protocol.STOMP);
+                        stompConnection = StompClientChannel.wrap(webSocketChannel, stompClientOption);
+                    } else {
+                        stompConnection = StompClientChannel.wrap(netChannel, stompClientOption);
+                    }
                     serverConnection.register(stompConnection);
 
                     netChannel.chain()
                             .add(new StompChannelDecoder(option.maxBodyLength(), stompConnection, stompServerHandler));
 
-                    channelHandler.handle(netChannel);
+                    channelHandler.handle(stompConnection.channel());
                 });
+
+        String path = webSocketPath;
+        if (path != null) {
+            inetServer.upgradeWebsocket(path);
+        }
 
         inetServer.start();
         inactiveConnectionCleanupTask = serverConnection.channel().eventLoop().scheduleAtFixedRate(

@@ -1,2 +1,3 @@
 org.traffichunter.titan.core.spi.StompServerEngineProvider
+org.traffichunter.titan.core.spi.StompWebSocketServerEngineProvider
 org.traffichunter.titan.core.spi.vertx.VertxStompServerEngineProvider

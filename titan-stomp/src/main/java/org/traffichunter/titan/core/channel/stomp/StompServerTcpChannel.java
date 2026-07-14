@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * @author yungwang-o
  */
-public class StompServerChannelImpl implements StompServerChannel {
+public class StompServerTcpChannel implements StompServerChannel {
 
     private final NetServerChannel serverChannel;
     private final StompServerOption option;
@@ -60,7 +60,7 @@ public class StompServerChannelImpl implements StompServerChannel {
         CLOSED
     }
 
-    StompServerChannelImpl(
+    StompServerTcpChannel(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompServerOption option
     ) {
@@ -73,7 +73,7 @@ public class StompServerChannelImpl implements StompServerChannel {
         }
     }
 
-    StompServerChannelImpl(NetServerChannel serverChannel, StompServerOption option) {
+    StompServerTcpChannel(NetServerChannel serverChannel, StompServerOption option) {
         this.serverChannel = serverChannel;
         this.option = option;
         state.set(State.RUNNING);
