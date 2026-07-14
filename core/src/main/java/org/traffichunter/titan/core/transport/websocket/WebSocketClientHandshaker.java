@@ -63,17 +63,26 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
     private static final String STATUS_SWITCHING_PROTOCOLS = "HTTP/1.1 101";
 
     private final String host;
+    private final String path;
 
     public WebSocketClientHandshaker(String host, Protocol subProtocol) {
+        this(host, subProtocol, WEBSOCKET_URI);
+    }
+
+    public WebSocketClientHandshaker(String host, Protocol subProtocol, String path) {
         super(subProtocol.getSubProtocol(), VERSION);
+        if (path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        }
         this.host = host;
+        this.path = path;
     }
 
     @Override
     public Promise<NetChannel> handshake(NetChannel channel) {
         String key = generateKey();
         HttpRequest request = new HttpRequest()
-                .uri(WEBSOCKET_URI)
+                .uri(path)
                 .header(HOST, host)
                 .header(UPGRADE, WEBSOCKET)
                 .header(CONNECTION, UPGRADE)

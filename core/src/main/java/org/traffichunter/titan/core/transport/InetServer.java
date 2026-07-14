@@ -104,7 +104,12 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
 
     @CanIgnoreReturnValue
     public InetServer upgradeWebsocket() {
-        this.acceptor.setUpgradeWebsocket();
+        return upgradeWebsocket("/titan");
+    }
+
+    @CanIgnoreReturnValue
+    public InetServer upgradeWebsocket(String path) {
+        this.acceptor.setUpgradeWebsocket(path);
         return this;
     }
 
@@ -275,7 +280,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         private volatile InetClientOption childOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
         private volatile Handler<Channel> childHandler = ch -> {};
         private volatile boolean upgradeWebsocket;
-        private final WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
+        private volatile WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
 
         ServerChannelAcceptor(
                 ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
@@ -293,7 +298,8 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             this.childHandler = childHandler;
         }
 
-        void setUpgradeWebsocket() {
+        void setUpgradeWebsocket(String path) {
+            this.webSocketHandshaker = new WebSocketServerHandshaker(path);
             this.upgradeWebsocket = true;
         }
 

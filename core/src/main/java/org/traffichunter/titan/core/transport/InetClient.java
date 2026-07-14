@@ -97,6 +97,11 @@ public class InetClient extends AbstractTransport<NetChannel> {
         return new WebSocketClient(this, subProtocol);
     }
 
+    @CanIgnoreReturnValue
+    public WebSocketClient upgradeWebsocket(Protocol subProtocol, String path) {
+        return new WebSocketClient(this, subProtocol, path);
+    }
+
     @Override
     public void start() {
         if (!state.compareAndSet(State.INIT, State.STARTED)) {

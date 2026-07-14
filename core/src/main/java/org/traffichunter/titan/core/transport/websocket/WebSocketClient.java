@@ -29,6 +29,7 @@ import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameException;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameHeader;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.transport.ClientException;
 import org.traffichunter.titan.core.transport.InetClient;
@@ -47,11 +48,20 @@ public final class WebSocketClient {
 
     private final InetClient inetClient;
     private final Protocol subProtocol;
+    private final String path;
     private final ChannelRegistry<WebSocketChannel> channels = new ChannelRegistry<>();
 
     public WebSocketClient(InetClient inetClient, Protocol subProtocol) {
+        this(inetClient, subProtocol, "/titan");
+    }
+
+    public WebSocketClient(InetClient inetClient, Protocol subProtocol, String path) {
         this.inetClient = inetClient;
         this.subProtocol = subProtocol;
+        if (path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        }
+        this.path = path;
     }
 
     public void start() {
@@ -71,10 +81,27 @@ public final class WebSocketClient {
     }
 
     public Promise<WebSocketChannel> connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) {
-        WebSocketClientHandshaker handshaker = new WebSocketClientHandshaker(remoteAddress.getHostString(), subProtocol);
+        WebSocketClientHandshaker handshaker = new WebSocketClientHandshaker(remoteAddress.getHostString(), subProtocol, path);
         return inetClient.connect(remoteAddress, timeOut, timeUnit)
                 .thenCompose(channel -> {
                     Promise<NetChannel> handshake = handshaker.handshake(channel);
+                    ScheduledPromise<?> connectionCheck = channel.eventLoop().scheduleAtFixedRate(() -> {
+                        if (!handshake.isDone() && channel.isClosed()) {
+                            handshake.tryFail(new WebSocketHandshakeException(
+                                    "Connection closed before WebSocket upgrade completed"
+                            ));
+                        }
+                    }, 1, 10, TimeUnit.MILLISECONDS);
+                    ScheduledPromise<?> timeout = channel.eventLoop().schedule(() -> {
+                        if (!handshake.isDone()) {
+                            handshake.tryFail(new WebSocketHandshakeException("WebSocket upgrade timed out"));
+                            channel.close();
+                        }
+                    }, timeOut, timeUnit);
+                    handshake.addListener(result -> {
+                        connectionCheck.cancel();
+                        timeout.cancel();
+                    });
                     handshake.onFailure(error -> inetClient.disconnect(channel));
                     return handshake;
                 })
