@@ -42,8 +42,7 @@ spring:
     auto-start: true
     auto-connect: true
     client: titan # titan or vertx
-    host: 127.0.0.1
-    port: 61613
+    endpoint: ws://127.0.0.1:8080/stomp
     login: guest
     passcode: guest
     virtual-host: guest
@@ -140,3 +139,11 @@ and connects the client before resolving operations.
 successfully. If listener invocation fails, the configured error handler is
 called and the frame is negatively acknowledged when a `message-id` header is
 available.
+`spring.titan.transport=websocket` upgrades the selected client connection at
+`spring.titan.websocket-path`. The host and port continue to come from
+`spring.titan.host` and `spring.titan.port`.
+
+`spring.titan.endpoint` is the preferred connection setting and accepts
+`tcp://host:port` or `ws://host:port/path`. When present, it takes precedence
+over the separate host, port, transport, and WebSocket path properties. The
+legacy properties remain available for compatibility.

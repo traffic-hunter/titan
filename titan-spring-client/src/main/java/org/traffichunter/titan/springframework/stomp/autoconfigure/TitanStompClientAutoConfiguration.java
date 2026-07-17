@@ -3,6 +3,7 @@ package org.traffichunter.titan.springframework.stomp.autoconfigure;
 import java.time.Duration;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -11,6 +12,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
+import org.traffichunter.titan.core.transport.stomp.StompEndpoint;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
@@ -44,9 +47,10 @@ public class TitanStompClientAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public StompClientOption titanStompClientOption(TitanProperties properties) {
+        StompEndpoint endpoint = endpoint(properties);
         return StompClientOption.builder()
-                .host(properties.getHost())
-                .port(properties.getPort())
+                .host(endpoint == null ? properties.getHost() : endpoint.host())
+                .port(endpoint == null ? properties.getPort() : endpoint.port())
                 .login(properties.getLogin())
                 .passcode(properties.getPasscode())
                 .virtualHost(properties.getVirtualHost())
@@ -80,7 +84,7 @@ public class TitanStompClientAutoConfiguration {
             StompClientOption titanStompClientOption,
             TitanProperties properties
     ) {
-        return stompClientProviders.stream()
+        StompClient client = stompClientProviders.stream()
                 .filter(provider -> provider.supports(properties.getClient().getName(), titanStompClientOption.stompVersion().getVersion()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No STOMP client provider found for client: "
@@ -88,6 +92,30 @@ public class TitanStompClientAutoConfiguration {
                         + ", version: "
                         + titanStompClientOption.stompVersion().getVersion()))
                 .create(titanStompClientOption);
+
+        StompEndpoint endpoint = endpoint(properties);
+        boolean webSocket = endpoint == null
+                ? properties.getTransport() == TitanProperties.Transport.WEBSOCKET
+                : endpoint.isWebSocket();
+        if (webSocket) {
+            if (endpoint != null && endpoint.isSecure()) {
+                throw new IllegalStateException("Secure WebSocket transport is not supported yet");
+            }
+            String path = endpoint == null ? properties.getWebsocketPath() : endpoint.path();
+            if (client instanceof TitanStompClient titanClient) {
+                titanClient.upgradeWebsocket(path);
+            } else if (client instanceof VertxStompClient vertxClient) {
+                vertxClient.upgradeWebsocket(path);
+            } else {
+                throw new IllegalStateException("The selected STOMP client does not support WebSocket transport");
+            }
+        }
+        return client;
+    }
+
+    private static @Nullable StompEndpoint endpoint(TitanProperties properties) {
+        String value = properties.getEndpoint();
+        return value == null || value.isBlank() ? null : StompEndpoint.parse(value);
     }
 
     @Bean
