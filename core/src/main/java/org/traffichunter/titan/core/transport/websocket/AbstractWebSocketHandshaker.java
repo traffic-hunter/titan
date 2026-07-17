@@ -32,6 +32,7 @@ import org.traffichunter.titan.core.codec.websocket.WebSocketFrameDecoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameEncoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -115,7 +116,7 @@ abstract class AbstractWebSocketHandshaker {
         ) {
             channel.chain()
                     .add(new WebSocketFrameEncoder(side, subProtocol))
-                    .add(new WebSocketFrameDecoder(subProtocol));
+                    .add(new WebSocketFrameDecoder(side, Protocol.subProtocol(subProtocol)));
         }
 
         private static int findEndOfHead(Buffer buffer) {

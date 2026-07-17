@@ -44,10 +44,20 @@ import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
  * {@link StompServerOption} and {@link InetServerOption}, then installs any externally supplied
  * channel handlers on accepted STOMP child channels.</p>
  */
-public final class StompServerEngineProvider implements NetworkServerEngineProvider {
+public class StompServerEngineProvider implements NetworkServerEngineProvider {
+
+    private final boolean webSocket;
 
     private final List<ChannelInBoundHandler> inboundHandlers = new ArrayList<>();
     private final List<ChannelOutBoundHandler> outboundHandlers = new ArrayList<>();
+
+    public StompServerEngineProvider() {
+        this(false);
+    }
+
+    protected StompServerEngineProvider(boolean webSocket) {
+        this.webSocket = webSocket;
+    }
 
     @Override
     @CanIgnoreReturnValue
@@ -69,8 +79,12 @@ public final class StompServerEngineProvider implements NetworkServerEngineProvi
         InetServerOption inetOption = buildInetOption(settings.resolvedTransportOptions());
         StompServerOption stompServerOption = buildOption(settings.resolvedProtocolOptions(), inetOption);
 
-        StompServer server = StompServer.open(groups, stompServerOption)
-                .onChannel(channel -> {
+        String path = settings.resolvedTransportOptions().getOrDefault("path", "/stomp");
+        StompServer server = StompServer.open(groups, stompServerOption);
+        if (webSocket) {
+            server.upgradeWebsocket(path);
+        }
+        server.onChannel(channel -> {
                     inboundHandlers.forEach(inboundHandler ->
                             channel.chain().add(inboundHandler)
                     );
@@ -84,7 +98,7 @@ public final class StompServerEngineProvider implements NetworkServerEngineProvi
 
     @Override
     public String transport() {
-        return "tcp";
+        return webSocket ? "websocket" : "tcp";
     }
 
     @Override

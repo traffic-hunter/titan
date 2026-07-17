@@ -55,7 +55,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  * @author yun
  */
 @Slf4j
-public class StompClientChannelImpl implements StompClientChannel {
+public class StompClientTcpChannel implements StompClientChannel {
 
     private final String sessionId = IdGenerator.randomId16("session");
     private final NetChannel netChannel;
@@ -77,14 +77,14 @@ public class StompClientChannelImpl implements StompClientChannel {
     private long pingTimer = -1;
     private long pongTimer = -1;
 
-    StompClientChannelImpl(
+    StompClientTcpChannel(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompClientOption option
     ) throws IOException {
         this(NetChannel.open(channelHandShakeEventListener), option, handler -> {});
     }
 
-    StompClientChannelImpl(
+    StompClientTcpChannel(
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
@@ -92,11 +92,11 @@ public class StompClientChannelImpl implements StompClientChannel {
         this(NetChannel.open(channelHandShakeEventListener), option, clientHandlerConfigurer);
     }
 
-    StompClientChannelImpl(NetChannel netChannel, StompClientOption option) {
+    StompClientTcpChannel(NetChannel netChannel, StompClientOption option) {
         this(netChannel, option, handler -> {});
     }
 
-    StompClientChannelImpl(
+    StompClientTcpChannel(
             NetChannel netChannel,
             StompClientOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
@@ -520,7 +520,7 @@ public class StompClientChannelImpl implements StompClientChannel {
         if (this == other) {
             return true;
         }
-        if (!(other instanceof StompClientChannelImpl that)) {
+        if (!(other instanceof StompClientTcpChannel that)) {
             return false;
         }
         return this.netChannel.id().equals(that.netChannel.id());

@@ -27,6 +27,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
+import org.traffichunter.titan.core.channel.websocket.WebSocketContext;
+import org.traffichunter.titan.core.channel.websocket.WebSocketControlFrameHandler;
+import org.traffichunter.titan.core.channel.websocket.WebSocketControlFrameHandlerImpl;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -42,16 +46,28 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
     private static final Logger log = LoggerFactory.getLogger(WebSocketFrameDecoder.class);
 
     private final WebSocketFrameParser parser;
+    private final WebSocketSide side;
+    private final WebSocketControlFrameHandler controlFrameHandler;
 
     public WebSocketFrameDecoder() {
-        this(Protocol.STOMP);
+        this(WebSocketSide.SERVER, Protocol.STOMP);
     }
 
     public WebSocketFrameDecoder(String subProtocol) {
-        this(Protocol.subProtocol(subProtocol));
+        this(WebSocketSide.SERVER, Protocol.subProtocol(subProtocol));
     }
 
-    public WebSocketFrameDecoder(Protocol subProtocol) {
+    public WebSocketFrameDecoder(WebSocketSide side, Protocol subProtocol) {
+        this(side, subProtocol, new WebSocketControlFrameHandlerImpl());
+    }
+
+    public WebSocketFrameDecoder(
+            WebSocketSide side,
+            Protocol subProtocol,
+            WebSocketControlFrameHandler controlFrameHandler
+    ) {
+        this.side = side;
+        this.controlFrameHandler = controlFrameHandler;
         this.parser = new WebSocketFrameParser(subProtocol);
     }
 
@@ -62,11 +78,14 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
             if (websocketFrame == null) {
                 return null;
             }
-            if (isControlFrame(websocketFrame.header().getOpCode())) {
-                websocketFrame.payload().release();
-                if (websocketFrame.header().getOpCode() == OpCode.CLOSE) {
-                    channel.close();
-                }
+            if (websocketFrame.isControlFrame()) {
+                WebSocketContext webSocketContext = new WebSocketContext(
+                        new WebSocketChannel(channel, websocketFrame.subProtocol()),
+                        websocketFrame,
+                        side
+                );
+
+                controlFrameHandler.handle(webSocketContext);
                 return null;
             }
 

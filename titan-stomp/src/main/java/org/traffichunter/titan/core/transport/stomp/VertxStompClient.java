@@ -24,10 +24,20 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.transport.stomp;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.http.WebSocket;
+import io.vertx.core.http.WebSocketClient;
+import io.vertx.core.http.WebSocketClientOptions;
+import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.internal.ContextInternal;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.stomp.Command;
+import io.vertx.ext.stomp.Frame;
 import io.vertx.ext.stomp.StompClient;
 import io.vertx.ext.stomp.StompClientOptions;
 import io.vertx.ext.stomp.StompClientConnection;
+import io.vertx.ext.stomp.impl.FrameParser;
+import io.vertx.ext.stomp.impl.StompClientConnectionImpl;
+import io.vertx.ext.stomp.utils.Headers;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
@@ -63,6 +73,9 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
 
     private @Nullable Vertx vertx;
     private @Nullable StompClient client;
+    private @Nullable WebSocketClient webSocketClient;
+    private volatile @Nullable WebSocket webSocket;
+    private @Nullable String webSocketPath;
     private volatile @Nullable StompClientConnection connection;
     private volatile @Nullable VertxStompConnection stompConnection;
     private volatile boolean isShutdown;
@@ -98,6 +111,17 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         return new VertxStompClient(client.vertx(), client, option, false);
     }
 
+    public VertxStompClient upgradeWebsocket(String path) {
+        if (status.get() != Status.INITIALIZED) {
+            throw new IllegalStateException("Cannot change STOMP client transport after start");
+        }
+        if (path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        }
+        this.webSocketPath = path;
+        return this;
+    }
+
     @Override
     public void start() {
         if (isShutdown) {
@@ -113,7 +137,11 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
                 vertx = Vertx.vertx();
                 this.vertx = vertx;
             }
-            client = StompClient.create(vertx, toVertxOptions(option));
+            if (webSocketPath == null) {
+                client = StompClient.create(vertx, toVertxOptions(option));
+            } else {
+                webSocketClient = vertx.createWebSocketClient(toWebSocketOptions(option));
+            }
             status.set(Status.STARTED);
         } catch (RuntimeException e) {
             status.set(Status.INITIALIZED);
@@ -144,13 +172,19 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
             );
         }
 
-        StompClient nativeClient = this.client;
-        if (nativeClient == null || nativeClient.isClosed()) {
-            return io.vertx.core.Future.failedFuture(new StompException("Client is not started"));
+        io.vertx.core.Future<StompClientConnection> connectionFuture;
+        String path = webSocketPath;
+        if (path == null) {
+            StompClient nativeClient = this.client;
+            if (nativeClient == null || nativeClient.isClosed()) {
+                return io.vertx.core.Future.failedFuture(new StompException("Client is not started"));
+            }
+            connectionFuture = nativeClient.connect(option.port(), option.host());
+        } else {
+            connectionFuture = connectWebSocket(path);
         }
 
-        return nativeClient
-                .connect(option.port(), option.host())
+        return connectionFuture
                 .map(conn -> {
                     VertxStompConnection stompConnection = createStompConnection(conn);
                     if (!status.compareAndSet(Status.CONNECTING, Status.CONNECTED)) {
@@ -179,7 +213,9 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
 
     @Override
     public boolean isStarted() {
-        return client != null && !client.isClosed();
+        StompClient client = this.client;
+        WebSocketClient webSocketClient = this.webSocketClient;
+        return client != null && !client.isClosed() || webSocketClient != null && !isShutdown;
     }
 
     @Override
@@ -200,6 +236,10 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
             reconnectExecutor.shutdown(timeout, unit);
             if (client != null && !client.isClosed()) {
                 client.close().await(timeout, unit);
+            }
+            WebSocketClient webSocketClient = this.webSocketClient;
+            if (webSocketClient != null) {
+                webSocketClient.shutdown(timeout, unit).await(timeout, unit);
             }
             Vertx vertx = this.vertx;
             if (managedVertx && vertx != null) {
@@ -242,6 +282,66 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         );
     }
 
+    private io.vertx.core.Future<StompClientConnection> connectWebSocket(String path) {
+        Vertx vertx = this.vertx;
+        WebSocketClient client = this.webSocketClient;
+        if (vertx == null || client == null) {
+            return io.vertx.core.Future.failedFuture(new StompException("Client is not started"));
+        }
+
+        WebSocketConnectOptions connectOptions = new WebSocketConnectOptions()
+                .setHost(option.host())
+                .setPort(option.port())
+                .setURI(path)
+                .setConnectTimeout(option.connectTimeout().toMillis())
+                .addSubProtocol("v12.stomp");
+
+        return client.connect(connectOptions).compose(socket -> {
+            this.webSocket = socket;
+            VertxWebSocketNetSocket netSocket = new VertxWebSocketNetSocket(socket);
+            StompClientOptions stompOptions = toVertxOptions(option);
+            StompClientConnectionImpl connection = new StompClientConnectionImpl(
+                    (ContextInternal) vertx.getOrCreateContext(),
+                    netSocket,
+                    stompOptions
+            );
+
+            netSocket.write(connectFrame(stompOptions).toBuffer(stompOptions.isTrailingLine()));
+            long timer = vertx.setTimer(option.connectTimeout().toMillis(), ignored -> {
+                if (!connection.isConnected()) {
+                    connection.close();
+                }
+            });
+            return connection.connectFuture()
+                    .map(ignored -> (StompClientConnection) connection)
+                    .eventually(() -> {
+                        vertx.cancelTimer(timer);
+                        return io.vertx.core.Future.succeededFuture();
+                    });
+        });
+    }
+
+    private static Frame connectFrame(StompClientOptions options) {
+        Headers headers = Headers.create();
+        if (options.getAcceptedVersions() != null && !options.getAcceptedVersions().isEmpty()) {
+            headers.put(Frame.ACCEPT_VERSION, String.join(FrameParser.COMMA, options.getAcceptedVersions()));
+        }
+        if (!options.isBypassHostHeader()) {
+            headers.put(Frame.HOST, options.getHost());
+        }
+        if (options.getVirtualHost() != null) {
+            headers.put(Frame.HOST, options.getVirtualHost());
+        }
+        if (options.getLogin() != null) {
+            headers.put(Frame.LOGIN, options.getLogin());
+        }
+        if (options.getPasscode() != null) {
+            headers.put(Frame.PASSCODE, options.getPasscode());
+        }
+        headers.put(Frame.HEARTBEAT, Frame.Heartbeat.create(options.getHeartbeat()).toString());
+        return new Frame(options.isUseStompFrame() ? Command.STOMP : Command.CONNECT, headers, null);
+    }
+
     private void connectionLost() {
         if (!status.compareAndSet(Status.CONNECTED, Status.CONNECTING)) {
             return;
@@ -255,7 +355,7 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
             try {
                 connectStompConnection().toCompletionStage().toCompletableFuture().get();
             } catch (ExecutionException e) {
-                @Nullable Throwable cause = e.getCause();
+                Throwable cause = e.getCause();
                 if (cause instanceof Exception retryable) {
                     throw retryable;
                 }
@@ -326,7 +426,27 @@ public final class VertxStompClient implements org.traffichunter.titan.core.tran
         return vertxOptions;
     }
 
+    private static WebSocketClientOptions toWebSocketOptions(StompClientOption option) {
+        WebSocketClientOptions options = new WebSocketClientOptions()
+                .setDefaultHost(option.host())
+                .setDefaultPort(option.port())
+                .setConnectTimeout(Math.toIntExact(option.connectTimeout().toMillis()))
+                .setMaxMessageSize(option.maxFrameLength());
+        applyInetOptions(options, option.inetClientOption());
+        return options;
+    }
+
     private static void applyInetOptions(StompClientOptions vertxOptions, InetClientOption option) {
+        Map<SocketOption<?>, Object> socketOptions = option.socketOptions();
+        applyBoolean(socketOptions, StandardSocketOptions.TCP_NODELAY, vertxOptions::setTcpNoDelay);
+        applyBoolean(socketOptions, StandardSocketOptions.SO_KEEPALIVE, vertxOptions::setTcpKeepAlive);
+        applyBoolean(socketOptions, StandardSocketOptions.SO_REUSEADDR, vertxOptions::setReuseAddress);
+        applyInteger(socketOptions, StandardSocketOptions.SO_SNDBUF, vertxOptions::setSendBufferSize);
+        applyInteger(socketOptions, StandardSocketOptions.SO_RCVBUF, vertxOptions::setReceiveBufferSize);
+        applyInteger(socketOptions, StandardSocketOptions.SO_LINGER, vertxOptions::setSoLinger);
+    }
+
+    private static void applyInetOptions(WebSocketClientOptions vertxOptions, InetClientOption option) {
         Map<SocketOption<?>, Object> socketOptions = option.socketOptions();
         applyBoolean(socketOptions, StandardSocketOptions.TCP_NODELAY, vertxOptions::setTcpNoDelay);
         applyBoolean(socketOptions, StandardSocketOptions.SO_KEEPALIVE, vertxOptions::setTcpKeepAlive);

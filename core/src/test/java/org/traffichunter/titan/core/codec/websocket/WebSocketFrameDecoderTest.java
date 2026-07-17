@@ -2,9 +2,12 @@ package org.traffichunter.titan.core.codec.websocket;
 
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
+import org.traffichunter.titan.core.channel.websocket.WebSocketContext;
+import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -298,14 +301,23 @@ class WebSocketFrameDecoderTest {
     void consume_ping_frame_without_forwarding_payload() {
         InMemoryNetChannel channel = new InMemoryNetChannel();
         Buffer buffer = Buffer.alloc(new byte[]{(byte) 0x89, 0x02, 'O', 'K'});
+        AtomicReference<WebSocketContext> received = new AtomicReference<>();
 
-        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder(
+                WebSocketSide.SERVER,
+                Protocol.STOMP,
+                received::set
+        );
         Buffer payload = decoder.decode(channel, buffer);
 
         assertThat(payload).isNull();
         assertThat(channel.isClosed()).isFalse();
         assertThat(buffer.isReadable()).isFalse();
+        assertThat(received.get().side()).isEqualTo(WebSocketSide.SERVER);
+        assertThat(received.get().frame().header().getOpCode()).isEqualTo(WebSocketFrameHeader.OpCode.PING);
+        assertThat(received.get().frame().payload().toString()).isEqualTo("OK");
 
+        received.get().frame().payload().release();
         buffer.release();
     }
 

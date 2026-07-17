@@ -43,11 +43,11 @@ public interface StompServerChannel extends StompChannel {
             ChannelHandShakeEventListener channelHandShakeEventListener,
             StompServerOption option
     ) {
-        return new StompServerChannelImpl(channelHandShakeEventListener, option);
+        return new StompServerTcpChannel(channelHandShakeEventListener, option);
     }
 
     static StompServerChannel wrap(NetServerChannel serverChannel, StompServerOption option) {
-        return new StompServerChannelImpl(serverChannel, option);
+        return new StompServerTcpChannel(serverChannel, option);
     }
 
     default Promise<Void> write(StompFrame frame) {

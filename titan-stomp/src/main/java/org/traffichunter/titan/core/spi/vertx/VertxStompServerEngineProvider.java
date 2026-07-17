@@ -44,7 +44,7 @@ import java.util.Map;
  * @author yun
  */
 @Slf4j
-public final class VertxStompServerEngineProvider implements NetworkServerEngineProvider {
+public class VertxStompServerEngineProvider implements NetworkServerEngineProvider {
 
     @Override
     public String transport() {
@@ -89,7 +89,7 @@ public final class VertxStompServerEngineProvider implements NetworkServerEngine
         return new VertxStompManagedServer(stompServer, settings);
     }
 
-    private static StompServerOptions buildOption(Map<String, String> protocolOptions, Map<String, String> transportOptions) {
+    protected static StompServerOptions buildOption(Map<String, String> protocolOptions, Map<String, String> transportOptions) {
         StompServerOptions options = new StompServerOptions();
 
         int maxHeaderLength = intOption(protocolOptions, "max-header-length", options.getMaxHeaderLength());

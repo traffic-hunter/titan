@@ -44,7 +44,7 @@ class WebSocketFrameTest {
                 .build();
         WebSocketFrame frame = new WebSocketFrame(header, payload);
 
-        Buffer encoded = frame.toBuffer();
+        Buffer encoded = frame.encode();
 
         assertThat(encoded.getBytes()).containsExactly((byte) 0x81, 0x02, 'O', 'K');
         assertThat(payload.toString()).isEqualTo("OK");
@@ -63,7 +63,7 @@ class WebSocketFrameTest {
                 .build();
         WebSocketFrame frame = new WebSocketFrame(header, payload);
 
-        Buffer encoded = frame.toBuffer();
+        Buffer encoded = frame.encode();
 
         assertThat(encoded.getBytes()).containsExactly(
                 (byte) 0x81,
@@ -90,7 +90,7 @@ class WebSocketFrameTest {
                 .build();
         WebSocketFrame frame = new WebSocketFrame(header, payload);
 
-        assertThatThrownBy(frame::toBuffer)
+        assertThatThrownBy(frame::encode)
                 .isInstanceOf(WebSocketFrameException.class)
                 .hasMessageContaining("payload length mismatch");
 

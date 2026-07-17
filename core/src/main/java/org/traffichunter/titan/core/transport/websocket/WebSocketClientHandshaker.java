@@ -30,6 +30,7 @@ import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.transport.HttpRequest;
 import org.traffichunter.titan.core.util.IdGenerator;
+import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.security.MessageDigest;
@@ -57,23 +58,31 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
     private static final String WEBSOCKET = "websocket";
     private static final String CONNECTION = "Connection";
     private static final String VERSION = "13";
-    private static final String STOMP_SUB_PROTOCOL = "v12.stomp";
 
     private static final String WEBSOCKET_URI = "/titan";
     private static final String STATUS_SWITCHING_PROTOCOLS = "HTTP/1.1 101";
 
     private final String host;
+    private final String path;
 
-    public WebSocketClientHandshaker(String host) {
-        super(STOMP_SUB_PROTOCOL, VERSION);
+    public WebSocketClientHandshaker(String host, Protocol subProtocol) {
+        this(host, subProtocol, WEBSOCKET_URI);
+    }
+
+    public WebSocketClientHandshaker(String host, Protocol subProtocol, String path) {
+        super(subProtocol.getSubProtocol(), VERSION);
+        if (path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        }
         this.host = host;
+        this.path = path;
     }
 
     @Override
     public Promise<NetChannel> handshake(NetChannel channel) {
         String key = generateKey();
         HttpRequest request = new HttpRequest()
-                .uri(WEBSOCKET_URI)
+                .uri(path)
                 .header(HOST, host)
                 .header(UPGRADE, WEBSOCKET)
                 .header(CONNECTION, UPGRADE)
@@ -107,6 +116,7 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
         }
 
         String accept = null;
+        String selectedSubProtocol = null;
         for (int i = 1; i < lines.length; i++) {
             int delimiter = lines[i].indexOf(':');
             if (delimiter < 0) {
@@ -116,12 +126,18 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
             String name = lines[i].substring(0, delimiter).trim();
             if (SEC_WEBSOCKET_ACCEPT.equalsIgnoreCase(name)) {
                 accept = lines[i].substring(delimiter + 1).trim();
-                break;
+            } else if (SEC_WEBSOCKET_PROTOCOL.equalsIgnoreCase(name)) {
+                selectedSubProtocol = lines[i].substring(delimiter + 1).trim();
             }
         }
 
         if (!acceptKey(key).equals(accept)) {
             throw new WebSocketHandshakeException("Invalid Sec-WebSocket-Accept header");
+        }
+        if (!subProtocol().equals(selectedSubProtocol)) {
+            throw new WebSocketHandshakeException(
+                    "Invalid Sec-WebSocket-Protocol header: " + selectedSubProtocol
+            );
         }
     }
 

@@ -38,6 +38,7 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientHandler;
 import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
@@ -48,11 +49,13 @@ import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
 import org.traffichunter.titan.core.resilience.retry.RetryExecutors;
 import org.traffichunter.titan.core.resilience.retry.RetryResult;
 import org.traffichunter.titan.core.transport.InetClient;
+import org.traffichunter.titan.core.transport.websocket.WebSocketClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompClient;
 import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
 import org.traffichunter.titan.core.transport.stomp.client.TitanStompConnection;
 import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.Protocol;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.HeartBeat;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
@@ -69,6 +72,7 @@ public final class TitanStompClient implements StompClient {
     private final AtomicReference<Status> status;
 
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
+    private @Nullable String webSocketPath;
     private volatile @Nullable StompClientChannel connection;
     private volatile @Nullable TitanStompConnection stompConnection;
     private final AtomicReference<@Nullable RetryResult> reconnectResult = new AtomicReference<>();
@@ -124,6 +128,18 @@ public final class TitanStompClient implements StompClient {
         return this;
     }
 
+    @CanIgnoreReturnValue
+    public TitanStompClient upgradeWebsocket(String path) {
+        if (status.get() != Status.INITIALIZED) {
+            throw new IllegalStateException("Cannot change STOMP client transport after start");
+        }
+        if (path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        }
+        this.webSocketPath = path;
+        return this;
+    }
+
     public void start() {
         if (!status.compareAndSet(Status.INITIALIZED, Status.STARTING)) {
             throw new StompException("Client already started");
@@ -176,7 +192,7 @@ public final class TitanStompClient implements StompClient {
             return Promise.failedPromise(connection.channel().eventLoop(), new StompException("STOMP client is already connected"));
         }
 
-        return inetClient.connect(remoteAddress, timeOut, timeUnit)
+        return connectTransport(remoteAddress, timeOut, timeUnit)
                 .map(this::createConnection)
                 .thenCompose(conn -> {
                     StompFrame connectFrame = generateConnectFrame(remoteAddress.getHostString());
@@ -236,11 +252,27 @@ public final class TitanStompClient implements StompClient {
     }
 
     private StompClientChannel createConnection(NetChannel channel) {
-        StompClientChannel connection = StompClientChannel.wrap(channel, option);
+        StompClientChannel connection = channel instanceof WebSocketChannel webSocketChannel
+                ? StompClientChannel.wrap(webSocketChannel, option)
+                : StompClientChannel.wrap(channel, option);
         stompClientHandler.handle(connection.handler());
         channel.chain().add(new StompChannelDecoder(option.maxFrameLength(), connection, connection.handler()));
         this.connection = connection;
         return connection;
+    }
+
+    private Promise<? extends NetChannel> connectTransport(
+            InetSocketAddress remoteAddress,
+            long timeOut,
+            TimeUnit timeUnit
+    ) {
+        String path = webSocketPath;
+        if (path == null) {
+            return inetClient.connect(remoteAddress, timeOut, timeUnit);
+        }
+
+        WebSocketClient webSocketClient = inetClient.upgradeWebsocket(Protocol.STOMP, path);
+        return webSocketClient.connect(remoteAddress, timeOut, timeUnit);
     }
 
     private Promise<StompConnection> connectStompConnection() {

@@ -66,6 +66,14 @@ class WebSocketServerHandshakerTest {
     }
 
     @Test
+    void parse_request_accepts_configured_path() {
+        HttpRequest request = new WebSocketServerHandshaker("/stomp")
+                .parseRequest(REQUEST.replace("GET /titan", "GET /stomp"));
+
+        assertThat(request.uri()).isEqualTo("/stomp");
+    }
+
+    @Test
     void create_response_returns_switching_protocols_response() {
         WebSocketServerHandshaker handshaker = new WebSocketServerHandshaker();
         HttpRequest request = handshaker.parseRequest(REQUEST);
@@ -87,6 +95,15 @@ class WebSocketServerHandshakerTest {
         assertThatThrownBy(() -> new WebSocketServerHandshaker().parseRequest(request))
                 .isInstanceOf(WebSocketHandshakeException.class)
                 .hasMessageContaining("Invalid WebSocket Upgrade header");
+    }
+
+    @Test
+    void parse_request_rejects_unexpected_path() {
+        WebSocketServerHandshaker handshaker = new WebSocketServerHandshaker("/stomp");
+
+        assertThatThrownBy(() -> handshaker.parseRequest(REQUEST))
+                .isInstanceOf(WebSocketHandshakeException.class)
+                .hasMessageContaining("Unexpected WebSocket path");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package org.traffichunter.titan.springframework.stomp;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -19,6 +20,12 @@ public final class TitanProperties {
     private boolean autoConnect = true;
 
     private Client client = Client.TITAN;
+
+    private @Nullable String endpoint;
+
+    private Transport transport = Transport.TCP;
+
+    private String websocketPath = "/stomp";
 
     private int primaryThreads = 1;
 
@@ -196,6 +203,30 @@ public final class TitanProperties {
         this.client = client;
     }
 
+    public @Nullable String getEndpoint() {
+        return endpoint;
+    }
+
+    public void setEndpoint(@Nullable String endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    public Transport getTransport() {
+        return transport;
+    }
+
+    public void setTransport(Transport transport) {
+        this.transport = transport;
+    }
+
+    public String getWebsocketPath() {
+        return websocketPath;
+    }
+
+    public void setWebsocketPath(String websocketPath) {
+        this.websocketPath = websocketPath;
+    }
+
     public enum Client {
         TITAN("titan"),
         VERTX("vertx"),
@@ -210,6 +241,11 @@ public final class TitanProperties {
         public String getName() {
             return name;
         }
+    }
+
+    public enum Transport {
+        TCP,
+        WEBSOCKET,
     }
 
 }

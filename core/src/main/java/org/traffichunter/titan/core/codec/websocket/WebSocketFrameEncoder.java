@@ -56,15 +56,7 @@ public class WebSocketFrameEncoder extends ChannelEncoder {
     protected @Nullable Buffer encode(NetChannel channel, Buffer buffer) {
         try {
             WebSocketFrame websocketFrame = parser.parse(buffer);
-
-            if (WebSocketFrame.isControlFrame(websocketFrame.header().getOpCode())) {
-                if (websocketFrame.header().getOpCode() == WebSocketFrameHeader.OpCode.CLOSE) {
-                    channel.close();
-                }
-                return null;
-            }
-
-            return websocketFrame.toBuffer();
+            return websocketFrame.encode();
         } catch (WebSocketFrameException e) {
             log.warn("Rejected invalid websocket frame. reason={}", e.getMessage());
             channel.close();
@@ -109,10 +101,6 @@ public class WebSocketFrameEncoder extends ChannelEncoder {
         }
 
         private static void validate(WebSocketSide side, WebSocketFrameHeader header) {
-            if (header.isMasked() && header.getMaskingKey() == 0) {
-                throw new WebSocketFrameException("Masking key must not be zero");
-            }
-
             switch (side) {
                 case SERVER -> {
                     if (header.isMasked()) {

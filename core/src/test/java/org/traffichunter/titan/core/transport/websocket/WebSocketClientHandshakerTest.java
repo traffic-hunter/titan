@@ -29,6 +29,7 @@ import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.TaskEventLoop;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.transport.websocket.WebSocketClientHandshaker.WebSocketUpgradeHandler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -49,6 +50,7 @@ class WebSocketClientHandshakerTest {
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
             + "Sec-WebSocket-Accept: " + ACCEPT + "\r\n"
+            + "Sec-WebSocket-Protocol: v12.stomp\r\n"
             + "\r\n";
 
     @Test
@@ -61,16 +63,28 @@ class WebSocketClientHandshakerTest {
     @Test
     void validate_response_accepts_switching_protocols_response() {
         assertThatNoException()
-                .isThrownBy(() -> new WebSocketClientHandshaker("localhost").validateResponse(RESPONSE, KEY));
+                .isThrownBy(() -> new WebSocketClientHandshaker("localhost", Protocol.STOMP)
+                        .validateResponse(RESPONSE, KEY));
     }
 
     @Test
     void validate_response_rejects_invalid_accept_key() {
         String response = RESPONSE.replace(ACCEPT, "invalid");
 
-        assertThatThrownBy(() -> new WebSocketClientHandshaker("localhost").validateResponse(response, KEY))
+        assertThatThrownBy(() -> new WebSocketClientHandshaker("localhost", Protocol.STOMP)
+                .validateResponse(response, KEY))
                 .isInstanceOf(WebSocketHandshakeException.class)
                 .hasMessageContaining("Invalid Sec-WebSocket-Accept");
+    }
+
+    @Test
+    void validate_response_rejects_different_subprotocol() {
+        String response = RESPONSE.replace("v12.stomp", "v50.mqtt");
+
+        assertThatThrownBy(() -> new WebSocketClientHandshaker("localhost", Protocol.STOMP)
+                .validateResponse(response, KEY))
+                .isInstanceOf(WebSocketHandshakeException.class)
+                .hasMessageContaining("Invalid Sec-WebSocket-Protocol");
     }
 
     @Test
@@ -94,7 +108,8 @@ class WebSocketClientHandshakerTest {
         assertThat(harness.promise.isDone()).isFalse();
 
         // terminating CRLF + CRLF split in the middle
-        harness.read("Sec-WebSocket-Accept: " + ACCEPT + "\r\n\r");
+        harness.read("Sec-WebSocket-Accept: " + ACCEPT
+                + "\r\nSec-WebSocket-Protocol: v12.stomp\r\n\r");
         assertThat(harness.promise.isDone()).isFalse();
 
         harness.read("\n");
@@ -149,7 +164,11 @@ class WebSocketClientHandshakerTest {
         private final Promise<NetChannel> promise = Promise.newPromise(new TaskEventLoop());
         private final CapturingChain chain = new CapturingChain();
         private final WebSocketUpgradeHandler handler =
-                new WebSocketUpgradeHandler(new WebSocketClientHandshaker("localhost"), KEY, promise);
+                new WebSocketUpgradeHandler(
+                        new WebSocketClientHandshaker("localhost", Protocol.STOMP),
+                        KEY,
+                        promise
+                );
 
         private void read(String data) {
             read(data.getBytes(ISO_8859_1));

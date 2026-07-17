@@ -2,6 +2,7 @@ package org.traffichunter.titan.springframework.stomp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,9 @@ class TitanPropertiesTest {
         assertTrue(properties.isAutoStart());
         assertTrue(properties.isAutoConnect());
         assertEquals(TitanProperties.Client.TITAN, properties.getClient());
+        assertNull(properties.getEndpoint());
+        assertEquals(TitanProperties.Transport.TCP, properties.getTransport());
+        assertEquals("/stomp", properties.getWebsocketPath());
         assertEquals("127.0.0.1", properties.getHost());
         assertEquals(61613, properties.getPort());
         assertEquals(5000L, properties.getConnectTimeoutMillis());

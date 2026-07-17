@@ -68,6 +68,88 @@ class TitanStompClientAutoConfigurationTest {
     }
 
     @Test
+    void configures_websocket_transport_for_titan_client() {
+        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
+        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
+        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
+        StompClientProvider provider = configuration.titanStompClientProvider(eventLoopGroups);
+        TitanProperties properties = new TitanProperties();
+        properties.setTransport(TitanProperties.Transport.WEBSOCKET);
+        properties.setWebsocketPath("/titan");
+
+        StompClient client = configuration.titanStompClient(
+                List.of(provider),
+                StompClientOption.builder().build(),
+                properties
+        );
+
+        assertThat(client)
+                .isInstanceOf(TitanStompClient.class)
+                .extracting("webSocketPath")
+                .isEqualTo("/titan");
+    }
+
+    @Test
+    void configures_titan_client_from_websocket_endpoint() {
+        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
+        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
+        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
+        TitanProperties properties = new TitanProperties();
+        properties.setEndpoint("ws://localhost:8080/titan");
+        StompClientOption option = configuration.titanStompClientOption(properties);
+
+        StompClient client = configuration.titanStompClient(
+                List.of(configuration.titanStompClientProvider(eventLoopGroups)),
+                option,
+                properties
+        );
+
+        assertThat(option.host()).isEqualTo("localhost");
+        assertThat(option.port()).isEqualTo(8080);
+        assertThat(client)
+                .isInstanceOf(TitanStompClient.class)
+                .extracting("webSocketPath")
+                .isEqualTo("/titan");
+    }
+
+    @Test
+    void rejects_secure_websocket_endpoint_until_tls_is_supported() {
+        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
+        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
+        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
+        TitanProperties properties = new TitanProperties();
+        properties.setEndpoint("wss://localhost/stomp");
+
+        assertThatThrownBy(() -> configuration.titanStompClient(
+                List.of(configuration.titanStompClientProvider(eventLoopGroups)),
+                configuration.titanStompClientOption(properties),
+                properties
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Secure WebSocket transport is not supported yet");
+    }
+
+    @Test
+    void configures_websocket_transport_for_vertx_client() {
+        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
+        TitanProperties properties = new TitanProperties();
+        properties.setClient(TitanProperties.Client.VERTX);
+        properties.setTransport(TitanProperties.Transport.WEBSOCKET);
+        properties.setWebsocketPath("/titan");
+
+        StompClient client = configuration.titanStompClient(
+                List.of(configuration.vertxStompClientProvider()),
+                StompClientOption.builder().build(),
+                properties
+        );
+
+        assertThat(client)
+                .isInstanceOf(VertxStompClient.class)
+                .extracting("webSocketPath")
+                .isEqualTo("/titan");
+    }
+
+    @Test
     void lifecycle_starts_and_connects_client_when_auto_start_and_auto_connect_are_enabled() {
         StompConnection connection = mock(StompConnection.class);
         StompClient client = lifecycleClient(connection);
@@ -144,6 +226,39 @@ class TitanStompClientAutoConfigurationTest {
 
                     assertThat(properties.getClient()).isEqualTo(TitanProperties.Client.VERTX);
                 });
+    }
+
+    @Test
+    void binds_websocket_transport_properties() {
+        StompClient client = lifecycleClient(mock(StompConnection.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues(
+                        "spring.titan.auto-start=false",
+                        "spring.titan.transport=websocket",
+                        "spring.titan.websocket-path=/titan"
+                )
+                .run(context -> {
+                    TitanProperties properties = context.getBean(TitanProperties.class);
+
+                    assertThat(properties.getTransport()).isEqualTo(TitanProperties.Transport.WEBSOCKET);
+                    assertThat(properties.getWebsocketPath()).isEqualTo("/titan");
+                });
+    }
+
+    @Test
+    void binds_endpoint_property() {
+        StompClient client = lifecycleClient(mock(StompConnection.class));
+
+        contextRunner
+                .withBean(StompClient.class, () -> client)
+                .withPropertyValues(
+                        "spring.titan.auto-start=false",
+                        "spring.titan.endpoint=ws://localhost:8080/stomp"
+                )
+                .run(context -> assertThat(context.getBean(TitanProperties.class).getEndpoint())
+                        .isEqualTo("ws://localhost:8080/stomp"));
     }
 
     @Test
