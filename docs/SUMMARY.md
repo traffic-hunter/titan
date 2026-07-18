@@ -2,7 +2,7 @@
 
 ## Start
 
-* [Welcome](README.md)
+* [Titan](README.md)
 * [Why Titan?](why-titan.md)
 * [Quickstart](quickstart.md)
 
