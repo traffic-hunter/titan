@@ -1,13 +1,8 @@
 ---
 description: Lightweight, observable message dispatch for real-time applications.
 icon: bolt
-cover: .gitbook/assets/titan-routing-hero.png
-coverY: 0
 layout:
   width: wide
-  cover:
-    visible: true
-    size: hero
   title:
     visible: true
   description:
