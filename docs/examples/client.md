@@ -59,10 +59,10 @@ public class StompClientExample {
             StompHeaders subscribeHeaders = StompHeaders.create();
             subscribeHeaders.put(StompHeaders.Elements.ID, "notifications");
 
-            connection.subscribe("/topic/notifications", subscribeHeaders)
+            connection.subscribe("/notifications", subscribeHeaders)
                     .get(30, TimeUnit.SECONDS);
 
-            connection.send("/topic/notifications", Buffer.alloc("hello titan"))
+            connection.send("/notifications", Buffer.alloc("hello titan"))
                     .get(30, TimeUnit.SECONDS);
         } finally {
             client.shutdown(30, TimeUnit.SECONDS);
@@ -103,7 +103,7 @@ public class AsyncStompClientExample {
         client.start();
 
         client.connect("127.0.0.1", 61613, 30, TimeUnit.SECONDS)
-                .thenCompose(connection -> sendAsync(connection, "/topic/notifications", "hello titan"))
+                .thenCompose(connection -> sendAsync(connection, "/notifications", "hello titan"))
                 .addListener(result -> {
                     if (result.isSuccess()) {
                         System.out.println("message sent");
@@ -127,5 +127,5 @@ public class AsyncStompClientExample {
 Use `future()` when integration code needs a JDK `Future`.
 
 ```java
-var future = connection.send("/topic/notifications", Buffer.alloc("hello titan")).future();
+var future = connection.send("/notifications", Buffer.alloc("hello titan")).future();
 ```

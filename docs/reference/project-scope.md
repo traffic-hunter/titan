@@ -6,7 +6,7 @@ Titan's production focus is real-time STOMP dispatch over TCP.
 
 * STOMP server and client connections
 * TCP and WebSocket client transport
-* Queue- and topic-style destination routing
+* Exact destination routing through per-destination FIFO dispatcher queues
 * In-memory fanout delivery
 * Native Java and Spring Boot clients
 * Local JVM, connection, server, and dispatcher visibility

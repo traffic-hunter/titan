@@ -58,11 +58,11 @@ Choose the client path that matches your application:
 * [Spring Boot](examples/spring-client.md) for `TitanTemplate` and
   `@TitanListener`
 
-Use `/topic/notifications` in both the subscriber and publisher examples to see
+Use `/notifications` in both the subscriber and publisher examples to see
 a message travel through the same destination.
 
 ## Next steps
 
 * Learn [how Titan works](concepts/how-titan-works.md).
-* Decide between [queue and topic destinations](concepts/destinations.md).
+* Understand [dispatch routing](concepts/destinations.md).
 * Add terminal visibility with [Monitoring and CLI](operate/monitoring.md).

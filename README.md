@@ -11,7 +11,7 @@ Spring Boot client integration.
 ## Highlights
 
 - STOMP over TCP server and client.
-- Destination-based routing with `/queue/...` and `/topic/...` style paths.
+- Exact destination matching with one FIFO dispatcher queue per destination.
 - Fanout delivery for publish-subscribe scenarios.
 - Pluggable runtime through SPI.
 - Local HTTP monitoring API with a terminal-first CLI.
@@ -131,9 +131,9 @@ go run . --addr http://localhost:7777 --no-color --once
 # queue management
 export TITAN_MONITOR_TOKEN=<monitor-token>
 go run . --addr http://localhost:7777 queue list
-go run . --addr http://localhost:7777 queue create /queue/orders --capacity 100
-go run . --addr http://localhost:7777 queue delete /queue/orders
-go run . --addr http://localhost:7777 queue delete /queue/orders --force
+go run . --addr http://localhost:7777 queue create /orders --capacity 100
+go run . --addr http://localhost:7777 queue delete /orders
+go run . --addr http://localhost:7777 queue delete /orders --force
 ```
 
 The monitor HTTP API is served under `/titan`.
