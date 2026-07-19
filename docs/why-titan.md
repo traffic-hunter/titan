@@ -9,7 +9,7 @@ and the runtime should stay small enough to understand and operate directly.
 Titan is a good fit when your system needs:
 
 * Real-time delivery over STOMP and TCP
-* Queue- and topic-style destination paths
+* Exact destination matching backed by a FIFO dispatcher queue
 * Publish-subscribe fanout
 * Java or Spring Boot integration
 * Local operational visibility from HTTP or a terminal
@@ -31,8 +31,9 @@ observable real-time dispatch.
 
 ## Design principles
 
-1. **Destinations are the API.** Producers and consumers meet at explicit
-   `/queue/...` and `/topic/...` paths.
+1. **Destinations are the API.** Every destination is an opaque path key. Titan
+   maps it to one FIFO dispatcher queue; prefixes such as `/queue` and `/topic`
+   do not select different delivery semantics.
 2. **The hot path stays small.** NIO event loops, channels, and pipelines move
    frames without hiding the transport lifecycle.
 3. **Optional features remain optional.** Fanout and monitoring attach as

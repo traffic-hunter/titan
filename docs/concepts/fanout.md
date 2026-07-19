@@ -6,7 +6,7 @@ active observer should receive the event.
 
 ```text
                            ┌──▶ subscription 1
-SEND /topic/updates ──▶ gateway ──▶ subscription 2
+SEND /events/updates ──▶ gateway ──▶ subscription 2
                            └──▶ subscription 3
 ```
 
@@ -30,6 +30,6 @@ based dispatch workers.
 ## Operational boundary
 
 Fanout is live delivery, not durable retention. A subscriber that is offline
-does not gain replay merely because the destination is a topic. If consumers
-must recover historical events after reconnecting, provide persistence outside
-Titan or choose a durable messaging system.
+does not gain replay from its destination name. If consumers must recover
+historical events after reconnecting, provide persistence outside Titan or
+choose a durable messaging system.

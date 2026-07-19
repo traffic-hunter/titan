@@ -1,52 +1,81 @@
-# Destinations
+# Destinations and dispatcher queues
 
-A destination is the address shared by a producer and its consumers. Titan uses
-STOMP-style paths so routing intent is visible at every call site.
+A destination is an opaque path key that connects an inbound message to one
+Titan dispatcher queue. Titan does not interpret `/queue` and `/topic` prefixes
+as separate messaging models.
 
-## Queue-style paths
+{% hint style="info" icon="route" %}
+`/orders`, `/events/orders`, and `/topic/orders` are all ordinary destination
+keys to Titan. Their names communicate application intent only; they do not
+change routing behavior.
+{% endhint %}
 
-Use `/queue/...` when the destination represents work or a named dispatch lane.
+## The routing invariant
 
-```text
-Producer ── SEND /queue/orders ──▶ Titan ──▶ Consumer
+Every published message is placed into the queue for its exact destination.
+If that queue does not exist yet, the dispatcher creates it.
+
+```mermaid
+flowchart LR
+    S[STOMP SEND] --> D[Destination /orders/created]
+    D --> R{Dispatcher exact lookup}
+    R --> Q[One FIFO DispatcherQueue]
+    Q --> C[Destination consumer]
+    C --> E[Protocol exporter]
+    E --> M[Exact-match subscriptions]
 ```
 
-Examples:
+The default dispatcher stores destination queues in a trie, but publishing is
+an exact lookup. A message for `/orders/created` is not routed to `/orders` and
+does not inherit behavior from any path prefix.
 
-* `/queue/orders`
-* `/queue/image-resize`
-* `/queue/tenant-42/events`
+## Queue lifecycle
 
-## Topic-style paths
+The first publish or consumer startup for a destination calls `getOrPut` and
+creates its queue when necessary. Repeated calls for the same destination reuse
+the existing queue and preserve its configured capacity.
 
-Use `/topic/...` when a publication represents a live event that subscribers
-observe.
+Each queue:
+
+* belongs to exactly one destination;
+* preserves insertion order with FIFO delivery;
+* can be paused and resumed;
+* exposes its size and capacity to monitoring;
+* can be created or deleted through the monitoring API and Titan CLI.
+
+This is an internal dispatch queue. It is not a STOMP `/queue` destination with
+competing-consumer semantics, and the destination name does not turn it into
+one.
+
+## Subscription matching
+
+STOMP subscriptions are registered with a destination. During export, Titan
+selects subscriptions whose `Destination` value is exactly equal to the queue's
+destination. The subscription registry does not perform prefix or topic-pattern
+matching.
 
 ```text
-                              ┌──▶ Subscriber A
-Producer ── /topic/news ──▶ Titan
-                              └──▶ Subscriber B
+SEND      /events/orders
+SUBSCRIBE /events/orders     → match
+SUBSCRIBE /events            → no match
+SUBSCRIBE /events/payments   → no match
 ```
 
-Examples:
-
-* `/topic/notifications`
-* `/topic/room/42`
-* `/topic/device/temperature`
-
-Topic-style naming communicates intent, while actual one-to-many delivery is
-provided by Titan's [fanout](fanout.md) module.
+When fanout is enabled, the per-destination consumer drains one message from the
+dispatcher queue and the exporter writes that message to every exact-match
+subscription. Learn more in [Fanout](fanout.md).
 
 ## Naming destinations
 
-Prefer stable nouns and place variable identifiers after the domain:
+Choose names for domain meaning, not broker semantics:
 
 ```text
-/queue/orders
-/topic/orders/created
-/topic/rooms/{roomId}/messages
+/orders
+/orders/created
+/rooms/42/messages
+/devices/temperature
 ```
 
-Avoid placing deployment details, hostnames, or consumer implementation names
-in a destination. Those details change more frequently than the message's
-meaning.
+Use stable nouns and events. Avoid `/queue` or `/topic` unless those words are
+genuinely part of your application's domain language; Titan assigns them no
+special behavior.

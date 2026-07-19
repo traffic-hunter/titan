@@ -59,8 +59,9 @@ Java and Spring Boot clients.
 
 ### Route
 
-Address live traffic with `/queue/...` and `/topic/...` destinations. Attach
-fanout when every active subscriber should receive the event.
+Address live traffic with opaque destination paths. Titan maps every exact
+destination to one FIFO dispatcher queue; path prefixes do not change delivery
+semantics.
 {% endcolumn %}
 
 {% column width="40%" %}
@@ -78,9 +79,9 @@ terminal-first Titan CLI.
 ```mermaid
 flowchart LR
     P[Producer] -->|SEND| T{Titan}
-    T -->|/queue/orders| C1[Worker]
-    T -->|/topic/notifications| C2[Subscriber A]
-    T -->|/topic/notifications| C3[Subscriber B]
+    T -->|/orders| Q[DispatcherQueue /orders]
+    Q --> C1[Subscriber A]
+    Q --> C2[Subscriber B]
     T -.->|snapshot| M[Monitor & CLI]
 ```
 
@@ -96,7 +97,7 @@ before using Titan for reliability-sensitive workloads.
 <tr>
   <td><h3><i class="fa-route" style="color:$primary;">:route:</i></h3></td>
   <td><strong>Destinations</strong></td>
-  <td>Model routing intent with queue- and topic-style paths.</td>
+  <td>Map exact destination keys to FIFO dispatcher queues.</td>
   <td><a href="concepts/destinations.md">destinations</a></td>
 </tr>
 <tr>

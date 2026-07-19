@@ -76,7 +76,7 @@ public class NotificationPublisher {
     }
     
     public void publish(String payload) throws Exception {
-        titanTemplate.send("/topic/notifications", payload);
+        titanTemplate.send("/notifications", payload);
     }
 }
 ```
@@ -99,7 +99,7 @@ public class AsyncNotificationPublisher {
     }
 
     public Future<StompFrames> publish(String payload) throws Exception {
-        return titanTemplate.async().send("/topic/notifications", payload);
+        return titanTemplate.async().send("/notifications", payload);
     }
 }
 ```
@@ -113,7 +113,7 @@ import org.traffichunter.titan.springframework.stomp.annotation.TitanListener;
 @Component
 public class NotificationListener {
 
-    @TitanListener(destination = "/topic/notifications")
+    @TitanListener(destination = "/notifications")
     public void onMessage(String payload) {
         System.out.println(payload);
     }
