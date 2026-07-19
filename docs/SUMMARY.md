@@ -9,7 +9,7 @@
 ## Learn
 
 * [How Titan works](concepts/how-titan-works.md)
-* [Destinations](concepts/destinations.md)
+* [Dispatch routing](concepts/destinations.md)
 * [Fanout](concepts/fanout.md)
 
 ## Build

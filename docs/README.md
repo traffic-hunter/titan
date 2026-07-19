@@ -96,8 +96,8 @@ before using Titan for reliability-sensitive workloads.
 <table data-view="cards"><thead><tr><th></th><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody>
 <tr>
   <td><h3><i class="fa-route" style="color:$primary;">:route:</i></h3></td>
-  <td><strong>Destinations</strong></td>
-  <td>Map exact destination keys to FIFO dispatcher queues.</td>
+  <td><strong>Dispatch routing</strong></td>
+  <td>Trace exact destination keys through FIFO dispatcher queues.</td>
   <td><a href="concepts/destinations.md">destinations</a></td>
 </tr>
 <tr>

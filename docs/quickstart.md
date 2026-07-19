@@ -64,5 +64,5 @@ a message travel through the same destination.
 ## Next steps
 
 * Learn [how Titan works](concepts/how-titan-works.md).
-* Understand [destinations and dispatcher queues](concepts/destinations.md).
+* Understand [dispatch routing](concepts/destinations.md).
 * Add terminal visibility with [Monitoring and CLI](operate/monitoring.md).
