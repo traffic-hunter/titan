@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Titan</title>
+  <desc id="desc">A message route branching through a Titan dispatch junction.</desc>
+
+  <!-- Full-bleed background prevents light corners in browser tabs. -->
+  <rect width="256" height="256" fill="#FF6B35"/>
+
+  <path
+    d="M116 48V100M116 156V208"
+    fill="none"
+    stroke="#11151B"
+    stroke-width="16"
+    stroke-linecap="round"
+  />
+
+  <path
+    d="M36 128H218
+       M122 128
+       C139 128 145 111 154 94
+       L174 61
+       C179 53 187 51 197 51
+       H218
+       M122 128
+       C139 128 145 145 154 162
+       L174 195
+       C179 203 187 205 197 205
+       H218"
+    fill="none"
+    stroke="#F6F7F4"
+    stroke-width="16"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
