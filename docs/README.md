@@ -15,6 +15,10 @@ layout:
     visible: false
 ---
 
+<p align="center">
+  <img src=".gitbook/assets/titan-logo-rounded.svg" alt="Titan" width="160">
+</p>
+
 # Messages in motion
 
 Titan is a lightweight message dispatch platform built around **STOMP over
