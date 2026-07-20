@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/assets/titan-logo-rounded.svg" alt="Titan" width="160">
+</p>
+
 # Titan
 
 [![Release](https://img.shields.io/github/v/release/traffic-hunter/titan)](https://github.com/traffic-hunter/titan/releases)
