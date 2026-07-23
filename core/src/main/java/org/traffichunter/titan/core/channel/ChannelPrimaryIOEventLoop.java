@@ -63,7 +63,7 @@ public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
                 try {
                     NetServerChannel serverChannel = (NetServerChannel) key.attachment();
                     NetChannel channel;
-                    while ((channel = serverChannel.accept()) != null) {
+                    while ((channel = serverChannel.internal().accept()) != null) {
                         // The server acceptor initializes the child and assigns its secondary I/O loop.
                         ((AbstractChannel) channel).accept(channel);
 

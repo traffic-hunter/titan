@@ -29,15 +29,13 @@ import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author yun
@@ -59,61 +57,42 @@ public final class WebSocketChannel implements NetChannel {
     }
 
     @Override
-    public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException {
-        delegate.connect(remote, timeOut, timeUnit);
+    public Internal internal() {
+        return delegate.internal();
     }
 
-    @Override
-    public void disconnect() {
-        delegate.disconnect();
-    }
-
-    @Override
-    public int read(Buffer buffer) {
-        return delegate.read(buffer);
-    }
-
-    @Override
-    public void write(Buffer buffer) {
-        delegate.write(buffer);
-    }
-
-    @Override
-    public void writeAndFlush(Buffer buffer) {
-        delegate.writeAndFlush(buffer);
-    }
-
-    public void writeAndFlush(WebSocketFrame frame) {
+    public Promise<Void> writeAndFlush(WebSocketFrame frame) {
         if (frame.subProtocol() != subProtocol) {
             throw new IllegalArgumentException("WebSocket frame subprotocol does not match channel subprotocol");
         }
 
         Buffer encoded = frame.encode();
+        IOEventLoop eventLoop = eventLoop();
+        if (!eventLoop.inEventLoop()) {
+            return eventLoop.submit(() -> writeEncoded(encoded));
+        }
+
+        Promise<Void> result = Promise.newPromise(eventLoop);
+        try {
+            writeEncoded(encoded);
+            result.success();
+        } catch (Throwable error) {
+            result.fail(error);
+        }
+        return result;
+    }
+
+    private void writeEncoded(Buffer encoded) {
         boolean accepted = false;
         try {
-            delegate.write(encoded);
+            delegate.internal().write(encoded);
             accepted = true;
-            delegate.flush();
+            delegate.internal().flush();
         } finally {
             if (!accepted) {
                 encoded.release();
             }
         }
-    }
-
-    @Override
-    public void flush() {
-        delegate.flush();
-    }
-
-    @Override
-    public void onWritabilityChanged(boolean isWritable) {
-        delegate.onWritabilityChanged(isWritable);
-    }
-
-    @Override
-    public boolean finishConnect() throws IOException {
-        return delegate.finishConnect();
     }
 
     @Override

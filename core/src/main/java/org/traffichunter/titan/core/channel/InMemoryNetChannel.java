@@ -49,6 +49,7 @@ public final class InMemoryNetChannel implements NetChannel {
     private final Queue<Buffer> inbound = new ArrayDeque<>();
     private final Queue<Buffer> pendingWrites = new ArrayDeque<>();
     private final Queue<Buffer> flushedWrites = new ArrayDeque<>();
+    private final Internal internal = new InMemoryInternal();
 
     private @Nullable IOEventLoop eventLoop;
     private @Nullable SocketAddress localAddress;
@@ -158,55 +159,8 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     @Override
-    public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        remoteAddress = remote;
-        connected = true;
-        active = true;
-    }
-
-    @Override
-    public void disconnect() {
-        connected = false;
-        active = false;
-    }
-
-    @Override
-    public int read(Buffer buffer) {
-        Buffer inboundBuffer = inbound.poll();
-        if (inboundBuffer == null) {
-            return 0;
-        }
-        int readable = inboundBuffer.length();
-        buffer.accumulateBuffer(inboundBuffer);
-        inboundBuffer.release();
-        return readable;
-    }
-
-    @Override
-    public void write(Buffer buffer) {
-        pendingWrites.add(buffer.retain());
-    }
-
-    @Override
-    public void writeAndFlush(Buffer buffer) {
-        chain.processChannelWrite(this, buffer);
-        flush();
-    }
-
-    @Override
-    public void flush() {
-        while (!pendingWrites.isEmpty()) {
-            flushedWrites.add(pendingWrites.poll());
-        }
-    }
-
-    @Override
-    public void onWritabilityChanged(boolean isWritable) {
-    }
-
-    @Override
-    public boolean finishConnect() {
-        return connected;
+    public Internal internal() {
+        return internal;
     }
 
     @Override
@@ -229,6 +183,61 @@ public final class InMemoryNetChannel implements NetChannel {
     private void clearQueue(Queue<Buffer> queue) {
         while (!queue.isEmpty()) {
             queue.poll().release();
+        }
+    }
+
+    private final class InMemoryInternal implements Internal {
+
+        @Override
+        public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+            remoteAddress = remote;
+            connected = true;
+            active = true;
+        }
+
+        @Override
+        public void disconnect() {
+            connected = false;
+            active = false;
+        }
+
+        @Override
+        public int read(Buffer buffer) {
+            Buffer inboundBuffer = inbound.poll();
+            if (inboundBuffer == null) {
+                return 0;
+            }
+            int readable = inboundBuffer.length();
+            buffer.accumulateBuffer(inboundBuffer);
+            inboundBuffer.release();
+            return readable;
+        }
+
+        @Override
+        public void write(Buffer buffer) {
+            pendingWrites.add(buffer.retain());
+        }
+
+        @Override
+        public void writeAndFlush(Buffer buffer) {
+            write(buffer);
+            flush();
+        }
+
+        @Override
+        public void flush() {
+            while (!pendingWrites.isEmpty()) {
+                flushedWrites.add(pendingWrites.poll());
+            }
+        }
+
+        @Override
+        public void onWritabilityChanged(boolean isWritable) {
+        }
+
+        @Override
+        public boolean finishConnect() {
+            return connected;
         }
     }
 }

@@ -94,7 +94,7 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
         channel.chain().add(new WebSocketUpgradeHandler(this, key, upgradeResult));
 
         channel.eventLoop().submit(() -> {
-            channel.writeAndFlush(Buffer.alloc(request.toString()));
+            channel.internal().writeAndFlush(Buffer.alloc(request.toString()));
             return channel;
         }).addListener(result -> {
             if (result.isFailed() && !upgradeResult.isDone()) {

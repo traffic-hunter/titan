@@ -50,6 +50,8 @@ import java.nio.channels.SocketChannel;
  */
 public class NewIONetServerChannel extends AbstractChannel implements NetServerChannel {
 
+    private final Internal internal = new NewIOInternal();
+
     NewIONetServerChannel(ChannelHandShakeEventListener initializer) throws IOException {
         this(ServerSocketChannel.open(), initializer);
     }
@@ -59,12 +61,11 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public void bind(InetSocketAddress address) throws IOException {
-        channel().bind(address);
+    public Internal internal() {
+        return internal;
     }
 
-    @Override
-    public @Nullable NetChannel accept() {
+    private @Nullable NetChannel acceptInternal() {
         try {
             SocketChannel accept = channel().accept();
             if (accept == null) {
@@ -113,5 +114,18 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
 
     private ServerSocketChannel channel() {
         return (ServerSocketChannel) super.selectableChannel();
+    }
+
+    private final class NewIOInternal implements Internal {
+
+        @Override
+        public void bind(InetSocketAddress address) throws IOException {
+            channel().bind(address);
+        }
+
+        @Override
+        public @Nullable NetChannel accept() {
+            return acceptInternal();
+        }
     }
 }

@@ -136,7 +136,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
         Promise<Void> connectRequest = loop.submit(() -> {
             try {
-                channel.connect(remoteAddress, timeOut, timeUnit);
+                channel.internal().connect(remoteAddress, timeOut, timeUnit);
             } catch (Exception e) {
                 throw new ClientException("Failed to connect to " + remoteAddress, e);
             }
@@ -207,16 +207,9 @@ public class InetClient extends AbstractTransport<NetChannel> {
             return Promise.failedPromise(groups().secondaryGroup(), new ClientException("Not ready to connect"));
         }
 
-        IOEventLoop loop = channel.eventLoop();
-
-        return loop.submit(() -> {
-            try {
-                channel.writeAndFlush(buffer);
-            } catch (Exception e) {
-                log.error("Failed to send data = {}", buffer, e);
-                throw new ClientException("Failed to send data", e);
-            }
-        });
+        Promise<Void> result = channel.writeAndFlush(buffer);
+        result.onFailure(error -> log.error("Failed to send data = {}", buffer, error));
+        return result;
     }
 
     public <C> Promise<C> failedPromise(Throwable error) {

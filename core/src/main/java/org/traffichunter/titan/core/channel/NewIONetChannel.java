@@ -54,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private final ChannelWriteBuffer channelWriteBuffer;
+    private final Internal internal = new NewIOInternal();
 
     private @Nullable volatile ChannelPromise connectPromise;
 
@@ -67,7 +68,11 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public void connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) throws IOException {
+    public Internal internal() {
+        return internal;
+    }
+
+    private void connectInternal(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) throws IOException {
         if(isClosed()) {
             throw new ChannelException("Channel is closed");
         }
@@ -98,13 +103,11 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
     }
 
-    @Override
-    public void disconnect() {
+    private void disconnectInternal() {
         close();
     }
 
-    @Override
-    public int read(Buffer buffer) {
+    private int readInternal(Buffer buffer) {
         if(isClosed()) {
             throw new ChannelException("Channel is closed");
         }
@@ -128,8 +131,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
     }
 
-    @Override
-    public void write(Buffer buffer) {
+    private void writeInternal(Buffer buffer) {
         if(isClosed()) {
             throw new ChannelException("Already channel is closed");
         }
@@ -137,19 +139,17 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         channelWriteBuffer.add(buffer);
     }
 
-    @Override
-    public void writeAndFlush(Buffer buffer) {
+    private void writeAndFlushInternal(Buffer buffer) {
         try {
-            chain().processChannelWrite(this, buffer);
-            flush();
+            writeInternal(buffer);
+            flushInternal();
         } catch (RuntimeException e) {
             close();
             throw e;
         }
     }
 
-    @Override
-    public void flush() {
+    private void flushInternal() {
         if(isClosed()) {
             throw new ChannelException("Already channel is closed");
         }
@@ -188,8 +188,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
     }
 
-    @Override
-    public void onWritabilityChanged(boolean active) {
+    private void onWritabilityChangedInternal(boolean active) {
         if (isClosed()) {
             return;
         }
@@ -263,8 +262,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
     }
 
-    @Override
-    public boolean finishConnect() throws IOException {
+    private boolean finishConnectInternal() throws IOException {
         if(!eventLoop().inEventLoop()) {
             throw new ChannelException("Should be called in event loop");
         }
@@ -365,6 +363,49 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             if(!connected) {
                 close();
             }
+        }
+    }
+
+    private final class NewIOInternal implements Internal {
+
+        @Override
+        public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException {
+            connectInternal(remote, timeOut, timeUnit);
+        }
+
+        @Override
+        public void disconnect() {
+            disconnectInternal();
+        }
+
+        @Override
+        public int read(Buffer buffer) {
+            return readInternal(buffer);
+        }
+
+        @Override
+        public void write(Buffer buffer) {
+            writeInternal(buffer);
+        }
+
+        @Override
+        public void writeAndFlush(Buffer buffer) {
+            writeAndFlushInternal(buffer);
+        }
+
+        @Override
+        public void flush() {
+            flushInternal();
+        }
+
+        @Override
+        public void onWritabilityChanged(boolean isWritable) {
+            onWritabilityChangedInternal(isWritable);
+        }
+
+        @Override
+        public boolean finishConnect() throws IOException {
+            return finishConnectInternal();
         }
     }
 }

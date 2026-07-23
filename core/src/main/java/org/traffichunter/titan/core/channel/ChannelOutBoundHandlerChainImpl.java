@@ -45,7 +45,7 @@ public final class ChannelOutBoundHandlerChainImpl implements ChannelOutBoundHan
         ChannelOutBoundHandlerChainImpl chain = next;
         if(chain == null) {
             try {
-                channel.write(buffer);
+                channel.internal().write(buffer);
             } catch (RuntimeException e) {
                 buffer.release();
                 throw e;
