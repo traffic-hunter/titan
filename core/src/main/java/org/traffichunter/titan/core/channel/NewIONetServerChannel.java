@@ -77,22 +77,8 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public Promise<@Nullable NetChannel> accept() {
+    public Promise<NetChannel> accept() {
         return ChannelTasks.accept(this);
-    }
-
-    private @Nullable NetChannel acceptInternal() {
-        try {
-            SocketChannel accept = channel().accept();
-            if (accept == null) {
-                return null;
-            }
-
-            return new NewIONetChannel(accept, super.initializer());
-        } catch (IOException e) {
-            setState(getState(), ChannelState.INIT);
-            return null;
-        }
     }
 
     @Override
@@ -141,7 +127,17 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
 
         @Override
         public @Nullable NetChannel accept() {
-            return acceptInternal();
+            try {
+                SocketChannel accepted = channel().accept();
+                if (accepted == null) {
+                    return null;
+                }
+
+                return new NewIONetChannel(accepted, NewIONetServerChannel.super.initializer());
+            } catch (IOException e) {
+                setState(getState(), ChannelState.INIT);
+                return null;
+            }
         }
     }
 }

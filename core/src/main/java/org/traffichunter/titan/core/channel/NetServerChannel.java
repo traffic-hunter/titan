@@ -63,7 +63,7 @@ public interface NetServerChannel extends Channel {
     /**
      * Accepts one pending child connection, or returns {@code null} when no connection is ready.
      */
-    Promise<@Nullable NetChannel> accept();
+    Promise<NetChannel> accept();
 
     /**
      * Synchronous low-level server socket operations for the owning I/O event-loop thread.

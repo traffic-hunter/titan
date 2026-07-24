@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -107,8 +106,23 @@ final class ChannelTasks {
         });
     }
 
-    static Promise<@Nullable NetChannel> accept(NetServerChannel channel) {
-        return execute(channel.eventLoop(), channel.internal()::accept);
+    static Promise<NetChannel> accept(NetServerChannel channel) {
+        IOEventLoop eventLoop = channel.eventLoop();
+        Promise<NetChannel> result = Promise.newPromise(eventLoop);
+        Runnable acceptTask = () -> {
+            try {
+                result.success(channel.internal().accept());
+            } catch (Throwable error) {
+                result.fail(error);
+            }
+        };
+
+        if (eventLoop.inEventLoop()) {
+            acceptTask.run();
+        } else {
+            eventLoop.register(acceptTask);
+        }
+        return result;
     }
 
     static Promise<Void> execute(IOEventLoop eventLoop, Runnable task) {
