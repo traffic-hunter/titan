@@ -177,7 +177,7 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
         @Override
         protected void handleHead(NetChannel channel, String head) {
             HttpRequest parsed = handshaker.parseRequest(head);
-            channel.writeAndFlush(Buffer.alloc(handshaker.createResponse(parsed)));
+            channel.internal().writeAndFlush(Buffer.alloc(handshaker.createResponse(parsed)));
             installWebSocketCodec(channel, WebSocketSide.SERVER, handshaker.subProtocol());
             request = parsed;
         }

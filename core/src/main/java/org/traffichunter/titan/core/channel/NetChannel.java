@@ -24,7 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.NonNull;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.IOException;
@@ -51,43 +51,73 @@ public interface NetChannel extends Channel {
     @Override
     <T> NetChannel setOption(SocketOption<T> option, T value);
 
-    default void connect(String host, int port, long timeOut, TimeUnit timeUnit) throws IOException {
-        connect(new InetSocketAddress(host, port), timeOut, timeUnit);
-    }
+    Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit);
+
+    /**
+     * Returns the synchronous transport operations used by the owning I/O event loop and
+     * protocol handlers that must bypass the outbound chain.
+     */
+    Internal internal();
 
     /**
      * Starts or completes a non-blocking socket connection.
      */
     @CanIgnoreReturnValue
-    void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException;
+    Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit);
 
     @CanIgnoreReturnValue
-    void disconnect();
+    Promise<Void> disconnect();
 
     /**
      * Reads available bytes without blocking.
      */
     @CanIgnoreReturnValue
-    int read(Buffer buffer);
+    Promise<Integer> read(Buffer buffer);
 
     @CanIgnoreReturnValue
-    void write(Buffer buffer);
+    Promise<Void> write(Buffer buffer);
 
     /**
      * Queues the buffer and attempts to write queued bytes to the socket.
      */
     @CanIgnoreReturnValue
-    void writeAndFlush(Buffer buffer);
+    Promise<Void> writeAndFlush(Buffer buffer);
 
     @CanIgnoreReturnValue
-    void flush();
+    Promise<Void> flush();
 
-    void onWritabilityChanged(boolean isWritable);
+    Promise<Void> onWritabilityChanged(boolean isWritable);
 
     /**
      * Completes a pending non-blocking connect from the owning event-loop thread.
      */
-    boolean finishConnect() throws IOException;
+    Promise<Boolean> finishConnect();
 
     boolean isConnected();
+
+    /**
+     * Synchronous low-level channel operations.
+     *
+     * <p>These methods execute immediately and are intended for the channel's I/O event-loop
+     * thread. A successful call means the operation was attempted or queued; it does not mean
+     * that the peer received the bytes.</p>
+     */
+    interface Internal {
+
+        void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException;
+
+        void disconnect();
+
+        int read(Buffer buffer);
+
+        void write(Buffer buffer);
+
+        void writeAndFlush(Buffer buffer);
+
+        void flush();
+
+        void onWritabilityChanged(boolean isWritable);
+
+        boolean finishConnect() throws IOException;
+    }
 }

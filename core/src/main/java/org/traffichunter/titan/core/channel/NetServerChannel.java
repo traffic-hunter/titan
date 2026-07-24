@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.concurrent.Promise;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -47,17 +48,30 @@ public interface NetServerChannel extends Channel {
     @Override
     <T> NetServerChannel setOption(SocketOption<T> option, T value);
 
-    default void bind(String host, int port) throws IOException {
-        bind(new InetSocketAddress(host, port));
-    }
+    Promise<Void> bind(String host, int port);
+
+    /**
+     * Returns the synchronous transport operations used by the server I/O event loop.
+     */
+    Internal internal();
 
     /**
      * Binds the listening socket to the given address.
      */
-    void bind(InetSocketAddress address) throws IOException;
+    Promise<Void> bind(InetSocketAddress address);
 
     /**
      * Accepts one pending child connection, or returns {@code null} when no connection is ready.
      */
-    @Nullable NetChannel accept();
+    Promise<NetChannel> accept();
+
+    /**
+     * Synchronous low-level server socket operations for the owning I/O event-loop thread.
+     */
+    interface Internal {
+
+        void bind(InetSocketAddress address) throws IOException;
+
+        @Nullable NetChannel accept();
+    }
 }

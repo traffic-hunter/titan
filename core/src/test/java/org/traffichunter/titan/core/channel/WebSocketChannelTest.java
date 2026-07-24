@@ -24,6 +24,8 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.core.channel.IOEventLoop;
+import org.traffichunter.titan.core.channel.NetChannel.Internal;
 import org.mockito.ArgumentCaptor;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
@@ -35,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * @author yun
@@ -44,6 +47,11 @@ class WebSocketChannelTest {
     @Test
     void write_frame_directly_to_underlying_channel() {
         NetChannel delegate = mock(NetChannel.class);
+        Internal internal = mock(Internal.class);
+        IOEventLoop eventLoop = mock(IOEventLoop.class);
+        when(delegate.internal()).thenReturn(internal);
+        when(delegate.eventLoop()).thenReturn(eventLoop);
+        when(eventLoop.inEventLoop()).thenReturn(true);
         WebSocketChannel channel = new WebSocketChannel(delegate, Protocol.STOMP);
         Buffer payload = Buffer.alloc("OK");
         WebSocketFrame frame = new WebSocketFrame(
@@ -58,8 +66,8 @@ class WebSocketChannelTest {
         channel.writeAndFlush(frame);
 
         ArgumentCaptor<Buffer> encoded = ArgumentCaptor.forClass(Buffer.class);
-        verify(delegate).write(encoded.capture());
-        verify(delegate).flush();
+        verify(internal).write(encoded.capture());
+        verify(internal).flush();
         assertThat(encoded.getValue().getBytes()).containsExactly((byte) 0x81, 0x02, 'O', 'K');
 
         encoded.getValue().release();

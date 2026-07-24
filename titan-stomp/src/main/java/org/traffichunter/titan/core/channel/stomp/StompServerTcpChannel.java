@@ -100,7 +100,7 @@ public class StompServerTcpChannel implements StompServerChannel {
         }
 
         NetChannel netChannel = asNetChannel(connection);
-        return netChannel.eventLoop().submit(() -> netChannel.writeAndFlush(buffer));
+        return netChannel.writeAndFlush(buffer);
     }
 
     @Override

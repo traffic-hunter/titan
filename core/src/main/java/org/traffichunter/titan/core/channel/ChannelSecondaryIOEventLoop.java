@@ -73,7 +73,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
             try {
                 if (key.isConnectable()) {
                     chain.processChannelConnecting(channel);
-                    if(channel.finishConnect()) {
+                    if(channel.internal().finishConnect()) {
                         if (channel instanceof NewIONetChannel nioNetChannel) {
                             nioNetChannel.completeConnect();
                         }
@@ -89,7 +89,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 } else if (key.isReadable()) {
                     processRead(channel, chain);
                 } else if (key.isWritable()) {
-                    channel.flush();
+                    channel.internal().flush();
                 }
             } catch (Exception e) {
                 if (channel.isClosed()) {
@@ -111,7 +111,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
         Buffer buffer = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, Buffers.DEFAULT_MAX_CAPACITY);
         final int read;
         try {
-            read = channel.read(buffer);
+            read = channel.internal().read(buffer);
         } catch (Exception e) {
             buffer.release();
             throw e;

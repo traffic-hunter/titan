@@ -453,9 +453,18 @@ public class StompClientTcpChannel implements StompClientChannel {
         }
 
         try {
-            netChannel.writeAndFlush(frame.toBuffer());
+            Promise<Void> write = netChannel.writeAndFlush(frame.toBuffer());
+            write.onFailure(error -> {
+                if (receiptId != null && !receiptId.isBlank()) {
+                    receiptMap.remove(receiptId);
+                }
+                log.error("Failed to write STOMP frame. session={}, command={}", sessionId, frame.getCommand(), error);
+                exceptionHandler.handle(error);
+                close();
+                receiptPromise.fail(new StompNetChannelException("Failed to write STOMP frame", error));
+            });
             if (receiptId == null || receiptId.isBlank()) {
-                receiptPromise.success(frame);
+                write.onSuccess(ignored -> receiptPromise.success(frame));
             }
         } catch (Exception e) {
             if (receiptId != null && !receiptId.isBlank()) {

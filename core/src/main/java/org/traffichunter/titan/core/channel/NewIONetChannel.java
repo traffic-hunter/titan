@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -54,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private final ChannelWriteBuffer channelWriteBuffer;
+    private final Internal internal = new NewIOInternal();
 
     private @Nullable volatile ChannelPromise connectPromise;
 
@@ -67,163 +69,53 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public void connect(InetSocketAddress remoteAddress, long timeOut, TimeUnit timeUnit) throws IOException {
-        if(isClosed()) {
-            throw new ChannelException("Channel is closed");
-        }
-
-        ChannelPromise promise = eventLoop().newPromise(this);
-        connectPromise = promise;
-
-        if(connect0(remoteAddress)) {
-            chain().processChannelConnecting(this);
-            completeConnect();
-            chain().processChannelAfterConnected(this);
-            eventLoop().ioSelector().registerRead(this);
-            accept(this);
-            return;
-        }
-
-        if(timeOut > 0) {
-            ScheduledPromise<?> timeoutPromise = eventLoop().schedule(
-                () -> {
-                    if (promise.isDone()) {
-                        return;
-                    }
-                    promise.fail(new ChannelException("Connect timeout"));
-                    close();
-                }, timeOut, timeUnit);
-
-            promise.addListener(f -> timeoutPromise.cancel());
-        }
+    public Internal internal() {
+        return internal;
     }
 
     @Override
-    public void disconnect() {
-        close();
+    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+        return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
     @Override
-    public int read(Buffer buffer) {
-        if(isClosed()) {
-            throw new ChannelException("Channel is closed");
-        }
-
-        ByteBuf byteBuf = buffer.byteBuf();
-        ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
-
-        try {
-            int read = channel().read(dst);
-
-            if(read > 0) {
-                byteBuf.writerIndex(byteBuf.writerIndex() + read);
-            } else if(read < 0) {
-                close();
-            }
-
-            return read;
-        } catch (IOException e) {
-            log.warn("Failed to read from socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
-            return -1;
-        }
+    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        return ChannelTasks.connect(this, remote, timeOut, timeUnit);
     }
 
     @Override
-    public void write(Buffer buffer) {
-        if(isClosed()) {
-            throw new ChannelException("Already channel is closed");
-        }
-
-        channelWriteBuffer.add(buffer);
+    public Promise<Void> disconnect() {
+        return ChannelTasks.disconnect(this);
     }
 
     @Override
-    public void writeAndFlush(Buffer buffer) {
-        try {
-            chain().processChannelWrite(this, buffer);
-            flush();
-        } catch (RuntimeException e) {
-            close();
-            throw e;
-        }
+    public Promise<Integer> read(Buffer buffer) {
+        return ChannelTasks.read(this, buffer);
     }
 
     @Override
-    public void flush() {
-        if(isClosed()) {
-            throw new ChannelException("Already channel is closed");
-        }
-
-        while (true) {
-            Buffer buffer = channelWriteBuffer.current();
-            if(buffer == null) {
-                break;
-            }
-
-            ByteBuf byteBuf = buffer.byteBuf();
-            ByteBuffer nioBuffer = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
-
-            int written = write0(nioBuffer);
-            if(written < 0) {
-                throw new ChannelException("Failed to write to socket");
-            }
-            // socket buffer full
-            if(written == 0) {
-                onWriteabilityChanged(true);
-                break;
-            }
-
-            byteBuf.readerIndex(byteBuf.readerIndex() + written);
-
-            if(!byteBuf.isReadable()) {
-                Buffer consumed = channelWriteBuffer.poll();
-                if (consumed != null) {
-                    consumed.release();
-                }
-            }
-        }
-
-        if(channelWriteBuffer.isEmpty()) {
-            onWriteabilityChanged(false);
-        }
+    public Promise<Void> write(Buffer buffer) {
+        return ChannelTasks.write(this, buffer);
     }
 
     @Override
-    public void onWritabilityChanged(boolean active) {
-        if (isClosed()) {
-            return;
-        }
+    public Promise<Void> writeAndFlush(Buffer buffer) {
+        return ChannelTasks.writeAndFlush(this, buffer);
+    }
 
-        IOEventLoop ioEventLoop = eventLoop();
-        if (ioEventLoop.isShuttingDown()) {
-            return;
-        }
-        IOSelector ioSelector = ioEventLoop.ioSelector();
+    @Override
+    public Promise<Void> flush() {
+        return ChannelTasks.flush(this);
+    }
 
-        Runnable updateWritability = () -> {
-            try {
-                if (active) {
-                    ioSelector.registerWrite(this);
-                } else {
-                    ioSelector.unregisterWrite(this);
-                }
-            } catch (IOException e) {
-                throw new ChannelException("Failed to register write event", e);
-            }
-        };
+    @Override
+    public Promise<Void> onWritabilityChanged(boolean isWritable) {
+        return ChannelTasks.onWritabilityChanged(this, isWritable);
+    }
 
-        if (ioEventLoop.inEventLoop()) {
-            updateWritability.run();
-            return;
-        }
-
-        try {
-            ioEventLoop.register(updateWritability);
-        } catch (RejectedExecutionException e) {
-            if (!isClosed() && !ioEventLoop.isShuttingDown()) {
-                throw e;
-            }
-        }
+    @Override
+    public Promise<Boolean> finishConnect() {
+        return ChannelTasks.finishConnect(this);
     }
 
     @Override
@@ -264,22 +156,6 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public boolean finishConnect() throws IOException {
-        if(!eventLoop().inEventLoop()) {
-            throw new ChannelException("Should be called in event loop");
-        }
-
-        try {
-            return channel().finishConnect();
-        } catch (IOException e) {
-            log.warn("Failed to finish connect = {}", e.getMessage());
-            failConnect(e);
-            close();
-            throw e;
-        }
-    }
-
-    @Override
     public boolean isConnected() {
         return channel().isConnected();
     }
@@ -290,33 +166,8 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         super.close();
     }
 
-    private void onWriteabilityChanged(boolean isWritable) {
-        IOSelector ioSelector = eventLoop().ioSelector();
-        try {
-            if (isWritable) {
-                ioSelector.registerWrite(this);
-            } else {
-                ioSelector.unregisterWrite(this);
-            }
-        } catch (IOException e) {
-            throw new ChannelException("Failed to register write event", e);
-        }
-    }
-
     private SocketChannel channel() {
         return (SocketChannel) super.selectableChannel();
-    }
-
-    private int write0(ByteBuffer byteBuffer) {
-        int written;
-        try {
-            written = channel().write(byteBuffer);
-        } catch (IOException e) {
-            log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
-            return -1;
-        }
-
-        return written;
     }
 
     void completeConnect() {
@@ -345,25 +196,226 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
     }
 
-    private boolean connect0(InetSocketAddress remote) throws IOException {
-        boolean connected = false;
-        try {
-            boolean connect = channel().connect(remote);
-            if(!connect) {
-                IOEventLoop eventLoop = eventLoop();
-                eventLoop.register(() -> {
-                    try {
-                        eventLoop.ioSelector().registerConnect(this);
-                    } catch (IOException e) {
-                        throw new ChannelException("Failed to register connect event", e);
-                    }
-                });
+    private final class NewIOInternal implements Internal {
+
+        @Override
+        public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException {
+            if(isClosed()) {
+                throw new ChannelException("Channel is closed");
             }
-            connected = true;
-            return connect;
-        } finally {
-            if(!connected) {
+
+            ChannelPromise promise = eventLoop().newPromise(NewIONetChannel.this);
+            connectPromise = promise;
+
+            if(connect0(remote)) {
+                chain().processChannelConnecting(NewIONetChannel.this);
+                completeConnect();
+                chain().processChannelAfterConnected(NewIONetChannel.this);
+                eventLoop().ioSelector().registerRead(NewIONetChannel.this);
+                accept(NewIONetChannel.this);
+                return;
+            }
+
+            if(timeOut > 0) {
+                ScheduledPromise<?> timeoutPromise = eventLoop().schedule(
+                    () -> {
+                        if (promise.isDone()) {
+                            return;
+                        }
+                        promise.fail(new ChannelException("Connect timeout"));
+                        close();
+                    }, timeOut, timeUnit);
+
+                promise.addListener(f -> timeoutPromise.cancel());
+            }
+        }
+
+        @Override
+        public void disconnect() {
+            close();
+        }
+
+        @Override
+        public int read(Buffer buffer) {
+            if(isClosed()) {
+                throw new ChannelException("Channel is closed");
+            }
+
+            ByteBuf byteBuf = buffer.byteBuf();
+            ByteBuffer dst = byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
+
+            try {
+                int read = channel().read(dst);
+
+                if(read > 0) {
+                    byteBuf.writerIndex(byteBuf.writerIndex() + read);
+                } else if(read < 0) {
+                    close();
+                }
+
+                return read;
+            } catch (IOException e) {
+                log.warn("Failed to read from socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                return -1;
+            }
+        }
+
+        @Override
+        public void write(Buffer buffer) {
+            if(isClosed()) {
+                throw new ChannelException("Already channel is closed");
+            }
+
+            channelWriteBuffer.add(buffer);
+        }
+
+        @Override
+        public void writeAndFlush(Buffer buffer) {
+            try {
+                write(buffer);
+                flush();
+            } catch (RuntimeException e) {
                 close();
+                throw e;
+            }
+        }
+
+        @Override
+        public void flush() {
+            if(isClosed()) {
+                throw new ChannelException("Already channel is closed");
+            }
+
+            while (true) {
+                Buffer buffer = channelWriteBuffer.current();
+                if(buffer == null) {
+                    break;
+                }
+
+                ByteBuf byteBuf = buffer.byteBuf();
+                ByteBuffer nioBuffer = byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+
+                int written = write0(nioBuffer);
+                if(written < 0) {
+                    throw new ChannelException("Failed to write to socket");
+                }
+                // socket buffer full
+                if(written == 0) {
+                    onWriteabilityChanged(true);
+                    break;
+                }
+
+                byteBuf.readerIndex(byteBuf.readerIndex() + written);
+
+                if(!byteBuf.isReadable()) {
+                    Buffer consumed = channelWriteBuffer.poll();
+                    if (consumed != null) {
+                        consumed.release();
+                    }
+                }
+            }
+
+            if(channelWriteBuffer.isEmpty()) {
+                onWriteabilityChanged(false);
+            }
+        }
+
+        @Override
+        public void onWritabilityChanged(boolean active) {
+            if (isClosed()) {
+                return;
+            }
+
+            IOEventLoop ioEventLoop = eventLoop();
+            if (ioEventLoop.isShuttingDown()) {
+                return;
+            }
+            IOSelector ioSelector = ioEventLoop.ioSelector();
+
+            Runnable updateWritability = () -> {
+                try {
+                    if (active) {
+                        ioSelector.registerWrite(NewIONetChannel.this);
+                    } else {
+                        ioSelector.unregisterWrite(NewIONetChannel.this);
+                    }
+                } catch (IOException e) {
+                    throw new ChannelException("Failed to register write event", e);
+                }
+            };
+
+            if (ioEventLoop.inEventLoop()) {
+                updateWritability.run();
+                return;
+            }
+
+            try {
+                ioEventLoop.register(updateWritability);
+            } catch (RejectedExecutionException e) {
+                if (!isClosed() && !ioEventLoop.isShuttingDown()) {
+                    throw e;
+                }
+            }
+        }
+
+        @Override
+        public boolean finishConnect() throws IOException {
+            if(!eventLoop().inEventLoop()) {
+                throw new ChannelException("Should be called in event loop");
+            }
+
+            try {
+                return channel().finishConnect();
+            } catch (IOException e) {
+                log.warn("Failed to finish connect = {}", e.getMessage());
+                failConnect(e);
+                close();
+                throw e;
+            }
+        }
+
+        private boolean connect0(InetSocketAddress remote) throws IOException {
+            boolean connected = false;
+            try {
+                boolean connect = channel().connect(remote);
+                if(!connect) {
+                    IOEventLoop eventLoop = eventLoop();
+                    eventLoop.register(() -> {
+                        try {
+                            eventLoop.ioSelector().registerConnect(NewIONetChannel.this);
+                        } catch (IOException e) {
+                            throw new ChannelException("Failed to register connect event", e);
+                        }
+                    });
+                }
+                connected = true;
+                return connect;
+            } finally {
+                if(!connected) {
+                    close();
+                }
+            }
+        }
+
+        private int write0(ByteBuffer byteBuffer) {
+            try {
+                return channel().write(byteBuffer);
+            } catch (IOException e) {
+                log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                return -1;
+            }
+        }
+
+        private void onWriteabilityChanged(boolean isWritable) {
+            IOSelector ioSelector = eventLoop().ioSelector();
+            try {
+                if (isWritable) {
+                    ioSelector.registerWrite(NewIONetChannel.this);
+                } else {
+                    ioSelector.unregisterWrite(NewIONetChannel.this);
+                }
+            } catch (IOException e) {
+                throw new ChannelException("Failed to register write event", e);
             }
         }
     }

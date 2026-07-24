@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.concurrent.Promise;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -50,6 +51,8 @@ import java.nio.channels.SocketChannel;
  */
 public class NewIONetServerChannel extends AbstractChannel implements NetServerChannel {
 
+    private final Internal internal = new NewIOInternal();
+
     NewIONetServerChannel(ChannelHandShakeEventListener initializer) throws IOException {
         this(ServerSocketChannel.open(), initializer);
     }
@@ -59,23 +62,23 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public void bind(InetSocketAddress address) throws IOException {
-        channel().bind(address);
+    public Internal internal() {
+        return internal;
     }
 
     @Override
-    public @Nullable NetChannel accept() {
-        try {
-            SocketChannel accept = channel().accept();
-            if (accept == null) {
-                return null;
-            }
+    public Promise<Void> bind(String host, int port) {
+        return bind(new InetSocketAddress(host, port));
+    }
 
-            return new NewIONetChannel(accept, super.initializer());
-        } catch (IOException e) {
-            setState(getState(), ChannelState.INIT);
-            return null;
-        }
+    @Override
+    public Promise<Void> bind(InetSocketAddress address) {
+        return ChannelTasks.bind(this, address);
+    }
+
+    @Override
+    public Promise<NetChannel> accept() {
+        return ChannelTasks.accept(this);
     }
 
     @Override
@@ -113,5 +116,28 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
 
     private ServerSocketChannel channel() {
         return (ServerSocketChannel) super.selectableChannel();
+    }
+
+    private final class NewIOInternal implements Internal {
+
+        @Override
+        public void bind(InetSocketAddress address) throws IOException {
+            channel().bind(address);
+        }
+
+        @Override
+        public @Nullable NetChannel accept() {
+            try {
+                SocketChannel accepted = channel().accept();
+                if (accepted == null) {
+                    return null;
+                }
+
+                return new NewIONetChannel(accepted, NewIONetServerChannel.super.initializer());
+            } catch (IOException e) {
+                setState(getState(), ChannelState.INIT);
+                return null;
+            }
+        }
     }
 }

@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -49,6 +50,7 @@ public final class InMemoryNetChannel implements NetChannel {
     private final Queue<Buffer> inbound = new ArrayDeque<>();
     private final Queue<Buffer> pendingWrites = new ArrayDeque<>();
     private final Queue<Buffer> flushedWrites = new ArrayDeque<>();
+    private final Internal internal = new InMemoryInternal();
 
     private @Nullable IOEventLoop eventLoop;
     private @Nullable SocketAddress localAddress;
@@ -158,55 +160,53 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     @Override
-    public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        remoteAddress = remote;
-        connected = true;
-        active = true;
+    public Internal internal() {
+        return internal;
     }
 
     @Override
-    public void disconnect() {
-        connected = false;
-        active = false;
+    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+        return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
     @Override
-    public int read(Buffer buffer) {
-        Buffer inboundBuffer = inbound.poll();
-        if (inboundBuffer == null) {
-            return 0;
-        }
-        int readable = inboundBuffer.length();
-        buffer.accumulateBuffer(inboundBuffer);
-        inboundBuffer.release();
-        return readable;
+    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        return ChannelTasks.connect(this, remote, timeOut, timeUnit);
     }
 
     @Override
-    public void write(Buffer buffer) {
-        pendingWrites.add(buffer.retain());
+    public Promise<Void> disconnect() {
+        return ChannelTasks.disconnect(this);
     }
 
     @Override
-    public void writeAndFlush(Buffer buffer) {
-        chain.processChannelWrite(this, buffer);
-        flush();
+    public Promise<Integer> read(Buffer buffer) {
+        return ChannelTasks.read(this, buffer);
     }
 
     @Override
-    public void flush() {
-        while (!pendingWrites.isEmpty()) {
-            flushedWrites.add(pendingWrites.poll());
-        }
+    public Promise<Void> write(Buffer buffer) {
+        return ChannelTasks.write(this, buffer);
     }
 
     @Override
-    public void onWritabilityChanged(boolean isWritable) {
+    public Promise<Void> writeAndFlush(Buffer buffer) {
+        return ChannelTasks.writeAndFlush(this, buffer);
     }
 
     @Override
-    public boolean finishConnect() {
-        return connected;
+    public Promise<Void> flush() {
+        return ChannelTasks.flush(this);
+    }
+
+    @Override
+    public Promise<Void> onWritabilityChanged(boolean isWritable) {
+        return ChannelTasks.onWritabilityChanged(this, isWritable);
+    }
+
+    @Override
+    public Promise<Boolean> finishConnect() {
+        return ChannelTasks.finishConnect(this);
     }
 
     @Override
@@ -229,6 +229,61 @@ public final class InMemoryNetChannel implements NetChannel {
     private void clearQueue(Queue<Buffer> queue) {
         while (!queue.isEmpty()) {
             queue.poll().release();
+        }
+    }
+
+    private final class InMemoryInternal implements Internal {
+
+        @Override
+        public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+            remoteAddress = remote;
+            connected = true;
+            active = true;
+        }
+
+        @Override
+        public void disconnect() {
+            connected = false;
+            active = false;
+        }
+
+        @Override
+        public int read(Buffer buffer) {
+            Buffer inboundBuffer = inbound.poll();
+            if (inboundBuffer == null) {
+                return 0;
+            }
+            int readable = inboundBuffer.length();
+            buffer.accumulateBuffer(inboundBuffer);
+            inboundBuffer.release();
+            return readable;
+        }
+
+        @Override
+        public void write(Buffer buffer) {
+            pendingWrites.add(buffer.retain());
+        }
+
+        @Override
+        public void writeAndFlush(Buffer buffer) {
+            write(buffer);
+            flush();
+        }
+
+        @Override
+        public void flush() {
+            while (!pendingWrites.isEmpty()) {
+                flushedWrites.add(pendingWrites.poll());
+            }
+        }
+
+        @Override
+        public void onWritabilityChanged(boolean isWritable) {
+        }
+
+        @Override
+        public boolean finishConnect() {
+            return connected;
         }
     }
 }

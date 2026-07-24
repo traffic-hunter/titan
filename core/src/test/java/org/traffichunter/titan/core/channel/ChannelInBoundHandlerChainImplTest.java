@@ -83,7 +83,7 @@ class ChannelInBoundHandlerChainImplTest {
         chain.addFirst(new RecordingOutboundHandler("first", order));
 
         chain.processChannelWrite(channel, buf);
-        channel.flush();
+        channel.internal().flush();
 
         assertThat(order).containsExactly("first", "second");
         Buffer written = channel.pollWritten();

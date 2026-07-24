@@ -179,7 +179,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                 continue;
             }
 
-            return netChannel.eventLoop().submit(() -> netChannel.writeAndFlush(buffer));
+            return netChannel.writeAndFlush(buffer);
         }
     }
 
@@ -258,7 +258,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
     private Promise<Void> bind(InetSocketAddress address) {
         return groups().primaryGroup().submit(() -> {
             try {
-                channel.bind(address);
+                channel.internal().bind(address);
             } catch (IOException e) {
                 throw new ServerException("Failed to bind to " + channel.localAddress(), e);
             }
