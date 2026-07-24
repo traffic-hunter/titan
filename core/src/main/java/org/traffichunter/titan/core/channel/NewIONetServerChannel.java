@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.concurrent.Promise;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -63,6 +64,21 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     @Override
     public Internal internal() {
         return internal;
+    }
+
+    @Override
+    public Promise<Void> bind(String host, int port) {
+        return bind(new InetSocketAddress(host, port));
+    }
+
+    @Override
+    public Promise<Void> bind(InetSocketAddress address) {
+        return ChannelTasks.bind(this, address);
+    }
+
+    @Override
+    public Promise<@Nullable NetChannel> accept() {
+        return ChannelTasks.accept(this);
     }
 
     private @Nullable NetChannel acceptInternal() {

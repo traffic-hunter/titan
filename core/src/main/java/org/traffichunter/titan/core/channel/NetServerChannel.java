@@ -29,7 +29,6 @@ import org.traffichunter.titan.core.concurrent.Promise;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
-import java.util.concurrent.Callable;
 
 /**
  * Listening server socket channel.
@@ -49,9 +48,7 @@ public interface NetServerChannel extends Channel {
     @Override
     <T> NetServerChannel setOption(SocketOption<T> option, T value);
 
-    default Promise<Void> bind(String host, int port) {
-        return bind(new InetSocketAddress(host, port));
-    }
+    Promise<Void> bind(String host, int port);
 
     /**
      * Returns the synchronous transport operations used by the server I/O event loop.
@@ -61,53 +58,12 @@ public interface NetServerChannel extends Channel {
     /**
      * Binds the listening socket to the given address.
      */
-    default Promise<Void> bind(InetSocketAddress address) {
-        return execute(() -> {
-            try {
-                internal().bind(address);
-            } catch (IOException e) {
-                throw new ChannelException("Failed to bind to " + address, e);
-            }
-        });
-    }
+    Promise<Void> bind(InetSocketAddress address);
 
     /**
      * Accepts one pending child connection, or returns {@code null} when no connection is ready.
      */
-    default Promise<@Nullable NetChannel> accept() {
-        return execute(internal()::accept);
-    }
-
-    private Promise<Void> execute(Runnable task) {
-        IOEventLoop eventLoop = eventLoop();
-        if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(task);
-        }
-
-        Promise<Void> result = Promise.newPromise(eventLoop);
-        try {
-            task.run();
-            result.success();
-        } catch (Throwable error) {
-            result.fail(error);
-        }
-        return result;
-    }
-
-    private <T> Promise<T> execute(Callable<T> task) {
-        IOEventLoop eventLoop = eventLoop();
-        if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(task);
-        }
-
-        Promise<T> result = Promise.newPromise(eventLoop);
-        try {
-            result.success(task.call());
-        } catch (Throwable error) {
-            result.fail(error);
-        }
-        return result;
-    }
+    Promise<@Nullable NetChannel> accept();
 
     /**
      * Synchronous low-level server socket operations for the owning I/O event-loop thread.

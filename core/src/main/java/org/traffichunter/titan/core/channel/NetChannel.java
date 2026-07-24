@@ -30,7 +30,6 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -52,9 +51,7 @@ public interface NetChannel extends Channel {
     @Override
     <T> NetChannel setOption(SocketOption<T> option, T value);
 
-    default Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
-        return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
-    }
+    Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit);
 
     /**
      * Returns the synchronous transport operations used by the owning I/O event loop and
@@ -66,99 +63,37 @@ public interface NetChannel extends Channel {
      * Starts or completes a non-blocking socket connection.
      */
     @CanIgnoreReturnValue
-    default Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        return execute(() -> {
-            try {
-                internal().connect(remote, timeOut, timeUnit);
-            } catch (IOException e) {
-                throw new ChannelException("Failed to connect to " + remote, e);
-            }
-        });
-    }
+    Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit);
 
     @CanIgnoreReturnValue
-    default Promise<Void> disconnect() {
-        return execute(internal()::disconnect);
-    }
+    Promise<Void> disconnect();
 
     /**
      * Reads available bytes without blocking.
      */
     @CanIgnoreReturnValue
-    default Promise<Integer> read(Buffer buffer) {
-        return execute(() -> internal().read(buffer));
-    }
+    Promise<Integer> read(Buffer buffer);
 
     @CanIgnoreReturnValue
-    default Promise<Void> write(Buffer buffer) {
-        return execute(() -> chain().processChannelWrite(this, buffer));
-    }
+    Promise<Void> write(Buffer buffer);
 
     /**
      * Queues the buffer and attempts to write queued bytes to the socket.
      */
     @CanIgnoreReturnValue
-    default Promise<Void> writeAndFlush(Buffer buffer) {
-        return execute(() -> {
-            chain().processChannelWrite(this, buffer);
-            internal().flush();
-        });
-    }
+    Promise<Void> writeAndFlush(Buffer buffer);
 
     @CanIgnoreReturnValue
-    default Promise<Void> flush() {
-        return execute(internal()::flush);
-    }
+    Promise<Void> flush();
 
-    default Promise<Void> onWritabilityChanged(boolean isWritable) {
-        return execute(() -> internal().onWritabilityChanged(isWritable));
-    }
+    Promise<Void> onWritabilityChanged(boolean isWritable);
 
     /**
      * Completes a pending non-blocking connect from the owning event-loop thread.
      */
-    default Promise<Boolean> finishConnect() {
-        return execute(() -> {
-            try {
-                return internal().finishConnect();
-            } catch (IOException e) {
-                throw new ChannelException("Failed to finish channel connection", e);
-            }
-        });
-    }
+    Promise<Boolean> finishConnect();
 
     boolean isConnected();
-
-    private Promise<Void> execute(Runnable task) {
-        IOEventLoop eventLoop = eventLoop();
-        if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(task);
-        }
-
-        Promise<Void> result = Promise.newPromise(eventLoop);
-        try {
-            task.run();
-            result.success();
-        } catch (Throwable error) {
-            result.fail(error);
-        }
-        return result;
-    }
-
-    private <T> Promise<T> execute(Callable<T> task) {
-        IOEventLoop eventLoop = eventLoop();
-        if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(task);
-        }
-
-        Promise<T> result = Promise.newPromise(eventLoop);
-        try {
-            result.success(task.call());
-        } catch (Throwable error) {
-            result.fail(error);
-        }
-        return result;
-    }
 
     /**
      * Synchronous low-level channel operations.

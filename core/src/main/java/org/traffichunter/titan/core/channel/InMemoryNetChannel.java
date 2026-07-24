@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -161,6 +162,51 @@ public final class InMemoryNetChannel implements NetChannel {
     @Override
     public Internal internal() {
         return internal;
+    }
+
+    @Override
+    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+        return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
+    }
+
+    @Override
+    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        return ChannelTasks.connect(this, remote, timeOut, timeUnit);
+    }
+
+    @Override
+    public Promise<Void> disconnect() {
+        return ChannelTasks.disconnect(this);
+    }
+
+    @Override
+    public Promise<Integer> read(Buffer buffer) {
+        return ChannelTasks.read(this, buffer);
+    }
+
+    @Override
+    public Promise<Void> write(Buffer buffer) {
+        return ChannelTasks.write(this, buffer);
+    }
+
+    @Override
+    public Promise<Void> writeAndFlush(Buffer buffer) {
+        return ChannelTasks.writeAndFlush(this, buffer);
+    }
+
+    @Override
+    public Promise<Void> flush() {
+        return ChannelTasks.flush(this);
+    }
+
+    @Override
+    public Promise<Void> onWritabilityChanged(boolean isWritable) {
+        return ChannelTasks.onWritabilityChanged(this, isWritable);
+    }
+
+    @Override
+    public Promise<Boolean> finishConnect() {
+        return ChannelTasks.finishConnect(this);
     }
 
     @Override

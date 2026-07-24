@@ -33,9 +33,11 @@ import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yun
@@ -59,6 +61,51 @@ public final class WebSocketChannel implements NetChannel {
     @Override
     public Internal internal() {
         return delegate.internal();
+    }
+
+    @Override
+    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+        return delegate.connect(host, port, timeOut, timeUnit);
+    }
+
+    @Override
+    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        return delegate.connect(remote, timeOut, timeUnit);
+    }
+
+    @Override
+    public Promise<Void> disconnect() {
+        return delegate.disconnect();
+    }
+
+    @Override
+    public Promise<Integer> read(Buffer buffer) {
+        return delegate.read(buffer);
+    }
+
+    @Override
+    public Promise<Void> write(Buffer buffer) {
+        return delegate.write(buffer);
+    }
+
+    @Override
+    public Promise<Void> writeAndFlush(Buffer buffer) {
+        return delegate.writeAndFlush(buffer);
+    }
+
+    @Override
+    public Promise<Void> flush() {
+        return delegate.flush();
+    }
+
+    @Override
+    public Promise<Void> onWritabilityChanged(boolean isWritable) {
+        return delegate.onWritabilityChanged(isWritable);
+    }
+
+    @Override
+    public Promise<Boolean> finishConnect() {
+        return delegate.finishConnect();
     }
 
     public Promise<Void> writeAndFlush(WebSocketFrame frame) {
