@@ -23,39 +23,11 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.net;
 
-import java.nio.file.Path;
-
 /**
- * Configuration for creating a JDK TLS context.
- *
- * @param side local endpoint role during the TLS handshake
- * @param versions TLS protocol versions enabled on each engine
- * @param clientAuth server policy for requesting or requiring client certificates
- * @param path path to the key store containing identity and trust material
- * @param type JDK key store type, such as {@code PKCS12} or {@code JKS}
- * @param storePassword password used to open the key store
- * @param keyPassword password used to recover private keys from the key store
- * @param verifyHostname whether a client verifies the peer hostname against the certificate
- *
  * @author yun
  */
-public record TlsOptions(
-        TlsSide side,
-        TlsVersion[] versions,
-        TlsClientAuth clientAuth,
-        Path path,
-        String type,
-        String storePassword,
-        String keyPassword,
-        boolean verifyHostname
-) {
-
-    public TlsOptions {
-        versions = versions.clone();
-    }
-
-    @Override
-    public TlsVersion[] versions() {
-        return versions.clone();
-    }
+public enum TlsClientAuth {
+    NONE,
+    WANT,
+    NEED
 }

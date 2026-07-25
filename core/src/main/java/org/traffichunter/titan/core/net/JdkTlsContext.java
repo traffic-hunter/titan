@@ -25,6 +25,11 @@ package org.traffichunter.titan.core.net;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
 
 /**
  * @author yun
@@ -34,19 +39,75 @@ public final class JdkTlsContext implements TlsContext {
     private final SSLContext sslContext;
     private final TlsOptions options;
 
-    public JdkTlsContext(
-            SSLContext sslContext,
-            TlsOptions options
-    ) {
-        this.sslContext = sslContext;
+    public JdkTlsContext(TlsOptions options) {
+        this.sslContext = createSslContext(options);
         this.options = options;
     }
 
     @Override
     public TlsHandler newHandler(String peerHost, int peerPort) {
         SSLEngine engine = sslContext.createSSLEngine(peerHost, peerPort);
-        engine.setUseClientMode(options.isClient());
-        engine.setEnabledProtocols(options.tlsVersions());
+
+        TlsSide tlsSide = options.side();
+        boolean isClient = tlsSide == TlsSide.CLIENT;
+        engine.setUseClientMode(isClient);
+        engine.setEnabledProtocols(TlsVersion.values(options.versions()));
+
+        SSLParameters sslParameters = engine.getSSLParameters();
+
+        if (isClient && options.verifyHostname()) {
+            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+        }
+
+        // server
+        if (!isClient) {
+            switch (options.clientAuth()) {
+                case NONE -> {
+                    sslParameters.setWantClientAuth(false);
+                    sslParameters.setNeedClientAuth(false);
+                }
+                case WANT -> sslParameters.setWantClientAuth(true);
+                case NEED -> sslParameters.setNeedClientAuth(true);
+            }
+        }
+
+        engine.setSSLParameters(sslParameters);
         return new JdkTlsHandler(engine);
+    }
+
+    @Override
+    public TlsOptions options() {
+        return options;
+    }
+
+    @Override
+    public SSLContext sslContext() {
+        return sslContext;
+    }
+
+    private static SSLContext createSslContext(TlsOptions options) {
+        validate(options);
+
+        try {
+            JdkKeyManager manager = new JdkKeyManager(options);
+            KeyManager[] keyManagers = manager.keyManagers();
+            TrustManager[] trustManagers = manager.trustManagers();
+
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(keyManagers, trustManagers, new SecureRandom());
+            return context;
+        } catch (GeneralSecurityException e) {
+            throw new NetSecureException("Failed to initialize TLS context", e);
+        }
+    }
+
+    private static void validate(TlsOptions options) {
+        if (options.versions().length == 0) {
+            throw new NetSecureException("At least one TLS version is required");
+        }
+
+        if (options.side() == TlsSide.CLIENT && options.clientAuth() != TlsClientAuth.NONE) {
+            throw new NetSecureException("TLS client cannot configure server-side client authentication");
+        }
     }
 }

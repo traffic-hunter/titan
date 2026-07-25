@@ -105,6 +105,10 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
         return sslEngine.isInboundDone() && sslEngine.isOutboundDone();
     }
 
+    public final SSLEngine sslEngine() {
+        return sslEngine;
+    }
+
     abstract void handleHandshake(NetChannel channel, ChannelPromise result);
 
     public abstract ChannelPromise close(NetChannel channel);

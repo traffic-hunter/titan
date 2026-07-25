@@ -23,10 +23,16 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.net;
 
+import javax.net.ssl.SSLContext;
+
 /**
  * @author yun
  */
 public interface TlsContext {
 
     TlsHandler newHandler(String peerHost, int peerPort);
+
+    TlsOptions options();
+
+    SSLContext sslContext();
 }
