@@ -68,6 +68,29 @@ class JdkTlsContextTest {
     }
 
     @Test
+    void apply_server_client_auth_to_ssl_engine() throws Exception {
+        TlsOptions options = new TlsOptions(
+                TlsSide.SERVER,
+                new TlsVersion[]{TlsVersion.TLS_1_3, TlsVersion.TLS_1_2},
+                TlsClientAuth.NEED,
+                createKeyStore(),
+                "PKCS12",
+                PASSWORD,
+                PASSWORD,
+                false
+        );
+
+        SSLEngine engine = new JdkTlsContext(options)
+                .newHandler("localhost", 61614)
+                .sslEngine();
+
+        assertThat(engine.getUseClientMode()).isFalse();
+        assertThat(engine.getEnabledProtocols()).containsExactly("TLSv1.3", "TLSv1.2");
+        assertThat(engine.getNeedClientAuth()).isTrue();
+        assertThat(engine.getSSLParameters().getEndpointIdentificationAlgorithm()).isNull();
+    }
+
+    @Test
     void protect_tls_version_array_from_external_changes() throws Exception {
         TlsVersion[] versions = {TlsVersion.TLS_1_3, TlsVersion.TLS_1_2};
         TlsOptions options = new TlsOptions(
@@ -104,6 +127,42 @@ class JdkTlsContextTest {
         assertThatThrownBy(() -> new JdkTlsContext(options))
                 .isInstanceOf(NetSecureException.class)
                 .hasMessageContaining("client authentication");
+    }
+
+    @Test
+    void reject_empty_tls_versions() throws Exception {
+        TlsOptions options = new TlsOptions(
+                TlsSide.SERVER,
+                new TlsVersion[0],
+                TlsClientAuth.NONE,
+                createKeyStore(),
+                "PKCS12",
+                PASSWORD,
+                PASSWORD,
+                false
+        );
+
+        assertThatThrownBy(() -> new JdkTlsContext(options))
+                .isInstanceOf(NetSecureException.class)
+                .hasMessageContaining("TLS version");
+    }
+
+    @Test
+    void reject_invalid_key_store_password() throws Exception {
+        TlsOptions options = new TlsOptions(
+                TlsSide.SERVER,
+                new TlsVersion[]{TlsVersion.TLS_1_3},
+                TlsClientAuth.NONE,
+                createKeyStore(),
+                "PKCS12",
+                "wrong-password",
+                PASSWORD,
+                false
+        );
+
+        assertThatThrownBy(() -> new JdkTlsContext(options))
+                .isInstanceOf(NetSecureException.class)
+                .hasMessageContaining("TLS key store");
     }
 
     private Path createKeyStore() throws Exception {
