@@ -32,6 +32,8 @@ public interface EventLoopConstants {
 
     String TASK_EVENT_LOOP_THREAD_NAME = "TaskEventLoop";
 
+    String WORKER_EVENT_LOOP_THREAD_NAME = "WorkerEventLoopThread";
+
     String PRIMARY_EVENT_LOOP_THREAD_NAME = "PrimaryEventLoopThread";
 
     String SECONDARY_EVENT_LOOP_THREAD_NAME = "SecondaryEventLoopThread";
