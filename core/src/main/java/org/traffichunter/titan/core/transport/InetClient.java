@@ -134,13 +134,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
         IOEventLoop loop = channel.eventLoop();
         Promise<NetChannel> connectResult = Promise.newPromise(loop);
 
-        Promise<Void> connectRequest = loop.submit(() -> {
-            try {
-                channel.internal().connect(remoteAddress, timeOut, timeUnit);
-            } catch (Exception e) {
-                throw new ClientException("Failed to connect to " + remoteAddress, e);
-            }
-        });
+        Promise<Void> connectRequest = channel.connect(remoteAddress, timeOut, timeUnit);
 
         connectRequest.addListener(promise -> {
             if (!promise.isSuccess()) {

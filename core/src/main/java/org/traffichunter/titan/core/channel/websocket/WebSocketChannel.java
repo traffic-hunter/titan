@@ -79,11 +79,6 @@ public final class WebSocketChannel implements NetChannel {
     }
 
     @Override
-    public Promise<Integer> read(Buffer buffer) {
-        return delegate.read(buffer);
-    }
-
-    @Override
     public Promise<Void> write(Buffer buffer) {
         return delegate.write(buffer);
     }
@@ -91,21 +86,6 @@ public final class WebSocketChannel implements NetChannel {
     @Override
     public Promise<Void> writeAndFlush(Buffer buffer) {
         return delegate.writeAndFlush(buffer);
-    }
-
-    @Override
-    public Promise<Void> flush() {
-        return delegate.flush();
-    }
-
-    @Override
-    public Promise<Void> onWritabilityChanged(boolean isWritable) {
-        return delegate.onWritabilityChanged(isWritable);
-    }
-
-    @Override
-    public Promise<Boolean> finishConnect() {
-        return delegate.finishConnect();
     }
 
     public Promise<Void> writeAndFlush(WebSocketFrame frame) {

@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.channel;
 
 import io.netty.buffer.ByteBuf;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -80,17 +79,12 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        return ChannelTasks.connect(this, remote, timeOut, timeUnit);
+        return ChannelTasks.execute(eventLoop(), () -> connectTransport(remote, timeOut, timeUnit));
     }
 
     @Override
     public Promise<Void> disconnect() {
         return ChannelTasks.disconnect(this);
-    }
-
-    @Override
-    public Promise<Integer> read(Buffer buffer) {
-        return ChannelTasks.read(this, buffer);
     }
 
     @Override
@@ -101,21 +95,6 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     @Override
     public Promise<Void> writeAndFlush(Buffer buffer) {
         return ChannelTasks.writeAndFlush(this, buffer);
-    }
-
-    @Override
-    public Promise<Void> flush() {
-        return ChannelTasks.flush(this);
-    }
-
-    @Override
-    public Promise<Void> onWritabilityChanged(boolean isWritable) {
-        return ChannelTasks.onWritabilityChanged(this, isWritable);
-    }
-
-    @Override
-    public Promise<Boolean> finishConnect() {
-        return ChannelTasks.finishConnect(this);
     }
 
     @Override
@@ -196,44 +175,65 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
     }
 
-    private final class NewIOInternal implements Internal {
+    private void connectTransport(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        if(isClosed()) {
+            throw new ChannelException("Channel is closed");
+        }
 
-        @Override
-        public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException {
-            if(isClosed()) {
-                throw new ChannelException("Channel is closed");
-            }
+        ChannelPromise promise = eventLoop().newPromise(this);
+        connectPromise = promise;
 
-            ChannelPromise promise = eventLoop().newPromise(NewIONetChannel.this);
-            connectPromise = promise;
-
+        try {
             if(connect0(remote)) {
-                chain().processChannelConnecting(NewIONetChannel.this);
+                chain().processChannelConnecting(this);
                 completeConnect();
-                chain().processChannelAfterConnected(NewIONetChannel.this);
-                eventLoop().ioSelector().registerRead(NewIONetChannel.this);
-                accept(NewIONetChannel.this);
+                chain().processChannelAfterConnected(this);
+                eventLoop().ioSelector().registerRead(this);
+                accept(this);
                 return;
             }
+        } catch (IOException e) {
+            throw new ChannelException("Failed to connect to " + remote, e);
+        }
 
-            if(timeOut > 0) {
-                ScheduledPromise<?> timeoutPromise = eventLoop().schedule(
-                    () -> {
-                        if (promise.isDone()) {
-                            return;
-                        }
-                        promise.fail(new ChannelException("Connect timeout"));
-                        close();
-                    }, timeOut, timeUnit);
+        if(timeOut > 0) {
+            ScheduledPromise<?> timeoutPromise = eventLoop().schedule(
+                () -> {
+                    if (promise.isDone()) {
+                        return;
+                    }
+                    promise.fail(new ChannelException("Connect timeout"));
+                    close();
+                }, timeOut, timeUnit);
 
-                promise.addListener(f -> timeoutPromise.cancel());
+            promise.addListener(f -> timeoutPromise.cancel());
+        }
+    }
+
+    private boolean connect0(InetSocketAddress remote) throws IOException {
+        boolean connected = false;
+        try {
+            boolean connect = channel().connect(remote);
+            if(!connect) {
+                IOEventLoop eventLoop = eventLoop();
+                eventLoop.register(() -> {
+                    try {
+                        eventLoop.ioSelector().registerConnect(this);
+                    } catch (IOException e) {
+                        throw new ChannelException("Failed to register connect event", e);
+                    }
+                });
+            }
+            connected = true;
+            return connect;
+        } finally {
+            if(!connected) {
+                close();
             }
         }
+    }
 
-        @Override
-        public void disconnect() {
-            close();
-        }
+    private final class NewIOInternal implements Internal {
 
         @Override
         public int read(Buffer buffer) {
@@ -371,29 +371,6 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 failConnect(e);
                 close();
                 throw e;
-            }
-        }
-
-        private boolean connect0(InetSocketAddress remote) throws IOException {
-            boolean connected = false;
-            try {
-                boolean connect = channel().connect(remote);
-                if(!connect) {
-                    IOEventLoop eventLoop = eventLoop();
-                    eventLoop.register(() -> {
-                        try {
-                            eventLoop.ioSelector().registerConnect(NewIONetChannel.this);
-                        } catch (IOException e) {
-                            throw new ChannelException("Failed to register connect event", e);
-                        }
-                    });
-                }
-                connected = true;
-                return connect;
-            } finally {
-                if(!connected) {
-                    close();
-                }
             }
         }
 
