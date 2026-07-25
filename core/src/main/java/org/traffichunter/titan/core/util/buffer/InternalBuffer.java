@@ -472,6 +472,12 @@ public class InternalBuffer implements Buffer {
     }
 
     @Override
+    public Buffer expand(int size) {
+        buf.ensureWritable(size);
+        return this;
+    }
+
+    @Override
     public boolean isReadable() {
         return buf.isReadable();
     }

@@ -26,7 +26,7 @@ class ChannelDecoderTest {
         Buffer keeping = Buffer.alloc("alloc");
         Buffer in = Buffer.alloc("in");
 
-        Buffer expandBuffer = ChannelDecoder.EXPANDING_AFTER_COPY_BUFFER.keep(keeping, in);
+        Buffer expandBuffer = ChannelDecoder.MERGE_BUFFER.merge(keeping, in);
 
         assertThat(expandBuffer.toString()).isEqualTo("allocin");
         assertThat(keeping.byteBuf().refCnt()).isEqualTo(0);

@@ -37,6 +37,10 @@ public final class Buffers {
     public static final int DEFAULT_INITIAL_CAPACITY = 4096;
     public static final int DEFAULT_MAX_CAPACITY = 65536;
 
+    public static ByteBuffer nioBuffer(Buffer buffer) {
+        return buffer.byteBuf().nioBuffer();
+    }
+
     public static ByteBuffer readableByteBuffer(Buffer source) {
         ByteBuf byteBuf = source.byteBuf();
         return byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());

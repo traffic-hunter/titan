@@ -44,11 +44,11 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
     /**
      * Combines a previously retained buffer with newly received bytes.
      */
-    public static final KeepingBuffer EXPANDING_AFTER_COPY_BUFFER = ((keepBuffer, in) -> {
-        final Buffer newBuffer = Buffer.alloc(keepBuffer.length() + in.length());
+    public static final MergeBuffer MERGE_BUFFER = ((mergeBuffer, in) -> {
+        final Buffer newBuffer = Buffer.alloc(mergeBuffer.length() + in.length());
         boolean isExpanding = false;
         try {
-            newBuffer.accumulateBuffer(keepBuffer);
+            newBuffer.accumulateBuffer(mergeBuffer);
             newBuffer.accumulateBuffer(in);
             isExpanding = true;
             return newBuffer;
@@ -56,39 +56,53 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
             if(!isExpanding) {
                 newBuffer.release();
             }
-            keepBuffer.release();
+            mergeBuffer.release();
             in.release();
         }
     });
 
-    private @Nullable Buffer keepingBuffer;
+    private @Nullable Buffer mergeBuffer;
 
     @Override
     public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
-
-        if(keepingBuffer == null) {
-            keepingBuffer = buffer;
+        if(mergeBuffer == null) {
+            mergeBuffer = buffer;
         } else {
-            keepingBuffer = EXPANDING_AFTER_COPY_BUFFER.keep(keepingBuffer, buffer);
+            mergeBuffer = MERGE_BUFFER.merge(mergeBuffer, buffer);
         }
 
-        while (keepingBuffer.isReadable()) {
-            int beforeReaderIndex = keepingBuffer.byteBuf().readerIndex();
+        relayingDecode(channel, chain);
+    }
 
-            Buffer decode = decode(channel, keepingBuffer);
+    /**
+     * Attempts to decode the bytes currently retained by this decoder.
+     *
+     * <p>This is useful when decoding previously stopped without consuming input and an
+     * asynchronous prerequisite has since completed.</p>
+     */
+    protected final void relayingDecode(NetChannel channel, ChannelInBoundHandlerChain chain) {
+        Buffer pending = mergeBuffer;
+        if (pending == null) {
+            return;
+        }
+
+        while (pending.isReadable()) {
+            int beforeReaderIndex = pending.byteBuf().readerIndex();
+
+            Buffer decode = decode(channel, pending);
             if (decode != null) {
                 chain.sparkChannelRead(channel, decode);
             }
 
-            int afterReaderIndex = keepingBuffer.byteBuf().readerIndex();
+            int afterReaderIndex = pending.byteBuf().readerIndex();
             if (afterReaderIndex == beforeReaderIndex) {
                 break;
             }
         }
 
-        if (!keepingBuffer.isReadable()) {
-            keepingBuffer.release();
-            keepingBuffer = null;
+        if (!pending.isReadable()) {
+            pending.release();
+            mergeBuffer = null;
         }
     }
 
@@ -102,11 +116,11 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
     /**
      * Strategy for carrying unread bytes across inbound read events.
      */
-    public interface KeepingBuffer {
+    public interface MergeBuffer {
 
         /**
          * Returns a buffer containing the previously kept bytes and the new input.
          */
-        Buffer keep(Buffer keepBuffer, Buffer in);
+        Buffer merge(Buffer keepBuffer, Buffer in);
     }
 }
