@@ -51,7 +51,7 @@ public interface NetServerChannel extends Channel {
     Promise<Void> bind(String host, int port);
 
     /**
-     * Returns the synchronous transport operations used by the server I/O event loop.
+     * Returns raw server transport operations that bypass channel-level orchestration.
      */
     Internal internal();
 
@@ -66,7 +66,9 @@ public interface NetServerChannel extends Channel {
     Promise<NetChannel> accept();
 
     /**
-     * Synchronous low-level server socket operations for the owning I/O event-loop thread.
+     * Raw listening-socket operations used by Titan's server transport.
+     *
+     * <p>These operations do not schedule work or propagate channel pipeline events.</p>
      */
     interface Internal {
 

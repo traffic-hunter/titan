@@ -24,9 +24,11 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.junit.jupiter.api.Test;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,29 +39,51 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NetChannelInternalTest {
 
     @Test
-    void public_operation_completes_through_event_loop_and_internal_operation_runs_immediately() throws Exception {
+    void public_write_enters_pipeline_and_internal_write_bypasses_it() throws Exception {
         ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("net-channel-internal-test");
         InMemoryNetChannel channel = new InMemoryNetChannel();
+        AtomicInteger pipelineWrites = new AtomicInteger();
+        channel.chain().add(new ChannelOutBoundHandler() {
+            @Override
+            public void sparkChannelWrite(
+                    NetChannel writtenChannel,
+                    Buffer buffer,
+                    ChannelOutBoundHandlerChainImpl chain
+            ) {
+                pipelineWrites.incrementAndGet();
+                chain.sparkChannelWrite(writtenChannel, buffer);
+            }
+        });
+
         eventLoop.start();
         channel.register(eventLoop);
 
         try {
-            Promise<Void> connect = channel.connect(
-                    new InetSocketAddress("127.0.0.1", 61613),
-                    1,
-                    TimeUnit.SECONDS
-            );
+            Buffer pipelineBuffer = Buffer.alloc("pipeline");
+            Promise<Void> publicWrite = channel.writeAndFlush(pipelineBuffer);
+            publicWrite.await(2, TimeUnit.SECONDS);
+            pipelineBuffer.release();
 
-            connect.await(2, TimeUnit.SECONDS);
-            assertThat(connect.isSuccess()).isTrue();
-            assertThat(channel.isConnected()).isTrue();
+            assertThat(publicWrite.isSuccess()).isTrue();
+            assertThat(pipelineWrites).hasValue(1);
+            release(channel.pollWritten());
 
-            channel.internal().disconnect();
+            Buffer internalBuffer = Buffer.alloc("internal");
+            channel.internal().writeAndFlush(internalBuffer);
+            internalBuffer.release();
 
-            assertThat(channel.isConnected()).isFalse();
+            assertThat(pipelineWrites).hasValue(1);
+            release(channel.pollWritten());
         } finally {
             channel.close();
             eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+        }
+    }
+
+    private static void release(@Nullable Buffer buffer) {
+        assertThat(buffer).isNotNull();
+        if (buffer != null) {
+            buffer.release();
         }
     }
 }

@@ -35,10 +35,10 @@ import java.util.concurrent.TimeUnit;
 /**
  * Client-side or accepted server-side network connection.
  *
- * <p>{@code NetChannel} is the data-carrying channel type. It can initiate connects, read
- * bytes into {@link Buffer}, enqueue outbound buffers, and flush them through its owning
- * {@link IOEventLoop}. Server transports also use this same type for accepted child
- * connections after the listening {@link NetServerChannel} accepts them.</p>
+ * <p>{@code NetChannel} is the pipeline-facing data channel. It initiates connections and
+ * sends outbound data through its owning {@link IOEventLoop}. Raw reads, flushes, and selector
+ * operations remain behind {@link Internal}. Server transports also use this type for accepted
+ * child connections after the listening {@link NetServerChannel} accepts them.</p>
  *
  * @author yun
  */
@@ -54,8 +54,13 @@ public interface NetChannel extends Channel {
     Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit);
 
     /**
-     * Returns the synchronous transport operations used by the owning I/O event loop and
-     * protocol handlers that must bypass the outbound chain.
+     * Returns raw transport operations intended for Titan's internal channel machinery.
+     *
+     * <p>Internal operations bypass the channel pipeline. They are used by I/O event loops,
+     * pipeline terminals, and protocol handlers that already hold transport-ready bytes, such
+     * as an encoded WebSocket frame or encrypted TLS record. This distinction is independent
+     * of scheduling: an internal operation is not the synchronous counterpart of a public
+     * channel operation.</p>
      */
     Internal internal();
 
@@ -68,12 +73,6 @@ public interface NetChannel extends Channel {
     @CanIgnoreReturnValue
     Promise<Void> disconnect();
 
-    /**
-     * Reads available bytes without blocking.
-     */
-    @CanIgnoreReturnValue
-    Promise<Integer> read(Buffer buffer);
-
     @CanIgnoreReturnValue
     Promise<Void> write(Buffer buffer);
 
@@ -83,41 +82,46 @@ public interface NetChannel extends Channel {
     @CanIgnoreReturnValue
     Promise<Void> writeAndFlush(Buffer buffer);
 
-    @CanIgnoreReturnValue
-    Promise<Void> flush();
-
-    Promise<Void> onWritabilityChanged(boolean isWritable);
-
-    /**
-     * Completes a pending non-blocking connect from the owning event-loop thread.
-     */
-    Promise<Boolean> finishConnect();
-
     boolean isConnected();
 
     /**
-     * Synchronous low-level channel operations.
+     * Raw transport operations that bypass the inbound and outbound channel pipelines.
      *
-     * <p>These methods execute immediately and are intended for the channel's I/O event-loop
-     * thread. A successful call means the operation was attempted or queued; it does not mean
-     * that the peer received the bytes.</p>
+     * <p>Callers are responsible for invoking these operations from the appropriate channel
+     * execution context. A returned value or normal method completion only means that the
+     * transport operation was attempted or queued; it does not mean that network I/O has
+     * completed.</p>
      */
     interface Internal {
 
-        void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) throws IOException;
-
-        void disconnect();
-
+        /**
+         * Reads raw bytes from the underlying transport.
+         */
         int read(Buffer buffer);
 
+        /**
+         * Queues transport-ready bytes without entering the outbound pipeline.
+         */
         void write(Buffer buffer);
 
+        /**
+         * Queues transport-ready bytes and attempts to flush them without entering the pipeline.
+         */
         void writeAndFlush(Buffer buffer);
 
+        /**
+         * Attempts to flush queued raw bytes to the underlying transport.
+         */
         void flush();
 
+        /**
+         * Updates write-readiness interest for the underlying transport.
+         */
         void onWritabilityChanged(boolean isWritable);
 
+        /**
+         * Completes a pending non-blocking connection on the underlying transport.
+         */
         boolean finishConnect() throws IOException;
     }
 }

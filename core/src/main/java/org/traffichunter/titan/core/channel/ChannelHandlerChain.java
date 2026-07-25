@@ -66,8 +66,8 @@ import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
  * }</pre>
  *
  * <p>Handlers continue propagation by calling the {@code spark*} method on the supplied chain
- * context. If an outbound event reaches the end of the outbound chain, the buffer is written
- * to the {@link NetChannel}.</p>
+ * context. If an outbound event reaches the end of the outbound chain, the fully transformed
+ * buffer is written through {@link NetChannel.Internal} without entering the pipeline again.</p>
  *
  * @author yun
  */

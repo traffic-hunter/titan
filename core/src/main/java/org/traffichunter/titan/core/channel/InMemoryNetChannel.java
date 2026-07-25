@@ -171,17 +171,18 @@ public final class InMemoryNetChannel implements NetChannel {
 
     @Override
     public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        return ChannelTasks.connect(this, remote, timeOut, timeUnit);
+        return ChannelTasks.execute(eventLoop(), () -> {
+            chain.processChannelConnecting(this);
+            remoteAddress = remote;
+            connected = true;
+            active = true;
+            chain.processChannelAfterConnected(this);
+        });
     }
 
     @Override
     public Promise<Void> disconnect() {
         return ChannelTasks.disconnect(this);
-    }
-
-    @Override
-    public Promise<Integer> read(Buffer buffer) {
-        return ChannelTasks.read(this, buffer);
     }
 
     @Override
@@ -192,21 +193,6 @@ public final class InMemoryNetChannel implements NetChannel {
     @Override
     public Promise<Void> writeAndFlush(Buffer buffer) {
         return ChannelTasks.writeAndFlush(this, buffer);
-    }
-
-    @Override
-    public Promise<Void> flush() {
-        return ChannelTasks.flush(this);
-    }
-
-    @Override
-    public Promise<Void> onWritabilityChanged(boolean isWritable) {
-        return ChannelTasks.onWritabilityChanged(this, isWritable);
-    }
-
-    @Override
-    public Promise<Boolean> finishConnect() {
-        return ChannelTasks.finishConnect(this);
     }
 
     @Override
@@ -233,19 +219,6 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     private final class InMemoryInternal implements Internal {
-
-        @Override
-        public void connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-            remoteAddress = remote;
-            connected = true;
-            active = true;
-        }
-
-        @Override
-        public void disconnect() {
-            connected = false;
-            active = false;
-        }
 
         @Override
         public int read(Buffer buffer) {

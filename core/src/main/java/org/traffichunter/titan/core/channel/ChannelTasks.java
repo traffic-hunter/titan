@@ -29,7 +29,6 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Executes public channel operations on their owning event loop.
@@ -41,27 +40,8 @@ final class ChannelTasks {
     private ChannelTasks() {
     }
 
-    static Promise<Void> connect(
-            NetChannel channel,
-            InetSocketAddress remote,
-            long timeout,
-            TimeUnit unit
-    ) {
-        return execute(channel.eventLoop(), () -> {
-            try {
-                channel.internal().connect(remote, timeout, unit);
-            } catch (IOException e) {
-                throw new ChannelException("Failed to connect to " + remote, e);
-            }
-        });
-    }
-
     static Promise<Void> disconnect(NetChannel channel) {
-        return execute(channel.eventLoop(), channel.internal()::disconnect);
-    }
-
-    static Promise<Integer> read(NetChannel channel, Buffer buffer) {
-        return execute(channel.eventLoop(), () -> channel.internal().read(buffer));
+        return execute(channel.eventLoop(), channel::close);
     }
 
     static Promise<Void> write(NetChannel channel, Buffer buffer) {
@@ -72,27 +52,6 @@ final class ChannelTasks {
         return execute(channel.eventLoop(), () -> {
             channel.chain().processChannelWrite(channel, buffer);
             channel.internal().flush();
-        });
-    }
-
-    static Promise<Void> flush(NetChannel channel) {
-        return execute(channel.eventLoop(), channel.internal()::flush);
-    }
-
-    static Promise<Void> onWritabilityChanged(NetChannel channel, boolean isWritable) {
-        return execute(
-                channel.eventLoop(),
-                () -> channel.internal().onWritabilityChanged(isWritable)
-        );
-    }
-
-    static Promise<Boolean> finishConnect(NetChannel channel) {
-        return execute(channel.eventLoop(), () -> {
-            try {
-                return channel.internal().finishConnect();
-            } catch (IOException e) {
-                throw new ChannelException("Failed to finish channel connection", e);
-            }
         });
     }
 
