@@ -23,8 +23,6 @@
  */
 package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
-import java.util.List;
-
 /**
  * Mutable YAML DTO for a server's TLS configuration.
  *
@@ -33,7 +31,6 @@ import java.util.List;
 public final class TlsProperty {
 
     private String side;
-    private List<String> versions;
     private String clientAuth;
     private String path;
     private String type;
@@ -47,14 +44,6 @@ public final class TlsProperty {
 
     public void setSide(String side) {
         this.side = side;
-    }
-
-    public List<String> getVersions() {
-        return versions;
-    }
-
-    public void setVersions(List<String> versions) {
-        this.versions = versions;
     }
 
     public String getClientAuth() {

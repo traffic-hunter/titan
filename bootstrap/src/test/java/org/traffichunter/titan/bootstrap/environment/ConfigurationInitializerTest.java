@@ -99,9 +99,6 @@ class ConfigurationInitializerTest {
                         receive-buffer-size: "65536"
                       tls:
                         side: server
-                        versions:
-                          - TLS_1_3
-                          - TLS_1_2
                         client-auth: need
                         path: /etc/titan/server.p12
                         type: PKCS12
@@ -126,7 +123,6 @@ class ConfigurationInitializerTest {
                 .doesNotContainKeys("tls-side", "tls-path", "tls-type");
         assertThat(server.tls().enabled()).isTrue();
         assertThat(server.tls().side()).isEqualTo("server");
-        assertThat(server.tls().versions()).containsExactly("TLS_1_3", "TLS_1_2");
         assertThat(server.tls().clientAuth()).isEqualTo("need");
         assertThat(server.tls().path()).isEqualTo("/etc/titan/server.p12");
         assertThat(server.tls().type()).isEqualTo("PKCS12");

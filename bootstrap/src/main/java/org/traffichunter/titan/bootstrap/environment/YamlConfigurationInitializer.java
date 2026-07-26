@@ -169,7 +169,6 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
         return new ServerSettings.TlsSettings(
                 true,
                 property.getSide(),
-                property.getVersions(),
                 property.getClientAuth(),
                 property.getPath(),
                 property.getType(),

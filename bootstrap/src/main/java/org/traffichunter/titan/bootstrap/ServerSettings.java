@@ -27,7 +27,6 @@ import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -136,7 +135,6 @@ public record ServerSettings(
     public record TlsSettings(
             boolean enabled,
             String side,
-            List<String> versions,
             String clientAuth,
             String path,
             String type,
@@ -148,7 +146,6 @@ public record ServerSettings(
         public TlsSettings(
                 boolean enabled,
                 @Nullable String side,
-                @Nullable List<String> versions,
                 @Nullable String clientAuth,
                 @Nullable String path,
                 @Nullable String type,
@@ -158,9 +155,6 @@ public record ServerSettings(
         ) {
             this.enabled = enabled;
             this.side = side == null || side.isBlank() ? "server" : side;
-            this.versions = versions == null || versions.isEmpty()
-                    ? List.of("TLS_1_3", "TLS_1_2")
-                    : List.copyOf(versions);
             this.clientAuth = clientAuth == null || clientAuth.isBlank() ? "none" : clientAuth;
             this.path = path == null ? "" : path;
             this.type = type == null || type.isBlank() ? "PKCS12" : type;
@@ -173,7 +167,6 @@ public record ServerSettings(
             return new TlsSettings(
                     false,
                     "server",
-                    List.of("TLS_1_3", "TLS_1_2"),
                     "none",
                     "",
                     "PKCS12",
