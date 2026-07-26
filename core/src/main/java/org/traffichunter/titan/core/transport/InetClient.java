@@ -38,7 +38,9 @@ import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.NewIONetChannel;
 import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.net.TlsContext;
+import org.traffichunter.titan.core.net.TlsHandler;
+import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.websocket.WebSocketClient;
 import org.traffichunter.titan.core.util.Handler;
@@ -61,6 +63,8 @@ public class InetClient extends AbstractTransport<NetChannel> {
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
     private final InetClientOption option;
     private Handler<Channel> channelHandler = channel -> {};
+
+    private volatile @Nullable TlsContext tlsContext;
 
     private enum State {
         INIT,
@@ -102,6 +106,19 @@ public class InetClient extends AbstractTransport<NetChannel> {
         return new WebSocketClient(this, subProtocol, path);
     }
 
+    @CanIgnoreReturnValue
+    public InetClient tls(TlsContext tlsContext) {
+        if (isStarted()) {
+            throw new IllegalStateException("TLS context already started");
+        }
+        if (tlsContext.options().side() != TlsSide.CLIENT) {
+            throw new IllegalStateException("InetClient requires a client-side TLS context");
+        }
+
+        this.tlsContext = tlsContext;
+        return this;
+    }
+
     @Override
     public void start() {
         if (!state.compareAndSet(State.INIT, State.STARTED)) {
@@ -132,53 +149,35 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
         NetChannel channel = createChannel();
         IOEventLoop loop = channel.eventLoop();
+
+        TlsContext tlsCtx = tlsContext;
+        TlsHandler tlsHandler = null;
+        if (tlsCtx != null) {
+            tlsHandler = tlsCtx.newHandler(remoteAddress.getHostString(), remoteAddress.getPort());
+            channel.chain()
+                    .addFirst(tlsHandler.inbound())
+                    .addLast(tlsHandler.outbound());
+        }
+
         Promise<NetChannel> connectResult = Promise.newPromise(loop);
-
-        Promise<Void> connectRequest = channel.connect(remoteAddress, timeOut, timeUnit);
-
-        connectRequest.addListener(promise -> {
-            if (!promise.isSuccess()) {
+        connectResult.addListener(done -> {
+            if (!done.isSuccess()) {
                 destroyChannel(channel);
-                connectResult.fail(promise.error());
-                return;
             }
-
-            if (channel.isConnected()) {
-                connectResult.success(channel);
-                return;
-            }
-
-            // Non-blocking socket connect may complete after the write request has been submitted.
-            ScheduledPromise<?> activeCheck = loop.scheduleAtFixedRate(() -> {
-                if (connectResult.isDone()) {
-                    return;
-                }
-
-                if (channel.isClosed()) {
-                    destroyChannel(channel);
-                    connectResult.fail(new ClientException("Channel closed before connect completed"));
-                    return;
-                }
-
-                if (channel.isConnected()) {
-                    connectResult.success(channel);
-                }
-            }, 1, 10, TimeUnit.MILLISECONDS);
-
-            ScheduledPromise<?> timeoutCheck = loop.schedule(() -> {
-                if (!connectResult.isDone()) {
-                    connectResult.fail(new ClientException("Connect completion timeout"));
-                }
-            }, timeOut, timeUnit);
-
-            connectResult.addListener(done -> {
-                activeCheck.cancel();
-                timeoutCheck.cancel();
-                if (!done.isSuccess()) {
-                    destroyChannel(channel);
-                }
-            });
         });
+
+        TlsHandler configuredTlsHandler = tlsHandler;
+        channel.connect(remoteAddress, timeOut, timeUnit)
+                .onSuccess(promise -> {
+                    if (configuredTlsHandler == null) {
+                        connectResult.success(channel);
+                        return;
+                    }
+
+                    configuredTlsHandler.handshake(channel)
+                            .onSuccess(ignored -> connectResult.success(channel))
+                            .onFailure(connectResult::fail);
+                }).onFailure(connectResult::fail);
 
         return connectResult;
     }

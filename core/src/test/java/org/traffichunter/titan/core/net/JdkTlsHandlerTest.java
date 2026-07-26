@@ -34,14 +34,18 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +53,95 @@ import static org.mockito.Mockito.when;
  * @author yun
  */
 class JdkTlsHandlerTest {
+
+    @Test
+    void reject_non_positive_tls_handshake_timeout() {
+        JdkTlsHandler handler = new JdkTlsHandler(mock(SSLEngine.class));
+        NetChannel channel = mock(NetChannel.class);
+
+        assertThatThrownBy(() -> handler.handshake(channel, 0, TimeUnit.SECONDS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("greater than zero");
+    }
+
+    @Test
+    void return_same_result_when_handshake_is_requested_more_than_once() throws Exception {
+        ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("tls-repeated-handshake-test");
+        SSLEngine sslEngine = mock(SSLEngine.class);
+        NetChannel channel = mock(NetChannel.class);
+
+        when(sslEngine.getHandshakeStatus()).thenReturn(SSLEngineResult.HandshakeStatus.NEED_UNWRAP);
+        when(channel.eventLoop()).thenReturn(eventLoop);
+
+        eventLoop.start();
+        try {
+            JdkTlsHandler handler = new JdkTlsHandler(sslEngine);
+            ChannelPromise first = handler.handshake(channel, 1, TimeUnit.SECONDS);
+            ChannelPromise second = handler.handshake(channel, 1, TimeUnit.SECONDS);
+
+            eventLoop.submit(() -> {}).get(2, TimeUnit.SECONDS);
+
+            assertThat(second).isSameAs(first);
+            verify(sslEngine, times(1)).beginHandshake();
+
+            first.cancel();
+        } finally {
+            eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void run_delegated_tasks_before_completing_handshake() throws Exception {
+        ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("tls-delegated-task-test");
+        SSLEngine sslEngine = mock(SSLEngine.class);
+        NetChannel channel = mock(NetChannel.class);
+        Runnable delegatedTask = mock(Runnable.class);
+
+        when(channel.eventLoop()).thenReturn(eventLoop);
+        when(sslEngine.getHandshakeStatus())
+                .thenReturn(
+                        SSLEngineResult.HandshakeStatus.NEED_TASK,
+                        SSLEngineResult.HandshakeStatus.FINISHED
+                );
+        when(sslEngine.getDelegatedTask()).thenReturn(delegatedTask, (Runnable) null);
+
+        eventLoop.start();
+        try {
+            ChannelPromise handshake = new JdkTlsHandler(sslEngine).handshake(channel);
+
+            handshake.await(2, TimeUnit.SECONDS);
+
+            assertThat(handshake.isSuccess()).isTrue();
+            verify(delegatedTask).run();
+        } finally {
+            eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void fail_handshake_when_ssl_engine_cannot_start() throws Exception {
+        ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("tls-start-failure-test");
+        SSLEngine sslEngine = mock(SSLEngine.class);
+        NetChannel channel = mock(NetChannel.class);
+        SSLException failure = new SSLException("cannot start");
+
+        when(channel.eventLoop()).thenReturn(eventLoop);
+        doThrow(failure).when(sslEngine).beginHandshake();
+
+        eventLoop.start();
+        try {
+            ChannelPromise handshake = new JdkTlsHandler(sslEngine).handshake(channel);
+
+            handshake.await(2, TimeUnit.SECONDS);
+
+            assertThat(handshake.isFailed()).isTrue();
+            assertThat(handshake.error())
+                    .isInstanceOf(NetSecureException.class)
+                    .hasCause(failure);
+        } finally {
+            eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+        }
+    }
 
     @Test
     void reject_application_write_when_tls_outbound_is_closed() throws Exception {
@@ -124,6 +217,32 @@ class JdkTlsHandlerTest {
             if (closeNotify != null) {
                 closeNotify.release();
             }
+            eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void fail_and_close_channel_when_tls_handshake_times_out() throws Exception {
+        ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("tls-handshake-timeout-test");
+        SSLEngine sslEngine = mock(SSLEngine.class);
+        NetChannel channel = mock(NetChannel.class);
+
+        when(sslEngine.getHandshakeStatus()).thenReturn(SSLEngineResult.HandshakeStatus.NEED_UNWRAP);
+        when(channel.eventLoop()).thenReturn(eventLoop);
+
+        eventLoop.start();
+        try {
+            ChannelPromise handshake = new JdkTlsHandler(sslEngine)
+                    .handshake(channel, 10, TimeUnit.MILLISECONDS);
+
+            handshake.await(2, TimeUnit.SECONDS);
+
+            assertThat(handshake.isFailed()).isTrue();
+            assertThat(handshake.error())
+                    .isInstanceOf(NetSecureException.class)
+                    .hasMessageContaining("TLS handshake timeout");
+            verify(channel).close();
+        } finally {
             eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
         }
     }

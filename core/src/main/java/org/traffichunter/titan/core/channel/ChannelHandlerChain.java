@@ -111,6 +111,16 @@ public class ChannelHandlerChain {
 
     @CanIgnoreReturnValue
     public ChannelHandlerChain add(ChannelInBoundHandler handler) {
+        return addLast(handler);
+    }
+
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain add(ChannelOutBoundHandler handler) {
+        return addLast(handler);
+    }
+
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addLast(ChannelInBoundHandler handler) {
         ChannelInBoundHandlerChainImpl context = new ChannelInBoundHandlerChainImpl(handler);
         inTail.next = context;
         inTail = context;
@@ -119,7 +129,7 @@ public class ChannelHandlerChain {
     }
 
     @CanIgnoreReturnValue
-    public ChannelHandlerChain add(ChannelOutBoundHandler handler) {
+    public ChannelHandlerChain addLast(ChannelOutBoundHandler handler) {
         ChannelOutBoundHandlerChainImpl context = new ChannelOutBoundHandlerChainImpl(handler);
         outTail.next = context;
         outTail = context;

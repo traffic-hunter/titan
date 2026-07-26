@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
-import org.traffichunter.titan.core.transport.HttpRequest;
+import org.traffichunter.titan.core.net.HttpRequest;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -93,10 +93,7 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
         Promise<NetChannel> upgradeResult = Promise.newPromise(channel.eventLoop());
         channel.chain().add(new WebSocketUpgradeHandler(this, key, upgradeResult));
 
-        channel.eventLoop().submit(() -> {
-            channel.internal().writeAndFlush(Buffer.alloc(request.toString()));
-            return channel;
-        }).addListener(result -> {
+        channel.writeAndFlush(Buffer.alloc(request.toString())).addListener(result -> {
             if (result.isFailed() && !upgradeResult.isDone()) {
                 Throwable error = result.error();
                 upgradeResult.fail(error == null

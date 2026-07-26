@@ -26,15 +26,18 @@ package org.traffichunter.titan.core.net;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yun
@@ -62,6 +65,14 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
     }
 
     public final ChannelPromise handshake(NetChannel channel) {
+        return handshake(channel, 1, TimeUnit.MINUTES);
+    }
+
+    public final ChannelPromise handshake(NetChannel channel, long timeOut, TimeUnit timeUnit) {
+        if (timeOut <= 0) {
+            throw new IllegalArgumentException("TLS handshake timeout must be greater than zero");
+        }
+
         ChannelPromise current = handshakeResult;
         if (current != null) {
             return current;
@@ -69,6 +80,17 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
 
         ChannelPromise created = ChannelPromise.newPromise(channel);
         handshakeResult = created;
+
+        ScheduledPromise<?> timeoutTask = channel.eventLoop().schedule(() -> {
+            if (created.isDone()) {
+                return;
+            }
+
+            created.fail(new NetSecureException("TLS handshake timeout after " + timeOut + " " + timeUnit));
+            channel.close();
+        }, timeOut, timeUnit);
+
+        created.addListener(ignored -> timeoutTask.cancel());
 
         channel.eventLoop().submit(() -> {
             try {
@@ -87,6 +109,14 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
     public final boolean isCompletedHandshake() {
         ChannelPromise result = handshakeResult;
         return result != null && result.isSuccess();
+    }
+
+    public ChannelInBoundHandler inbound() {
+        return this;
+    }
+
+    public ChannelOutBoundHandler outbound() {
+        return this;
     }
 
     public final SSLSession session() {

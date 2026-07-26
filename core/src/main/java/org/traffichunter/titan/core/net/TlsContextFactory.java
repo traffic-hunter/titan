@@ -21,25 +21,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.factory;
+package org.traffichunter.titan.core.net;
 
-import org.traffichunter.titan.core.channel.Channel;
-import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
+import org.traffichunter.titan.bootstrap.ServerSettings;
+
+import java.nio.file.Path;
+import java.util.Locale;
 
 /**
- * Factory abstraction used by transports to create a fresh channel per connection.
- *
  * @author yun
  */
-public interface ChannelFactory<C extends Channel> {
+public final class TlsContextFactory {
 
-    /**
-     * Creates a channel wired with the handshake listener that initializes it later.
-     */
-    C create(ChannelHandShakeEventListener handShakeEventListener);
+    public static TlsContext create(ServerSettings.TlsSettings settings) {
+        TlsOptions options = new TlsOptions(
+                TlsSide.valueOf(settings.side().toUpperCase(Locale.ROOT)),
+                TlsVersion.values(),
+                TlsClientAuth.valueOf(
+                        settings.clientAuth().toUpperCase(Locale.ROOT)
+                ),
+                Path.of(settings.path()),
+                settings.type(),
+                settings.storePassword(),
+                settings.keyPassword(),
+                settings.verifyHostname()
+        );
 
-    /**
-     * Releases channel resources.
-     */
-    void destroy(Channel channel);
+        return new JdkTlsContext(options);
+    }
 }

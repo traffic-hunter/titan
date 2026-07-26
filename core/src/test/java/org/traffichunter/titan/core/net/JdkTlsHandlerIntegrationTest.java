@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.net;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChainImpl;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
@@ -35,11 +36,13 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -103,10 +106,122 @@ class JdkTlsHandlerIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(10)
+    void fail_handshake_when_client_and_server_have_no_shared_tls_version() throws Exception {
+        Path keyStore = testKeyStore();
+        Endpoint client = endpoint(
+                "tls-version-client",
+                context(TlsSide.CLIENT, keyStore, TlsVersion.TLS_1_3),
+                "localhost",
+                61614
+        );
+        Endpoint server = endpoint(
+                "tls-version-server",
+                context(TlsSide.SERVER, keyStore, TlsVersion.TLS_1_2),
+                "localhost",
+                61614
+        );
+
+        ChannelPromise clientHandshake = client.handler.handshake(client.channel);
+        ChannelPromise serverHandshake = server.handler.handshake(server.channel);
+        try {
+            exchangeUntil(
+                    () -> clientHandshake.isFailed() || serverHandshake.isFailed(),
+                    client,
+                    server
+            );
+
+            assertThat(clientHandshake.isFailed() || serverHandshake.isFailed()).isTrue();
+        } finally {
+            clientHandshake.cancel();
+            serverHandshake.cancel();
+            client.close();
+            server.close();
+        }
+    }
+
+    @Test
+    @Timeout(15)
+    void retain_partial_tls_record_until_remaining_bytes_arrive() throws Exception {
+        Path keyStore = testKeyStore();
+        Endpoint client = endpoint("tls-split-client", context(TlsSide.CLIENT, keyStore), "localhost", 61614);
+        Endpoint server = endpoint("tls-split-server", context(TlsSide.SERVER, keyStore), "localhost", 61614);
+
+        try {
+            ChannelPromise clientHandshake = client.handler.handshake(client.channel);
+            ChannelPromise serverHandshake = server.handler.handshake(server.channel);
+            exchangeUntil(
+                    () -> clientHandshake.isDone() && serverHandshake.isDone(),
+                    client,
+                    server
+            );
+
+            client.write("fragmented-record");
+            Buffer encrypted = client.encryptedRecords.poll();
+            if (encrypted == null) {
+                throw new AssertionError("TLS encoder did not produce an application record");
+            }
+
+            byte[] record;
+            try {
+                record = encrypted.getBytes();
+            } finally {
+                encrypted.release();
+            }
+
+            int splitIndex = 3;
+            server.receive(Buffer.alloc(Arrays.copyOfRange(record, 0, splitIndex)));
+            assertThat(server.plainTexts).isEmpty();
+
+            server.receive(Buffer.alloc(Arrays.copyOfRange(record, splitIndex, record.length)));
+
+            assertPlainText(server, "fragmented-record");
+        } finally {
+            client.close();
+            server.close();
+        }
+    }
+
+    @Test
+    @Timeout(15)
+    void exchange_payload_larger_than_tls_application_buffer() throws Exception {
+        Path keyStore = testKeyStore();
+        Endpoint client = endpoint("tls-large-client", context(TlsSide.CLIENT, keyStore), "localhost", 61614);
+        Endpoint server = endpoint("tls-large-server", context(TlsSide.SERVER, keyStore), "localhost", 61614);
+        byte[] payload = patternedBytes(1024 * 1024);
+
+        try {
+            ChannelPromise clientHandshake = client.handler.handshake(client.channel);
+            ChannelPromise serverHandshake = server.handler.handshake(server.channel);
+            exchangeUntil(
+                    () -> clientHandshake.isDone() && serverHandshake.isDone(),
+                    client,
+                    server
+            );
+
+            client.write(payload);
+            exchangeUntil(
+                    () -> server.plainTextLength() == payload.length,
+                    client,
+                    server
+            );
+
+            assertPlainText(server, payload);
+        } finally {
+            client.close();
+            server.close();
+        }
+    }
+
     private static JdkTlsContext context(TlsSide side, Path keyStore) {
+        return context(side, keyStore, TlsVersion.TLS_1_3, TlsVersion.TLS_1_2);
+    }
+
+    private static JdkTlsContext context(TlsSide side, Path keyStore, TlsVersion... versions) {
         return new JdkTlsContext(new TlsOptions(
                 side,
-                new TlsVersion[]{TlsVersion.TLS_1_3, TlsVersion.TLS_1_2},
+                versions,
                 TlsClientAuth.NONE,
                 keyStore,
                 "PKCS12",
@@ -185,6 +300,32 @@ class JdkTlsHandlerIntegrationTest {
         }
     }
 
+    private static void assertPlainText(Endpoint endpoint, byte[] expected) {
+        byte[] actual = new byte[expected.length];
+        int offset = 0;
+        Buffer plainText;
+        while ((plainText = endpoint.plainTexts.poll()) != null) {
+            try {
+                byte[] bytes = plainText.getBytes();
+                System.arraycopy(bytes, 0, actual, offset, bytes.length);
+                offset += bytes.length;
+            } finally {
+                plainText.release();
+            }
+        }
+
+        assertThat(offset).isEqualTo(expected.length);
+        assertThat(actual).containsExactly(expected);
+    }
+
+    private static byte[] patternedBytes(int length) {
+        byte[] bytes = new byte[length];
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte) (i % 251);
+        }
+        return bytes;
+    }
+
     private static Path testKeyStore() throws Exception {
         URL resource = JdkTlsHandlerIntegrationTest.class.getResource("/tls/titan-test.p12");
         if (resource == null) {
@@ -214,6 +355,10 @@ class JdkTlsHandlerIntegrationTest {
         }
 
         private void write(String value) throws Exception {
+            write(value.getBytes(UTF_8));
+        }
+
+        private void write(byte[] value) throws Exception {
             Promise<Void> result = eventLoop.submit(() -> {
                 ChannelOutBoundHandlerChainImpl chain =
                         new ChannelOutBoundHandlerChainImpl(mock(ChannelOutBoundHandler.class));
@@ -221,6 +366,17 @@ class JdkTlsHandlerIntegrationTest {
                 channel.internal().flush();
             });
             result.get(2, TimeUnit.SECONDS);
+        }
+
+        private void receive(Buffer encrypted) throws Exception {
+            Promise<Void> result = eventLoop.submit(() ->
+                    handler.sparkChannelRead(channel, encrypted, new CapturingInboundChain(plainTexts))
+            );
+            result.get(2, TimeUnit.SECONDS);
+        }
+
+        private int plainTextLength() {
+            return plainTexts.stream().mapToInt(Buffer::length).sum();
         }
 
         @Override
@@ -235,6 +391,33 @@ class JdkTlsHandlerIntegrationTest {
             while ((buffer = buffers.poll()) != null) {
                 buffer.release();
             }
+        }
+    }
+
+    private static final class CapturingInboundChain implements ChannelInBoundHandlerChain {
+
+        private final Queue<Buffer> plainTexts;
+
+        private CapturingInboundChain(Queue<Buffer> plainTexts) {
+            this.plainTexts = plainTexts;
+        }
+
+        @Override
+        public void sparkChannelConnecting(NetChannel channel) {
+        }
+
+        @Override
+        public void sparkChannelAfterConnected(NetChannel channel) {
+        }
+
+        @Override
+        public void sparkChannelRead(NetChannel channel, Buffer buffer) {
+            plainTexts.add(buffer);
+        }
+
+        @Override
+        public void sparkExceptionCaught(Throwable error) {
+            throw new AssertionError("Unexpected TLS inbound failure", error);
         }
     }
 }

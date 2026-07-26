@@ -79,7 +79,43 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        return ChannelTasks.execute(eventLoop(), () -> connectTransport(remote, timeOut, timeUnit));
+        Promise<Void> result = Promise.newPromise(eventLoop());
+        Runnable connectTask = () -> {
+            try {
+                connectTransport(remote, timeOut, timeUnit);
+
+                ChannelPromise pending = connectPromise;
+                if (pending == null) {
+                    if (isConnected()) {
+                        result.success();
+                    } else {
+                        result.fail(new ChannelException("Connect completed without an active channel"));
+                    }
+                    return;
+                }
+
+                pending.addListener(connection -> {
+                    if (connection.isSuccess()) {
+                        result.success();
+                        return;
+                    }
+
+                    Throwable error = connection.error();
+                    result.fail(error != null
+                            ? error
+                            : new ChannelException("Failed to connect to " + remote));
+                });
+            } catch (Throwable error) {
+                result.fail(new ChannelException("Failed to connect to " + remote, error));
+            }
+        };
+
+        if (eventLoop().inEventLoop()) {
+            connectTask.run();
+        } else {
+            eventLoop().register(connectTask);
+        }
+        return result;
     }
 
     @Override
