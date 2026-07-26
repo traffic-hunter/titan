@@ -26,15 +26,15 @@ package org.traffichunter.titan.core.net;
 import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 
 /**
- * Adapts a transport-owned worker event-loop group to the TLS task executor contract.
+ * Adapts a caller-owned worker event-loop group to the TLS task executor contract.
  *
  * @author yun
  */
-final class TlsTaskEventLoopExecutor implements TlsTaskExecutor {
+public final class TlsTaskEventLoopExecutor implements TlsTaskExecutor {
 
     private final WorkerEventLoopGroup workerGroup;
 
-    TlsTaskEventLoopExecutor(WorkerEventLoopGroup workerGroup) {
+    public TlsTaskEventLoopExecutor(WorkerEventLoopGroup workerGroup) {
         this.workerGroup = workerGroup;
     }
 

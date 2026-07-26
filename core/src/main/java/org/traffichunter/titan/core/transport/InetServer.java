@@ -86,7 +86,6 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         ChannelRegistry<NetChannel> channelRegistry = new ChannelRegistry<>();
         ServerChannelAcceptor acceptor = new ServerChannelAcceptor(
                 groups.secondaryGroup(),
-                groups.workerGroup(),
                 channelRegistry
         );
 
@@ -301,7 +300,6 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
     private static final class ServerChannelAcceptor implements ChannelHandShakeEventListener {
 
         private final ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup;
-        private final WorkerEventLoopGroup workerGroup;
         private final ChannelRegistry<NetChannel> channelRegistry;
 
         private volatile InetClientOption childOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
@@ -312,11 +310,9 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
 
         ServerChannelAcceptor(
                 ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
-                WorkerEventLoopGroup workerGroup,
                 ChannelRegistry<NetChannel> channelRegistry
         ) {
             this.secondaryGroup = secondaryGroup;
-            this.workerGroup = workerGroup;
             this.channelRegistry = channelRegistry;
         }
 
@@ -367,11 +363,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                         throw new ServerException("No remote address set");
                     }
 
-                    TlsHandler tlsHandler = tlsCtx.newHandler(
-                            addr.getHostString(),
-                            addr.getPort(),
-                            workerGroup
-                    );
+                    TlsHandler tlsHandler = tlsCtx.newHandler(addr.getHostString(), addr.getPort());
                     netChannel.chain()
                             .addFirst(tlsHandler.inbound())
                             .addLast(tlsHandler.outbound());

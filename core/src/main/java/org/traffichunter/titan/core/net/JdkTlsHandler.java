@@ -49,6 +49,10 @@ class JdkTlsHandler extends TlsHandler {
     private @Nullable ChannelPromise closeResult;
     private boolean delegatedTaskRunning;
 
+    JdkTlsHandler(SSLEngine sslEngine) {
+        this(sslEngine, TlsTaskExecutor.immediate());
+    }
+
     JdkTlsHandler(SSLEngine sslEngine, TlsTaskExecutor taskExecutor) {
         super(sslEngine);
         this.taskExecutor = taskExecutor;
@@ -64,8 +68,9 @@ class JdkTlsHandler extends TlsHandler {
             while (!handshakeResult.isDone()) {
                 switch (sslEngine.getHandshakeStatus()) {
                     case NEED_TASK -> {
-                        executeDelegatedTasks(channel, handshakeResult);
-                        return;
+                        if (!executeDelegatedTasks(channel, handshakeResult)) {
+                            return;
+                        }
                     }
                     case NEED_UNWRAP -> {
                         return;
@@ -138,23 +143,33 @@ class JdkTlsHandler extends TlsHandler {
         }
     }
 
-    private void executeDelegatedTasks(NetChannel channel, ChannelPromise result) {
+    private boolean executeDelegatedTasks(NetChannel channel, ChannelPromise result) {
         if (delegatedTaskRunning) {
-            return;
+            return false;
+        }
+
+        if (taskExecutor == TlsTaskExecutor.immediate()) {
+            runDelegatedTasks();
+            return true;
         }
 
         delegatedTaskRunning = true;
         taskExecutor.execute(() -> {
             try {
-                Runnable task;
-                while ((task = sslEngine.getDelegatedTask()) != null) {
-                    task.run();
-                }
+                runDelegatedTasks();
                 resumeHandshake(channel, result, null);
             } catch (Throwable error) {
                 resumeHandshake(channel, result, error);
             }
         });
+        return false;
+    }
+
+    private void runDelegatedTasks() {
+        Runnable task;
+        while ((task = sslEngine.getDelegatedTask()) != null) {
+            task.run();
+        }
     }
 
     private void resumeHandshake(

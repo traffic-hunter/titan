@@ -30,7 +30,6 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
-import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 
 /**
  * @author yun
@@ -46,7 +45,12 @@ public final class JdkTlsContext implements TlsContext {
     }
 
     @Override
-    public TlsHandler newHandler(String peerHost, int peerPort, WorkerEventLoopGroup workerGroup) {
+    public TlsHandler newHandler(String peerHost, int peerPort) {
+        return newHandler(peerHost, peerPort, TlsTaskExecutor.immediate());
+    }
+
+    @Override
+    public TlsHandler newHandler(String peerHost, int peerPort, TlsTaskExecutor taskExecutor) {
         SSLEngine engine = sslContext.createSSLEngine(peerHost, peerPort);
 
         TlsSide tlsSide = options.side();
@@ -73,7 +77,7 @@ public final class JdkTlsContext implements TlsContext {
         }
 
         engine.setSSLParameters(sslParameters);
-        return new JdkTlsHandler(engine, new TlsTaskEventLoopExecutor(workerGroup));
+        return new JdkTlsHandler(engine, taskExecutor);
     }
 
     @Override

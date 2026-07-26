@@ -26,42 +26,30 @@ package org.traffichunter.titan.core.channel;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Event-loop groups owned by network transports.
+ * Pair of event-loop groups used by network transports.
  *
  * <p>The primary group owns server accept channels. The secondary group owns accepted or
- * outbound {@link NetChannel} instances that perform reads and writes. The worker group runs
- * delegated work that must not block either I/O group, such as TLS engine tasks. Keeping these
- * roles separate prevents accept readiness and connection I/O from competing with blocking
- * work.</p>
+ * outbound {@link NetChannel} instances that perform reads and writes. Keeping these roles
+ * separate prevents accept readiness from competing with regular connection I/O.</p>
  *
  * @author yun
  */
 public record EventLoopGroups(
         ChannelPrimaryIOEventLoopGroup primaryGroup,
-        ChannelSecondaryIOEventLoopGroup secondaryGroup,
-        WorkerEventLoopGroup workerGroup
+        ChannelSecondaryIOEventLoopGroup secondaryGroup
 ) {
-
-    public EventLoopGroups(
-            ChannelPrimaryIOEventLoopGroup primaryGroup,
-            ChannelSecondaryIOEventLoopGroup secondaryGroup
-    ) {
-        this(primaryGroup, secondaryGroup, new WorkerEventLoopGroup());
-    }
 
     public static EventLoopGroups group() {
         return new EventLoopGroups(
                 new ChannelPrimaryIOEventLoopGroup(),
-                new ChannelSecondaryIOEventLoopGroup(),
-                new WorkerEventLoopGroup()
+                new ChannelSecondaryIOEventLoopGroup()
         );
     }
 
     public static EventLoopGroups group(int primary) {
         return new EventLoopGroups(
                 new ChannelPrimaryIOEventLoopGroup(primary),
-                new ChannelSecondaryIOEventLoopGroup(),
-                new WorkerEventLoopGroup()
+                new ChannelSecondaryIOEventLoopGroup()
         );
     }
 
@@ -72,58 +60,39 @@ public record EventLoopGroups(
     public static EventLoopGroups group(int primary, int secondary) {
         return new EventLoopGroups(
                 new ChannelPrimaryIOEventLoopGroup(primary),
-                new ChannelSecondaryIOEventLoopGroup(secondary),
-                new WorkerEventLoopGroup()
-        );
-    }
-
-    /**
-     * @param primary   number of threads for the primary event loop
-     * @param secondary number of threads for the secondary event loop
-     * @param worker    number of threads for delegated blocking work
-     */
-    public static EventLoopGroups group(int primary, int secondary, int worker) {
-        return new EventLoopGroups(
-                new ChannelPrimaryIOEventLoopGroup(primary),
-                new ChannelSecondaryIOEventLoopGroup(secondary),
-                new WorkerEventLoopGroup(worker)
+                new ChannelSecondaryIOEventLoopGroup(secondary)
         );
     }
 
     public static EventLoopGroups singleGroup() {
-        return group(1, 1, 1);
+        return group(1, 1);
     }
 
     public void start() {
         primaryGroup.start();
         secondaryGroup.start();
-        workerGroup.start();
     }
 
     public boolean isActive() {
-        return primaryGroup.isStarted() && secondaryGroup.isStarted() && workerGroup.isStarted();
+        return primaryGroup.isStarted() && secondaryGroup.isStarted();
     }
 
     public boolean isShuttingDown() {
-        return primaryGroup.isShuttingDown()
-                && secondaryGroup.isShuttingDown()
-                && workerGroup.isShuttingDown();
+        return primaryGroup.isShuttingDown() && secondaryGroup.isShuttingDown();
     }
 
     public boolean isShutdown() {
-        return primaryGroup.isShutdown() && secondaryGroup.isShutdown() && workerGroup.isShutdown();
+        return primaryGroup.isShutdown() && secondaryGroup.isShutdown();
     }
 
     public void gracefullyShutdown(long timeout, TimeUnit unit) {
         primaryGroup.gracefullyShutdown(timeout, unit);
         secondaryGroup.gracefullyShutdown(timeout, unit);
-        workerGroup.gracefullyShutdown(timeout, unit);
     }
 
     public void gracefullyShutdown() {
         primaryGroup.gracefullyShutdown();
         secondaryGroup.gracefullyShutdown();
-        workerGroup.gracefullyShutdown();
     }
 
     public void register(Channel channel) {

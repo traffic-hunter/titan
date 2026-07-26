@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.net;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
@@ -32,7 +30,6 @@ import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChainImpl;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -60,17 +57,6 @@ import static org.mockito.Mockito.when;
 class JdkTlsHandlerIntegrationTest {
 
     private static final String PASSWORD = "changeit";
-    private static final WorkerEventLoopGroup WORKER_GROUP = new WorkerEventLoopGroup(2);
-
-    @BeforeAll
-    static void startWorkerGroup() {
-        WORKER_GROUP.start();
-    }
-
-    @AfterAll
-    static void stopWorkerGroup() {
-        WORKER_GROUP.gracefullyShutdown(1, TimeUnit.SECONDS);
-    }
 
     @Test
     @Timeout(15)
@@ -262,7 +248,7 @@ class JdkTlsHandlerIntegrationTest {
         return new Endpoint(
                 eventLoop,
                 channel,
-                (JdkTlsHandler) context.newHandler(peerHost, peerPort, WORKER_GROUP),
+                (JdkTlsHandler) context.newHandler(peerHost, peerPort),
                 encryptedRecords
         );
     }

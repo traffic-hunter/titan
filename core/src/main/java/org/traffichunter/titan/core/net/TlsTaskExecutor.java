@@ -26,14 +26,21 @@ package org.traffichunter.titan.core.net;
 import java.util.concurrent.Executor;
 
 /**
- * Executes delegated TLS engine work outside a channel I/O event loop.
+ * Executes delegated TLS engine work.
  *
- * <p>The executor does not own its underlying worker lifecycle. The transport that supplies
- * the executor starts and stops the shared worker group.</p>
+ * <p>The default immediate executor preserves channel event-loop affinity. Callers may provide
+ * another executor to offload delegated work, in which case they retain ownership of that
+ * executor's lifecycle.</p>
  *
  * @author yun
  */
 public interface TlsTaskExecutor extends Executor {
+
+    TlsTaskExecutor IMMEDIATE = Runnable::run;
+
+    static TlsTaskExecutor immediate() {
+        return IMMEDIATE;
+    }
 
     @Override
     void execute(Runnable command);
