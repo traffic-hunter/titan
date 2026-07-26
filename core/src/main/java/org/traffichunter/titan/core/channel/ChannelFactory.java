@@ -21,42 +21,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.buffer;
-
-import io.netty.buffer.ByteBuf;
-
-import java.nio.ByteBuffer;
+package org.traffichunter.titan.core.channel;
 
 /**
- * Shared buffer sizing defaults.
+ * Factory abstraction used by transports to create a fresh channel per connection.
  *
  * @author yun
  */
-public final class Buffers {
+public interface ChannelFactory<C extends Channel> {
 
-    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
-    public static final int DEFAULT_MAX_CAPACITY = 65536;
+    /**
+     * Creates a channel wired with the handshake listener that initializes it later.
+     */
+    C create(ChannelHandShakeEventListener handShakeEventListener);
 
-    public static ByteBuffer nioBuffer(Buffer buffer) {
-        return buffer.byteBuf().nioBuffer();
-    }
-
-    public static ByteBuffer readableByteBuffer(Buffer source) {
-        ByteBuf byteBuf = source.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
-    }
-
-    public static ByteBuffer writableByteBuffer(Buffer destination) {
-        ByteBuf byteBuf = destination.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
-    }
-
-    public static void updateWriterIndex(Buffer destination, int read) {
-        if (read > 0) {
-            ByteBuf byteBuf = destination.byteBuf();
-            byteBuf.writerIndex(byteBuf.writerIndex() + read);
-        }
-    }
-
-    private Buffers() {}
+    /**
+     * Releases channel resources.
+     */
+    void destroy(Channel channel);
 }

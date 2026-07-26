@@ -46,7 +46,7 @@ public interface Completable<C> {
     }
 
     @CanIgnoreReturnValue
-    default Promise<C> fail(@Nullable Throwable err) {
+    default Promise<C> fail(Throwable err) {
         return complete(null, err);
     }
 
@@ -72,7 +72,7 @@ public interface Completable<C> {
         return tryComplete(null, null);
     }
 
-    default boolean tryFail(@Nullable Throwable error) {
+    default boolean tryFail(Throwable error) {
         return tryComplete(null, error);
     }
 }

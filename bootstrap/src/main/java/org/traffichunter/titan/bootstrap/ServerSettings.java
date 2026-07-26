@@ -24,6 +24,7 @@
 package org.traffichunter.titan.bootstrap;
 
 import org.jspecify.annotations.NullUnmarked;
+import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,7 +53,8 @@ public record ServerSettings(
         int secondaryThreads,
         Map<String, String> options,
         Map<String, String> transportOptions,
-        Map<String, String> protocolOptions
+        Map<String, String> protocolOptions,
+        TlsSettings tls
 ) {
 
     public ServerSettings {
@@ -76,6 +78,9 @@ public record ServerSettings(
         }
         if (protocolOptions == null) {
             protocolOptions = Map.of();
+        }
+        if (tls == null) {
+            tls = TlsSettings.disabled();
         }
         if (protocol.isBlank()) {
             throw new IllegalArgumentException("protocol cannot be blank");
@@ -118,5 +123,57 @@ public record ServerSettings(
         Map<String, String> merged = new LinkedHashMap<>(base);
         merged.putAll(overrides);
         return Map.copyOf(merged);
+    }
+
+    /**
+     * Dedicated TLS settings for one server.
+     *
+     * <p>TLS is modeled separately from transport and protocol option maps because its
+     * certificate material, endpoint role, and authentication policy require explicit
+     * validation by the runtime.</p>
+     */
+    public record TlsSettings(
+            boolean enabled,
+            String side,
+            String clientAuth,
+            String path,
+            String type,
+            String storePassword,
+            String keyPassword,
+            boolean verifyHostname
+    ) {
+
+        public TlsSettings(
+                boolean enabled,
+                @Nullable String side,
+                @Nullable String clientAuth,
+                @Nullable String path,
+                @Nullable String type,
+                @Nullable String storePassword,
+                @Nullable String keyPassword,
+                boolean verifyHostname
+        ) {
+            this.enabled = enabled;
+            this.side = side == null || side.isBlank() ? "server" : side;
+            this.clientAuth = clientAuth == null || clientAuth.isBlank() ? "none" : clientAuth;
+            this.path = path == null ? "" : path;
+            this.type = type == null || type.isBlank() ? "PKCS12" : type;
+            this.storePassword = storePassword == null ? "" : storePassword;
+            this.keyPassword = keyPassword == null ? "" : keyPassword;
+            this.verifyHostname = verifyHostname;
+        }
+
+        public static TlsSettings disabled() {
+            return new TlsSettings(
+                    false,
+                    "server",
+                    "none",
+                    "",
+                    "PKCS12",
+                    "",
+                    "",
+                    false
+            );
+        }
     }
 }

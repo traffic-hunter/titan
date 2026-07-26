@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
 
 class ConfigurationInitializerTest {
@@ -79,6 +80,55 @@ class ConfigurationInitializerTest {
         assertThat(settings.backup().type()).isEqualTo("aof");
         assertThat(settings.backup().syncPolicy()).isEqualTo("every_sec");
         assertThat(settings.backup().recoveryPolicy()).isEqualTo("load_truncated_tail");
+        assertThat(settings.servers().getFirst().tls().enabled()).isFalse();
+    }
+
+    @Test
+    void load_maps_tls_transport_settings() {
+        String yaml = """
+                titan:
+                  servers:
+                    - name: secure-stomp
+                      protocol: stomp
+                      transport: tcp
+                      host: localhost
+                      port: 61614
+                      options:
+                        reuse-address: "true"
+                      transport-options:
+                        receive-buffer-size: "65536"
+                      tls:
+                        side: server
+                        client-auth: need
+                        path: /etc/titan/server.p12
+                        type: PKCS12
+                        store-password: store-secret
+                        key-password: key-secret
+                        verify-hostname: false
+                """;
+
+        Settings settings = ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(settings.servers()).hasSize(1);
+        ServerSettings server = settings.servers().getFirst();
+        assertThat(server.name()).isEqualTo("secure-stomp");
+        assertThat(server.transport()).isEqualTo("tcp");
+        assertThat(server.protocol()).isEqualTo("stomp");
+        assertThat(server.host()).isEqualTo("localhost");
+        assertThat(server.port()).isEqualTo(61614);
+        assertThat(server.resolvedTransportOptions())
+                .containsEntry("reuse-address", "true")
+                .containsEntry("receive-buffer-size", "65536")
+                .doesNotContainKeys("tls-side", "tls-path", "tls-type");
+        assertThat(server.tls().enabled()).isTrue();
+        assertThat(server.tls().side()).isEqualTo("server");
+        assertThat(server.tls().clientAuth()).isEqualTo("need");
+        assertThat(server.tls().path()).isEqualTo("/etc/titan/server.p12");
+        assertThat(server.tls().type()).isEqualTo("PKCS12");
+        assertThat(server.tls().storePassword()).isEqualTo("store-secret");
+        assertThat(server.tls().keyPassword()).isEqualTo("key-secret");
+        assertThat(server.tls().verifyHostname()).isFalse();
     }
 
     @Test

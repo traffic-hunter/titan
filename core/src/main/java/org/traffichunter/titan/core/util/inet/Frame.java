@@ -23,6 +23,7 @@
  */
 package org.traffichunter.titan.core.util.inet;
 
+import com.google.errorprone.annotations.MustBeClosed;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 

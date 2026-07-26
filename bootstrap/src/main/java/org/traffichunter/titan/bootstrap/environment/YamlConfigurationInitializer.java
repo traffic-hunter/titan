@@ -35,6 +35,7 @@ import org.traffichunter.titan.bootstrap.environment.proprerty.RootYamlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.TlsProperty;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -155,7 +156,25 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
                 property.getSecondaryThreads(),
                 property.getOptions(),
                 property.getTransportOptions(),
-                property.getProtocolOptions()
+                property.getProtocolOptions(),
+                mapTls(property.getTls())
+        );
+    }
+
+    private static ServerSettings.TlsSettings mapTls(final @Nullable TlsProperty property) {
+        if (property == null) {
+            return ServerSettings.TlsSettings.disabled();
+        }
+
+        return new ServerSettings.TlsSettings(
+                true,
+                property.getSide(),
+                property.getClientAuth(),
+                property.getPath(),
+                property.getType(),
+                property.getStorePassword(),
+                property.getKeyPassword(),
+                property.isVerifyHostname()
         );
     }
 }

@@ -23,18 +23,21 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.websocket;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
+import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.channel.TaskEventLoop;
 import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.transport.HttpRequest;
+import org.traffichunter.titan.core.net.HttpRequest;
 import org.traffichunter.titan.core.transport.websocket.WebSocketServerHandshaker.WebSocketUpgradeHandler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,6 +48,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class WebSocketServerHandshakerTest {
 
+    private static final ChannelSecondaryIOEventLoop EVENT_LOOP =
+            new ChannelSecondaryIOEventLoop("websocket-server-handshaker-test");
     private static final String KEY = "dGhlIHNhbXBsZSBub25jZQ==";
     private static final String ACCEPT = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=";
     private static final String REQUEST = "GET /titan HTTP/1.1\r\n"
@@ -55,6 +60,16 @@ class WebSocketServerHandshakerTest {
             + "Sec-WebSocket-Protocol: v12.stomp\r\n"
             + "Sec-WebSocket-Version: 13\r\n"
             + "\r\n";
+
+    @BeforeAll
+    static void startEventLoop() {
+        EVENT_LOOP.start();
+    }
+
+    @AfterAll
+    static void stopEventLoop() {
+        EVENT_LOOP.gracefullyShutdown(1, TimeUnit.SECONDS);
+    }
 
     @Test
     void parse_request_extracts_websocket_upgrade_headers() {
@@ -170,13 +185,27 @@ class WebSocketServerHandshakerTest {
     private static final class UpgradeHarness {
 
         private final InMemoryNetChannel channel = new InMemoryNetChannel();
-        private final Promise<NetChannel> promise = Promise.newPromise(new TaskEventLoop());
+        private final Promise<NetChannel> promise = Promise.newPromise(EVENT_LOOP);
         private final CapturingChain chain = new CapturingChain();
         private final WebSocketUpgradeHandler handler =
                 new WebSocketUpgradeHandler(new WebSocketServerHandshaker(), promise);
 
+        private UpgradeHarness() {
+            channel.register(EVENT_LOOP, EVENT_LOOP.newPromise(channel));
+        }
+
         private void read(String data) {
-            handler.sparkChannelRead(channel, Buffer.alloc(data.getBytes(ISO_8859_1)), chain);
+            try {
+                EVENT_LOOP.submit(() ->
+                        handler.sparkChannelRead(
+                                channel,
+                                Buffer.alloc(data.getBytes(ISO_8859_1)),
+                                chain
+                        )
+                ).get(2, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new AssertionError("Failed to process WebSocket upgrade input", e);
+            }
         }
 
         private String written() {

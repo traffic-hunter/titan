@@ -32,8 +32,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.net.TlsContext;
+import org.traffichunter.titan.core.net.TlsHandler;
+import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -103,12 +107,33 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
     }
 
     @CanIgnoreReturnValue
+    public InetServer tls(TlsContext tlsContext) {
+        if (isStarted()) {
+            throw new IllegalStateException("Cannot configure TLS after server start");
+        }
+        if (tlsContext.options().side() != TlsSide.SERVER) {
+            throw new IllegalStateException("InetServer requires a server-side TLS context");
+        }
+
+        this.acceptor.setTlsContext(tlsContext);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
     public InetServer upgradeWebsocket() {
+        if (isStarted()) {
+            throw new IllegalStateException("Cannot configure TLS after server start");
+        }
+
         return upgradeWebsocket("/titan");
     }
 
     @CanIgnoreReturnValue
     public InetServer upgradeWebsocket(String path) {
+        if (isStarted()) {
+            throw new IllegalStateException("Cannot configure TLS after server start");
+        }
+
         this.acceptor.setUpgradeWebsocket(path);
         return this;
     }
@@ -281,6 +306,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         private volatile Handler<Channel> childHandler = ch -> {};
         private volatile boolean upgradeWebsocket;
         private volatile WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
+        private volatile @Nullable TlsContext tlsContext;
 
         ServerChannelAcceptor(
                 ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
@@ -303,6 +329,10 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             this.upgradeWebsocket = true;
         }
 
+        void setTlsContext(TlsContext tlsContext) {
+            this.tlsContext = tlsContext;
+        }
+
         @SuppressWarnings("unchecked")
         @Override
         public void accept(Channel channel) {
@@ -310,8 +340,6 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                 throw new IllegalArgumentException("Unsupported channel: " + channel);
             }
 
-            InetClientOption childOption = this.childOption;
-            Handler<Channel> childHandler = this.childHandler;
             childOption.socketOptions().forEach((k, v) ->
                     netChannel.setOption((SocketOption<Object>) k, v)
             );
@@ -323,20 +351,68 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     loop.ioSelector().registerRead(netChannel);
                     loop.register(netChannel);
                     channelRegistry.addChannel(netChannel);
-                    if (upgradeWebsocket) {
-                        webSocketHandshaker.handshake(netChannel).addListener(result -> {
-                            if (result.isSuccess()) {
-                                childHandler.handle(netChannel);
-                            }
-                        });
+
+                    TlsContext tlsCtx = this.tlsContext;
+                    if (tlsCtx == null) {
+                        runTasks(netChannel);
                         return;
                     }
 
-                    childHandler.handle(netChannel);
-                } catch (IOException e) {
+                    InetSocketAddress addr = (InetSocketAddress) netChannel.remoteAddress();
+                    if (addr == null) {
+                        throw new ServerException("No remote address set");
+                    }
+
+                    TlsHandler tlsHandler = tlsCtx.newHandler(addr.getHostString(), addr.getPort());
+                    netChannel.chain()
+                            .addFirst(tlsHandler.inbound())
+                            .addLast(tlsHandler.outbound());
+
+                    tlsHandler.handshake(netChannel)
+                            .onSuccess(ignored -> {
+                                log.info("Successfully TLS connected to {}:{}", addr.getHostString(), addr.getPort());
+                                runTasks(netChannel);
+                            }).onFailure(error -> {
+                                log.error("Failed to handshake", error);
+                                closeChild(netChannel, error);
+                            });
+
+                } catch (Exception e) {
                     throw new ServerException("Failed to init child channel", e);
                 }
             });
+        }
+
+        private void runTasks(NetChannel channel) {
+            if (upgradeWebsocket) {
+                webSocketHandshaker.handshake(channel).addListener(result -> {
+                    if (result.isSuccess()) {
+                        childHandler.handle(channel);
+                    } else {
+                        closeChild(channel, result.error());
+                    }
+                });
+                return;
+            }
+
+            childHandler.handle(channel);
+        }
+
+        private void closeChild(
+                NetChannel channel,
+                @Nullable Throwable error
+        ) {
+            channelRegistry.removeChannel(channel);
+
+            if (error != null) {
+                log.error(
+                        "Failed to initialize child channel. channel={}",
+                        channel.id(),
+                        error
+                );
+            }
+
+            channel.close();
         }
     }
 }

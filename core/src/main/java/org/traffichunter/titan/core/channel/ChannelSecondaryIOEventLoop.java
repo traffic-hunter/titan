@@ -74,10 +74,6 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                 if (key.isConnectable()) {
                     chain.processChannelConnecting(channel);
                     if(channel.internal().finishConnect()) {
-                        if (channel instanceof NewIONetChannel nioNetChannel) {
-                            nioNetChannel.completeConnect();
-                        }
-
                         chain.processChannelAfterConnected(channel);
 
                         this.ioSelector()
@@ -85,6 +81,10 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
                                 .registerRead(channel);
 
                         ((AbstractChannel) channel).accept(channel);
+
+                        if (channel instanceof NewIONetChannel nioNetChannel) {
+                            nioNetChannel.completeConnect();
+                        }
                     }
                 } else if (key.isReadable()) {
                     processRead(channel, chain);

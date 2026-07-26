@@ -89,7 +89,10 @@ public class ClientToServerTest {
                 .onChannel(channel -> channel.chain());
 
         client.start();
-        client.connect("localhost", port).get();
+        NetChannel channel = client.connect("localhost", port).get();
+
+        assertThat(channel.isConnected()).isTrue();
+        assertThat(channel.isActive()).isTrue();
 
         client.send(Buffer.alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
             if(future.isSuccess()) {

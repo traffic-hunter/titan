@@ -51,4 +51,5 @@ public class ServerProperty {
     private Map<String, String> options;
     private Map<String, String> transportOptions;
     private Map<String, String> protocolOptions;
+    private TlsProperty tls;
 }

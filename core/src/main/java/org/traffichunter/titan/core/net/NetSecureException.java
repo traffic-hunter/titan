@@ -21,25 +21,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.channel.factory;
-
-import org.traffichunter.titan.core.channel.Channel;
-import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
+package org.traffichunter.titan.core.net;
 
 /**
- * Factory abstraction used by transports to create a fresh channel per connection.
- *
  * @author yun
  */
-public interface ChannelFactory<C extends Channel> {
+public class NetSecureException extends NetException {
 
-    /**
-     * Creates a channel wired with the handshake listener that initializes it later.
-     */
-    C create(ChannelHandShakeEventListener handShakeEventListener);
+    public NetSecureException() {
+        this("Failed to establish secure connection.");
+    }
 
-    /**
-     * Releases channel resources.
-     */
-    void destroy(Channel channel);
+    public NetSecureException(String message) {
+        super(message);
+    }
+
+    public NetSecureException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public NetSecureException(Throwable cause) {
+        super(cause);
+    }
+
+    public NetSecureException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
 }

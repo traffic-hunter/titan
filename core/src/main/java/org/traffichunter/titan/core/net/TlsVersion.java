@@ -21,42 +21,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.buffer;
-
-import io.netty.buffer.ByteBuf;
-
-import java.nio.ByteBuffer;
+package org.traffichunter.titan.core.net;
 
 /**
- * Shared buffer sizing defaults.
- *
  * @author yun
  */
-public final class Buffers {
+public enum TlsVersion {
 
-    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
-    public static final int DEFAULT_MAX_CAPACITY = 65536;
+    TLS_1_2("TLSv1.2"),
+    TLS_1_3("TLSv1.3"),
+    ;
 
-    public static ByteBuffer nioBuffer(Buffer buffer) {
-        return buffer.byteBuf().nioBuffer();
+    private final String value;
+
+    TlsVersion(String value) {
+        this.value = value;
     }
 
-    public static ByteBuffer readableByteBuffer(Buffer source) {
-        ByteBuf byteBuf = source.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+    public String getValue() {
+        return value;
     }
 
-    public static ByteBuffer writableByteBuffer(Buffer destination) {
-        ByteBuf byteBuf = destination.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
-    }
-
-    public static void updateWriterIndex(Buffer destination, int read) {
-        if (read > 0) {
-            ByteBuf byteBuf = destination.byteBuf();
-            byteBuf.writerIndex(byteBuf.writerIndex() + read);
+    public static String[] values(TlsVersion[] versions) {
+        String[] result = new String[versions.length];
+        for (int i = 0; i < versions.length; i++) {
+            TlsVersion version = versions[i];
+            result[i] = version.getValue();
         }
-    }
 
-    private Buffers() {}
+        return result;
+    }
 }

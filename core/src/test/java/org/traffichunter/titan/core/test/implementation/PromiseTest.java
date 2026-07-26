@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.mockito.ArgumentCaptor;
 import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.concurrent.AsyncListener;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -14,10 +15,12 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.DisplayNameGenerator.*;
@@ -122,7 +125,9 @@ class PromiseTest {
 
         promise.await(50, TimeUnit.MILLISECONDS);
 
-        assertTrue(promise.isFailed());
+        assertFalse(promise.isDone());
+        assertFalse(promise.isFailed());
+        t.join();
     }
 
     @Test
@@ -237,12 +242,137 @@ class PromiseTest {
     }
 
     @Test
+    void onSuccess_should_not_run_after_failure() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+
+        promise.onSuccess(ignored -> invoked.set(true));
+        promise.fail(new IllegalStateException("boom"));
+
+        assertThat(invoked).isFalse();
+    }
+
+    @Test
+    void onFailure_should_not_run_after_success() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+
+        promise.onFailure(ignored -> invoked.set(true));
+        promise.success("test");
+
+        assertThat(invoked).isFalse();
+    }
+
+    @Test
+    void callbacks_registered_after_completion_should_run_once() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicInteger successCount = new AtomicInteger();
+        AtomicInteger failureCount = new AtomicInteger();
+
+        promise.success("test");
+        promise.onSuccess(ignored -> successCount.incrementAndGet());
+        promise.onFailure(ignored -> failureCount.incrementAndGet());
+
+        assertThat(successCount).hasValue(1);
+        assertThat(failureCount).hasValue(0);
+    }
+
+    @Test
+    void onFailure_registered_after_completion_should_receive_error_once() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        IllegalStateException failure = new IllegalStateException("boom");
+        AtomicReference<Throwable> received = new AtomicReference<>();
+        AtomicInteger invocationCount = new AtomicInteger();
+
+        promise.fail(failure);
+        promise.onFailure(error -> {
+            received.set(error);
+            invocationCount.incrementAndGet();
+        });
+
+        assertThat(received.get()).isSameAs(failure);
+        assertThat(invocationCount).hasValue(1);
+    }
+
+    @Test
+    void callback_failure_should_not_prevent_remaining_callbacks() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+
+        promise.onSuccess(ignored -> {
+            throw new IllegalStateException("callback failure");
+        });
+        promise.onSuccess(ignored -> invoked.set(true));
+        promise.success("test");
+
+        assertThat(invoked).isTrue();
+    }
+
+    @Test
+    void onSuccess_should_receive_nullable_result() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicBoolean invoked = new AtomicBoolean();
+        AtomicReference<String> result = new AtomicReference<>("value");
+
+        promise.onSuccess(value -> {
+            invoked.set(true);
+            result.set(value);
+        });
+        promise.success();
+
+        assertThat(invoked).isTrue();
+        assertThat(result.get()).isNull();
+    }
+
+    @Test
+    void cancellation_should_run_onFailure_with_cancellation_error() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        promise.onFailure(error::set);
+        promise.cancel();
+
+        assertThat(error.get()).isInstanceOf(java.util.concurrent.CancellationException.class);
+    }
+
+    @Test
+    void callback_should_be_dispatched_to_event_loop() {
+        given(eventLoop.inEventLoop()).willReturn(false);
+        AtomicReference<String> result = new AtomicReference<>();
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+
+        promise.onSuccess(result::set);
+        promise.success("test");
+
+        assertThat(result.get()).isNull();
+
+        ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
+        verify(eventLoop).register(callback.capture());
+
+        given(eventLoop.inEventLoop()).willReturn(true);
+        callback.getValue().run();
+
+        assertThat(result.get()).isEqualTo("test");
+    }
+
+    @Test
     void trySuccess_should_report_completion_state_test() {
         Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
 
         assertThat(promise.trySuccess("test")).isTrue();
         assertThat(promise.trySuccess("again")).isFalse();
         assertThat(promise.getNow()).isEqualTo("test");
+    }
+
+    @Test
+    void tryFail_should_report_completion_state_test() {
+        Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        assertThat(promise.tryFail(failure)).isTrue();
+        assertThat(promise.tryFail(new IllegalArgumentException())).isFalse();
+        assertThat(promise.isFailed()).isTrue();
+        assertThat(promise.error()).isSameAs(failure);
     }
 
     private static final class TestPromiseImpl<V> extends PromiseImpl<V> {

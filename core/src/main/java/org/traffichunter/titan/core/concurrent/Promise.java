@@ -82,7 +82,7 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
     boolean cancel(boolean mayInterruptIfRunning);
 
     default boolean isFailed() {
-        return !isSuccess();
+        return isDone() && !isSuccess();
     }
 
     /**

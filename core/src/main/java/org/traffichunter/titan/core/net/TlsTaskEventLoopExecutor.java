@@ -21,42 +21,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.buffer;
+package org.traffichunter.titan.core.net;
 
-import io.netty.buffer.ByteBuf;
-
-import java.nio.ByteBuffer;
+import org.traffichunter.titan.core.channel.EventLoop;
+import org.traffichunter.titan.core.channel.TaskEventLoop;
 
 /**
- * Shared buffer sizing defaults.
- *
  * @author yun
  */
-public final class Buffers {
+final class TlsTaskEventLoopExecutor implements TlsTaskExecutor {
 
-    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
-    public static final int DEFAULT_MAX_CAPACITY = 65536;
+    private final EventLoop taskEventLoop;
 
-    public static ByteBuffer nioBuffer(Buffer buffer) {
-        return buffer.byteBuf().nioBuffer();
+    TlsTaskEventLoopExecutor() {
+        this.taskEventLoop = new TaskEventLoop();
+        this.taskEventLoop.start();
     }
 
-    public static ByteBuffer readableByteBuffer(Buffer source) {
-        ByteBuf byteBuf = source.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+    @Override
+    public void execute(Runnable command) {
+        taskEventLoop.submit(command);
     }
 
-    public static ByteBuffer writableByteBuffer(Buffer destination) {
-        ByteBuf byteBuf = destination.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
+    @Override
+    public void close() {
+        taskEventLoop.gracefullyShutdown();
     }
-
-    public static void updateWriterIndex(Buffer destination, int read) {
-        if (read > 0) {
-            ByteBuf byteBuf = destination.byteBuf();
-            byteBuf.writerIndex(byteBuf.writerIndex() + read);
-        }
-    }
-
-    private Buffers() {}
 }

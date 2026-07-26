@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.test.implementation;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.traffichunter.titan.core.transport.HttpRequest;
+import org.traffichunter.titan.core.net.HttpRequest;
 
 /**
  * @author yun

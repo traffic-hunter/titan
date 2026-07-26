@@ -115,8 +115,8 @@ abstract class AbstractWebSocketHandshaker {
                 String subProtocol
         ) {
             channel.chain()
-                    .add(new WebSocketFrameEncoder(side, subProtocol))
-                    .add(new WebSocketFrameDecoder(side, Protocol.subProtocol(subProtocol)));
+                    .addFirst(new WebSocketFrameEncoder(side, subProtocol))
+                    .addLast(new WebSocketFrameDecoder(side, Protocol.subProtocol(subProtocol)));
         }
 
         private static int findEndOfHead(Buffer buffer) {

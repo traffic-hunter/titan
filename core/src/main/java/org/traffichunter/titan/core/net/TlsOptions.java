@@ -21,42 +21,41 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.buffer;
+package org.traffichunter.titan.core.net;
 
-import io.netty.buffer.ByteBuf;
-
-import java.nio.ByteBuffer;
+import java.nio.file.Path;
 
 /**
- * Shared buffer sizing defaults.
+ * Configuration for creating a JDK TLS context.
+ *
+ * @param side local endpoint role during the TLS handshake
+ * @param versions TLS protocol versions enabled on each engine
+ * @param clientAuth server policy for requesting or requiring client certificates
+ * @param path path to the key store containing identity and trust material
+ * @param type JDK key store type, such as {@code PKCS12} or {@code JKS}
+ * @param storePassword password used to open the key store
+ * @param keyPassword password used to recover private keys from the key store
+ * @param verifyHostname whether a client verifies the peer hostname against the certificate
  *
  * @author yun
  */
-public final class Buffers {
+public record TlsOptions(
+        TlsSide side,
+        TlsVersion[] versions,
+        TlsClientAuth clientAuth,
+        Path path,
+        String type,
+        String storePassword,
+        String keyPassword,
+        boolean verifyHostname
+) {
 
-    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
-    public static final int DEFAULT_MAX_CAPACITY = 65536;
-
-    public static ByteBuffer nioBuffer(Buffer buffer) {
-        return buffer.byteBuf().nioBuffer();
+    public TlsOptions {
+        versions = versions.clone();
     }
 
-    public static ByteBuffer readableByteBuffer(Buffer source) {
-        ByteBuf byteBuf = source.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
+    @Override
+    public TlsVersion[] versions() {
+        return versions.clone();
     }
-
-    public static ByteBuffer writableByteBuffer(Buffer destination) {
-        ByteBuf byteBuf = destination.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
-    }
-
-    public static void updateWriterIndex(Buffer destination, int read) {
-        if (read > 0) {
-            ByteBuf byteBuf = destination.byteBuf();
-            byteBuf.writerIndex(byteBuf.writerIndex() + read);
-        }
-    }
-
-    private Buffers() {}
 }

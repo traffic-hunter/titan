@@ -75,7 +75,7 @@ public interface ChannelPromise extends Promise<Void> {
     }
 
     @Override
-    default ChannelPromise fail(@Nullable Throwable err) {
+    default ChannelPromise fail(Throwable err) {
         return complete(null, err);
     }
 

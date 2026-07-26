@@ -21,42 +21,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.buffer;
+package org.traffichunter.titan.core.net;
 
-import io.netty.buffer.ByteBuf;
+import org.traffichunter.titan.bootstrap.ServerSettings;
 
-import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.util.Locale;
 
 /**
- * Shared buffer sizing defaults.
- *
  * @author yun
  */
-public final class Buffers {
+public final class TlsContextFactory {
 
-    public static final int DEFAULT_INITIAL_CAPACITY = 4096;
-    public static final int DEFAULT_MAX_CAPACITY = 65536;
+    public static TlsContext create(ServerSettings.TlsSettings settings) {
+        TlsOptions options = new TlsOptions(
+                TlsSide.valueOf(settings.side().toUpperCase(Locale.ROOT)),
+                TlsVersion.values(),
+                TlsClientAuth.valueOf(
+                        settings.clientAuth().toUpperCase(Locale.ROOT)
+                ),
+                Path.of(settings.path()),
+                settings.type(),
+                settings.storePassword(),
+                settings.keyPassword(),
+                settings.verifyHostname()
+        );
 
-    public static ByteBuffer nioBuffer(Buffer buffer) {
-        return buffer.byteBuf().nioBuffer();
+        return new JdkTlsContext(options);
     }
-
-    public static ByteBuffer readableByteBuffer(Buffer source) {
-        ByteBuf byteBuf = source.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.readerIndex(), byteBuf.readableBytes());
-    }
-
-    public static ByteBuffer writableByteBuffer(Buffer destination) {
-        ByteBuf byteBuf = destination.byteBuf();
-        return byteBuf.nioBuffer(byteBuf.writerIndex(), byteBuf.writableBytes());
-    }
-
-    public static void updateWriterIndex(Buffer destination, int read) {
-        if (read > 0) {
-            ByteBuf byteBuf = destination.byteBuf();
-            byteBuf.writerIndex(byteBuf.writerIndex() + read);
-        }
-    }
-
-    private Buffers() {}
 }

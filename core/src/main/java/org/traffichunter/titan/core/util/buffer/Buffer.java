@@ -303,6 +303,9 @@ public interface Buffer extends Clearable {
     @CanIgnoreReturnValue
     Buffer skipBytes(int length);
 
+    @CanIgnoreReturnValue
+    Buffer expand(int size);
+
     /**
      * @return {@code true} if and only if {@code (this.writerIndex - this.readerIndex)} is greater than {@code 0}.
      */
@@ -338,5 +341,6 @@ public interface Buffer extends Clearable {
 
     String toString(Charset charset);
 
+    @Deprecated
     boolean canAllocate(int size);
 }
