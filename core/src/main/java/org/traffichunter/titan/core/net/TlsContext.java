@@ -26,11 +26,15 @@ package org.traffichunter.titan.core.net;
 import javax.net.ssl.SSLContext;
 
 /**
+ * Creates per-connection TLS handlers from shared key and trust material.
+ *
  * @author yun
  */
 public interface TlsContext {
 
     TlsHandler newHandler(String peerHost, int peerPort);
+
+    TlsHandler newHandler(String peerHost, int peerPort, TlsTaskExecutor taskExecutor);
 
     TlsOptions options();
 

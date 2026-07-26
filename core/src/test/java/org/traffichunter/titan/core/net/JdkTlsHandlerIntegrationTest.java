@@ -277,17 +277,22 @@ class JdkTlsHandlerIntegrationTest {
             return false;
         }
 
+        boolean transferred = false;
         try {
-            Promise<Void> result = target.eventLoop.submit(() -> {
-                Buffer plainText = target.handler.decode(target.channel, encrypted);
-                if (plainText != null) {
-                    target.plainTexts.add(plainText);
-                }
-            });
+            Promise<Void> result = target.eventLoop.submit(() ->
+                    target.handler.sparkChannelRead(
+                            target.channel,
+                            encrypted,
+                            new CapturingInboundChain(target.plainTexts)
+                    )
+            );
             result.get(2, TimeUnit.SECONDS);
+            transferred = true;
             return true;
         } finally {
-            encrypted.release();
+            if (!transferred) {
+                encrypted.release();
+            }
         }
     }
 

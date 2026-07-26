@@ -23,17 +23,25 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.net;
 
-import java.io.Closeable;
 import java.util.concurrent.Executor;
 
 /**
+ * Executes delegated TLS engine work.
+ *
+ * <p>The default immediate executor preserves channel event-loop affinity. Callers may provide
+ * another executor to offload delegated work, in which case they retain ownership of that
+ * executor's lifecycle.</p>
+ *
  * @author yun
  */
-public interface TlsTaskExecutor extends Executor, Closeable {
+public interface TlsTaskExecutor extends Executor {
+
+    TlsTaskExecutor IMMEDIATE = Runnable::run;
+
+    static TlsTaskExecutor immediate() {
+        return IMMEDIATE;
+    }
 
     @Override
     void execute(Runnable command);
-
-    @Override
-    void close();
 }

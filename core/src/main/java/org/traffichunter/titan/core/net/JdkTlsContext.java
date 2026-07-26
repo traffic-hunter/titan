@@ -46,6 +46,11 @@ public final class JdkTlsContext implements TlsContext {
 
     @Override
     public TlsHandler newHandler(String peerHost, int peerPort) {
+        return newHandler(peerHost, peerPort, TlsTaskExecutor.immediate());
+    }
+
+    @Override
+    public TlsHandler newHandler(String peerHost, int peerPort, TlsTaskExecutor taskExecutor) {
         SSLEngine engine = sslContext.createSSLEngine(peerHost, peerPort);
 
         TlsSide tlsSide = options.side();
@@ -72,7 +77,7 @@ public final class JdkTlsContext implements TlsContext {
         }
 
         engine.setSSLParameters(sslParameters);
-        return new JdkTlsHandler(engine);
+        return new JdkTlsHandler(engine, taskExecutor);
     }
 
     @Override
