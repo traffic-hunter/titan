@@ -29,6 +29,7 @@ import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChainImpl;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -39,6 +40,7 @@ import javax.net.ssl.SSLSession;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,7 +58,7 @@ class JdkTlsHandlerTest {
 
     @Test
     void reject_non_positive_tls_handshake_timeout() {
-        JdkTlsHandler handler = new JdkTlsHandler(mock(SSLEngine.class));
+        JdkTlsHandler handler = handler(mock(SSLEngine.class));
         NetChannel channel = mock(NetChannel.class);
 
         assertThatThrownBy(() -> handler.handshake(channel, 0, TimeUnit.SECONDS))
@@ -75,7 +77,7 @@ class JdkTlsHandlerTest {
 
         eventLoop.start();
         try {
-            JdkTlsHandler handler = new JdkTlsHandler(sslEngine);
+            JdkTlsHandler handler = handler(sslEngine);
             ChannelPromise first = handler.handshake(channel, 1, TimeUnit.SECONDS);
             ChannelPromise second = handler.handshake(channel, 1, TimeUnit.SECONDS);
 
@@ -93,9 +95,11 @@ class JdkTlsHandlerTest {
     @Test
     void run_delegated_tasks_before_completing_handshake() throws Exception {
         ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("tls-delegated-task-test");
+        WorkerEventLoopGroup workerGroup = new WorkerEventLoopGroup(1);
         SSLEngine sslEngine = mock(SSLEngine.class);
         NetChannel channel = mock(NetChannel.class);
-        Runnable delegatedTask = mock(Runnable.class);
+        AtomicReference<String> taskThread = new AtomicReference<>();
+        Runnable delegatedTask = () -> taskThread.set(Thread.currentThread().getName());
 
         when(channel.eventLoop()).thenReturn(eventLoop);
         when(sslEngine.getHandshakeStatus())
@@ -106,15 +110,20 @@ class JdkTlsHandlerTest {
         when(sslEngine.getDelegatedTask()).thenReturn(delegatedTask, (Runnable) null);
 
         eventLoop.start();
+        workerGroup.start();
         try {
-            ChannelPromise handshake = new JdkTlsHandler(sslEngine).handshake(channel);
+            ChannelPromise handshake = new JdkTlsHandler(
+                    sslEngine,
+                    new TlsTaskEventLoopExecutor(workerGroup)
+            ).handshake(channel);
 
             handshake.await(2, TimeUnit.SECONDS);
 
             assertThat(handshake.isSuccess()).isTrue();
-            verify(delegatedTask).run();
+            assertThat(taskThread.get()).startsWith("WorkerEventLoopThread-");
         } finally {
             eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+            workerGroup.gracefullyShutdown(1, TimeUnit.SECONDS);
         }
     }
 
@@ -130,7 +139,7 @@ class JdkTlsHandlerTest {
 
         eventLoop.start();
         try {
-            ChannelPromise handshake = new JdkTlsHandler(sslEngine).handshake(channel);
+            ChannelPromise handshake = handler(sslEngine).handshake(channel);
 
             handshake.await(2, TimeUnit.SECONDS);
 
@@ -157,7 +166,7 @@ class JdkTlsHandlerTest {
                 .thenReturn(result(SSLEngineResult.Status.CLOSED, 0, 0));
         when(channel.eventLoop()).thenReturn(eventLoop);
 
-        JdkTlsHandler handler = new JdkTlsHandler(sslEngine);
+        JdkTlsHandler handler = handler(sslEngine);
         handler.handshakeResult = ChannelPromise.newPromise(eventLoop, channel).success();
         Buffer plainText = Buffer.alloc("message");
 
@@ -196,7 +205,7 @@ class JdkTlsHandlerTest {
         Buffer encrypted = Buffer.alloc(new byte[]{0x01});
         Buffer closeNotify = null;
         try {
-            JdkTlsHandler handler = new JdkTlsHandler(sslEngine);
+            JdkTlsHandler handler = handler(sslEngine);
 
             assertThat(handler.decode(channel, encrypted)).isNull();
 
@@ -232,7 +241,7 @@ class JdkTlsHandlerTest {
 
         eventLoop.start();
         try {
-            ChannelPromise handshake = new JdkTlsHandler(sslEngine)
+            ChannelPromise handshake = handler(sslEngine)
                     .handshake(channel, 10, TimeUnit.MILLISECONDS);
 
             handshake.await(2, TimeUnit.SECONDS);
@@ -258,5 +267,9 @@ class JdkTlsHandlerTest {
                 consumed,
                 produced
         );
+    }
+
+    private static JdkTlsHandler handler(SSLEngine sslEngine) {
+        return new JdkTlsHandler(sslEngine, Runnable::run);
     }
 }

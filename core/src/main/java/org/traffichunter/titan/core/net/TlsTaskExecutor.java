@@ -23,17 +23,18 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.net;
 
-import java.io.Closeable;
 import java.util.concurrent.Executor;
 
 /**
+ * Executes delegated TLS engine work outside a channel I/O event loop.
+ *
+ * <p>The executor does not own its underlying worker lifecycle. The transport that supplies
+ * the executor starts and stops the shared worker group.</p>
+ *
  * @author yun
  */
-public interface TlsTaskExecutor extends Executor, Closeable {
+public interface TlsTaskExecutor extends Executor {
 
     @Override
     void execute(Runnable command);
-
-    @Override
-    void close();
 }

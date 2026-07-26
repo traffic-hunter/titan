@@ -34,6 +34,7 @@ import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
@@ -49,6 +50,7 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
     protected final SSLEngine sslEngine;
 
     protected @Nullable ChannelPromise handshakeResult;
+    private @Nullable ChannelInBoundHandlerChain inboundChain;
 
     protected TlsHandler(SSLEngine sslEngine) {
         this.sslEngine = sslEngine;
@@ -62,6 +64,16 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
                     log.error("Failed to start TLS handshake: {}", throwable.getMessage(), throwable);
                     channel.close();
                 });
+    }
+
+    @Override
+    public void sparkChannelRead(
+            NetChannel channel,
+            Buffer buffer,
+            ChannelInBoundHandlerChain chain
+    ) {
+        inboundChain = chain;
+        super.sparkChannelRead(channel, buffer, chain);
     }
 
     public final ChannelPromise handshake(NetChannel channel) {
@@ -137,6 +149,13 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
 
     public final SSLEngine sslEngine() {
         return sslEngine;
+    }
+
+    protected final void resumeDecode(NetChannel channel) {
+        ChannelInBoundHandlerChain chain = inboundChain;
+        if (chain != null) {
+            relayingDecode(channel, chain);
+        }
     }
 
     abstract void handleHandshake(NetChannel channel, ChannelPromise result);

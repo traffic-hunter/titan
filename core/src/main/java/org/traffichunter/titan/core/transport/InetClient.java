@@ -153,7 +153,11 @@ public class InetClient extends AbstractTransport<NetChannel> {
         TlsContext tlsCtx = tlsContext;
         TlsHandler tlsHandler = null;
         if (tlsCtx != null) {
-            tlsHandler = tlsCtx.newHandler(remoteAddress.getHostString(), remoteAddress.getPort());
+            tlsHandler = tlsCtx.newHandler(
+                    remoteAddress.getHostString(),
+                    remoteAddress.getPort(),
+                    groups().workerGroup()
+            );
             channel.chain()
                     .addFirst(tlsHandler.inbound())
                     .addLast(tlsHandler.outbound());

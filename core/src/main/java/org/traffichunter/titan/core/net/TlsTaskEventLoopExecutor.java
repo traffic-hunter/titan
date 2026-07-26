@@ -23,28 +23,23 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.net;
 
-import org.traffichunter.titan.core.channel.EventLoop;
-import org.traffichunter.titan.core.channel.TaskEventLoop;
+import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 
 /**
+ * Adapts a transport-owned worker event-loop group to the TLS task executor contract.
+ *
  * @author yun
  */
 final class TlsTaskEventLoopExecutor implements TlsTaskExecutor {
 
-    private final EventLoop taskEventLoop;
+    private final WorkerEventLoopGroup workerGroup;
 
-    TlsTaskEventLoopExecutor() {
-        this.taskEventLoop = new TaskEventLoop();
-        this.taskEventLoop.start();
+    TlsTaskEventLoopExecutor(WorkerEventLoopGroup workerGroup) {
+        this.workerGroup = workerGroup;
     }
 
     @Override
     public void execute(Runnable command) {
-        taskEventLoop.submit(command);
-    }
-
-    @Override
-    public void close() {
-        taskEventLoop.gracefullyShutdown();
+        workerGroup.register(command);
     }
 }

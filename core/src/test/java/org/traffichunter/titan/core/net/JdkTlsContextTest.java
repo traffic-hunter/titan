@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.net;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 
 import javax.net.ssl.SSLEngine;
 import java.io.OutputStream;
@@ -60,7 +61,11 @@ class JdkTlsContextTest {
         );
 
         JdkTlsContext context = new JdkTlsContext(options);
-        SSLEngine engine = context.newHandler("localhost", 61614).sslEngine();
+        SSLEngine engine = context.newHandler(
+                "localhost",
+                61614,
+                new WorkerEventLoopGroup(1)
+        ).sslEngine();
 
         assertThat(engine.getUseClientMode()).isTrue();
         assertThat(engine.getEnabledProtocols()).containsExactly("TLSv1.3", "TLSv1.2");
@@ -81,7 +86,7 @@ class JdkTlsContextTest {
         );
 
         SSLEngine engine = new JdkTlsContext(options)
-                .newHandler("localhost", 61614)
+                .newHandler("localhost", 61614, new WorkerEventLoopGroup(1))
                 .sslEngine();
 
         assertThat(engine.getUseClientMode()).isFalse();

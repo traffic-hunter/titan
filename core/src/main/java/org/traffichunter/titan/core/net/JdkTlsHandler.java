@@ -45,10 +45,13 @@ class JdkTlsHandler extends TlsHandler {
 
     private static final Logger log = LoggerFactory.getLogger(JdkTlsHandler.class);
 
+    private final TlsTaskExecutor taskExecutor;
     private @Nullable ChannelPromise closeResult;
+    private boolean delegatedTaskRunning;
 
-    public JdkTlsHandler(SSLEngine sslEngine) {
+    JdkTlsHandler(SSLEngine sslEngine, TlsTaskExecutor taskExecutor) {
         super(sslEngine);
+        this.taskExecutor = taskExecutor;
     }
 
     @Override
@@ -61,10 +64,8 @@ class JdkTlsHandler extends TlsHandler {
             while (!handshakeResult.isDone()) {
                 switch (sslEngine.getHandshakeStatus()) {
                     case NEED_TASK -> {
-                        Runnable task;
-                        while ((task = sslEngine.getDelegatedTask()) != null) {
-                            task.run();
-                        }
+                        executeDelegatedTasks(channel, handshakeResult);
+                        return;
                     }
                     case NEED_UNWRAP -> {
                         return;
@@ -111,6 +112,10 @@ class JdkTlsHandler extends TlsHandler {
 
     @Override
     protected @Nullable Buffer decode(NetChannel channel, Buffer encrypted) {
+        if (delegatedTaskRunning) {
+            return null;
+        }
+
         try {
             Buffer plainText = unwrap(channel, encrypted);
             ChannelPromise result = handshakeResult;
@@ -131,6 +136,49 @@ class JdkTlsHandler extends TlsHandler {
             channel.close();
             return null;
         }
+    }
+
+    private void executeDelegatedTasks(NetChannel channel, ChannelPromise result) {
+        if (delegatedTaskRunning) {
+            return;
+        }
+
+        delegatedTaskRunning = true;
+        taskExecutor.execute(() -> {
+            try {
+                Runnable task;
+                while ((task = sslEngine.getDelegatedTask()) != null) {
+                    task.run();
+                }
+                resumeHandshake(channel, result, null);
+            } catch (Throwable error) {
+                resumeHandshake(channel, result, error);
+            }
+        });
+    }
+
+    private void resumeHandshake(
+            NetChannel channel,
+            ChannelPromise result,
+            @Nullable Throwable taskFailure
+    ) {
+        channel.eventLoop().register(() -> {
+            delegatedTaskRunning = false;
+
+            if (taskFailure != null) {
+                result.fail(new NetSecureException("Failed to execute delegated TLS task", taskFailure));
+                channel.close();
+                return;
+            }
+            if (result.isDone() || channel.isClosed()) {
+                return;
+            }
+
+            handleHandshake(channel, result);
+            if (!result.isFailed() && !channel.isClosed()) {
+                resumeDecode(channel);
+            }
+        });
     }
 
     @Override

@@ -24,13 +24,19 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.net;
 
 import javax.net.ssl.SSLContext;
+import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
 
 /**
+ * Creates per-connection TLS handlers from shared key and trust material.
+ *
  * @author yun
  */
 public interface TlsContext {
 
-    TlsHandler newHandler(String peerHost, int peerPort);
+    /**
+     * Creates a handler whose delegated engine tasks run on the supplied worker group.
+     */
+    TlsHandler newHandler(String peerHost, int peerPort, WorkerEventLoopGroup workerGroup);
 
     TlsOptions options();
 
