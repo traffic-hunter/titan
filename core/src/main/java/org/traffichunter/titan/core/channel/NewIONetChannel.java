@@ -222,10 +222,10 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         try {
             if(connect0(remote)) {
                 chain().processChannelConnecting(this);
-                completeConnect();
                 chain().processChannelAfterConnected(this);
                 eventLoop().ioSelector().registerRead(this);
                 accept(this);
+                completeConnect();
                 return;
             }
         } catch (IOException e) {

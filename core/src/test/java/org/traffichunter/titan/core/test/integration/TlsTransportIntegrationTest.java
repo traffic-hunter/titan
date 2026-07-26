@@ -113,6 +113,7 @@ class TlsTransportIntegrationTest {
                 .get(5, TimeUnit.SECONDS);
 
         assertThat(channel.isConnected()).isTrue();
+        assertThat(channel.isActive()).isTrue();
 
         client.send(Buffer.alloc("hello tls")).get(5, TimeUnit.SECONDS);
 
