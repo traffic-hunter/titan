@@ -34,6 +34,7 @@ import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
+import org.traffichunter.titan.core.net.TlsContextFactory;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 
@@ -74,8 +75,11 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
     public ManagedServer create(final ServerSettings settings) {
         EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
         InetServerOption inetOption = buildOption(settings.resolvedTransportOptions());
-        InetServer server = InetServer.open(groups)
-                .option(inetOption)
+        InetServer server = InetServer.open(groups).option(inetOption);
+        if (settings.tls().enabled()) {
+            server.tls(TlsContextFactory.create(settings.tls()));
+        }
+        server
                 .onChannel(channel -> {
                     channel.chain().add(new LineFrameChannelDecoder());
                     inboundHandlers.forEach(inboundHandler ->
