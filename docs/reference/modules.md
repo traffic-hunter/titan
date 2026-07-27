@@ -6,8 +6,8 @@ runtime layers they actually use.
 | Artifact | Responsibility |
 | --- | --- |
 | `titan-bootstrap` | Environment loading and runtime startup |
-| `titan-core` | Event loops, channels, transport, dispatch, and concurrency primitives |
-| `titan-stomp` | STOMP codec, server, client, and engine integration |
+| `titan-core` | Event loops, channels, TCP/WebSocket/TLS transport, dispatch, and concurrency primitives |
+| `titan-stomp` | STOMP codec, TCP/WebSocket server, clients, and engine integration |
 | `titan-fanout` | One-to-many dispatch gateways and exporters |
 | `titan-monitor` | JVM and dispatcher monitoring snapshots and HTTP endpoints |
 | `titan-spring-client` | Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener` |
@@ -20,7 +20,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.traffichunter.titan:titan-stomp:0.7.3")
+    implementation("org.traffichunter.titan:titan-stomp:0.7.4")
 }
 ```
 

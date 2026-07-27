@@ -1,11 +1,12 @@
 # Project scope
 
-Titan's production focus is real-time STOMP dispatch over TCP.
+Titan's production focus is real-time STOMP dispatch over TCP and WebSocket.
 
 ## In scope
 
 * STOMP server and client connections
-* TCP and WebSocket client transport
+* TCP and WebSocket server and client transport
+* TLS-protected transport
 * Exact destination routing through per-destination FIFO dispatcher queues
 * In-memory fanout delivery
 * Native Java and Spring Boot clients

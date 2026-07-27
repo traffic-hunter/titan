@@ -37,11 +37,11 @@ tasks.register("updateReleaseDocsVersion") {
         .orElse(providers.environmentVariable("GITHUB_REF_NAME"))
         .map { it.removePrefix("refs/tags/") }
 
-    val docs = listOf(
+    val docs = files(
         layout.projectDirectory.file("README.md"),
-        layout.projectDirectory.file("docs/examples/client.md"),
-        layout.projectDirectory.file("docs/examples/server.md"),
-        layout.projectDirectory.file("docs/examples/spring-client.md"),
+        fileTree(layout.projectDirectory.dir("docs")) {
+            include("**/*.md")
+        },
     )
 
     inputs.property("releaseVersion", releaseVersion)
@@ -59,15 +59,16 @@ tasks.register("updateReleaseDocsVersion") {
         val releasePathPattern = Regex("""(releases/download/)\d+\.\d+\.\d+""")
         val serverJarPattern = Regex("""(titan-server-)\d+\.\d+\.\d+(\.jar)""")
         val cliArchivePattern = Regex("""(titan-cli-)\d+\.\d+\.\d+(-[a-z]+-[a-z0-9]+)\.(tar\.gz|zip)""")
+        val documentedVersionPattern = Regex("""(Titan `)\d+\.\d+\.\d+(`)""")
 
-        docs.forEach { doc ->
-            val file = doc.asFile
+        docs.files.sortedBy { it.path }.forEach { file ->
             val text = file.readText()
             val updated = text
                 .replace(dependencyPattern) { match -> match.groupValues[1] + version }
                 .replace(releasePathPattern) { match -> match.groupValues[1] + version }
                 .replace(serverJarPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
                 .replace(cliArchivePattern) { match -> match.groupValues[1] + version + match.groupValues[2] + "." + match.groupValues[3] }
+                .replace(documentedVersionPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
 
             if (updated != text) {
                 file.writeText(updated)
