@@ -24,10 +24,12 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
  * Owns the inbound and outbound handler pipelines for a channel.
@@ -72,13 +74,14 @@ import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
  * @author yun
  */
 @Slf4j
-public class ChannelHandlerChain {
+public class ChannelHandlerChain implements AutoCloseable {
 
     private final ChannelOutBoundHandlerChainImpl outHead;
     private ChannelOutBoundHandlerChainImpl outTail;
 
     private final ChannelInBoundHandlerChainImpl inHead;
     private ChannelInBoundHandlerChainImpl inTail;
+    private boolean closed;
 
     public ChannelHandlerChain() {
         inHead = inTail = new ChannelInBoundHandlerChainImpl(new ChannelInBoundHandlerHead());
@@ -202,6 +205,42 @@ public class ChannelHandlerChain {
         } catch (Exception e) {
             log.error("Failed to process write", e);
             channel.close();
+        }
+    }
+
+    /**
+     * Closes stateful handlers once, including handlers installed in both pipelines.
+     */
+    @Override
+    public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+
+        Set<Object> closedHandlers = Collections.newSetFromMap(new IdentityHashMap<>());
+        ChannelInBoundHandlerChainImpl inbound = inHead.next;
+        while (inbound != null) {
+            closeHandler(inbound.handler, closedHandlers);
+            inbound = inbound.next;
+        }
+
+        ChannelOutBoundHandlerChainImpl outbound = outHead.next;
+        while (outbound != null) {
+            closeHandler(outbound.handler, closedHandlers);
+            outbound = outbound.next;
+        }
+    }
+
+    private static void closeHandler(Object handler, Set<Object> closedHandlers) {
+        if (!(handler instanceof AutoCloseable closeable) || !closedHandlers.add(handler)) {
+            return;
+        }
+
+        try {
+            closeable.close();
+        } catch (Exception e) {
+            log.warn("Failed to close channel handler {}", handler.getClass().getName(), e);
         }
     }
 

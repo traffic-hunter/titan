@@ -37,6 +37,7 @@ import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -157,6 +158,21 @@ public final class InMemoryNetChannel implements NetChannel {
         clearQueue(inbound);
         clearQueue(pendingWrites);
         clearQueue(flushedWrites);
+        closeHandlerChain();
+    }
+
+    private void closeHandlerChain() {
+        IOEventLoop owner = eventLoop;
+        if (!registered || owner == null || owner.inEventLoop()) {
+            chain.close();
+            return;
+        }
+
+        try {
+            owner.register(chain::close);
+        } catch (RejectedExecutionException e) {
+            chain.close();
+        }
     }
 
     @Override

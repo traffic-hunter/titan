@@ -5,15 +5,22 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
+import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.DisplayNameGenerator.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * @author yun
@@ -51,6 +58,60 @@ class ChannelDecoderTest {
 
         assertThat(chain.frames).isEmpty();
         assertThat(in.byteBuf().refCnt()).isEqualTo(0);
+    }
+
+    @Test
+    void release_pending_buffer_when_channel_closes() {
+        Buffer input = Buffer.alloc("partial");
+        ChannelDecoder decoder = new ChannelDecoder() {
+            @Override
+            protected Buffer decode(@NonNull NetChannel channel, @NonNull Buffer buffer) {
+                return null;
+            }
+        };
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        channel.chain().add(decoder);
+
+        decoder.sparkChannelRead(channel, input, new CollectingChain());
+        assertThat(input.byteBuf().refCnt()).isOne();
+
+        channel.close();
+
+        assertThat(input.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    void schedule_decoder_cleanup_on_channel_event_loop() {
+        AtomicReference<Runnable> cleanup = new AtomicReference<>();
+        IOEventLoop eventLoop = mock(IOEventLoop.class);
+        when(eventLoop.inEventLoop()).thenReturn(false);
+        doAnswer(invocation -> {
+            cleanup.set(invocation.getArgument(0));
+            return null;
+        }).when(eventLoop).register(any(Runnable.class));
+
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        channel.register(eventLoop, mock(ChannelPromise.class));
+
+        ChannelDecoder decoder = new ChannelDecoder() {
+            @Override
+            protected Buffer decode(@NonNull NetChannel channel, @NonNull Buffer buffer) {
+                return null;
+            }
+        };
+        channel.chain().add(decoder);
+
+        Buffer input = Buffer.alloc("partial");
+        decoder.sparkChannelRead(channel, input, new CollectingChain());
+
+        channel.close();
+
+        assertThat(input.byteBuf().refCnt()).isOne();
+        assertThat(cleanup.get()).isNotNull();
+
+        cleanup.get().run();
+
+        assertThat(input.byteBuf().refCnt()).isZero();
     }
 
     private static final class CollectingChain implements ChannelInBoundHandlerChain {

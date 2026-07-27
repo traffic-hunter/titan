@@ -28,6 +28,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+
+import io.netty.buffer.ByteBufAllocator;
 import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
@@ -61,15 +63,15 @@ public class InternalBuffer implements Buffer {
     }
 
     public InternalBuffer(final int initialCapacity, final int maxCapacity) {
-        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
+        this.buf = ByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
     }
 
     public InternalBuffer(final int initialCapacity) {
-        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(initialCapacity);
+        this.buf = ByteBufAllocator.DEFAULT.directBuffer(initialCapacity);
     }
 
     public InternalBuffer(final byte[] bytes) {
-        this.buf = AutoManagedByteBufAllocator.DEFAULT.directBuffer(bytes.length).writeBytes(bytes);
+        this.buf = ByteBufAllocator.DEFAULT.directBuffer(bytes.length).writeBytes(bytes);
     }
 
     public InternalBuffer(final ByteBuf buf) {
@@ -432,7 +434,7 @@ public class InternalBuffer implements Buffer {
 
     @Override
     public Buffer copy() {
-        return buf.isReadOnly() ? this : new InternalBuffer(buf.copy());
+        return new InternalBuffer(buf.copy());
     }
 
     @Override
@@ -565,8 +567,19 @@ public class InternalBuffer implements Buffer {
     }
 
     private void reAlloc(final int capacity) {
-        ByteBuf temp = buf.alloc().directBuffer(capacity);
-        temp.writeBytes(buf);
-        buf = temp;
+        ByteBuf previous = buf;
+        ByteBuf replacement = previous.alloc().directBuffer(capacity);
+        boolean replaced = false;
+        try {
+            replacement.writeBytes(previous, previous.readerIndex(), previous.readableBytes());
+            buf = replacement;
+            replaced = true;
+        } finally {
+            if (replaced) {
+                previous.release();
+            } else {
+                replacement.release();
+            }
+        }
     }
 }

@@ -369,6 +369,7 @@ class JdkTlsHandler extends TlsHandler {
     private Buffer wrapCloseNotify() throws SSLException {
         Buffer source = Buffer.empty();
         Buffer encrypted = Buffer.alloc(sslEngine.getSession().getPacketBufferSize());
+        boolean success = false;
 
         try {
 
@@ -395,9 +396,13 @@ class JdkTlsHandler extends TlsHandler {
                 }
             }
 
+            success = true;
             return encrypted;
         } finally {
             source.release();
+            if (!success) {
+                encrypted.release();
+            }
         }
     }
 }
