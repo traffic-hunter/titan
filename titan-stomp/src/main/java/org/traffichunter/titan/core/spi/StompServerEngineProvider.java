@@ -33,6 +33,8 @@ import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.net.TlsContextFactory;
+import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
@@ -80,7 +82,11 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
         StompServerOption stompServerOption = buildOption(settings.resolvedProtocolOptions(), inetOption);
 
         String path = settings.resolvedTransportOptions().getOrDefault("path", "/stomp");
-        StompServer server = StompServer.open(groups, stompServerOption);
+        InetServer inetServer = InetServer.open(groups);
+        if (settings.tls().enabled()) {
+            inetServer.tls(TlsContextFactory.create(settings.tls()));
+        }
+        StompServer server = StompServer.open(groups, inetServer, stompServerOption);
         if (webSocket) {
             server.upgradeWebsocket(path);
         }

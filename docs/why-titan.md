@@ -8,7 +8,7 @@ and the runtime should stay small enough to understand and operate directly.
 
 Titan is a good fit when your system needs:
 
-* Real-time delivery over STOMP and TCP
+* Real-time delivery over STOMP using TCP or WebSocket
 * Exact destination matching backed by a FIFO dispatcher queue
 * Publish-subscribe fanout
 * Java or Spring Boot integration

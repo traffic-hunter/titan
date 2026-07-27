@@ -5,7 +5,7 @@ Run a Titan server and verify it from the monitoring API.
 ## Requirements
 
 * JDK 21 or newer
-* A Titan `0.7.3` standalone server JAR from GitHub Releases
+* A Titan `0.7.4` standalone server JAR from GitHub Releases
 
 ## 1. Create the environment
 
@@ -37,7 +37,7 @@ titan:
 
 ```bash
 java -Dtitan.environment.path=./titan-env.yml \
-  -jar titan-server-0.7.3.jar
+  -jar titan-server-0.7.4.jar
 ```
 
 Titan now accepts STOMP connections on `61613` and exposes its local monitor on
@@ -66,3 +66,4 @@ a message travel through the same destination.
 * Learn [how Titan works](concepts/how-titan-works.md).
 * Understand [dispatch routing](concepts/destinations.md).
 * Add terminal visibility with [Monitoring and CLI](operate/monitoring.md).
+* Configure [WebSocket or TLS transport](reference/configuration.md).

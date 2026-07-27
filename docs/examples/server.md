@@ -18,10 +18,10 @@ repositories {
 ```
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-bootstrap:0.7.3")
-implementation("org.traffichunter.titan:titan-core:0.7.3")
-implementation("org.traffichunter.titan:titan-stomp:0.7.3")
-implementation("org.traffichunter.titan:titan-fanout:0.7.3")
+implementation("org.traffichunter.titan:titan-bootstrap:0.7.4")
+implementation("org.traffichunter.titan:titan-core:0.7.4")
+implementation("org.traffichunter.titan:titan-stomp:0.7.4")
+implementation("org.traffichunter.titan:titan-fanout:0.7.4")
 ```
 
 ### `titan-env.yml`
@@ -43,6 +43,19 @@ titan:
         heartbeat-y: "1000"
         fanout-mode: "virtual"
 ```
+
+For STOMP over WebSocket, change the transport and port and add an upgrade
+path:
+
+```yaml
+      transport: websocket
+      port: 8080
+      transport-options:
+        path: "/stomp"
+```
+
+See [Configuration](../reference/configuration.md) for TLS key-store settings.
+Custom WebSocket clients must request the `v12.stomp` subprotocol.
 
 ### Start
 

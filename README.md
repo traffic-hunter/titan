@@ -8,13 +8,16 @@
 [![Maven Central](https://img.shields.io/maven-central/v/org.traffichunter.titan/titan-stomp)](https://central.sonatype.com/artifact/org.traffichunter.titan/titan-stomp)
 [![CI](https://github.com/traffic-hunter/titan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/traffic-hunter/titan/actions/workflows/ci.yml)
 
-Titan is a lightweight message dispatch platform focused on STOMP over TCP.
+Titan is a lightweight message dispatch platform focused on STOMP over TCP and
+WebSocket.
 It provides a custom NIO transport, destination routing, fanout delivery, and
 Spring Boot client integration.
 
 ## Highlights
 
 - STOMP over TCP server and client.
+- STOMP over WebSocket for native, Vert.x, and Spring clients.
+- TLS transport support through PKCS12 or JKS key stores.
 - Exact destination matching with one FIFO dispatcher queue per destination.
 - Fanout delivery for publish-subscribe scenarios.
 - Pluggable runtime through SPI.
@@ -39,32 +42,32 @@ repositories {
 Spring client:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.7.3")
+implementation("org.traffichunter.titan:titan-spring-client:0.7.4")
 ```
 
 STOMP client/server:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-stomp:0.7.3")
+implementation("org.traffichunter.titan:titan-stomp:0.7.4")
 ```
 
 Fanout support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-fanout:0.7.3")
+implementation("org.traffichunter.titan:titan-fanout:0.7.4")
 ```
 
 Monitoring support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-monitor:0.7.3")
+implementation("org.traffichunter.titan:titan-monitor:0.7.4")
 ```
 
 Bootstrap/runtime support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-bootstrap:0.7.3")
-implementation("org.traffichunter.titan:titan-core:0.7.3")
+implementation("org.traffichunter.titan:titan-bootstrap:0.7.4")
+implementation("org.traffichunter.titan:titan-core:0.7.4")
 ```
 
 ## Standalone Server
@@ -74,15 +77,15 @@ Download the executable server jar from GitHub Releases.
 Using `curl`:
 
 ```bash
-curl -L -o titan-server-0.7.3.jar \
-  https://github.com/traffic-hunter/titan/releases/download/0.7.3/titan-server-0.7.3.jar
+curl -L -o titan-server-0.7.4.jar \
+  https://github.com/traffic-hunter/titan/releases/download/0.7.4/titan-server-0.7.4.jar
 ```
 
 Using `wget`:
 
 ```bash
-wget -O titan-server-0.7.3.jar \
-  https://github.com/traffic-hunter/titan/releases/download/0.7.3/titan-server-0.7.3.jar
+wget -O titan-server-0.7.4.jar \
+  https://github.com/traffic-hunter/titan/releases/download/0.7.4/titan-server-0.7.4.jar
 ```
 
 Create `titan-env.yml`.
@@ -110,10 +113,32 @@ titan:
         fanout-mode: "virtual"
 ```
 
+To expose STOMP over WebSocket, set `transport: websocket` and configure the
+upgrade path under `transport-options`.
+
+```yaml
+      transport: websocket
+      port: 8080
+      transport-options:
+        path: "/stomp"
+```
+
+TLS is configured separately from transport and protocol options.
+
+```yaml
+      tls:
+        side: server
+        client-auth: none
+        path: /etc/titan/server.p12
+        type: PKCS12
+        store-password: store-secret
+        key-password: key-secret
+```
+
 Run Titan.
 
 ```bash
-java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.7.3.jar
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.7.4.jar
 ```
 
 Inspect the running server from a terminal. The release page provides
@@ -122,7 +147,7 @@ CLI from source while developing.
 
 ```bash
 # prebuilt archive example
-tar -xzf titan-cli-0.7.3-linux-amd64.tar.gz
+tar -xzf titan-cli-0.7.4-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 
 # source checkout example
@@ -213,7 +238,7 @@ Build the standalone server jar:
 
 ## Scope
 
-- Primary production focus is STOMP over TCP.
+- Primary production focus is STOMP over TCP and WebSocket.
 - Titan is a networked dispatch/fanout runtime, not an in-process event bus.
 - Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
 - Monitoring currently focuses on local JVM and dispatcher queue visibility.
