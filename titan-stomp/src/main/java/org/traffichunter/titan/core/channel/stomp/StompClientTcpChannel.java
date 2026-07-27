@@ -434,9 +434,9 @@ public class StompClientTcpChannel implements StompClientChannel {
             return;
         }
 
-        Buffer body = frame.getBody();
-        if (body.length() > 0 && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
-            frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
+        byte[] body = frame.body();
+        if (body.length > 0 && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
+            frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length));
         }
 
         String receiptId = frame.getHeader(Elements.RECEIPT);

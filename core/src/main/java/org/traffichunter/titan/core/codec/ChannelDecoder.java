@@ -39,7 +39,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yun
  */
 @Slf4j
-public abstract class ChannelDecoder implements ChannelInBoundHandler {
+public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoCloseable {
 
     /**
      * Combines a previously retained buffer with newly received bytes.
@@ -103,6 +103,20 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler {
         if (!pending.isReadable()) {
             pending.release();
             mergeBuffer = null;
+        }
+    }
+
+    /**
+     * Releases bytes retained while waiting for a complete frame.
+     *
+     * <p>Channel lifecycle code invokes this method on the owning event-loop thread.</p>
+     */
+    @Override
+    public void close() {
+        Buffer pending = mergeBuffer;
+        mergeBuffer = null;
+        if (pending != null && pending.byteBuf().refCnt() > 0) {
+            pending.release();
         }
     }
 

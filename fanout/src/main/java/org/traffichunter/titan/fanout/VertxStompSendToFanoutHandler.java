@@ -75,12 +75,18 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
         }
 
         io.vertx.core.buffer.Buffer body = frame.getBody();
-        Message message = Message.builder()
-                .destination(Destination.create(destination))
-                .createdAt(Instant.now())
-                .producerId(serverFrame.connection().session())
-                .body(Buffer.alloc(body == null ? new byte[]{} : body.getBytes()))
-                .build();
+        Buffer payload = Buffer.alloc(body == null ? new byte[]{} : body.getBytes());
+        Message message;
+        try {
+            message = Message.builder()
+                    .destination(Destination.create(destination))
+                    .createdAt(Instant.now())
+                    .producerId(serverFrame.connection().session())
+                    .body(payload)
+                    .build();
+        } finally {
+            payload.release();
+        }
 
         try {
             CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);

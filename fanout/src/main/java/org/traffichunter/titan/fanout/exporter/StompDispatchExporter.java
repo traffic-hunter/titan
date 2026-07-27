@@ -73,7 +73,7 @@ public class StompDispatchExporter implements DispatchExporter {
         );
 
         subscriptions.forEach(subscription -> {
-            StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, message.copy());
+            StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, message.getBytes());
             frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
             frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
             frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());

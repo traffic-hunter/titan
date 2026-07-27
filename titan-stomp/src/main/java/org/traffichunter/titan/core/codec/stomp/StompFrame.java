@@ -51,32 +51,45 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
             new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.ERROR);
 
     public static final StompFrame PING =
-            new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.PING, Buffer.alloc(StompDelimiter.LF.getString()));
+            new StompFrame(
+                    new StompHeaders(StompVersion.STOMP_1_2),
+                    StompCommand.PING,
+                    StompDelimiter.LF.getString().getBytes(StandardCharsets.UTF_8)
+            );
 
     private final StompHeaders headers;
 
     private final StompCommand command;
 
-    private final Buffer body;
+    private final byte[] body;
 
     private StompFrame(final StompHeaders headers, final StompCommand command) {
         this(headers, command, new byte[] {});
     }
 
     private StompFrame(final StompHeaders headers, final StompCommand command, final byte [] body) {
-        this(headers, command, Buffer.alloc(body));
+        this.headers = headers;
+        this.command = command;
+        this.body = body.clone();
     }
 
     private StompFrame(final StompHeaders headers, final StompCommand command, final Buffer body) {
         this.headers = headers;
         this.command = command;
-        this.body = body;
+        try {
+            this.body = body.getBytes();
+        } finally {
+            body.release();
+        }
     }
 
     public static StompFrame create(final StompHeaders headers, final StompCommand command) {
         return new StompFrame(headers, command);
     }
 
+    /**
+     * Creates a frame by copying the body and consuming the supplied buffer reference.
+     */
     public static StompFrame create(final StompHeaders headers,
                                     final StompCommand command,
                                     final Buffer body) {
@@ -103,7 +116,17 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
 
     @Override
     public byte[] body() {
-        return body.getBytes();
+        return body.clone();
+    }
+
+    /**
+     * Returns an independently owned copy of the frame body.
+     *
+     * <p>The caller must release the returned buffer. New transport-neutral code should prefer
+     * {@link #body()} when a byte array is sufficient.</p>
+     */
+    public Buffer getBody() {
+        return Buffer.alloc(body);
     }
 
     @Override
@@ -132,7 +155,7 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
         );
         buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
 
-        buffer.accumulateBuffer(body);
+        buffer.accumulateBytes(body);
         buffer.accumulateString(StompDelimiter.NUL.getString());
 
         return buffer;
@@ -293,14 +316,15 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     }
 
     private void logging(boolean isLogging, StringBuilder sb) {
-        if (isLogging && body.length() >= 100) {
-            String loggingStr = body.toString();
+        String bodyText = new String(body, StandardCharsets.UTF_8);
+        if (isLogging && bodyText.length() >= 100) {
+            String loggingStr = bodyText;
 
             String pre = loggingStr.substring(0, 30);
-            String post = loggingStr.substring(body.length() - 30);
+            String post = loggingStr.substring(loggingStr.length() - 30);
             sb.append(pre).append(".............").append(post);
         } else {
-            sb.append(body);
+            sb.append(bodyText);
         }
     }
 

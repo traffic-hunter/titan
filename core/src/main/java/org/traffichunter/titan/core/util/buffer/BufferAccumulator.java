@@ -37,7 +37,7 @@ import org.traffichunter.titan.core.util.Clearable;
  * @author yun
  */
 @NullMarked
-@Deprecated(since = "0.7.2")
+@Deprecated(since = "0.7.2", forRemoval = true)
 public final class BufferAccumulator implements Clearable {
 
     private @Nullable Buffer accumulator;
@@ -137,7 +137,7 @@ public final class BufferAccumulator implements Clearable {
             );
         }
 
-        return accumulator.readSlice(length);
+        return accumulator.readRetainedSlice(length);
     }
 
     /**
@@ -149,7 +149,7 @@ public final class BufferAccumulator implements Clearable {
         if(accumulator == null) {
             throw new IllegalStateException("Accumulator is empty");
         }
-        Buffer result = accumulator.slice();
+        Buffer result = accumulator.retainSlice();
         clear();
         return result;
     }

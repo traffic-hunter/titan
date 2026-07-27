@@ -44,14 +44,31 @@ public interface DispatchExporter {
 
     @CanIgnoreReturnValue
     default AggregationResult export(Destination destination, Frame<?, ?> payload) {
-        return export(destination, payload.toBuffer());
+        Buffer buffer = payload.toBuffer();
+        try {
+            return export(destination, buffer);
+        } finally {
+            buffer.release();
+        }
     }
 
     @CanIgnoreReturnValue
     default AggregationResult export(Destination destination, Message payload) {
-        return export(destination, Buffer.alloc(payload.getBody()));
+        Buffer buffer = Buffer.alloc(payload.getBody());
+        try {
+            return export(destination, buffer);
+        } finally {
+            buffer.release();
+        }
     }
 
+    /**
+     * Exports a borrowed payload buffer.
+     *
+     * <p>The buffer is valid only for the duration of this invocation. Implementations that
+     * retain the payload asynchronously must copy or retain it and release that reference when
+     * delivery completes.</p>
+     */
     @CanIgnoreReturnValue
     AggregationResult export(Destination destination, Buffer payload);
 }

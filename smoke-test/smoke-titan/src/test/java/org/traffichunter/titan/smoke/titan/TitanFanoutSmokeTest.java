@@ -93,14 +93,14 @@ class TitanFanoutSmokeTest {
             StompHeaders firstSubscribeHeaders = StompHeaders.create();
             firstSubscribeHeaders.put(ID, "smoke-fanout-first");
             firstConsumerConnection.subscribe(FANOUT_DESTINATION, firstSubscribeHeaders, frame -> {
-                firstPayload.set(frame.getBody().toString(StandardCharsets.UTF_8));
+                firstPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
                 received.countDown();
             }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
             StompHeaders secondSubscribeHeaders = StompHeaders.create();
             secondSubscribeHeaders.put(ID, "smoke-fanout-second");
             secondConsumerConnection.subscribe(FANOUT_DESTINATION, secondSubscribeHeaders, frame -> {
-                secondPayload.set(frame.getBody().toString(StandardCharsets.UTF_8));
+                secondPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
                 received.countDown();
             }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 

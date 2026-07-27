@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.transport.stomp;
 import static org.awaitility.Awaitility.await;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -139,8 +140,8 @@ class StompIntegrationTest {
 
             assertThat(result).isNotNull();
             assertThat(result.getCommand()).isEqualTo(StompCommand.SEND);
-            assertThat(result.getBody()).isNotNull();
-            assertThat(result.getBody().toString()).isEqualTo("Hello STOMP!");
+            assertThat(result.body()).isNotNull();
+            assertThat(new String(result.body(), StandardCharsets.UTF_8)).isEqualTo("Hello STOMP!");
         } finally {
             client.shutdown();
             dispatcher.remove(key);
