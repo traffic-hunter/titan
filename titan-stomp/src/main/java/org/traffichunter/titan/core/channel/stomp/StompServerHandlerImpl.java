@@ -375,7 +375,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 int success = 0;
                 for (StompServerSubscription subscription : subscriptions) {
                     try {
-                        StompFrame messageFrame = create(StompHeaders.create(), StompCommand.MESSAGE, sf.getBody());
+                        StompFrame messageFrame = create(StompHeaders.create(), StompCommand.MESSAGE, sf.body());
                         messageFrame.addHeader(StompHeaders.Elements.DESTINATION, destination);
                         messageFrame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
                         messageFrame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());

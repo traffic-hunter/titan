@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
@@ -39,7 +40,21 @@ class StompFrameTest {
         headers.keySet().forEach(key ->
                 Assertions.assertEquals(stompFrame.getHeaders().get(key), parseFrame.getHeaders().get(key))
         );
-        Assertions.assertEquals(parseFrame.getBody(), stompFrame.getBody());
+        Assertions.assertArrayEquals(parseFrame.body(), stompFrame.body());
+    }
+
+    @Test
+    void consume_buffer_and_keep_copied_body() {
+        Buffer body = Buffer.alloc("body");
+
+        StompFrame frame = StompFrame.create(
+                StompHeaders.create(),
+                StompCommand.SEND,
+                body
+        );
+
+        assertEquals(0, body.byteBuf().refCnt());
+        assertArrayEquals("body".getBytes(StandardCharsets.UTF_8), frame.body());
     }
 
     private static StompFrame getStompFrame() {
