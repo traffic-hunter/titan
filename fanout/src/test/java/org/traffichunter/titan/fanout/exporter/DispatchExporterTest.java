@@ -36,7 +36,9 @@ import io.vertx.ext.stomp.Command;
 import io.vertx.ext.stomp.Frame;
 import io.vertx.ext.stomp.StompServer;
 import io.vertx.ext.stomp.StompServerHandler;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -51,6 +53,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
 import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -95,6 +98,41 @@ class DispatchExporterTest {
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);
         assertThat(result.isSuccess()).isFalse();
+    }
+
+    @Test
+    void default_message_export_releases_temporary_buffer() {
+        Buffer source = Buffer.alloc("payload");
+        Message message;
+        try {
+            message = Message.builder()
+                    .destination(Destination.create("/topic/test"))
+                    .createdAt(Instant.now())
+                    .producerId("producer")
+                    .body(source)
+                    .build();
+        } finally {
+            source.release();
+        }
+
+        AtomicReference<Buffer> exported = new AtomicReference<>();
+        DispatchExporter exporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public AggregationResult export(Destination destination, Buffer payload) {
+                assertThat(payload.byteBuf().refCnt()).isOne();
+                exported.set(payload);
+                return AggregationResult.completed(List.of(destination), 0, 0, 0);
+            }
+        };
+
+        exporter.export(message.getDestination(), message);
+
+        assertThat(exported.get().byteBuf().refCnt()).isZero();
     }
 
     @Test
