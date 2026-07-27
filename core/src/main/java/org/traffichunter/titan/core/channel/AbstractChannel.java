@@ -33,6 +33,7 @@ import org.traffichunter.titan.core.util.IdGenerator;
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.time.Instant;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
@@ -187,6 +188,23 @@ public abstract class AbstractChannel implements Channel {
             sc.close();
         } catch (IOException e) {
             throw new ChannelException("Failed to close channel");
+        } finally {
+            closeHandlerChain();
+        }
+    }
+
+    private void closeHandlerChain() {
+        IOEventLoop owner = eventLoop;
+        if (!registered || owner == null || owner.inEventLoop()) {
+            chain.close();
+            return;
+        }
+
+        try {
+            owner.register(chain::close);
+        } catch (RejectedExecutionException e) {
+            // The owner no longer executes channel work, so direct cleanup cannot race decoding.
+            chain.close();
         }
     }
 

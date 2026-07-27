@@ -117,11 +117,12 @@ public class StompChannelDecoder extends ChannelDecoder {
             buffer.skipBytes(1);
 
             Buffer stompFrame = Buffer.alloc(sliceBuffer.length() + 1);
-            stompFrame.accumulateBuffer(sliceBuffer)
-                    .accumulateByte(StompDelimiter.LF.getHex());
-
-            List<Buffer> frames = lineFrameDecoder.decodes(channel, stompFrame);
+            List<Buffer> frames = List.of();
             try {
+                stompFrame.accumulateBuffer(sliceBuffer)
+                        .accumulateByte(StompDelimiter.LF.getHex());
+                frames = lineFrameDecoder.decodes(channel, stompFrame);
+
                 StompCommand stompCommand = StompCommand.valueOf(frames.getFirst().toString());
 
                 int bodyLength = -1;
@@ -183,14 +184,18 @@ public class StompChannelDecoder extends ChannelDecoder {
 
         List<Buffer> decodes(NetChannel channel, Buffer buffer) {
             List<Buffer> buffers = new LinkedList<>();
-            while (buffer.isReadable()) {
-                Buffer decode = decode(channel, buffer);
-                if (decode != null) {
-                    buffers.add(decode);
+            try {
+                while (buffer.isReadable()) {
+                    Buffer decode = decode(channel, buffer);
+                    if (decode != null) {
+                        buffers.add(decode);
+                    }
                 }
+                return buffers;
+            } catch (RuntimeException e) {
+                buffers.forEach(Buffer::release);
+                throw e;
             }
-
-            return buffers;
         }
 
         @Override

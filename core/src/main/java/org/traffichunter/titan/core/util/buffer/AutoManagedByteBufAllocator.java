@@ -35,6 +35,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
+ * <h3>
+ * DEPRECATED
+ * </h3>
+ *
  * ByteBuf allocator that wraps allocated buffers with a cleaner-backed release guard.
  *
  * <p>The wrapper does not replace normal reference-count ownership. Callers should still
@@ -43,6 +47,7 @@ import org.traffichunter.titan.core.util.Assert;
  *
  * @author yungwang-o
  */
+@Deprecated(forRemoval = true)
 public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
 
     private final ByteBufAllocator delegate;
@@ -147,10 +152,10 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
         public void run() {
             if (cleaned.compareAndSet(false, true)) {
                 try {
-                    int rc = buf.refCnt();
-                    if (rc > 0) {
-                        // release all outstanding references
-                        buf.release(rc);
+                    if (buf.refCnt() > 0) {
+                        // Release only the reference owned by this wrapper. Retained derived
+                        // buffers own their references independently.
+                        buf.release();
                     }
                 } catch (Throwable t) {
                     // swallow errors to avoid exceptions from cleaner thread
