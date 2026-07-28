@@ -74,7 +74,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * @author yun
  */
 @Slf4j
-public class ChannelHandlerChain implements AutoCloseable {
+public class ChannelHandlerChain {
 
     private final ChannelOutBoundHandlerChainImpl outHead;
     private ChannelOutBoundHandlerChainImpl outTail;
@@ -113,12 +113,24 @@ public class ChannelHandlerChain implements AutoCloseable {
     }
 
     @CanIgnoreReturnValue
+    public ChannelHandlerChain addFirst(ChannelDuplexHandler handler) {
+        addFirst((ChannelInBoundHandler) handler);
+        addLast((ChannelOutBoundHandler) handler);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
     public ChannelHandlerChain add(ChannelInBoundHandler handler) {
         return addLast(handler);
     }
 
     @CanIgnoreReturnValue
     public ChannelHandlerChain add(ChannelOutBoundHandler handler) {
+        return addLast(handler);
+    }
+
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain add(ChannelDuplexHandler handler) {
         return addLast(handler);
     }
 
@@ -137,6 +149,13 @@ public class ChannelHandlerChain implements AutoCloseable {
         outTail.next = context;
         outTail = context;
 
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addLast(ChannelDuplexHandler handler) {
+        addLast((ChannelInBoundHandler) handler);
+        addFirst((ChannelOutBoundHandler) handler);
         return this;
     }
 
@@ -182,6 +201,10 @@ public class ChannelHandlerChain implements AutoCloseable {
         return false;
     }
 
+    public boolean remove(ChannelDuplexHandler handler) {
+        return remove((ChannelInBoundHandler) handler) && remove((ChannelOutBoundHandler) handler);
+    }
+
     void processChannelConnecting(NetChannel channel) {
         inHead.sparkChannelConnecting(channel);
     }
@@ -211,7 +234,6 @@ public class ChannelHandlerChain implements AutoCloseable {
     /**
      * Closes stateful handlers once, including handlers installed in both pipelines.
      */
-    @Override
     public void close() {
         if (closed) {
             return;

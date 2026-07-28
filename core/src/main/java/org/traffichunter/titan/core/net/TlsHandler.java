@@ -26,9 +26,8 @@ package org.traffichunter.titan.core.net;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelDuplexHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
-import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
@@ -43,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author yun
  */
-public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBoundHandler {
+public abstract class TlsHandler extends ChannelDecoder implements ChannelDuplexHandler {
 
     private static final Logger log = LoggerFactory.getLogger(TlsHandler.class);
 
@@ -121,14 +120,6 @@ public abstract class TlsHandler extends ChannelDecoder implements ChannelOutBou
     public final boolean isCompletedHandshake() {
         ChannelPromise result = handshakeResult;
         return result != null && result.isSuccess();
-    }
-
-    public ChannelInBoundHandler inbound() {
-        return this;
-    }
-
-    public ChannelOutBoundHandler outbound() {
-        return this;
     }
 
     public final SSLSession session() {
