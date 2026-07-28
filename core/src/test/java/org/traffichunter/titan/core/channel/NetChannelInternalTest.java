@@ -25,9 +25,10 @@ package org.traffichunter.titan.core.channel;
 
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeUnit;
 
@@ -37,6 +38,35 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author yun
  */
 class NetChannelInternalTest {
+
+    @Test
+    void channel_operations_return_promise_bound_to_channel() throws Exception {
+        ChannelSecondaryIOEventLoop eventLoop = new ChannelSecondaryIOEventLoop("channel-promise-test");
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        eventLoop.start();
+        channel.register(eventLoop);
+
+        try {
+            ChannelPromise connect = channel.connect(
+                    new InetSocketAddress("127.0.0.1", 8080),
+                    1,
+                    TimeUnit.SECONDS
+            );
+            connect.await(2, TimeUnit.SECONDS);
+
+            assertThat(connect.isSuccess()).isTrue();
+            assertThat(connect.channel()).isSameAs(channel);
+
+            ChannelPromise disconnect = channel.disconnect();
+            disconnect.await(2, TimeUnit.SECONDS);
+
+            assertThat(disconnect.isSuccess()).isTrue();
+            assertThat(disconnect.channel()).isSameAs(channel);
+        } finally {
+            channel.close();
+            eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
+        }
+    }
 
     @Test
     void public_write_enters_pipeline_and_internal_write_bypasses_it() throws Exception {
@@ -60,11 +90,12 @@ class NetChannelInternalTest {
 
         try {
             Buffer pipelineBuffer = Buffer.alloc("pipeline");
-            Promise<Void> publicWrite = channel.writeAndFlush(pipelineBuffer);
+            ChannelPromise publicWrite = channel.writeAndFlush(pipelineBuffer);
             publicWrite.await(2, TimeUnit.SECONDS);
             pipelineBuffer.release();
 
             assertThat(publicWrite.isSuccess()).isTrue();
+            assertThat(publicWrite.channel()).isSameAs(channel);
             assertThat(pipelineWrites).hasValue(1);
             release(channel.pollWritten());
 

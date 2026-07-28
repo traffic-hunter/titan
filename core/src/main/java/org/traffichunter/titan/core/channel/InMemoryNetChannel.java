@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -181,13 +180,13 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     @Override
-    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+    public ChannelPromise connect(String host, int port, long timeOut, TimeUnit timeUnit) {
         return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
     @Override
-    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        return ChannelTasks.execute(eventLoop(), () -> {
+    public ChannelPromise connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        return ChannelTasks.execute(this, () -> {
             chain.processChannelConnecting(this);
             remoteAddress = remote;
             connected = true;
@@ -197,17 +196,17 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     @Override
-    public Promise<Void> disconnect() {
+    public ChannelPromise disconnect() {
         return ChannelTasks.disconnect(this);
     }
 
     @Override
-    public Promise<Void> write(Buffer buffer) {
+    public ChannelPromise write(Buffer buffer) {
         return ChannelTasks.write(this, buffer);
     }
 
     @Override
-    public Promise<Void> writeAndFlush(Buffer buffer) {
+    public ChannelPromise writeAndFlush(Buffer buffer) {
         return ChannelTasks.writeAndFlush(this, buffer);
     }
 

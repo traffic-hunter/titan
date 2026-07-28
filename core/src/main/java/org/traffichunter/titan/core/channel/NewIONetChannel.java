@@ -27,7 +27,6 @@ import io.netty.buffer.ByteBuf;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -73,13 +72,13 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
     }
 
     @Override
-    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+    public ChannelPromise connect(String host, int port, long timeOut, TimeUnit timeUnit) {
         return connect(new InetSocketAddress(host, port), timeOut, timeUnit);
     }
 
     @Override
-    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        Promise<Void> result = Promise.newPromise(eventLoop());
+    public ChannelPromise connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+        ChannelPromise result = ChannelPromise.newPromise(this);
         Runnable connectTask = () -> {
             try {
                 connectTransport(remote, timeOut, timeUnit);
@@ -113,23 +112,27 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         if (eventLoop().inEventLoop()) {
             connectTask.run();
         } else {
-            eventLoop().register(connectTask);
+            try {
+                eventLoop().register(connectTask);
+            } catch (Throwable error) {
+                result.fail(new ChannelException("Failed to schedule connection to " + remote, error));
+            }
         }
         return result;
     }
 
     @Override
-    public Promise<Void> disconnect() {
+    public ChannelPromise disconnect() {
         return ChannelTasks.disconnect(this);
     }
 
     @Override
-    public Promise<Void> write(Buffer buffer) {
+    public ChannelPromise write(Buffer buffer) {
         return ChannelTasks.write(this, buffer);
     }
 
     @Override
-    public Promise<Void> writeAndFlush(Buffer buffer) {
+    public ChannelPromise writeAndFlush(Buffer buffer) {
         return ChannelTasks.writeAndFlush(this, buffer);
     }
 

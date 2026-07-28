@@ -24,7 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.IOException;
@@ -51,7 +51,7 @@ public interface NetChannel extends Channel {
     @Override
     <T> NetChannel setOption(SocketOption<T> option, T value);
 
-    Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit);
+    ChannelPromise connect(String host, int port, long timeOut, TimeUnit timeUnit);
 
     /**
      * Returns raw transport operations intended for Titan's internal channel machinery.
@@ -68,19 +68,19 @@ public interface NetChannel extends Channel {
      * Starts or completes a non-blocking socket connection.
      */
     @CanIgnoreReturnValue
-    Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit);
+    ChannelPromise connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit);
 
     @CanIgnoreReturnValue
-    Promise<Void> disconnect();
+    ChannelPromise disconnect();
 
     @CanIgnoreReturnValue
-    Promise<Void> write(Buffer buffer);
+    ChannelPromise write(Buffer buffer);
 
     /**
      * Queues the buffer and attempts to write queued bytes to the socket.
      */
     @CanIgnoreReturnValue
-    Promise<Void> writeAndFlush(Buffer buffer);
+    ChannelPromise writeAndFlush(Buffer buffer);
 
     boolean isConnected();
 

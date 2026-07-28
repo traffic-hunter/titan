@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
+import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -40,16 +41,16 @@ final class ChannelTasks {
     private ChannelTasks() {
     }
 
-    static Promise<Void> disconnect(NetChannel channel) {
-        return execute(channel.eventLoop(), channel::close);
+    static ChannelPromise disconnect(NetChannel channel) {
+        return execute(channel, channel::close);
     }
 
-    static Promise<Void> write(NetChannel channel, Buffer buffer) {
-        return execute(channel.eventLoop(), () -> channel.chain().processChannelWrite(channel, buffer));
+    static ChannelPromise write(NetChannel channel, Buffer buffer) {
+        return execute(channel, () -> channel.chain().processChannelWrite(channel, buffer));
     }
 
-    static Promise<Void> writeAndFlush(NetChannel channel, Buffer buffer) {
-        return execute(channel.eventLoop(), () -> {
+    static ChannelPromise writeAndFlush(NetChannel channel, Buffer buffer) {
+        return execute(channel, () -> {
             channel.chain().processChannelWrite(channel, buffer);
             channel.internal().flush();
         });
@@ -95,6 +96,30 @@ final class ChannelTasks {
             result.success();
         } catch (Throwable error) {
             result.fail(error);
+        }
+        return result;
+    }
+
+    static ChannelPromise execute(NetChannel channel, Runnable task) {
+        IOEventLoop eventLoop = channel.eventLoop();
+        ChannelPromise result = ChannelPromise.newPromise(eventLoop, channel);
+        Runnable operation = () -> {
+            try {
+                task.run();
+                result.success();
+            } catch (Throwable error) {
+                result.fail(error);
+            }
+        };
+
+        if (eventLoop.inEventLoop()) {
+            operation.run();
+        } else {
+            try {
+                eventLoop.register(operation);
+            } catch (Throwable error) {
+                result.fail(error);
+            }
         }
         return result;
     }
