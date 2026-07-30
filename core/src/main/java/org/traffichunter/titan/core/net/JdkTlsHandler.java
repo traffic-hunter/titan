@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.net;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChainImpl;
+import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
@@ -90,7 +90,7 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer plainText, ChannelOutBoundHandlerChainImpl chain) {
+    public void sparkChannelWrite(NetChannel channel, Buffer plainText, ChannelOutBoundHandlerChain chain) {
         Buffer encrypted;
         try {
             if (!isCompletedHandshake() || sslEngine.isOutboundDone()) {
@@ -110,7 +110,7 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     @Override
-    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChainImpl chain) {
+    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChain chain) {
         log.error("Failed to write data to TLS channel", error);
         chain.sparkExceptionCaught(error);
     }

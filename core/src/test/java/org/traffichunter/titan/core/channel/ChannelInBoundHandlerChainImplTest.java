@@ -74,22 +74,29 @@ class ChannelInBoundHandlerChainImplTest {
     }
 
     @Test
-    void addFirst_places_outbound_handler_before_existing_handlers() {
+    void remove_detaches_inbound_handler_and_preserves_tail() {
         Buffer buf = Buffer.alloc("data");
         List<String> order = new ArrayList<>();
-        InMemoryNetChannel channel = new InMemoryNetChannel();
-        ChannelHandlerChain chain = channel.chain();
-        chain.add(new RecordingOutboundHandler("second", order));
-        chain.addFirst(new RecordingOutboundHandler("first", order));
+        ChannelHandlerChain chain = new ChannelHandlerChain();
+        RecordingInboundHandler first = new RecordingInboundHandler("first", order);
+        RecordingInboundHandler removed = new RecordingInboundHandler("removed", order);
+        RecordingInboundHandler last = new RecordingInboundHandler("last", order);
+        chain.add(first);
+        chain.add(removed);
 
-        chain.processChannelWrite(channel, buf);
-        channel.internal().flush();
+        assertThat(chain.remove(removed)).isTrue();
+        chain.add(last);
+        chain.processChannelRead(new InMemoryNetChannel(), buf);
 
-        assertThat(order).containsExactly("first", "second");
-        Buffer written = channel.pollWritten();
-        assertThat(written).isNotNull();
-        written.release();
-        buf.release();
+        assertThat(order).containsExactly("first", "last");
+        assertThat(buf.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    void remove_returns_false_for_unknown_inbound_handler() {
+        ChannelHandlerChain chain = new ChannelHandlerChain();
+
+        assertThat(chain.remove(new PassThroughHandler())).isFalse();
     }
 
     private static class PassThroughHandler implements ChannelInBoundHandler {
@@ -125,15 +132,4 @@ class ChannelInBoundHandlerChainImplTest {
         }
     }
 
-    private record RecordingOutboundHandler(
-            String name,
-            List<String> order
-    ) implements ChannelOutBoundHandler {
-
-        @Override
-        public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
-            order.add(name);
-            chain.sparkChannelWrite(channel, buffer);
-        }
-    }
 }

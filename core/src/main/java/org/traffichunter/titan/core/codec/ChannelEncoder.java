@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 public abstract class ChannelEncoder implements ChannelOutBoundHandler {
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChainImpl chain) {
+    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChain chain) {
         Buffer encoded = encode(channel, buffer);
         if (encoded != null) {
             chain.sparkChannelWrite(channel, encoded);
@@ -46,7 +46,7 @@ public abstract class ChannelEncoder implements ChannelOutBoundHandler {
     }
 
     @Override
-    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChainImpl chain) {
+    public void sparkExceptionCaught(Throwable error, ChannelOutBoundHandlerChain chain) {
         chain.sparkExceptionCaught(error);
     }
 

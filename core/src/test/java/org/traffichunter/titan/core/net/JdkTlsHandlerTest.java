@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.net;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChainImpl;
+import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChain;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
@@ -188,7 +188,7 @@ class JdkTlsHandlerTest {
         SSLSession session = mock(SSLSession.class);
         NetChannel channel = mock(NetChannel.class);
         IOEventLoop eventLoop = mock(IOEventLoop.class);
-        ChannelOutBoundHandlerChainImpl chain = mock(ChannelOutBoundHandlerChainImpl.class);
+        ChannelOutBoundHandlerChain chain = mock(ChannelOutBoundHandlerChain.class);
 
         when(sslEngine.getSession()).thenReturn(session);
         when(session.getPacketBufferSize()).thenReturn(64);

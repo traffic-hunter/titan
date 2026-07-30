@@ -23,16 +23,34 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.util.channel.chain;
 
-import java.util.concurrent.CompletableFuture;
+import org.jspecify.annotations.Nullable;
 
 /**
+ * Structural contract for a node in a singly linked handler chain.
+ *
+ * <p>The self-referential type keeps links strongly typed for each concrete chain and avoids
+ * exposing handler-specific state to the common linked-list implementation. A {@code null} next
+ * node marks the end of the chain.</p>
+ *
+ * <p>Implementations are mutable because insertion and removal reconnect adjacent nodes. They are
+ * not required to be thread-safe; a chain should be assembled before it becomes concurrently
+ * visible, or mutations must be confined to its owning event loop.</p>
+ *
+ * @param <NODE> concrete node type
+ *
  * @author yun
  */
-public interface HandlerChain<C> {
+public interface LinkedNode<NODE extends LinkedNode<NODE>> {
 
-    default CompletableFuture<Void> sparkChainHandler(C context) {
-        return next(context);
-    }
+    /**
+     * Returns the following node, or {@code null} when this node is the tail.
+     */
+    @Nullable NODE next();
 
-    CompletableFuture<Void> next(C context);
+    /**
+     * Replaces the following node.
+     *
+     * @param next following node, or {@code null} to detach the current tail
+     */
+    void next(@Nullable NODE next);
 }
