@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.net;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
-import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChainImpl;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
@@ -365,8 +364,7 @@ class JdkTlsHandlerIntegrationTest {
 
         private void write(byte[] value) throws Exception {
             Promise<Void> result = eventLoop.submit(() -> {
-                ChannelOutBoundHandlerChainImpl chain =
-                        new ChannelOutBoundHandlerChainImpl(mock(ChannelOutBoundHandler.class));
+                ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl();
                 handler.sparkChannelWrite(channel, Buffer.alloc(value), chain);
                 channel.internal().flush();
             });

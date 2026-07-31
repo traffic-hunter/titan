@@ -154,9 +154,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
         TlsHandler tlsHandler = null;
         if (tlsCtx != null) {
             tlsHandler = tlsCtx.newHandler(remoteAddress.getHostString(), remoteAddress.getPort());
-            channel.chain()
-                    .addFirst(tlsHandler.inbound())
-                    .addLast(tlsHandler.outbound());
+            channel.chain().addFirst(tlsHandler);
         }
 
         Promise<NetChannel> connectResult = Promise.newPromise(loop);

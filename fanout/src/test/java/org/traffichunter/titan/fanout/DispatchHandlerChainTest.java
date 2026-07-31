@@ -1,12 +1,14 @@
 package org.traffichunter.titan.fanout;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
@@ -19,16 +21,16 @@ class DispatchHandlerChainTest {
     void chain_runs_handlers_in_order() {
         List<String> calls = new ArrayList<>();
         DispatchHandlerChain chain = DispatchHandlerChain.chain()
-                .add((context, next) -> {
+                .add(context -> {
                     calls.add("first");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 })
-                .add((context, next) -> {
+                .add(context -> {
                     calls.add("second");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 });
 
-        chain.sparkChainHandler(new DispatchContext(message("/queue/publish-order"))).join();
+        chain.dispatch(new DispatchContext(message("/queue/publish-order"))).join();
 
         assertThat(calls).containsExactly("first", "second");
     }
@@ -37,40 +39,40 @@ class DispatchHandlerChainTest {
     void add_first_runs_handler_before_existing_handlers() {
         List<String> calls = new ArrayList<>();
         DispatchHandlerChain chain = DispatchHandlerChain.chain()
-                .addLast((context, next) -> {
+                .addLast(context -> {
                     calls.add("second");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 })
-                .addFirst((context, next) -> {
+                .addFirst(context -> {
                     calls.add("first");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 });
 
-        chain.sparkChainHandler(new DispatchContext(message("/queue/publish-add-first"))).join();
+        chain.dispatch(new DispatchContext(message("/queue/publish-add-first"))).join();
 
         assertThat(calls).containsExactly("first", "second");
     }
 
     @Test
-    void add_all_copies_publish_handlers() {
+    void add_all_appends_handlers_in_order() {
         List<String> calls = new ArrayList<>();
-        DispatchHandlerChain middle = DispatchHandlerChain.chain()
-                .add((context, next) -> {
+        List<DispatchChainHandler> middle = List.of(
+                context -> {
                     calls.add("middle");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 });
 
         DispatchHandlerChain.chain()
-                .add((context, next) -> {
+                .add(context -> {
                     calls.add("first");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 })
                 .addAll(middle)
-                .add((context, next) -> {
+                .add(context -> {
                     calls.add("last");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 })
-                .sparkChainHandler(new DispatchContext(message("/queue/publish-add-all")))
+                .dispatch(new DispatchContext(message("/queue/publish-add-all")))
                 .join();
 
         assertThat(calls).containsExactly("first", "middle", "last");
@@ -80,18 +82,72 @@ class DispatchHandlerChainTest {
     void chain_runs_handlers_on_supplied_executor() {
         try (var executor = Executors.newSingleThreadExecutor()) {
             Thread callerThread = Thread.currentThread();
-            AtomicReference<Thread> handlerThread = new AtomicReference<>();
+            CompletableFuture<Void> firstCompletion = new CompletableFuture<>();
+            AtomicReference<Thread> firstHandlerThread = new AtomicReference<>();
+            AtomicReference<Thread> secondHandlerThread = new AtomicReference<>();
             DispatchHandlerChain chain = DispatchHandlerChain.chain(executor)
-                    .add((context, next) -> {
-                        handlerThread.set(Thread.currentThread());
-                        return next.sparkChainHandler(context);
+                    .add(context -> {
+                        firstHandlerThread.set(Thread.currentThread());
+                        return firstCompletion;
+                    })
+                    .add(context -> {
+                        secondHandlerThread.set(Thread.currentThread());
+                        return CompletableFuture.completedFuture(null);
                     });
 
-            CompletableFuture<Void> future = chain.sparkChainHandler(new DispatchContext(message("/queue/publish-executor")));
+            CompletableFuture<Void> future = chain.dispatch(new DispatchContext(message("/queue/publish-executor")));
+            firstCompletion.complete(null);
 
             future.join();
-            assertThat(handlerThread.get()).isNotSameAs(callerThread);
+            assertThat(firstHandlerThread.get()).isNotSameAs(callerThread);
+            assertThat(secondHandlerThread.get()).isSameAs(firstHandlerThread.get());
         }
+    }
+
+    @Test
+    void chain_waits_for_current_handler_before_running_next_handler() {
+        List<String> calls = new ArrayList<>();
+        CompletableFuture<Void> firstCompletion = new CompletableFuture<>();
+        DispatchHandlerChain chain = DispatchHandlerChain.chain()
+                .add(context -> {
+                    calls.add("first");
+                    return firstCompletion;
+                })
+                .add(context -> {
+                    calls.add("second");
+                    return CompletableFuture.completedFuture(null);
+                });
+
+        CompletableFuture<Void> result = chain.dispatch(
+                new DispatchContext(message("/queue/publish-async-order"))
+        );
+
+        assertThat(calls).containsExactly("first");
+        assertThat(result).isNotDone();
+
+        firstCompletion.complete(null);
+
+        result.join();
+        assertThat(calls).containsExactly("first", "second");
+    }
+
+    @Test
+    void chain_stops_when_handler_fails() {
+        RuntimeException failure = new RuntimeException("dispatch failed");
+        AtomicInteger laterHandlerCalls = new AtomicInteger();
+        DispatchHandlerChain chain = DispatchHandlerChain.chain()
+                .add(context -> CompletableFuture.failedFuture(failure))
+                .add(context -> {
+                    laterHandlerCalls.incrementAndGet();
+                    return CompletableFuture.completedFuture(null);
+                });
+
+        CompletableFuture<Void> result = chain.dispatch(
+                new DispatchContext(message("/queue/publish-failure"))
+        );
+
+        assertThatThrownBy(result::join).hasCause(failure);
+        assertThat(laterHandlerCalls).hasValue(0);
     }
 
     private static Message message(String destination) {

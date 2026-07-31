@@ -24,16 +24,30 @@ THE SOFTWARE.
 package org.traffichunter.titan.fanout;
 
 import java.util.concurrent.CompletableFuture;
-import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
- * Handles one step in the fanout publish lifecycle.
+ * Handles one ordered step in the message dispatch lifecycle.
+ *
+ * <p>The handler receives the mutable {@link DispatchContext} and performs only its own stage.
+ * The owning {@link DispatchHandlerChain} advances to the next handler after the returned future
+ * completes successfully. A handler may mutate the context, perform asynchronous work, or fail
+ * the future to prevent later handlers from running.</p>
+ *
+ * <p>The returned future must represent all work performed by this stage. Implementations should
+ * compose asynchronous work into that future rather than launching untracked tasks.</p>
  *
  * @author yun
  */
 public interface DispatchChainHandler {
 
-    DispatchChainHandler NOOP = (context, chain) -> chain.sparkChainHandler(context);
+    /** Sentinel behavior that completes without modifying the dispatch context. */
+    DispatchChainHandler NOOP = context -> CompletableFuture.completedFuture(null);
 
-    CompletableFuture<Void> handle(DispatchContext context, HandlerChain<DispatchContext> chain);
+    /**
+     * Processes one dispatch stage.
+     *
+     * @param context state shared by the dispatch lifecycle
+     * @return completion of this stage
+     */
+    CompletableFuture<Void> handle(DispatchContext context);
 }

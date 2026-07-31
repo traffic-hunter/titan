@@ -30,20 +30,29 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.util.channel.chain.AbstractHandlerChain;
-import org.traffichunter.titan.core.util.channel.chain.LinkedHandlerChainNode;
+import org.traffichunter.titan.core.util.channel.chain.AbstractLinkedHandlerChain;
+import org.traffichunter.titan.core.util.channel.chain.LinkedNode;
 
 /**
- * Spark-style handler chain for dispatch work.
+ * Asynchronous linked handler chain for message dispatch work.
  *
- * <p>The dispatch chain starts with routing and can be extended with handlers
- * such as backup, metrics, or validation. Handlers continue propagation by
- * calling {@link org.traffichunter.titan.core.util.channel.chain.HandlerChain#sparkChainHandler(Object)}
- * on the supplied chain context.</p>
+ * <p>The gateway normally assembles routing first, optional user handlers in the middle, and
+ * fanout activation last. This permits cross-cutting stages such as validation, persistence, or
+ * metrics to participate without coupling them directly to the gateway. Handler order is
+ * significant because each stage observes mutations made by all preceding stages.</p>
+ *
+ * <p>Starting the chain schedules its first step on the configured {@link Executor}. Each node
+ * waits for its handler's {@link CompletableFuture} to complete before advancing automatically.
+ * The future returned to the caller completes after every handler has completed, or completes
+ * exceptionally as soon as one stage fails.</p>
+ *
+ * <p>A no-op sentinel head is excluded from iteration. The chain only manages structure and
+ * propagation; lifecycle ownership remains with the component that creates a handler. Structural
+ * mutation is unsynchronized and should finish before dispatch begins.</p>
  *
  * @author yun
  */
-public class DispatchHandlerChain extends AbstractHandlerChain<DispatchHandlerChain.Node, DispatchContext> {
+public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHandlerChain.Node> {
 
     private final Executor executor;
 
@@ -77,23 +86,27 @@ public class DispatchHandlerChain extends AbstractHandlerChain<DispatchHandlerCh
         addAll(handlers);
     }
 
+    /** Appends a handler to the end of the dispatch lifecycle. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain add(DispatchChainHandler handler) {
         return addLast(handler);
     }
 
+    /** Inserts a handler before every existing user handler. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain addFirst(DispatchChainHandler handler) {
         addFirst(new Node(handler));
         return this;
     }
 
+    /** Appends a handler after every existing user handler. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain addLast(DispatchChainHandler handler) {
         addLast(new Node(handler));
         return this;
     }
 
+    /** Appends all handlers in iteration order. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain addAll(Collection<? extends DispatchChainHandler> handlers) {
         for (DispatchChainHandler handler : handlers) {
@@ -102,75 +115,42 @@ public class DispatchHandlerChain extends AbstractHandlerChain<DispatchHandlerCh
         return this;
     }
 
-    @CanIgnoreReturnValue
-    public DispatchHandlerChain addAll(DispatchHandlerChain chain) {
-        LinkedHandlerChainNode<DispatchContext> node = chain.head().next();
-        while (node != null) {
-            if (node instanceof Node dispatchNode) {
-                addLast(dispatchNode.handler());
-            }
-            node = node.next();
-        }
-        return this;
-    }
-
-    @Override
-    public CompletableFuture<Void> sparkChainHandler(DispatchContext context) {
+    /**
+     * Enters the chain on the configured executor.
+     */
+    public CompletableFuture<Void> dispatch(DispatchContext context) {
         return CompletableFuture
-                .supplyAsync(() -> super.sparkChainHandler(context), executor)
+                .supplyAsync(() -> head().dispatch(context, executor), executor)
                 .thenCompose(Function.identity());
     }
 
-    @Override
-    public CompletableFuture<Void> next(DispatchContext context) {
-        return this.sparkChainHandler(context);
-    }
-
-    static final class Node implements LinkedHandlerChainNode<DispatchContext>, AutoCloseable {
+    static final class Node implements LinkedNode<Node> {
 
         private final DispatchChainHandler handler;
-        private @Nullable LinkedHandlerChainNode<DispatchContext> next;
+        private @Nullable Node next;
 
         Node(DispatchChainHandler handler) {
             this.handler = handler;
         }
 
-        private DispatchChainHandler handler() {
-            return handler;
-        }
-
         @Override
-        public @Nullable LinkedHandlerChainNode<DispatchContext> next() {
+        public @Nullable Node next() {
             return next;
         }
 
         @Override
-        public void next(@Nullable LinkedHandlerChainNode<DispatchContext> next) {
+        public void next(@Nullable Node next) {
             this.next = next;
         }
 
-        @Override
-        public CompletableFuture<Void> sparkChainHandler(DispatchContext context) {
-            LinkedHandlerChainNode<DispatchContext> chain = next;
-            if (chain == null) {
-                return CompletableFuture.completedFuture(null);
-            }
-            if (chain instanceof Node dispatchNode) {
-                return dispatchNode.handler.handle(context, dispatchNode);
-            }
-            return chain.sparkChainHandler(context);
-        }
-
-        @Override
-        public CompletableFuture<Void> next(DispatchContext context) {
-            return sparkChainHandler(context);
-        }
-
-        @Override
-        public void close() throws Exception {
-            if (handler instanceof AutoCloseable closeable) {
-                closeable.close();
-            }
+        private CompletableFuture<Void> dispatch(DispatchContext context, Executor executor) {
+            return handler.handle(context).thenComposeAsync(ignored -> {
+                Node chain = next;
+                if (chain == null) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                return chain.dispatch(context, executor);
+            }, executor);
         }
     }
 }

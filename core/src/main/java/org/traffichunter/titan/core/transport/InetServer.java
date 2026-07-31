@@ -364,9 +364,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     }
 
                     TlsHandler tlsHandler = tlsCtx.newHandler(addr.getHostString(), addr.getPort());
-                    netChannel.chain()
-                            .addFirst(tlsHandler.inbound())
-                            .addLast(tlsHandler.outbound());
+                    netChannel.chain().addFirst(tlsHandler);
 
                     tlsHandler.handshake(netChannel)
                             .onSuccess(ignored -> {

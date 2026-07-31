@@ -23,46 +23,122 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import lombok.extern.slf4j.Slf4j;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.channel.chain.AbstractLinkedHandlerChain;
+import org.traffichunter.titan.core.util.channel.chain.LinkedNode;
+
+import java.util.function.Consumer;
 
 /**
+ * Linked outbound chain owned by a {@link ChannelHandlerChain}.
+ *
+ * <p>Writes enter through a no-op sentinel head and visit handlers in chain order. Each node is the
+ * continuation for the handler stored immediately after it, which ensures that forwarding resumes
+ * from the current position instead of reapplying earlier encoders.</p>
+ *
+ * <p>At the terminal node, the resulting buffer is written through {@link NetChannel.Internal}.
+ * This raw write is intentional: entering the public channel write API would recurse through the
+ * same outbound handlers. If the raw write fails synchronously before ownership is transferred,
+ * the terminal node releases the buffer and rethrows the failure.</p>
+ *
+ * <p>This implementation is not synchronized. Registration and removal must happen before
+ * concurrent use or on the channel's event-loop thread.</p>
+ *
  * @author yun
  */
-@Slf4j
-public final class ChannelOutBoundHandlerChainImpl implements ChannelOutBoundHandlerChain {
+public final class ChannelOutBoundHandlerChainImpl
+        extends AbstractLinkedHandlerChain<ChannelOutBoundHandlerChainImpl.Node>
+        implements ChannelOutBoundHandlerChain {
 
-    final ChannelOutBoundHandler handler;
-    @Nullable ChannelOutBoundHandlerChainImpl next;
-
-    public ChannelOutBoundHandlerChainImpl(ChannelOutBoundHandler handler) {
-        this.handler = handler;
+    public ChannelOutBoundHandlerChainImpl() {
+        super(new Node(new HeadHandler()));
     }
 
+    /** Adds a handler at the application-facing start of outbound propagation. */
+    @CanIgnoreReturnValue
+    public ChannelOutBoundHandlerChainImpl addFirst(ChannelOutBoundHandler handler) {
+        addFirst(new Node(handler));
+        return this;
+    }
+
+    /** Adds a handler immediately before the terminal raw transport write. */
+    @CanIgnoreReturnValue
+    public ChannelOutBoundHandlerChainImpl addLast(ChannelOutBoundHandler handler) {
+        addLast(new Node(handler));
+        return this;
+    }
+
+    /**
+     * Removes the first node containing the exact handler instance.
+     *
+     * @return {@code true} when the handler was present
+     */
+    public boolean remove(ChannelOutBoundHandler handler) {
+        return removeFirst(node -> node.handler == handler);
+    }
+
+    void forEachHandler(Consumer<? super ChannelOutBoundHandler> consumer) {
+        forEach(node -> consumer.accept(node.handler));
+    }
+
+    /** Starts write propagation from the sentinel head. */
     @Override
     public void sparkChannelWrite(NetChannel channel, Buffer buffer) {
-        ChannelOutBoundHandlerChainImpl chain = next;
-        if(chain == null) {
-            try {
-                channel.internal().write(buffer);
-            } catch (RuntimeException e) {
-                buffer.release();
-                throw e;
-            }
-            return;
-        }
-
-        chain.handler.sparkChannelWrite(channel, buffer, chain);
+        head().sparkChannelWrite(channel, buffer);
     }
 
     @Override
     public void sparkExceptionCaught(Throwable error) {
-        ChannelOutBoundHandlerChainImpl chain = next;
-        if(chain == null) {
-            return;
+        head().sparkExceptionCaught(error);
+    }
+
+    static final class Node implements LinkedNode<Node>, ChannelOutBoundHandlerChain {
+
+        private final ChannelOutBoundHandler handler;
+        private @Nullable Node next;
+
+        private Node(ChannelOutBoundHandler handler) {
+            this.handler = handler;
         }
 
-        chain.handler.sparkExceptionCaught(error, chain);
+        @Override
+        public @Nullable Node next() {
+            return next;
+        }
+
+        @Override
+        public void next(@Nullable Node next) {
+            this.next = next;
+        }
+
+        @Override
+        public void sparkChannelWrite(NetChannel channel, Buffer buffer) {
+            Node chain = next;
+            if (chain == null) {
+                try {
+                    channel.internal().write(buffer);
+                } catch (RuntimeException e) {
+                    buffer.release();
+                    throw e;
+                }
+                return;
+            }
+            chain.handler.sparkChannelWrite(channel, buffer, chain);
+        }
+
+        @Override
+        public void sparkExceptionCaught(Throwable error) {
+            Node chain = next;
+            if (chain != null) {
+                chain.handler.sparkExceptionCaught(error, chain);
+            }
+        }
+    }
+
+    @Noop
+    private static final class HeadHandler implements ChannelOutBoundHandler {
     }
 }

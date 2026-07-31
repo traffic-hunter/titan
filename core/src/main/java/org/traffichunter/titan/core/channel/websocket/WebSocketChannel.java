@@ -29,7 +29,6 @@ import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -64,31 +63,31 @@ public final class WebSocketChannel implements NetChannel {
     }
 
     @Override
-    public Promise<Void> connect(String host, int port, long timeOut, TimeUnit timeUnit) {
+    public ChannelPromise connect(String host, int port, long timeOut, TimeUnit timeUnit) {
         return delegate.connect(host, port, timeOut, timeUnit);
     }
 
     @Override
-    public Promise<Void> connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
+    public ChannelPromise connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
         return delegate.connect(remote, timeOut, timeUnit);
     }
 
     @Override
-    public Promise<Void> disconnect() {
+    public ChannelPromise disconnect() {
         return delegate.disconnect();
     }
 
     @Override
-    public Promise<Void> write(Buffer buffer) {
+    public ChannelPromise write(Buffer buffer) {
         return delegate.write(buffer);
     }
 
     @Override
-    public Promise<Void> writeAndFlush(Buffer buffer) {
+    public ChannelPromise writeAndFlush(Buffer buffer) {
         return delegate.writeAndFlush(buffer);
     }
 
-    public Promise<Void> writeAndFlush(WebSocketFrame frame) {
+    public ChannelPromise writeAndFlush(WebSocketFrame frame) {
         if (frame.subProtocol() != subProtocol) {
             throw new IllegalArgumentException("WebSocket frame subprotocol does not match channel subprotocol");
         }
@@ -96,17 +95,28 @@ public final class WebSocketChannel implements NetChannel {
         Buffer encoded = frame.encode();
         IOEventLoop eventLoop = eventLoop();
         if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(() -> writeEncoded(encoded));
+            ChannelPromise result = ChannelPromise.newPromise(eventLoop, delegate);
+            try {
+                eventLoop.register(() -> completeWrite(result, encoded));
+            } catch (Throwable error) {
+                encoded.release();
+                result.fail(error);
+            }
+            return result;
         }
 
-        Promise<Void> result = Promise.newPromise(eventLoop);
+        ChannelPromise result = ChannelPromise.newPromise(eventLoop, delegate);
+        completeWrite(result, encoded);
+        return result;
+    }
+
+    private void completeWrite(ChannelPromise result, Buffer encoded) {
         try {
             writeEncoded(encoded);
             result.success();
         } catch (Throwable error) {
             result.fail(error);
         }
-        return result;
     }
 
     private void writeEncoded(Buffer encoded) {

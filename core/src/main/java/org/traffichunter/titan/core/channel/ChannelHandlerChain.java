@@ -28,13 +28,12 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Owns the inbound and outbound handler pipelines for a channel.
+ * Owns the inbound and outbound handler chains for one channel.
  *
- * <p>The chain is split into two independent, forward-only pipelines. Inbound events are
+ * <p>The structure is split into two independent, forward-only chains. Inbound events are
  * produced by the transport when a channel connects or reads bytes. Outbound events are
  * produced by user code or codecs before bytes are finally written to the channel.</p>
  *
@@ -67,48 +66,60 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  *   processChannelWrite(...)
  * }</pre>
  *
- * <p>Handlers continue propagation by calling the {@code spark*} method on the supplied chain
+ * <p>Handlers continue propagation by calling the matching {@code spark*} method on the supplied
  * context. If an outbound event reaches the end of the outbound chain, the fully transformed
- * buffer is written through {@link NetChannel.Internal} without entering the pipeline again.</p>
+ * buffer is written through {@link NetChannel.Internal} without entering the chain again. If an
+ * inbound buffer reaches its terminal node, it is released because no application handler has
+ * claimed it.</p>
+ *
+ * <p>A {@link ChannelDuplexHandler} is inserted into both chains in opposite structural
+ * directions. This preserves one logical nesting position: an inbound event enters the duplex
+ * handler before later protocol handlers, while an outbound event unwinds through it after those
+ * handlers. TLS can therefore decrypt before protocol decoding and encrypt after protocol
+ * encoding while sharing one handler instance.</p>
+ *
+ * <p>The chain is designed for event-loop confinement and does not synchronize structural
+ * mutations. Configure handlers before channel traffic starts, or add and remove them only from
+ * the owning event loop. Closing is idempotent and uses identity-based deduplication so a duplex
+ * {@link AutoCloseable} handler is closed exactly once.</p>
  *
  * @author yun
  */
 @Slf4j
-public class ChannelHandlerChain implements AutoCloseable {
+public class ChannelHandlerChain {
 
-    private final ChannelOutBoundHandlerChainImpl outHead;
-    private ChannelOutBoundHandlerChainImpl outTail;
-
-    private final ChannelInBoundHandlerChainImpl inHead;
-    private ChannelInBoundHandlerChainImpl inTail;
+    private final ChannelOutBoundHandlerChainImpl outboundChain;
+    private final ChannelInBoundHandlerChainImpl inboundChain;
     private boolean closed;
 
     public ChannelHandlerChain() {
-        inHead = inTail = new ChannelInBoundHandlerChainImpl(new ChannelInBoundHandlerHead());
-        outHead = outTail = new ChannelOutBoundHandlerChainImpl(new ChannelOutBoundHandlerHead());
+        inboundChain = new ChannelInBoundHandlerChainImpl();
+        outboundChain = new ChannelOutBoundHandlerChainImpl();
     }
 
+    /** Inserts an inbound handler so it observes inbound events before existing handlers. */
     @CanIgnoreReturnValue
     public ChannelHandlerChain addFirst(ChannelInBoundHandler handler) {
-        ChannelInBoundHandlerChainImpl context = new ChannelInBoundHandlerChainImpl(handler);
-        context.next = inHead.next;
-        inHead.next = context;
-        if (inTail == inHead) {
-            inTail = context;
-        }
-
+        inboundChain.addFirst(handler);
         return this;
     }
 
+    /** Inserts an outbound handler so it observes writes before existing outbound handlers. */
     @CanIgnoreReturnValue
     public ChannelHandlerChain addFirst(ChannelOutBoundHandler handler) {
-        ChannelOutBoundHandlerChainImpl context = new ChannelOutBoundHandlerChainImpl(handler);
-        context.next = outHead.next;
-        outHead.next = context;
-        if (outTail == outHead) {
-            outTail = context;
-        }
+        outboundChain.addFirst(handler);
+        return this;
+    }
 
+    /**
+     * Wraps the existing chains with a duplex handler at their first logical position.
+     *
+     * <p>The handler is first for inbound events and last for outbound events.</p>
+     */
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addFirst(ChannelDuplexHandler handler) {
+        addFirst((ChannelInBoundHandler) handler);
+        addLast((ChannelOutBoundHandler) handler);
         return this;
     }
 
@@ -123,76 +134,59 @@ public class ChannelHandlerChain implements AutoCloseable {
     }
 
     @CanIgnoreReturnValue
-    public ChannelHandlerChain addLast(ChannelInBoundHandler handler) {
-        ChannelInBoundHandlerChainImpl context = new ChannelInBoundHandlerChainImpl(handler);
-        inTail.next = context;
-        inTail = context;
+    public ChannelHandlerChain add(ChannelDuplexHandler handler) {
+        return addLast(handler);
+    }
 
+    /** Appends an inbound handler after the existing inbound handlers. */
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addLast(ChannelInBoundHandler handler) {
+        inboundChain.addLast(handler);
         return this;
     }
 
+    /** Appends an outbound handler immediately before the terminal raw write. */
     @CanIgnoreReturnValue
     public ChannelHandlerChain addLast(ChannelOutBoundHandler handler) {
-        ChannelOutBoundHandlerChainImpl context = new ChannelOutBoundHandlerChainImpl(handler);
-        outTail.next = context;
-        outTail = context;
+        outboundChain.addLast(handler);
+        return this;
+    }
 
+    /**
+     * Nests a duplex handler at the last logical position.
+     *
+     * <p>The handler is last for inbound events and first for outbound events.</p>
+     */
+    @CanIgnoreReturnValue
+    public ChannelHandlerChain addLast(ChannelDuplexHandler handler) {
+        addLast((ChannelInBoundHandler) handler);
+        addFirst((ChannelOutBoundHandler) handler);
         return this;
     }
 
     public boolean remove(ChannelInBoundHandler handler) {
-        ChannelInBoundHandlerChainImpl previous = inHead;
-        ChannelInBoundHandlerChainImpl current = inHead.next;
-
-        while (current != null) {
-            if (current.handler == handler) {
-                previous.next = current.next;
-                if (inTail == current) {
-                    inTail = previous;
-                }
-                current.next = null;
-                return true;
-            }
-
-            previous = current;
-            current = current.next;
-        }
-
-        return false;
+        return inboundChain.remove(handler);
     }
 
     public boolean remove(ChannelOutBoundHandler handler) {
-        ChannelOutBoundHandlerChainImpl previous = outHead;
-        ChannelOutBoundHandlerChainImpl current = outHead.next;
+        return outboundChain.remove(handler);
+    }
 
-        while (current != null) {
-            if (current.handler == handler) {
-                previous.next = current.next;
-                if (outTail == current) {
-                    outTail = previous;
-                }
-                current.next = null;
-                return true;
-            }
-
-            previous = current;
-            current = current.next;
-        }
-
-        return false;
+    public boolean remove(ChannelDuplexHandler handler) {
+        return remove((ChannelInBoundHandler) handler) && remove((ChannelOutBoundHandler) handler);
     }
 
     void processChannelConnecting(NetChannel channel) {
-        inHead.sparkChannelConnecting(channel);
+        inboundChain.sparkChannelConnecting(channel);
     }
 
     void processChannelAfterConnected(NetChannel channel) {
-        inHead.sparkChannelAfterConnected(channel);
+        inboundChain.sparkChannelAfterConnected(channel);
     }
 
     void processChannelRead(NetChannel channel, Buffer buffer) {
         try {
-            inHead.sparkChannelRead(channel, buffer);
+            inboundChain.sparkChannelRead(channel, buffer);
         } catch (Exception e) {
             log.error("Failed to process read", e);
             channel.close();
@@ -201,7 +195,7 @@ public class ChannelHandlerChain implements AutoCloseable {
 
     void processChannelWrite(NetChannel channel, Buffer buffer) {
         try {
-            outHead.sparkChannelWrite(channel, buffer);
+            outboundChain.sparkChannelWrite(channel, buffer);
         } catch (Exception e) {
             log.error("Failed to process write", e);
             channel.close();
@@ -209,9 +203,11 @@ public class ChannelHandlerChain implements AutoCloseable {
     }
 
     /**
-     * Closes stateful handlers once, including handlers installed in both pipelines.
+     * Closes stateful handlers once, including handlers installed in both chains.
+     *
+     * <p>All handlers are visited even if one close fails. Close failures are logged because channel
+     * shutdown has no asynchronous result through which they can be returned.</p>
      */
-    @Override
     public void close() {
         if (closed) {
             return;
@@ -219,17 +215,12 @@ public class ChannelHandlerChain implements AutoCloseable {
         closed = true;
 
         Set<Object> closedHandlers = Collections.newSetFromMap(new IdentityHashMap<>());
-        ChannelInBoundHandlerChainImpl inbound = inHead.next;
-        while (inbound != null) {
-            closeHandler(inbound.handler, closedHandlers);
-            inbound = inbound.next;
-        }
 
-        ChannelOutBoundHandlerChainImpl outbound = outHead.next;
-        while (outbound != null) {
-            closeHandler(outbound.handler, closedHandlers);
-            outbound = outbound.next;
-        }
+        inboundChain.forEachHandler(handler -> closeHandler(handler, closedHandlers));
+        outboundChain.forEachHandler(handler -> closeHandler(handler, closedHandlers));
+
+        inboundChain.clear();
+        outboundChain.clear();
     }
 
     private static void closeHandler(Object handler, Set<Object> closedHandlers) {
@@ -244,9 +235,4 @@ public class ChannelHandlerChain implements AutoCloseable {
         }
     }
 
-    @Noop
-    private static class ChannelInBoundHandlerHead implements ChannelInBoundHandler { }
-
-    @Noop
-    private static class ChannelOutBoundHandlerHead implements ChannelOutBoundHandler { }
 }

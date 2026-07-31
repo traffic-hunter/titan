@@ -23,27 +23,19 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.util.buffer.Buffer;
-
 /**
- * Continuation passed to an outbound channel handler.
+ * Handles both inbound and outbound events for a channel.
  *
- * <p>Outbound writes flow from application protocol handlers toward the raw transport. A handler
- * can encode or transform a buffer and then invoke {@link #sparkChannelWrite(NetChannel, Buffer)}
- * to continue from its current position. The continuation never re-enters the pipeline head, so
- * codecs already applied to the write are not executed twice.</p>
+ * <p>A duplex handler represents one logical position in the channel pipeline. Inbound events
+ * flow from the transport toward the application, while outbound events flow from the
+ * application toward the transport. Implementations may therefore share state across both
+ * directions, as required by protocols such as TLS.</p>
  *
- * <p>The terminal chain writes through {@link NetChannel.Internal}, deliberately bypassing the
- * public channel pipeline. Handlers that stop propagation or replace a buffer must honor the
- * channel buffer ownership policy.</p>
+ * <p>This interface describes bidirectional handler capability. It does not itself provide
+ * thread safety or guarantee concurrent execution; handlers follow the channel event-loop
+ * execution model.</p>
  *
  * @author yun
  */
-public interface ChannelOutBoundHandlerChain {
-
-    /** Passes an outbound buffer to the next handler or terminal raw write. */
-    void sparkChannelWrite(NetChannel channel, Buffer buffer);
-
-    /** Propagates an outbound processing failure to the next interested handler. */
-    void sparkExceptionCaught(Throwable error);
+public interface ChannelDuplexHandler extends ChannelInBoundHandler, ChannelOutBoundHandler {
 }
