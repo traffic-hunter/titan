@@ -28,7 +28,6 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
  * Starts the destination consumer after a message has been routed.
@@ -47,12 +46,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     }
 
     @Override
-    public CompletableFuture<Void> handle(DispatchContext context, HandlerChain<DispatchContext> chain) {
+    public CompletableFuture<Void> handle(DispatchContext context) {
         Message routed = context.getRoutedMessage();
-        if (routed == null) {
-            return chain.sparkChainHandler(context);
+        if (routed != null) {
+            fanout.apply(routed.getDestination());
         }
-        fanout.apply(routed.getDestination());
-        return chain.sparkChainHandler(context);
+        return CompletableFuture.completedFuture(null);
     }
 }

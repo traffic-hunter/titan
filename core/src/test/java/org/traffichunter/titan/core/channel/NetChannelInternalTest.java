@@ -78,7 +78,7 @@ class NetChannelInternalTest {
             public void sparkChannelWrite(
                     NetChannel writtenChannel,
                     Buffer buffer,
-                    ChannelOutBoundHandlerChainImpl chain
+                    ChannelOutBoundHandlerChain chain
             ) {
                 pipelineWrites.incrementAndGet();
                 chain.sparkChannelWrite(writtenChannel, buffer);

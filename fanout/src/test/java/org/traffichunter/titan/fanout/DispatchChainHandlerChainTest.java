@@ -20,16 +20,16 @@ class DispatchChainHandlerChainTest {
     void chain_runs_handlers_in_order() {
         List<String> calls = new ArrayList<>();
         DispatchHandlerChain chain = new DispatchHandlerChain()
-                .add((context, next) -> {
+                .add(context -> {
                     calls.add("first");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 })
-                .add((context, next) -> {
+                .add(context -> {
                     calls.add("second");
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 });
 
-        chain.sparkChainHandler(new DispatchContext(message("/queue/chain-order"))).join();
+        chain.dispatch(new DispatchContext(message("/queue/chain-order"))).join();
 
         assertThat(calls).containsExactly("first", "second");
     }
@@ -39,13 +39,13 @@ class DispatchChainHandlerChainTest {
         Message message = message("/queue/route");
         DispatchHandlerChain chain = new DispatchHandlerChain(List.of(
                 new RouteDispatchChainHandler(ignored -> message),
-                (context, next) -> {
+                context -> {
                     assertThat(context.getRoutedMessage()).isSameAs(message);
-                    return next.sparkChainHandler(context);
+                    return CompletableFuture.completedFuture(null);
                 }
         ));
 
-        chain.sparkChainHandler(new DispatchContext(message)).join();
+        chain.dispatch(new DispatchContext(message)).join();
     }
 
     @Test
@@ -58,7 +58,7 @@ class DispatchChainHandlerChainTest {
                 })
         ));
 
-        chain.sparkChainHandler(new DispatchContext(message("/queue/no-route"))).join();
+        chain.dispatch(new DispatchContext(message("/queue/no-route"))).join();
 
         assertThat(fanoutCount).hasValue(0);
     }
@@ -77,7 +77,7 @@ class DispatchChainHandlerChainTest {
                 })
         ));
 
-        chain.sparkChainHandler(context).join();
+        chain.dispatch(context).join();
 
         assertThat(fanoutCount).hasValue(1);
     }
@@ -95,7 +95,7 @@ class DispatchChainHandlerChainTest {
                     })
             ));
 
-            CompletableFuture<?> future = chain.sparkChainHandler(new DispatchContext(message));
+            CompletableFuture<?> future = chain.dispatch(new DispatchContext(message));
 
             future.join();
             assertThat(handlerThread.get()).isNotSameAs(callerThread);

@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.channel.chain.HandlerChain;
 
 /**
  * Routes a published message into memory before later fanout handlers run.
@@ -43,9 +42,9 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
     }
 
     @Override
-    public CompletableFuture<Void> handle(DispatchContext context, HandlerChain<DispatchContext> chain) {
+    public CompletableFuture<Void> handle(DispatchContext context) {
         Message routed = route.apply(context.getMessage());
         context.setRoutedMessage(routed);
-        return chain.sparkChainHandler(context);
+        return CompletableFuture.completedFuture(null);
     }
 }

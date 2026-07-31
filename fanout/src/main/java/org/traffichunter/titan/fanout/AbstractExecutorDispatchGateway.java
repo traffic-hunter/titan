@@ -178,7 +178,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatchHandlerChain.sparkChainHandler(new DispatchContext(message))
+        return dispatchHandlerChain.dispatch(new DispatchContext(message))
                 .thenApply(ignored -> null);
     }
 
@@ -209,11 +209,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
                 dispatchExecutor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
-            try {
-                dispatchHandlerChain.close();
-            } catch (Exception e) {
-                log.warn("Failed to close dispatch handler chain", e);
-            }
+            dispatchHandlerChain.clear();
         }
     }
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
@@ -66,9 +67,9 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         AtomicInteger customHandlerCalls = new AtomicInteger();
-        gateway.chainHandler(chain -> chain.add((context, next) -> {
+        gateway.chainHandler(chain -> chain.add(context -> {
             customHandlerCalls.incrementAndGet();
-            return next.sparkChainHandler(context);
+            return CompletableFuture.completedFuture(null);
         }));
 
         gateway.publish(message(Destination.create("/queue/publish-fanout-chain"))).get();
