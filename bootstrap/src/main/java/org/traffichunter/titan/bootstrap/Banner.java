@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  */
 public final class Banner {
 
-    private static final String BANNER_NAME = "banner.txt";
+    private static final String BANNER_NAME = "titan-banner.txt";
     private static final String DEFAULT_VERSION = "0.1.0";
 
     public void print(final Mode mode) {
