@@ -218,16 +218,12 @@ class JdkTlsHandlerIntegrationTest {
     }
 
     private static JdkTlsContext context(TlsSide side, Path keyStore, TlsVersion... versions) {
-        return new JdkTlsContext(new TlsOptions(
-                side,
-                versions,
-                TlsClientAuth.NONE,
-                keyStore,
-                "PKCS12",
-                PASSWORD,
-                PASSWORD,
-                side == TlsSide.CLIENT
-        ));
+        return new JdkTlsContext(TlsOptions.builder()
+                .side(side)
+                .versions(versions)
+                .keyStore(keyStore, "PKCS12", PASSWORD, PASSWORD)
+                .verifyHostname(side == TlsSide.CLIENT)
+                .build());
     }
 
     private static Endpoint endpoint(String name, JdkTlsContext context, String peerHost, int peerPort) {

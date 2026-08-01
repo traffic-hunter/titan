@@ -27,6 +27,8 @@ public final class TitanProperties {
 
     private String websocketPath = "/stomp";
 
+    private final Ssl ssl = new Ssl();
+
     private int primaryThreads = 1;
 
     private int secondaryThreads = Runtime.getRuntime().availableProcessors();
@@ -225,6 +227,36 @@ public final class TitanProperties {
 
     public void setWebsocketPath(String websocketPath) {
         this.websocketPath = websocketPath;
+    }
+
+    public Ssl getSsl() {
+        return ssl;
+    }
+
+    /**
+     * References TLS material managed by Spring Boot's SSL bundle infrastructure.
+     */
+    public static final class Ssl {
+
+        private @Nullable String bundle;
+
+        private boolean verifyHostname = true;
+
+        public @Nullable String getBundle() {
+            return bundle;
+        }
+
+        public void setBundle(@Nullable String bundle) {
+            this.bundle = bundle;
+        }
+
+        public boolean isVerifyHostname() {
+            return verifyHostname;
+        }
+
+        public void setVerifyHostname(boolean verifyHostname) {
+            this.verifyHostname = verifyHostname;
+        }
     }
 
     public enum Client {

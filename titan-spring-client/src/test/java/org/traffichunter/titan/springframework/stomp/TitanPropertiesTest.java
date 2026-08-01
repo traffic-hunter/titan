@@ -20,6 +20,8 @@ class TitanPropertiesTest {
         assertNull(properties.getEndpoint());
         assertEquals(TitanProperties.Transport.TCP, properties.getTransport());
         assertEquals("/stomp", properties.getWebsocketPath());
+        assertNull(properties.getSsl().getBundle());
+        assertTrue(properties.getSsl().isVerifyHostname());
         assertEquals("127.0.0.1", properties.getHost());
         assertEquals(61613, properties.getPort());
         assertEquals(5000L, properties.getConnectTimeoutMillis());
@@ -46,5 +48,16 @@ class TitanPropertiesTest {
         properties.setSecondaryThreads(4);
 
         assertEquals(4, properties.getSecondaryThreads());
+    }
+
+    @Test
+    void configure_spring_ssl_bundle() {
+        TitanProperties properties = new TitanProperties();
+
+        properties.getSsl().setBundle("titan-client");
+        properties.getSsl().setVerifyHostname(false);
+
+        assertEquals("titan-client", properties.getSsl().getBundle());
+        assertFalse(properties.getSsl().isVerifyHostname());
     }
 }

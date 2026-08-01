@@ -45,6 +45,7 @@ import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.net.TlsContext;
 import org.traffichunter.titan.core.resilience.retry.RetryExecutor;
 import org.traffichunter.titan.core.resilience.retry.RetryExecutors;
 import org.traffichunter.titan.core.resilience.retry.RetryResult;
@@ -137,6 +138,18 @@ public final class TitanStompClient implements StompClient {
             throw new IllegalArgumentException("WebSocket path must start with '/'");
         }
         this.webSocketPath = path;
+        return this;
+    }
+
+    /**
+     * Configures transport TLS before the client event loops are started.
+     */
+    @CanIgnoreReturnValue
+    public TitanStompClient tls(TlsContext tlsContext) {
+        if (status.get() != Status.INITIALIZED) {
+            throw new IllegalStateException("Cannot configure TLS after STOMP client start");
+        }
+        inetClient.tls(tlsContext);
         return this;
     }
 

@@ -36,7 +36,10 @@ public interface TlsContext {
 
     TlsHandler newHandler(String peerHost, int peerPort, TlsTaskExecutor taskExecutor);
 
-    TlsOptions options();
+    /**
+     * Returns the local role used by handlers created from this context.
+     */
+    TlsSide side();
 
     SSLContext sslContext();
 }

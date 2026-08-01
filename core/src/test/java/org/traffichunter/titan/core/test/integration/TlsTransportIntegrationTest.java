@@ -181,16 +181,13 @@ class TlsTransportIntegrationTest {
     }
 
     private static JdkTlsContext context(TlsSide side, TlsClientAuth clientAuth, Path keyStore) {
-        return new JdkTlsContext(new TlsOptions(
-                side,
-                new TlsVersion[]{TlsVersion.TLS_1_3, TlsVersion.TLS_1_2},
-                clientAuth,
-                keyStore,
-                "PKCS12",
-                PASSWORD,
-                PASSWORD,
-                side == TlsSide.CLIENT
-        ));
+        return new JdkTlsContext(TlsOptions.builder()
+                .side(side)
+                .versions(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2)
+                .clientAuth(clientAuth)
+                .keyStore(keyStore, "PKCS12", PASSWORD, PASSWORD)
+                .verifyHostname(side == TlsSide.CLIENT)
+                .build());
     }
 
     private static ChannelInBoundHandler echo(LinkedBlockingQueue<String> messages) {

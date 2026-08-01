@@ -30,6 +30,7 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 
@@ -43,7 +44,11 @@ public final class JdkKeyManager {
 
     public JdkKeyManager(TlsOptions options) {
         this.keyStore = load(options);
-        this.keyPassword = options.keyPassword();
+        String configuredKeyPassword = options.keyPassword();
+        if (configuredKeyPassword == null) {
+            throw new NetSecureException("TLS key password is required");
+        }
+        this.keyPassword = configuredKeyPassword;
     }
 
     public KeyManager[] keyManagers() {
@@ -71,14 +76,21 @@ public final class JdkKeyManager {
     }
 
     private static KeyStore load(TlsOptions options) {
+        Path path = options.path();
+        String type = options.type();
+        String storePassword = options.storePassword();
+        if (path == null || type == null || storePassword == null) {
+            throw new NetSecureException("Incomplete TLS key store configuration");
+        }
+
         try {
-            KeyStore keyStore = KeyStore.getInstance(options.type());
-            try (InputStream input = Files.newInputStream(options.path())) {
-                keyStore.load(input, options.storePassword().toCharArray());
+            KeyStore keyStore = KeyStore.getInstance(type);
+            try (InputStream input = Files.newInputStream(path)) {
+                keyStore.load(input, storePassword.toCharArray());
             }
             return keyStore;
         } catch (GeneralSecurityException | IOException e) {
-            throw new NetSecureException("Failed to load TLS key store: " + options.path(), e);
+            throw new NetSecureException("Failed to load TLS key store: " + path, e);
         }
     }
 }
