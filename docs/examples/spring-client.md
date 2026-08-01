@@ -144,6 +144,34 @@ available.
 `spring.titan.host` and `spring.titan.port`.
 
 `spring.titan.endpoint` is the preferred connection setting and accepts
-`tcp://host:port` or `ws://host:port/path`. When present, it takes precedence
+`tcp://host:port`, `ws://host:port/path`, or `wss://host:port/path`. When present, it takes precedence
 over the separate host, port, transport, and WebSocket path properties. The
 legacy properties remain available for compatibility.
+
+## TLS With PKCS12
+
+Secure WebSocket connections use a named Spring SSL bundle. Titan receives the
+key and trust managers prepared by Spring, so certificate locations and passwords
+remain in Spring Boot's standard SSL configuration.
+
+```yaml
+spring:
+  titan:
+    client: titan
+    endpoint: wss://localhost:8443/stomp
+    ssl:
+      bundle: titan-client
+      verify-hostname: true
+  ssl:
+    bundle:
+      jks:
+        titan-client:
+          truststore:
+            location: classpath:titan-client.p12
+            password: secret
+            type: PKCS12
+```
+
+Providing the bundle for a TCP endpoint enables TLS directly over that TCP
+connection. Spring SSL bundles are currently supported by the native Titan
+client; the Vert.x client adapter remains available for non-TLS connections.

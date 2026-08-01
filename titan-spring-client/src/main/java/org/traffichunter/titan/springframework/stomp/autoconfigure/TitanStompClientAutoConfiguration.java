@@ -6,12 +6,20 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.ssl.SslAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.ssl.SslBundle;
+import org.springframework.boot.ssl.SslBundles;
+import org.springframework.boot.ssl.SslManagerBundle;
 import org.springframework.context.annotation.Bean;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.net.JdkTlsContext;
+import org.traffichunter.titan.core.net.TlsOptions;
+import org.traffichunter.titan.core.net.TlsSide;
+import org.traffichunter.titan.core.net.TlsVersion;
 import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
 import org.traffichunter.titan.core.transport.stomp.StompEndpoint;
 import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
@@ -31,7 +39,7 @@ import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
  *
  * @author yun
  */
-@AutoConfiguration
+@AutoConfiguration(after = SslAutoConfiguration.class)
 @ConditionalOnClass({StompClient.class, EventLoopGroups.class})
 @EnableConfigurationProperties(TitanProperties.class)
 @ConditionalOnProperty(prefix = "spring.titan", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -82,7 +90,8 @@ public class TitanStompClientAutoConfiguration {
     public StompClient titanStompClient(
             List<StompClientProvider> stompClientProviders,
             StompClientOption titanStompClientOption,
-            TitanProperties properties
+            TitanProperties properties,
+            ObjectProvider<SslBundles> sslBundles
     ) {
         StompClient client = stompClientProviders.stream()
                 .filter(provider -> provider.supports(properties.getClient().getName(), titanStompClientOption.stompVersion().getVersion()))
@@ -94,13 +103,12 @@ public class TitanStompClientAutoConfiguration {
                 .create(titanStompClientOption);
 
         StompEndpoint endpoint = endpoint(properties);
+        configureSsl(client, properties, endpoint, sslBundles);
+
         boolean webSocket = endpoint == null
                 ? properties.getTransport() == TitanProperties.Transport.WEBSOCKET
                 : endpoint.isWebSocket();
         if (webSocket) {
-            if (endpoint != null && endpoint.isSecure()) {
-                throw new IllegalStateException("Secure WebSocket transport is not supported yet");
-            }
             String path = endpoint == null ? properties.getWebsocketPath() : endpoint.path();
             if (client instanceof TitanStompClient titanClient) {
                 titanClient.upgradeWebsocket(path);
@@ -111,6 +119,66 @@ public class TitanStompClientAutoConfiguration {
             }
         }
         return client;
+    }
+
+    private static void configureSsl(
+            StompClient client,
+            TitanProperties properties,
+            @Nullable StompEndpoint endpoint,
+            ObjectProvider<SslBundles> sslBundles
+    ) {
+        String bundleName = properties.getSsl().getBundle();
+        boolean hasBundle = bundleName != null && !bundleName.isBlank();
+        boolean secureEndpoint = endpoint != null && endpoint.isSecure();
+
+        if (secureEndpoint && !hasBundle) {
+            throw new IllegalStateException("Secure STOMP endpoint requires spring.titan.ssl.bundle");
+        }
+        if (!hasBundle) {
+            return;
+        }
+        if (endpoint != null && endpoint.isWebSocket() && !secureEndpoint) {
+            throw new IllegalStateException("WebSocket SSL bundle requires a wss endpoint");
+        }
+        if (!(client instanceof TitanStompClient titanClient)) {
+            throw new IllegalStateException("Spring SSL bundles are supported only by the Titan STOMP client");
+        }
+
+        SslBundles bundles = sslBundles.getIfAvailable();
+        if (bundles == null) {
+            throw new IllegalStateException("Spring SSL bundle infrastructure is not available");
+        }
+
+        SslBundle bundle = bundles.getBundle(bundleName);
+        SslManagerBundle managers = bundle.getManagers();
+        String[] protocols = bundle.getOptions().getEnabledProtocols();
+        String[] ciphers = bundle.getOptions().getCiphers();
+        TlsOptions.Builder options = TlsOptions.builder()
+                .side(TlsSide.CLIENT)
+                .managers(managers.getKeyManagers(), managers.getTrustManagers())
+                .verifyHostname(properties.getSsl().isVerifyHostname());
+        if (protocols != null && protocols.length > 0) {
+            options.versions(tlsVersions(protocols));
+        }
+        if (ciphers != null) {
+            options.ciphers(ciphers);
+        }
+        titanClient.tls(new JdkTlsContext(options.build()));
+    }
+
+    private static TlsVersion[] tlsVersions(String[] protocols) {
+        TlsVersion[] versions = new TlsVersion[protocols.length];
+        for (int i = 0; i < protocols.length; i++) {
+            String protocol = protocols[i];
+            if (TlsVersion.TLS_1_2.getValue().equals(protocol)) {
+                versions[i] = TlsVersion.TLS_1_2;
+            } else if (TlsVersion.TLS_1_3.getValue().equals(protocol)) {
+                versions[i] = TlsVersion.TLS_1_3;
+            } else {
+                throw new IllegalStateException("Unsupported TLS protocol in Spring SSL bundle: " + protocol);
+            }
+        }
+        return versions;
     }
 
     private static @Nullable StompEndpoint endpoint(TitanProperties properties) {
