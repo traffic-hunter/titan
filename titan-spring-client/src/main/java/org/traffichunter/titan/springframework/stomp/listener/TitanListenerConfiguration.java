@@ -64,9 +64,7 @@ public class TitanListenerConfiguration {
         converters.add(new StompFrameMessageConverter());
         converters.add(new ByteArrayMessageConverter());
         converters.add(new StringMessageConverter());
-        if (ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", getClass().getClassLoader())) {
-            converters.add(new MappingJackson2MessageConverter());
-        }
+        addJacksonConverter(converters);
 
         return new CompositeMessageConverter(converters);
     }
@@ -87,5 +85,28 @@ public class TitanListenerConfiguration {
                 new TitanPayloadHandlerMethodArgumentResolver(converter)
         );
         return factory;
+    }
+
+    private void addJacksonConverter(List<MessageConverter> converters) {
+        ClassLoader classLoader = getClass().getClassLoader();
+        String converterClass;
+        if (ClassUtils.isPresent("tools.jackson.databind.ObjectMapper", classLoader)
+                && ClassUtils.isPresent(
+                "org.springframework.messaging.converter.JacksonJsonMessageConverter",
+                classLoader
+        )) {
+            converterClass = "org.springframework.messaging.converter.JacksonJsonMessageConverter";
+        } else if (ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", classLoader)) {
+            converterClass = "org.springframework.messaging.converter.MappingJackson2MessageConverter";
+        } else {
+            return;
+        }
+
+        try {
+            Class<?> type = ClassUtils.forName(converterClass, classLoader);
+            converters.add((MessageConverter) type.getDeclaredConstructor().newInstance());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Failed to create Jackson message converter", e);
+        }
     }
 }
