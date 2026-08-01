@@ -31,23 +31,23 @@ class TitanPropertiesTest {
     }
 
     @Test
-    void set_secondary_threads_fallback_to_available_processors_when_non_positive() {
+    void set_worker_fallback_to_available_processors_when_non_positive() {
         TitanProperties properties = new TitanProperties();
 
-        properties.setSecondaryThreads(0);
-        assertEquals(Runtime.getRuntime().availableProcessors(), properties.getSecondaryThreads());
+        properties.setWorker(0);
+        assertEquals(Runtime.getRuntime().availableProcessors(), properties.getWorker());
 
-        properties.setSecondaryThreads(-1);
-        assertEquals(Runtime.getRuntime().availableProcessors(), properties.getSecondaryThreads());
+        properties.setWorker(-1);
+        assertEquals(Runtime.getRuntime().availableProcessors(), properties.getWorker());
     }
 
     @Test
-    void set_secondary_threads_uses_explicit_value_when_positive() {
+    void set_worker_uses_explicit_value_when_positive() {
         TitanProperties properties = new TitanProperties();
 
-        properties.setSecondaryThreads(4);
+        properties.setWorker(4);
 
-        assertEquals(4, properties.getSecondaryThreads());
+        assertEquals(4, properties.getWorker());
     }
 
     @Test

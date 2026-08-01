@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":titan-stomp"))
+    api(project(":titan-client"))
     implementation(project(":core"))
 
     implementation(project.libs.spring.boot.autoconfigure)

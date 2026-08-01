@@ -10,24 +10,15 @@ import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.boot.ssl.SslManagerBundle;
 import org.springframework.boot.ssl.SslOptions;
-import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.net.JdkTlsContext;
-import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
-import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
-import org.traffichunter.titan.core.transport.stomp.client.StompClientProvider;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 
-import java.time.Duration;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.KeyManager;
@@ -55,91 +46,62 @@ class TitanStompClientAutoConfigurationTest {
     @Test
     void creates_titan_client_from_titan_client() {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
-        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
-        StompClientProvider provider = configuration.titanStompClientProvider(eventLoopGroups);
         TitanProperties properties = new TitanProperties();
         properties.setClient(TitanProperties.Client.TITAN);
 
-        StompClient client = configuration.titanStompClient(
-                List.of(provider),
-                StompClientOption.builder().build(),
+        TitanClient client = configuration.titanStompClient(
                 properties,
                 noSslBundles()
         );
 
-        assertThat(client).isInstanceOf(TitanStompClient.class);
+        assertThat(client.name()).isEqualTo("titan");
     }
 
     @Test
     void creates_vertx_client_from_vertx_client() {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        StompClientProvider provider = configuration.vertxStompClientProvider();
         TitanProperties properties = new TitanProperties();
         properties.setClient(TitanProperties.Client.VERTX);
 
-        StompClient client = configuration.titanStompClient(
-                List.of(provider),
-                StompClientOption.builder().build(),
+        TitanClient client = configuration.titanStompClient(
                 properties,
                 noSslBundles()
         );
 
-        assertThat(client).isInstanceOf(VertxStompClient.class);
+        assertThat(client.name()).isEqualTo("vertx");
     }
 
     @Test
     void configures_websocket_transport_for_titan_client() {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
-        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
-        StompClientProvider provider = configuration.titanStompClientProvider(eventLoopGroups);
         TitanProperties properties = new TitanProperties();
         properties.setTransport(TitanProperties.Transport.WEBSOCKET);
         properties.setWebsocketPath("/titan");
 
-        StompClient client = configuration.titanStompClient(
-                List.of(provider),
-                StompClientOption.builder().build(),
+        TitanClient client = configuration.titanStompClient(
                 properties,
                 noSslBundles()
         );
 
-        assertThat(client)
-                .isInstanceOf(TitanStompClient.class)
-                .extracting("webSocketPath")
-                .isEqualTo("/titan");
+        assertThat(client.name()).isEqualTo("titan");
     }
 
     @Test
     void configures_titan_client_from_websocket_endpoint() {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
-        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
         TitanProperties properties = new TitanProperties();
         properties.setEndpoint("ws://localhost:8080/titan");
-        StompClientOption option = configuration.titanStompClientOption(properties);
-
-        StompClient client = configuration.titanStompClient(
-                List.of(configuration.titanStompClientProvider(eventLoopGroups)),
-                option,
+        TitanClient client = configuration.titanStompClient(
                 properties,
                 noSslBundles()
         );
 
-        assertThat(option.host()).isEqualTo("localhost");
-        assertThat(option.port()).isEqualTo(8080);
-        assertThat(client)
-                .isInstanceOf(TitanStompClient.class)
-                .extracting("webSocketPath")
-                .isEqualTo("/titan");
+        assertThat(client.name()).isEqualTo("titan");
     }
 
     @Test
     void configures_secure_websocket_from_spring_ssl_bundle() throws Exception {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
-        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
         TitanProperties properties = new TitanProperties();
         properties.setEndpoint("wss://localhost/stomp");
         properties.getSsl().setBundle("titan-client");
@@ -154,34 +116,21 @@ class TitanStompClientAutoConfigurationTest {
         when(managerBundle.getTrustManagers()).thenReturn(new TrustManager[0]);
         when(sslBundle.getManagers()).thenReturn(managerBundle);
 
-        StompClient client = configuration.titanStompClient(
-                List.of(configuration.titanStompClientProvider(eventLoopGroups)),
-                configuration.titanStompClientOption(properties),
+        TitanClient client = configuration.titanStompClient(
                 properties,
                 sslBundles(sslBundle)
         );
 
-        assertThat(client)
-                .isInstanceOf(TitanStompClient.class)
-                .extracting("webSocketPath")
-                .isEqualTo("/stomp");
-        assertThat(client)
-                .extracting("inetClient")
-                .extracting("tlsContext")
-                .isInstanceOf(JdkTlsContext.class);
+        assertThat(client.name()).isEqualTo("titan");
     }
 
     @Test
     void rejects_secure_websocket_without_ssl_bundle() {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        ObjectProvider<EventLoopGroups> eventLoopGroups = mock();
-        when(eventLoopGroups.getObject()).thenReturn(mock(EventLoopGroups.class));
         TitanProperties properties = new TitanProperties();
         properties.setEndpoint("wss://localhost/stomp");
 
         assertThatThrownBy(() -> configuration.titanStompClient(
-                List.of(configuration.titanStompClientProvider(eventLoopGroups)),
-                configuration.titanStompClientOption(properties),
                 properties,
                 noSslBundles()
         ))
@@ -196,27 +145,20 @@ class TitanStompClientAutoConfigurationTest {
         properties.setClient(TitanProperties.Client.VERTX);
         properties.setTransport(TitanProperties.Transport.WEBSOCKET);
         properties.setWebsocketPath("/titan");
-
-        StompClient client = configuration.titanStompClient(
-                List.of(configuration.vertxStompClientProvider()),
-                StompClientOption.builder().build(),
+        TitanClient client = configuration.titanStompClient(
                 properties,
                 noSslBundles()
         );
 
-        assertThat(client)
-                .isInstanceOf(VertxStompClient.class)
-                .extracting("webSocketPath")
-                .isEqualTo("/titan");
+        assertThat(client.name()).isEqualTo("vertx");
     }
 
     @Test
     void lifecycle_starts_and_connects_client_when_auto_start_and_auto_connect_are_enabled() {
-        StompConnection connection = mock(StompConnection.class);
-        StompClient client = lifecycleClient(connection);
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .run(context -> {
                     assertThat(context).hasSingleBean(TitanClientManager.class);
                     assertThat(context.getBean(TitanClientManager.class).isRunning()).isTrue();
@@ -227,11 +169,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_only_starts_client_when_auto_connect_is_disabled() {
-        StompConnection connection = mock(StompConnection.class);
-        StompClient client = lifecycleClient(connection);
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues("spring.titan.auto-connect=false")
                 .run(context -> {
                     assertThat(context.getBean(TitanClientManager.class).isRunning()).isTrue();
@@ -242,11 +183,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void lifecycle_does_not_start_client_when_auto_start_is_disabled() {
-        StompConnection connection = mock(StompConnection.class);
-        StompClient client = lifecycleClient(connection);
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues("spring.titan.auto-start=false")
                 .run(context -> {
                     assertThat(context.getBean(TitanClientManager.class).isRunning()).isFalse();
@@ -257,10 +197,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void exposes_client_manager_and_template_with_public_bean_names() {
-        StompClient client = lifecycleClient(mock(StompConnection.class));
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues("spring.titan.auto-start=false")
                 .run(context -> {
                     assertThat(context).hasBean("titanClientManager");
@@ -274,10 +214,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void binds_client_property_to_client_enum() {
-        StompClient client = lifecycleClient(mock(StompConnection.class));
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues(
                         "spring.titan.auto-start=false",
                         "spring.titan.client=vertx"
@@ -291,10 +231,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void binds_websocket_transport_properties() {
-        StompClient client = lifecycleClient(mock(StompConnection.class));
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues(
                         "spring.titan.auto-start=false",
                         "spring.titan.transport=websocket",
@@ -310,10 +250,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void binds_endpoint_property() {
-        StompClient client = lifecycleClient(mock(StompConnection.class));
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues(
                         "spring.titan.auto-start=false",
                         "spring.titan.endpoint=ws://localhost:8080/stomp"
@@ -324,10 +264,10 @@ class TitanStompClientAutoConfigurationTest {
 
     @Test
     void binds_spring_ssl_bundle_properties() {
-        StompClient client = lifecycleClient(mock(StompConnection.class));
+        TitanClient client = lifecycleClient();
 
         contextRunner
-                .withBean(StompClient.class, () -> client)
+                .withBean(TitanClient.class, () -> client)
                 .withPropertyValues(
                         "spring.titan.auto-start=false",
                         "spring.titan.ssl.bundle=titan-client",
@@ -360,34 +300,33 @@ class TitanStompClientAutoConfigurationTest {
                 )
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context.getBean(StompClient.class))
-                            .isInstanceOf(TitanStompClient.class)
-                            .extracting("webSocketPath")
-                            .isEqualTo("/stomp");
+                    assertThat(context.getBean(TitanClient.class).name()).isEqualTo("titan");
                 });
     }
 
     @Test
-    void applies_connect_timeout_to_stomp_client_option() {
+    void creates_client_with_custom_connect_timeout() {
+        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
         TitanProperties properties = new TitanProperties();
         properties.setConnectTimeoutMillis(2000L);
 
-        StompClientOption option = new TitanStompClientAutoConfiguration()
-                .titanStompClientOption(properties);
+        TitanClient client = configuration.titanStompClient(
+                properties,
+                noSslBundles()
+        );
 
-        assertThat(option.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
+        assertThat(client.name()).isEqualTo("titan");
     }
 
-    private static StompClient lifecycleClient(StompConnection connection) {
+    private static TitanClient lifecycleClient() {
         AtomicBoolean started = new AtomicBoolean(false);
-        StompClient client = mock(StompClient.class);
+        TitanClient client = mock(TitanClient.class);
         when(client.isStarted()).thenAnswer(invocation -> started.get());
         doAnswer(invocation -> {
             started.set(true);
             return null;
         }).when(client).start();
-        when(client.connect()).thenReturn(CompletableFuture.completedFuture(connection));
-        when(client.connection()).thenReturn(connection);
+        when(client.connect()).thenReturn(CompletableFuture.completedFuture(client));
         return client;
     }
 

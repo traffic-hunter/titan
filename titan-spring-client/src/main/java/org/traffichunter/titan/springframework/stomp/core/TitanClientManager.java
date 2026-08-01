@@ -4,8 +4,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 
 import java.util.concurrent.TimeUnit;
@@ -15,8 +14,8 @@ import java.util.concurrent.TimeUnit;
  * Starts and stops the underlying client with the application context and
  * resolves active STOMP connections for template and listener use.
  *
- * <p>Lifecycle state is owned entirely by the underlying {@link StompClient}
- * ({@link StompClient#isStarted()} / {@link StompClient#isShutdown()}); this
+ * <p>Lifecycle state is owned entirely by the underlying {@link TitanClient}
+ * ({@link TitanClient#isStarted()} / {@link TitanClient#isShutdown()}); this
  * adapter keeps no parallel status to avoid two sources of truth that can drift.
  *
  * @author yun
@@ -28,10 +27,10 @@ public final class TitanClientManager implements SmartLifecycle {
     private static final long DEFAULT_TIMEOUT = 30;
     public static final int PHASE = Integer.MAX_VALUE - 100;
 
-    private final StompClient stompClient;
+    private final TitanClient stompClient;
     private final TitanProperties properties;
 
-    public TitanClientManager(StompClient stompClient, TitanProperties properties) {
+    public TitanClientManager(TitanClient stompClient, TitanProperties properties) {
         this.stompClient = stompClient;
         this.properties = properties;
     }
@@ -88,9 +87,9 @@ public final class TitanClientManager implements SmartLifecycle {
         return PHASE;
     }
 
-    public StompConnection connection() throws Exception {
+    public TitanClient connection() throws Exception {
         if (isConnected()) {
-            return stompClient.connection();
+            return stompClient;
         }
 
         return connect();
@@ -100,23 +99,19 @@ public final class TitanClientManager implements SmartLifecycle {
         return properties.getConnectTimeoutMillis();
     }
 
-    public @Nullable StompConnection currentConnection() {
-        try {
-            return stompClient.connection();
-        } catch (IllegalStateException e) {
-            return null;
-        }
+    public @Nullable TitanClient currentConnection() {
+        return isConnected() ? stompClient : null;
     }
 
     public boolean isConnected() {
         try {
-            return stompClient.connection().isConnected();
+            return stompClient.isConnected();
         } catch (IllegalStateException e) {
             return false;
         }
     }
 
-    private StompConnection connect() throws Exception {
+    private TitanClient connect() throws Exception {
         if (stompClient.isShutdown()) {
             throw new IllegalStateException("Titan STOMP client manager has been shut down");
         }

@@ -15,8 +15,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpointRegistry;
@@ -32,7 +31,7 @@ public abstract class AbstractTitanSmokeLocalTest {
     private TitanClientManager clientManager;
 
     @Autowired
-    private StompClient stompClient;
+    private TitanClient titanClient;
 
     @Autowired
     private SmokeListener smokeListener;
@@ -40,14 +39,12 @@ public abstract class AbstractTitanSmokeLocalTest {
     @Autowired
     private TitanListenerEndpointRegistry listenerRegistry;
 
-    protected abstract Class<? extends StompClient> clientType();
-
-    protected abstract Class<? extends StompConnection> connectionType();
+    protected abstract String clientName();
 
     @Test
     void configured_client_matches_smoke_client() throws Exception {
-        assertThat(stompClient).isInstanceOf(clientType());
-        assertThat(clientManager.connection()).isInstanceOf(connectionType());
+        assertThat(titanClient.name()).isEqualTo(clientName());
+        assertThat(clientManager.connection()).isNotNull();
     }
 
     @Test

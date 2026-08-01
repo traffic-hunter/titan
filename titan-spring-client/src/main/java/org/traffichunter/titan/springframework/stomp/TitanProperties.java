@@ -2,6 +2,8 @@ package org.traffichunter.titan.springframework.stomp;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
 /**
  * Configuration properties for the Titan Spring STOMP client.
@@ -31,7 +33,7 @@ public final class TitanProperties {
 
     private int primaryThreads = 1;
 
-    private int secondaryThreads = Runtime.getRuntime().availableProcessors();
+    private int worker = Runtime.getRuntime().availableProcessors();
 
     private String host = "127.0.0.1";
 
@@ -89,16 +91,16 @@ public final class TitanProperties {
         this.primaryThreads = primaryThreads;
     }
 
-    public int getSecondaryThreads() {
-        return secondaryThreads;
+    public int getWorker() {
+        return worker;
     }
 
-    public void setSecondaryThreads(int secondaryThreads) {
-        if (secondaryThreads <= 0) {
-            this.secondaryThreads = Runtime.getRuntime().availableProcessors();
+    public void setWorker(int worker) {
+        if (worker <= 0) {
+            this.worker = Runtime.getRuntime().availableProcessors();
             return;
         }
-        this.secondaryThreads = secondaryThreads;
+        this.worker = worker;
     }
 
     public String getHost() {
@@ -280,4 +282,18 @@ public final class TitanProperties {
         WEBSOCKET,
     }
 
+    public StompSessionOption toStompSessionOption() {
+        return StompSessionOption.builder()
+                .version(StompVersion.STOMP_1_2)
+                .login(getLogin())
+                .passcode(getPasscode())
+                .virtualHost(getVirtualHost())
+                .heartbeatX(getHeartbeatX())
+                .heartbeatY(getHeartbeatY())
+                .maxFrameLength(getMaxFrameLength())
+                .autoComputeContentLength(isAutoComputeContentLength())
+                .useStompFrame(isUseStompFrame())
+                .bypassHostHeader(isBypassHostHeader())
+                .build();
+    }
 }
