@@ -96,13 +96,32 @@ public class InetClient extends AbstractTransport<NetChannel> {
         return this;
     }
 
+    /**
+     * Creates a WebSocket client view over this TCP client using the default upgrade path.
+     *
+     * <p>The returned wrapper owns WebSocket handshake and framing behavior, while this
+     * {@code InetClient} continues to own event loops, socket creation, TLS, and shutdown.</p>
+     *
+     * @param subProtocol application protocol advertised by the WebSocket handshake
+     * @return a WebSocket transport backed by this client
+     */
     @CanIgnoreReturnValue
-    public WebSocketClient upgradeWebsocket(Protocol subProtocol) {
+    public WebSocketClient upgradeWebSocket(Protocol subProtocol) {
         return new WebSocketClient(this, subProtocol);
     }
 
+    /**
+     * Creates a WebSocket client view using an explicit HTTP upgrade path.
+     *
+     * <p>No network exchange occurs here. The HTTP Upgrade request is sent when the returned
+     * client connects.</p>
+     *
+     * @param subProtocol application protocol advertised by the WebSocket handshake
+     * @param path HTTP request path, beginning with {@code /}
+     * @return a WebSocket transport backed by this client
+     */
     @CanIgnoreReturnValue
-    public WebSocketClient upgradeWebsocket(Protocol subProtocol, String path) {
+    public WebSocketClient upgradeWebSocket(Protocol subProtocol, String path) {
         return new WebSocketClient(this, subProtocol, path);
     }
 

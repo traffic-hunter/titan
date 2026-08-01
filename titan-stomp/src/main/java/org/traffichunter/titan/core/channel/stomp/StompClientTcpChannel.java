@@ -42,7 +42,7 @@ import org.traffichunter.titan.core.codec.stomp.StompSubscriptions;
 import org.traffichunter.titan.core.concurrent.Completable;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
@@ -60,7 +60,7 @@ public class StompClientTcpChannel implements StompClientChannel {
     private final String sessionId = IdGenerator.randomId16("session");
     private final NetChannel netChannel;
     private final StompClientHandler stompClientHandler;
-    private final StompClientOption option;
+    private final StompSessionOption option;
 
     private final StompSubscriptions<StompClientSubscription> subscriptions = new StompSubscriptions<>();
     private final Map<Long, ScheduledPromise<?>> pingPongTaskMap = new HashMap<>();
@@ -79,26 +79,26 @@ public class StompClientTcpChannel implements StompClientChannel {
 
     StompClientTcpChannel(
             ChannelHandShakeEventListener channelHandShakeEventListener,
-            StompClientOption option
+            StompSessionOption option
     ) throws IOException {
         this(NetChannel.open(channelHandShakeEventListener), option, handler -> {});
     }
 
     StompClientTcpChannel(
             ChannelHandShakeEventListener channelHandShakeEventListener,
-            StompClientOption option,
+            StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) throws IOException {
         this(NetChannel.open(channelHandShakeEventListener), option, clientHandlerConfigurer);
     }
 
-    StompClientTcpChannel(NetChannel netChannel, StompClientOption option) {
+    StompClientTcpChannel(NetChannel netChannel, StompSessionOption option) {
         this(netChannel, option, handler -> {});
     }
 
     StompClientTcpChannel(
             NetChannel netChannel,
-            StompClientOption option,
+            StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
         this.netChannel = netChannel;
@@ -130,7 +130,7 @@ public class StompClientTcpChannel implements StompClientChannel {
 
     @Override
     public String version() {
-        return option.stompVersion().getVersion();
+        return option.version().getVersion();
     }
 
     @Override

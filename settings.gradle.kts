@@ -4,6 +4,7 @@ include("bootstrap")
 include("core")
 include("monitor")
 include("titan-stomp")
+include("titan-client")
 
 include("benchmark")
 include("fanout")

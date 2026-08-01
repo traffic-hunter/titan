@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Protocol;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,7 +47,7 @@ class StompClientWebSocketChannelTest {
 
         StompClientChannel channel = StompClientChannel.wrap(
                 webSocketChannel,
-                StompClientOption.builder().build()
+                StompSessionOption.builder().build()
         );
 
         assertThat(channel).isInstanceOf(StompClientWebSocketChannel.class);

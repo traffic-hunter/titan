@@ -29,7 +29,7 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -43,14 +43,14 @@ public interface StompClientChannel extends StompChannel {
 
     static StompClientChannel open(
             ChannelHandShakeEventListener handShakeEventListener,
-            StompClientOption option
+            StompSessionOption option
     ) throws IOException {
         return open(handShakeEventListener, option, handler -> {});
     }
 
     static StompClientChannel open(
             ChannelHandShakeEventListener handShakeEventListener,
-            StompClientOption option,
+            StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) throws IOException {
         return new StompClientTcpChannel(handShakeEventListener, option, clientHandlerConfigurer);
@@ -58,14 +58,14 @@ public interface StompClientChannel extends StompChannel {
 
     static StompClientChannel wrap(
             NetChannel netChannel,
-            StompClientOption option
+            StompSessionOption option
     ) {
         return wrap(netChannel, option, handler -> {});
     }
 
     static StompClientChannel wrap(
             NetChannel netChannel,
-            StompClientOption option,
+            StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
         return new StompClientTcpChannel(netChannel, option, clientHandlerConfigurer);
@@ -73,14 +73,14 @@ public interface StompClientChannel extends StompChannel {
 
     static StompClientChannel wrap(
             WebSocketChannel webSocketChannel,
-            StompClientOption option
+            StompSessionOption option
     ) {
         return wrap(webSocketChannel, option, handler -> { });
     }
 
     static StompClientChannel wrap(
             WebSocketChannel webSocketChannel,
-            StompClientOption option,
+            StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
         return new StompClientWebSocketChannel(webSocketChannel, option, clientHandlerConfigurer);

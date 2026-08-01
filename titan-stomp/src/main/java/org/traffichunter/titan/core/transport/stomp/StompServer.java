@@ -40,7 +40,8 @@ import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.InetServer;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.transport.option.InetClientOption;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
@@ -57,7 +58,8 @@ public final class StompServer {
     private final StompServerOption option;
     private @Nullable String webSocketPath;
 
-    private StompClientOption childOption = StompClientOption.DEFAULT_STOMP_CLIENT_OPTION;
+    private StompSessionOption childOption = StompSessionOption.DEFAULT;
+    private InetClientOption childInetOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
     private Handler<StompServerHandler> stompServerHandler = handler -> {};
     private Handler<Channel> channelHandler = channel -> {};
     private @Nullable ScheduledPromise<?> inactiveConnectionCleanupTask;
@@ -83,8 +85,18 @@ public final class StompServer {
         return new StompServer(groups, inetServer, option);
     }
 
+    /**
+     * Selects WebSocket as the transport for accepted STOMP sessions.
+     *
+     * <p>This method records server configuration only. The underlying {@link InetServer} installs
+     * HTTP Upgrade handling during {@link #start()}, and the STOMP decoder receives bytes only
+     * after the WebSocket handshake succeeds.</p>
+     *
+     * @param path HTTP upgrade path, beginning with {@code /}
+     * @return this server
+     */
     @CanIgnoreReturnValue
-    public StompServer upgradeWebsocket(String path) {
+    public StompServer webSocket(String path) {
         if (inetServer.isStarted()) {
             throw new IllegalStateException("Cannot change STOMP server transport after start");
         }
@@ -95,9 +107,27 @@ public final class StompServer {
         return this;
     }
 
+    /**
+     * Configures STOMP framing and session negotiation for accepted client channels.
+     *
+     * @param option child session settings; socket settings are configured separately
+     * @return this server
+     */
     @CanIgnoreReturnValue
-    public StompServer childOption(StompClientOption option) {
+    public StompServer childOption(StompSessionOption option) {
         this.childOption = Assert.checkNotNull(option, "option");
+        return this;
+    }
+
+    /**
+     * Configures socket options applied to accepted client channels.
+     *
+     * @param option child socket options such as TCP no-delay and keep-alive
+     * @return this server
+     */
+    @CanIgnoreReturnValue
+    public StompServer childInetOption(InetClientOption option) {
+        this.childInetOption = Assert.checkNotNull(option, "option");
         return this;
     }
 
@@ -119,12 +149,12 @@ public final class StompServer {
             throw new StompException("Server has been shut down");
         }
 
-        StompClientOption stompClientOption = serverChildSessionOption(option, childOption);
+        StompSessionOption stompClientOption = serverChildSessionOption(option, childOption);
         StompServerHandler stompServerHandler = new StompServerHandlerImpl(serverConnection);
         this.stompServerHandler.handle(stompServerHandler);
 
         inetServer.option(option.inetServerOption())
-                .childOption(childOption.inetClientOption())
+                .childOption(childInetOption)
                 .onChannel(channel -> {
                     if (!(channel instanceof NetChannel netChannel)) {
                         throw new IllegalArgumentException("Unsupported channel: " + channel);
@@ -147,7 +177,7 @@ public final class StompServer {
 
         String path = webSocketPath;
         if (path != null) {
-            inetServer.upgradeWebsocket(path);
+            inetServer.upgradeWebSocket(path);
         }
 
         inetServer.start();
@@ -226,8 +256,8 @@ public final class StompServer {
                 });
     }
 
-    private static StompClientOption serverChildSessionOption(StompServerOption option, StompClientOption childOption) {
-        return StompClientOption.builder()
+    private static StompSessionOption serverChildSessionOption(StompServerOption option, StompSessionOption childOption) {
+        return StompSessionOption.builder()
                 .version(option.stompVersion())
                 .autoComputeContentLength(childOption.autoComputeContentLength())
                 .heartbeatX(option.heartbeatX())

@@ -29,6 +29,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,12 +37,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
-import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.fanout.DispatchGateway;
 import org.traffichunter.titan.fanout.StompSendToFanoutHandler;
@@ -66,40 +65,33 @@ class TitanFanoutSmokeTest {
         DispatchGateway dispatchGateway = DispatchGateway.ofVirtual(new StompDispatchExporter(server.connection()));
         server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(dispatchGateway)));
 
-        EventLoopGroups producerGroups = EventLoopGroups.group(1, 2);
-        EventLoopGroups firstConsumerGroups = EventLoopGroups.group(1, 2);
-        EventLoopGroups secondConsumerGroups = EventLoopGroups.group(1, 2);
-        TitanStompClient producer = null;
-        TitanStompClient firstConsumer = null;
-        TitanStompClient secondConsumer = null;
+        TitanClient producer = null;
+        TitanClient firstConsumer = null;
+        TitanClient secondConsumer = null;
 
         try {
             server.start();
             server.listen(HOST, 0).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             int port = boundPort(server);
 
-            producer = newStompClient(producerGroups, port);
-            firstConsumer = newStompClient(firstConsumerGroups, port);
-            secondConsumer = newStompClient(secondConsumerGroups, port);
+            producer = newStompClient(2, port);
+            firstConsumer = newStompClient(2, port);
+            secondConsumer = newStompClient(2, port);
 
             producer.start();
             firstConsumer.start();
             secondConsumer.start();
 
-            StompClientChannel producerConnection = connect(producer, port);
-            StompClientChannel firstConsumerConnection = connect(firstConsumer, port);
-            StompClientChannel secondConsumerConnection = connect(secondConsumer, port);
+            TitanClient producerConnection = connect(producer);
+            TitanClient firstConsumerConnection = connect(firstConsumer);
+            TitanClient secondConsumerConnection = connect(secondConsumer);
 
-            StompHeaders firstSubscribeHeaders = StompHeaders.create();
-            firstSubscribeHeaders.put(ID, "smoke-fanout-first");
-            firstConsumerConnection.subscribe(FANOUT_DESTINATION, firstSubscribeHeaders, frame -> {
+            firstConsumerConnection.subscribe(FANOUT_DESTINATION, Map.of(ID, "smoke-fanout-first"), frame -> {
                 firstPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
                 received.countDown();
             }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-            StompHeaders secondSubscribeHeaders = StompHeaders.create();
-            secondSubscribeHeaders.put(ID, "smoke-fanout-second");
-            secondConsumerConnection.subscribe(FANOUT_DESTINATION, secondSubscribeHeaders, frame -> {
+            secondConsumerConnection.subscribe(FANOUT_DESTINATION, Map.of(ID, "smoke-fanout-second"), frame -> {
                 secondPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
                 received.countDown();
             }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
@@ -128,17 +120,20 @@ class TitanFanoutSmokeTest {
                 .build();
     }
 
-    private static TitanStompClient newStompClient(EventLoopGroups groups, int port) {
-        return TitanStompClient.open(groups, StompClientOption.builder()
+    private static TitanClient newStompClient(int workers, int port) {
+        return TitanClient.builder()
+                .worker(workers)
                 .host(HOST)
                 .port(port)
-                .heartbeatX(0L)
-                .heartbeatY(0L)
-                .build());
+                .session(StompSessionOption.builder()
+                        .heartbeatX(0L)
+                        .heartbeatY(0L)
+                        .build())
+                .build();
     }
 
-    private static StompClientChannel connect(TitanStompClient client, int port) throws Exception {
-        return client.connect(HOST, port, TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+    private static TitanClient connect(TitanClient client) throws Exception {
+        return client.connect()
                 .get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
@@ -149,7 +144,7 @@ class TitanFanoutSmokeTest {
         return ((InetSocketAddress) localAddress).getPort();
     }
 
-    private static void shutdown(TitanStompClient client) {
+    private static void shutdown(TitanClient client) {
         if (client != null && client.isStarted()) {
             client.shutdown(10, TimeUnit.SECONDS);
         }

@@ -35,11 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
- * <h3>
- * DEPRECATED
- * </h3>
- *
- * ByteBuf allocator that wraps allocated buffers with a cleaner-backed release guard.
+ * <strong>Deprecated.</strong> ByteBuf allocator that wraps allocated buffers with a
+ * cleaner-backed release guard.
  *
  * <p>The wrapper does not replace normal reference-count ownership. Callers should still
  * release buffers explicitly. The cleaner is a last-resort safety net for buffers that become
