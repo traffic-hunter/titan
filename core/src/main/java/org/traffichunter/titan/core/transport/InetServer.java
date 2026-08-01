@@ -111,7 +111,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         if (isStarted()) {
             throw new IllegalStateException("Cannot configure TLS after server start");
         }
-        if (tlsContext.options().side() != TlsSide.SERVER) {
+        if (tlsContext.side() != TlsSide.SERVER) {
             throw new IllegalStateException("InetServer requires a server-side TLS context");
         }
 
@@ -262,7 +262,8 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         bind(address).addListener(future -> {
             if (!future.isSuccess()) {
                 state.compareAndSet(State.LISTENING, State.STARTED);
-                resultPromise.fail(future.error());
+                Throwable error = future.error();
+                resultPromise.fail(error != null ? error : new ServerException("Server bind failed without error"));
                 return;
             }
 

@@ -37,11 +37,44 @@ import java.security.SecureRandom;
 public final class JdkTlsContext implements TlsContext {
 
     private final SSLContext sslContext;
-    private final TlsOptions options;
+    private final TlsSide side;
+    private final String[] enabledProtocols;
+    private final String[] enabledCiphers;
+    private final TlsClientAuth clientAuth;
+    private final boolean verifyHostname;
 
     public JdkTlsContext(TlsOptions options) {
-        this.sslContext = createSslContext(options);
-        this.options = options;
+        this(
+                createSslContext(options),
+                options.side(),
+                TlsVersion.values(options.versions()),
+                options.ciphers(),
+                options.clientAuth(),
+                options.verifyHostname()
+        );
+    }
+
+    private JdkTlsContext(
+            SSLContext sslContext,
+            TlsSide side,
+            String[] enabledProtocols,
+            String[] enabledCiphers,
+            TlsClientAuth clientAuth,
+            boolean verifyHostname
+    ) {
+        if (enabledProtocols.length == 0) {
+            throw new NetSecureException("At least one TLS version is required");
+        }
+        if (side == TlsSide.CLIENT && clientAuth != TlsClientAuth.NONE) {
+            throw new NetSecureException("TLS client cannot configure server-side client authentication");
+        }
+
+        this.sslContext = sslContext;
+        this.side = side;
+        this.enabledProtocols = enabledProtocols.clone();
+        this.enabledCiphers = enabledCiphers.clone();
+        this.clientAuth = clientAuth;
+        this.verifyHostname = verifyHostname;
     }
 
     @Override
@@ -53,20 +86,22 @@ public final class JdkTlsContext implements TlsContext {
     public TlsHandler newHandler(String peerHost, int peerPort, TlsTaskExecutor taskExecutor) {
         SSLEngine engine = sslContext.createSSLEngine(peerHost, peerPort);
 
-        TlsSide tlsSide = options.side();
-        boolean isClient = tlsSide == TlsSide.CLIENT;
+        boolean isClient = side == TlsSide.CLIENT;
         engine.setUseClientMode(isClient);
-        engine.setEnabledProtocols(TlsVersion.values(options.versions()));
+        engine.setEnabledProtocols(enabledProtocols);
+        if (enabledCiphers.length > 0) {
+            engine.setEnabledCipherSuites(enabledCiphers);
+        }
 
         SSLParameters sslParameters = engine.getSSLParameters();
 
-        if (isClient && options.verifyHostname()) {
+        if (isClient && verifyHostname) {
             sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
         }
 
         // server
         if (!isClient) {
-            switch (options.clientAuth()) {
+            switch (clientAuth) {
                 case NONE -> {
                     sslParameters.setWantClientAuth(false);
                     sslParameters.setNeedClientAuth(false);
@@ -81,8 +116,8 @@ public final class JdkTlsContext implements TlsContext {
     }
 
     @Override
-    public TlsOptions options() {
-        return options;
+    public TlsSide side() {
+        return side;
     }
 
     @Override
@@ -94,9 +129,16 @@ public final class JdkTlsContext implements TlsContext {
         validate(options);
 
         try {
-            JdkKeyManager manager = new JdkKeyManager(options);
-            KeyManager[] keyManagers = manager.keyManagers();
-            TrustManager[] trustManagers = manager.trustManagers();
+            KeyManager[] keyManagers;
+            TrustManager[] trustManagers;
+            if (options.usesManagers()) {
+                keyManagers = options.keyManagers();
+                trustManagers = options.trustManagers();
+            } else {
+                JdkKeyManager manager = new JdkKeyManager(options);
+                keyManagers = manager.keyManagers();
+                trustManagers = manager.trustManagers();
+            }
 
             SSLContext context = SSLContext.getInstance("TLS");
             context.init(keyManagers, trustManagers, new SecureRandom());

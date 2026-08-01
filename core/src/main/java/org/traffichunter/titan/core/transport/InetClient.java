@@ -111,7 +111,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
         if (isStarted()) {
             throw new IllegalStateException("TLS context already started");
         }
-        if (tlsContext.options().side() != TlsSide.CLIENT) {
+        if (tlsContext.side() != TlsSide.CLIENT) {
             throw new IllegalStateException("InetClient requires a client-side TLS context");
         }
 

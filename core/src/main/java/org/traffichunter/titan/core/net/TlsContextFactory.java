@@ -34,18 +34,18 @@ import java.util.Locale;
 public final class TlsContextFactory {
 
     public static TlsContext create(ServerSettings.TlsSettings settings) {
-        TlsOptions options = new TlsOptions(
-                TlsSide.valueOf(settings.side().toUpperCase(Locale.ROOT)),
-                TlsVersion.values(),
-                TlsClientAuth.valueOf(
-                        settings.clientAuth().toUpperCase(Locale.ROOT)
-                ),
-                Path.of(settings.path()),
-                settings.type(),
-                settings.storePassword(),
-                settings.keyPassword(),
-                settings.verifyHostname()
-        );
+        TlsOptions options = TlsOptions.builder()
+                .side(TlsSide.valueOf(settings.side().toUpperCase(Locale.ROOT)))
+                .versions(TlsVersion.values())
+                .clientAuth(TlsClientAuth.valueOf(settings.clientAuth().toUpperCase(Locale.ROOT)))
+                .keyStore(
+                        Path.of(settings.path()),
+                        settings.type(),
+                        settings.storePassword(),
+                        settings.keyPassword()
+                )
+                .verifyHostname(settings.verifyHostname())
+                .build();
 
         return new JdkTlsContext(options);
     }
