@@ -49,7 +49,7 @@ class StompWebSocketIntegrationTest {
                 EventLoopGroups.group(1, 1),
                 StompServerOption.builder().build()
         ).webSocket("/stomp");
-        TitanStompClient client = TitanStompClient.open(
+        TitanStompClientDriver client = new TitanStompClientDriver(
                 EventLoopGroups.group(1, 1),
                 ClientConfiguration.builder().webSocket("/stomp").build()
         );
@@ -68,9 +68,7 @@ class StompWebSocketIntegrationTest {
                     .singleElement()
                     .isInstanceOf(StompClientWebSocketChannel.class);
         } finally {
-            if (!client.isShutdown()) {
-                client.shutdown();
-            }
+            client.close();
             if (!server.isShutdown()) {
                 server.shutdown();
             }
@@ -88,20 +86,20 @@ class StompWebSocketIntegrationTest {
             server.start();
             server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
             int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
-            VertxStompClient client = VertxStompClient.open(
-                    ClientConfiguration.builder()
-                            .host("localhost")
-                            .port(port)
-                            .webSocket("/stomp")
-                            .build()
-            );
+            ClientConfiguration configuration = ClientConfiguration.builder()
+                    .host("localhost")
+                    .port(port)
+                    .webSocket("/stomp")
+                    .build();
+            VertxStompClientDriver driver = new VertxStompClientDriver(configuration);
+            DefaultTitanClient client = new DefaultTitanClient(driver);
 
             try {
                 client.start();
                 client.connect().get(5, TimeUnit.SECONDS);
 
-                assertThat(client.connection().isConnected()).isTrue();
-                assertThat(client.channel().isConnected()).isTrue();
+                assertThat(client.isConnected()).isTrue();
+                assertThat(driver.channel().isConnected()).isTrue();
                 assertThat(server.connection().connections()).hasSize(1);
             } finally {
                 if (!client.isShutdown()) {
@@ -122,7 +120,7 @@ class StompWebSocketIntegrationTest {
                 EventLoopGroups.group(1, 1),
                 StompServerOption.builder().build()
         ).webSocket("/stomp");
-        TitanStompClient client = TitanStompClient.open(
+        TitanStompClientDriver client = new TitanStompClientDriver(
                 EventLoopGroups.group(1, 1),
                 ClientConfiguration.builder().webSocket("/wrong").build()
         );
@@ -137,9 +135,7 @@ class StompWebSocketIntegrationTest {
                     .hasRootCauseInstanceOf(WebSocketHandshakeException.class);
             assertThat(server.connection().connections()).isEmpty();
         } finally {
-            if (!client.isShutdown()) {
-                client.shutdown();
-            }
+            client.close();
             if (!server.isShutdown()) {
                 server.shutdown();
             }

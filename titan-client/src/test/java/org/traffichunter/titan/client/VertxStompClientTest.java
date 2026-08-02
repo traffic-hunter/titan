@@ -6,7 +6,6 @@ import io.vertx.ext.stomp.StompClientConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -26,7 +25,8 @@ import static org.mockito.Mockito.when;
 
 class VertxStompClientTest {
 
-    private VertxStompClient client;
+    private DefaultTitanClient client;
+    private VertxStompClientDriver driver;
     private Vertx vertx;
 
     @AfterEach
@@ -41,11 +41,12 @@ class VertxStompClientTest {
 
     @Test
     void rejects_connect_before_start() {
-        client = VertxStompClient.open(ClientConfiguration.builder().build());
+        driver = new VertxStompClientDriver(ClientConfiguration.builder().build());
+        client = new DefaultTitanClient(driver);
 
         assertThatThrownBy(() -> client.connect().get())
                 .isInstanceOf(ExecutionException.class)
-                .hasCauseInstanceOf(StompException.class)
+                .hasCauseInstanceOf(ClientException.class)
                 .hasRootCauseMessage("Client is not started");
     }
 
@@ -65,12 +66,16 @@ class VertxStompClientTest {
         when(nativeClient.connect(61613, "127.0.0.1"))
                 .thenReturn(io.vertx.core.Future.succeededFuture(nativeConnection));
 
-        client = VertxStompClient.wrap(nativeClient, option);
+        driver = VertxStompClientDriver.wrap(nativeClient, option);
+        client = new DefaultTitanClient(driver);
+        client.start();
 
-        StompConnection stompConnection = client.connectConnection().get();
+        TitanClient connectedClient = client.connect().get();
+        StompConnection stompConnection = client.connection();
 
+        assertThat(connectedClient).isSameAs(client);
         assertThat(stompConnection).isInstanceOf(VertxStompConnection.class);
-        assertThat(client.channel()).isSameAs(nativeConnection);
+        assertThat(driver.channel()).isSameAs(nativeConnection);
         assertThat(client.connection()).isSameAs(stompConnection);
     }
 
@@ -88,12 +93,14 @@ class VertxStompClientTest {
                 .thenReturn(io.vertx.core.Future.succeededFuture(connection));
         when(connection.isConnected()).thenReturn(true);
 
-        client = VertxStompClient.wrap(nativeClient, option);
+        driver = VertxStompClientDriver.wrap(nativeClient, option);
+        client = new DefaultTitanClient(driver);
+        client.start();
         client.connect().get();
 
         assertThatThrownBy(() -> client.connect().get())
                 .isInstanceOf(ExecutionException.class)
-                .hasCauseInstanceOf(StompException.class);
+                .hasCauseInstanceOf(ClientException.class);
     }
 
     @Test
@@ -106,7 +113,9 @@ class VertxStompClientTest {
         when(nativeClient.isClosed()).thenReturn(false);
         when(nativeClient.close()).thenReturn(io.vertx.core.Future.succeededFuture());
 
-        client = VertxStompClient.wrap(nativeClient, option);
+        driver = VertxStompClientDriver.wrap(nativeClient, option);
+        client = new DefaultTitanClient(driver);
+        client.start();
 
         client.shutdown(1, TimeUnit.SECONDS);
 
@@ -132,18 +141,21 @@ class VertxStompClientTest {
         when(restoredConnection.send(eq("/queue/reconnected"), any(io.vertx.core.buffer.Buffer.class)))
                 .thenReturn(io.vertx.core.Future.succeededFuture(mock(Frame.class)));
 
-        client = VertxStompClient.wrap(nativeClient, option);
-        StompConnection initialConnection = client.connectConnection().get();
+        driver = VertxStompClientDriver.wrap(nativeClient, option);
+        client = new DefaultTitanClient(driver);
+        client.start();
+        client.connect().get();
+        StompConnection initialConnection = client.connection();
 
         connectionDroppedHandler(firstConnection).handle(firstConnection);
 
         verify(nativeClient, timeout(1000).times(3)).connect(option.port(), option.host());
-        assertThat(client.channel()).isSameAs(restoredConnection);
-        assertThat(client.connection()).isSameAs(initialConnection);
+        assertThat(driver.channel()).isSameAs(restoredConnection);
+        assertThat(client.connection()).isNotSameAs(initialConnection);
 
         Buffer payload = Buffer.alloc("message");
         try {
-            initialConnection.send("/queue/reconnected", payload).get();
+            client.send("/queue/reconnected", payload).get();
         } finally {
             payload.release();
         }
@@ -165,7 +177,9 @@ class VertxStompClientTest {
                 .thenReturn(io.vertx.core.Future.succeededFuture(nativeConnection))
                 .thenReturn(io.vertx.core.Future.succeededFuture(restoredConnection));
 
-        client = VertxStompClient.wrap(nativeClient, option);
+        driver = VertxStompClientDriver.wrap(nativeClient, option);
+        client = new DefaultTitanClient(driver);
+        client.start();
         client.connect().get();
 
         io.vertx.core.Handler<StompClientConnection> dropped = connectionDroppedHandler(nativeConnection);
@@ -190,9 +204,11 @@ class VertxStompClientTest {
                 .thenReturn(io.vertx.core.Future.succeededFuture(nativeConnection));
         when(nativeConnection.disconnect()).thenReturn(io.vertx.core.Future.succeededFuture());
 
-        client = VertxStompClient.wrap(nativeClient, option);
-        StompConnection stompConnection = client.connectConnection().get();
-        stompConnection.disconnect().get();
+        driver = VertxStompClientDriver.wrap(nativeClient, option);
+        client = new DefaultTitanClient(driver);
+        client.start();
+        client.connect().get();
+        client.disconnect().get();
 
         closeHandler(nativeConnection).handle(nativeConnection);
 

@@ -36,20 +36,19 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Stable connection facade over a replaceable Vert.x STOMP connection.
+ * Transport-neutral adapter for a Vert.x STOMP client connection.
  *
- * <p>The facade keeps transport-neutral handlers registered across reconnects. Identity checks
- * prevent late callbacks from the previous Vert.x connection from changing current client
- * state.</p>
+ * <p>The adapter converts Titan buffers and headers to Vert.x values, wraps received frames in the
+ * common {@link StompFrames} contract, and bridges Vert.x futures to {@link CompletableFuture}.
+ * Identity checks prevent callbacks from a superseded native connection from reaching the
+ * logical client.</p>
  *
  * @author yun
  */
 final class VertxStompConnection implements StompConnection {
 
     private volatile StompClientConnection connection;
-    private final Runnable beforeDisconnect;
     private final Handler<StompConnection> connectionLostHandler;
-    private final Handler<Throwable> internalExceptionHandler;
     private volatile Handler<StompFrames> errorHandler = frame -> {};
     private volatile Handler<StompConnection> closeHandler = operations -> {};
     private volatile Handler<StompConnection> connectionDroppedHandler = operations -> {};
@@ -57,19 +56,15 @@ final class VertxStompConnection implements StompConnection {
     private volatile Handler<Throwable> exceptionHandler = error -> {};
 
     public VertxStompConnection(StompClientConnection connection) {
-        this(connection, () -> {}, operations -> {}, error -> {});
+        this(connection, operations -> {});
     }
 
     public VertxStompConnection(
             StompClientConnection connection,
-            Runnable beforeDisconnect,
-            Handler<StompConnection> connectionLostHandler,
-            Handler<Throwable> internalExceptionHandler
+            Handler<StompConnection> connectionLostHandler
     ) {
         this.connection = connection;
-        this.beforeDisconnect = beforeDisconnect;
         this.connectionLostHandler = connectionLostHandler;
-        this.internalExceptionHandler = internalExceptionHandler;
         installHandlers(connection);
     }
 
@@ -98,7 +93,6 @@ final class VertxStompConnection implements StompConnection {
             if (this.connection != connection) {
                 return;
             }
-            internalExceptionHandler.handle(error);
             exceptionHandler.handle(error);
         });
         connection.errorHandler(frame -> errorHandler.handle(VertxStompFrame.wrap(frame)));
@@ -162,7 +156,6 @@ final class VertxStompConnection implements StompConnection {
 
     @Override
     public CompletableFuture<StompFrames> disconnect() {
-        beforeDisconnect.run();
         return toFuture(connection.disconnect());
     }
 

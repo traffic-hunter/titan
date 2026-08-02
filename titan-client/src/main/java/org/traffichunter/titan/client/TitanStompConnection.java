@@ -36,20 +36,19 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Stable connection facade over a replaceable Titan native STOMP channel.
+ * Transport-neutral adapter for a Titan native STOMP client channel.
  *
- * <p>User handlers are stored on this object rather than on one physical connection. After a
- * reconnect, {@link #replace(StompClientChannel)} installs those handlers on the new channel and
- * callbacks from an obsolete channel are ignored by identity checks.</p>
+ * <p>The adapter maps Titan {@code Promise} results and native STOMP frames to the
+ * {@link CompletableFuture}-based {@link StompConnection} contract. Handler callbacks are bound
+ * to the current native channel, and identity checks prevent late callbacks from a superseded
+ * channel from being forwarded.</p>
  *
  * @author yun
  */
 final class TitanStompConnection implements StompConnection {
 
     private volatile StompClientChannel connection;
-    private final Runnable beforeDisconnect;
     private final Handler<StompConnection> connectionLostHandler;
-    private final Handler<Throwable> internalExceptionHandler;
     private volatile Handler<StompFrames> errorHandler = frame -> {};
     private volatile Handler<StompConnection> closeHandler = operations -> {};
     private volatile Handler<StompConnection> connectionDroppedHandler = operations -> {};
@@ -57,56 +56,16 @@ final class TitanStompConnection implements StompConnection {
     private volatile Handler<Throwable> exceptionHandler = error -> {};
 
     public TitanStompConnection(StompClientChannel connection) {
-        this(connection, () -> {}, operations -> {}, error -> {});
+        this(connection, operations -> {});
     }
 
     public TitanStompConnection(
             StompClientChannel connection,
-            Runnable beforeDisconnect,
-            Handler<StompConnection> connectionLostHandler,
-            Handler<Throwable> internalExceptionHandler
+            Handler<StompConnection> connectionLostHandler
     ) {
         this.connection = connection;
-        this.beforeDisconnect = beforeDisconnect;
         this.connectionLostHandler = connectionLostHandler;
-        this.internalExceptionHandler = internalExceptionHandler;
         installHandlers(connection);
-    }
-
-    /** Rebinds this facade to a newly negotiated native channel after reconnect. */
-    void replace(StompClientChannel connection) {
-        this.connection = connection;
-        installHandlers(connection);
-    }
-
-    private void installHandlers(StompClientChannel connection) {
-        connection.closeHandler(ignored -> {
-            if (this.connection != connection) {
-                return;
-            }
-            connectionLostHandler.handle(this);
-            closeHandler.handle(this);
-        });
-        connection.connectionDroppedHandler(ignored -> {
-            if (this.connection != connection) {
-                return;
-            }
-            connectionLostHandler.handle(this);
-            connectionDroppedHandler.handle(this);
-        });
-        connection.exceptionHandler(error -> {
-            if (this.connection != connection) {
-                return;
-            }
-            internalExceptionHandler.handle(error);
-            exceptionHandler.handle(error);
-        });
-        connection.handler().errorHandler((event, context) -> {
-            errorHandler.handle(event.frame());
-            event.connection().failConnect(new StompException("Received ERROR frame from server"));
-            event.connection().error(event.frame());
-        });
-        connection.handler().pingHandler((event, context) -> pingHandler.handle(this));
     }
 
     @Override
@@ -174,7 +133,6 @@ final class TitanStompConnection implements StompConnection {
 
     @Override
     public CompletableFuture<StompFrames> disconnect() {
-        beforeDisconnect.run();
         return connection.disconnect()
                 .map(StompFrames::from)
                 .toCompletableFuture();
@@ -215,6 +173,12 @@ final class TitanStompConnection implements StompConnection {
         return connection.isConnected();
     }
 
+    /** Rebinds this facade to a newly negotiated native channel after reconnect. */
+    void replace(StompClientChannel connection) {
+        this.connection = connection;
+        installHandlers(connection);
+    }
+
     private static StompHeaders toHeaders(Map<Elements, String> headers) {
         StompHeaders stompHeaders = StompHeaders.create();
         headers.forEach(stompHeaders::put);
@@ -223,5 +187,34 @@ final class TitanStompConnection implements StompConnection {
 
     private static void validateDestination(String destination) {
         Destination.create(destination);
+    }
+
+    private void installHandlers(StompClientChannel connection) {
+        connection.closeHandler(ignored -> {
+            if (this.connection != connection) {
+                return;
+            }
+            connectionLostHandler.handle(this);
+            closeHandler.handle(this);
+        });
+        connection.connectionDroppedHandler(ignored -> {
+            if (this.connection != connection) {
+                return;
+            }
+            connectionLostHandler.handle(this);
+            connectionDroppedHandler.handle(this);
+        });
+        connection.exceptionHandler(error -> {
+            if (this.connection != connection) {
+                return;
+            }
+            exceptionHandler.handle(error);
+        });
+        connection.handler().errorHandler((event, context) -> {
+            errorHandler.handle(event.frame());
+            event.connection().failConnect(new StompException("Received ERROR frame from server"));
+            event.connection().error(event.frame());
+        });
+        connection.handler().pingHandler((event, context) -> pingHandler.handle(this));
     }
 }

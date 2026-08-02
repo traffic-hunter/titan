@@ -57,8 +57,10 @@ class TitanClientBuilderTest {
                 .connectTimeout(Duration.ofSeconds(2))
                 .build();
 
-        assertThat(client).isInstanceOf(TitanStompClient.class);
-        ClientConfiguration configuration = ((TitanStompClient) client).option();
+        assertThat(client).isInstanceOf(DefaultTitanClient.class);
+        DefaultTitanClient defaultClient = (DefaultTitanClient) client;
+        assertThat(defaultClient.driver()).isInstanceOf(TitanStompClientDriver.class);
+        ClientConfiguration configuration = defaultClient.configuration();
         assertThat(configuration.host()).isEqualTo("localhost");
         assertThat(configuration.port()).isEqualTo(61614);
         assertThat(configuration.login()).isEqualTo("user");
@@ -100,7 +102,7 @@ class TitanClientBuilderTest {
                 .build();
 
         try {
-            assertThat(((TitanStompClient) client).option().tlsContext()).isSameAs(tlsContext);
+            assertThat(((DefaultTitanClient) client).configuration().tlsContext()).isSameAs(tlsContext);
         } finally {
             client.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
         }
@@ -125,7 +127,7 @@ class TitanClientBuilderTest {
                 .build();
 
         try {
-            assertThat(((TitanStompClient) client).option().webSocketPath()).isEqualTo("/stomp");
+            assertThat(((DefaultTitanClient) client).configuration().webSocketPath()).isEqualTo("/stomp");
         } finally {
             client.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
         }

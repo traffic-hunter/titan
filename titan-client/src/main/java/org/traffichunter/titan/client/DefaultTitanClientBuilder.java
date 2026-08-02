@@ -149,14 +149,14 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
                 webSocketPath
         );
 
-        TitanClient client;
+        StompClientDriver driver;
         if (implementation == TitanClient.Implementation.VERTX) {
-            client = VertxStompClient.open(option);
+            driver = new VertxStompClientDriver(option);
         } else {
             // A client only needs secondary I/O loops; it never accepts inbound connections.
-            client = TitanStompClient.open(EventLoopGroups.group(workers), option);
+            driver = new TitanStompClientDriver(EventLoopGroups.group(workers), option);
         }
 
-        return client;
+        return new DefaultTitanClient(driver);
     }
 }

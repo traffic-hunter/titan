@@ -51,17 +51,17 @@ class StompReconnectIntegrationTest {
     void client_reconnects_after_server_restart() throws Exception {
         StompServer server = startServer(0);
         int port = localPort(server);
-        TitanStompClient client = startClient(port);
+        DefaultTitanClient client = startClient(port);
 
         try {
-            StompConnection initialConnection = client.connectConnection().get(3, SECONDS);
+            client.connect().get(3, SECONDS);
             StompServer initialServer = server;
             await().atMost(10, SECONDS)
                     .untilAsserted(() -> assertThat(initialServer.connection().connections()).hasSize(1));
 
             server.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
             await().atMost(10, SECONDS)
-                    .untilAsserted(() -> assertThat(initialConnection.isConnected()).isFalse());
+                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
 
             server = startServer(port);
 
@@ -69,8 +69,7 @@ class StompReconnectIntegrationTest {
             await().atMost(10, SECONDS)
                     .untilAsserted(() -> {
                         assertThat(restartedServer.connection().connections()).hasSize(1);
-                        assertThat(client.connection()).isSameAs(initialConnection);
-                        assertThat(client.connection().isConnected()).isTrue();
+                        assertThat(client.isConnected()).isTrue();
                     });
         } finally {
             client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
@@ -94,7 +93,7 @@ class StompReconnectIntegrationTest {
         return server;
     }
 
-    private static TitanStompClient startClient(int port) {
+    private static DefaultTitanClient startClient(int port) {
         ClientConfiguration option = ClientConfiguration.builder()
                 .host(HOST)
                 .port(port)
@@ -103,7 +102,9 @@ class StompReconnectIntegrationTest {
                         Duration.ofMillis(10)
                 ))
                 .build();
-        TitanStompClient client = TitanStompClient.open(EventLoopGroups.singleGroup(), option);
+        DefaultTitanClient client = new DefaultTitanClient(
+                new TitanStompClientDriver(EventLoopGroups.singleGroup(), option)
+        );
         client.start();
         return client;
     }

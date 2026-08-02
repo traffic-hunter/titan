@@ -75,7 +75,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_client_can_connect_to_server_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -85,26 +85,24 @@ class StompIntegrationTest {
             assertThat(client.channel().session()).isNotNull();
             assertThat(client.remoteAddress()).isNotNull();
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
     @RepeatedTest(5)
     void stomp_reconnect_cycle_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
-            client.connect(testServer.host(), testServer.port())
-                    .get(3, TimeUnit.SECONDS)
-                    .send(StompFrame.PING)
-                    .get(3, TimeUnit.SECONDS);
+            client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
+            client.channel().send(StompFrame.PING).get(3, TimeUnit.SECONDS);
 
-            client.shutdown();
+            client.close();
             assertThat(client.isClosed()).isTrue();
         } finally {
             if (!client.isClosed()) {
-                client.shutdown();
+                client.close();
             }
         }
     }
@@ -113,15 +111,14 @@ class StompIntegrationTest {
 
     @RepeatedTest(10)
     void stomp_ping_pong_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
-            client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS)
-                    .send(StompFrame.PING)
-                    .get(3, TimeUnit.SECONDS);
+            client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
+            client.channel().send(StompFrame.PING).get(3, TimeUnit.SECONDS);
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
@@ -129,7 +126,7 @@ class StompIntegrationTest {
     void stomp_send_with_text_body_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
         Destination key = Destination.create("/queue/test");
         DispatcherQueue queue = dispatcher.getOrPut(key);
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -143,7 +140,7 @@ class StompIntegrationTest {
             assertThat(result.body()).isNotNull();
             assertThat(new String(result.body(), StandardCharsets.UTF_8)).isEqualTo("Hello STOMP!");
         } finally {
-            client.shutdown();
+            client.close();
             dispatcher.remove(key);
         }
     }
@@ -159,7 +156,7 @@ class StompIntegrationTest {
         AtomicReference<StompFrame> receivedFrame = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -187,7 +184,7 @@ class StompIntegrationTest {
                 assertThat(receivedFrame.get().getCommand()).isEqualTo(StompCommand.MESSAGE);
             }
         } finally {
-            client.shutdown();
+            client.close();
             dispatcher.remove(key);
         }
     }
@@ -197,7 +194,7 @@ class StompIntegrationTest {
         Destination key = Destination.create("/topic/unsub");
         DispatcherQueue queue = dispatcher.getOrPut(key);
 
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -217,7 +214,7 @@ class StompIntegrationTest {
 
             assertThat(client.channel().subscriptions()).hasSize(0);
         } finally {
-            client.shutdown();
+            client.close();
             dispatcher.remove(key);
         }
     }
@@ -231,7 +228,7 @@ class StompIntegrationTest {
         dispatcher.getOrPut(key2);
         dispatcher.getOrPut(key3);
 
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -254,7 +251,7 @@ class StompIntegrationTest {
 
             assertThat(client.channel().subscriptions()).hasSize(3);
         } finally {
-            client.shutdown();
+            client.close();
             dispatcher.remove(key1);
             dispatcher.remove(key2);
             dispatcher.remove(key3);
@@ -265,33 +262,33 @@ class StompIntegrationTest {
 
     @Test
     void stomp_ack_command_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
             client.channel().ack("msg-1").get(3, TimeUnit.SECONDS);
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
     @Test
     void stomp_nack_command_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
             client.channel().nack("msg-2").get(3, TimeUnit.SECONDS);
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
     @Test
     void stomp_ack_within_transaction_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -317,13 +314,13 @@ class StompIntegrationTest {
         } finally {
             testServer.server().connection().connections()
                     .forEach(connection -> Transactions.getInstance().removeTransactions(connection));
-            client.shutdown();
+            client.close();
         }
     }
 
     @Test
     void stomp_nack_within_transaction_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -349,7 +346,7 @@ class StompIntegrationTest {
         } finally {
             testServer.server().connection().connections()
                     .forEach(connection -> Transactions.getInstance().removeTransactions(connection));
-            client.shutdown();
+            client.close();
         }
     }
 
@@ -357,7 +354,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_transaction_begin_commit_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -367,13 +364,13 @@ class StompIntegrationTest {
             client.channel().begin(txId).get(3, TimeUnit.SECONDS);
             client.channel().commit(txId).get(3, TimeUnit.SECONDS);
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
     @Test
     void stomp_transaction_begin_abort_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -383,7 +380,7 @@ class StompIntegrationTest {
             client.channel().begin(txId).get(3, TimeUnit.SECONDS);
             client.channel().abort(txId).get(3, TimeUnit.SECONDS);
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
@@ -392,7 +389,7 @@ class StompIntegrationTest {
         Destination key = Destination.create("/queue/tx-test");
         DispatcherQueue queue = dispatcher.getOrPut(key);
 
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT)
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT)
                 .onChannel(channel ->
                         channel.chain()
                             .add(new TestChannelInboundHandler(queue))
@@ -415,14 +412,14 @@ class StompIntegrationTest {
             Thread.sleep(100);
             assertThat(queue.size()).isGreaterThan(0);
         } finally {
-            client.shutdown();
+            client.close();
             dispatcher.remove(key);
         }
     }
 
     @RepeatedTest(3)
     void stomp_multiple_transactions_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -438,7 +435,7 @@ class StompIntegrationTest {
             client.channel().begin(tx2).get(3, TimeUnit.SECONDS);
             client.channel().abort(tx2).get(3, TimeUnit.SECONDS);
         } finally {
-            client.shutdown();
+            client.close();
         }
     }
 
@@ -446,7 +443,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_disconnect_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -457,7 +454,7 @@ class StompIntegrationTest {
             await().atMost(1, TimeUnit.SECONDS).until(client::isClosed);
         } finally {
             if (!client.isClosed()) {
-                client.shutdown();
+                client.close();
             }
         }
     }
@@ -466,7 +463,7 @@ class StompIntegrationTest {
 
     @Test
     void stomp_subscribe_to_nonexistent_destination_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -476,14 +473,14 @@ class StompIntegrationTest {
             client.channel().subscribe("/nonexistent", frame -> {}).get(3, TimeUnit.SECONDS);
         } finally {
             if (!client.isClosed()) {
-                client.shutdown();
+                client.close();
             }
         }
     }
 
     @Test
     void stomp_commit_without_begin_test(StompTestServer testServer) throws Exception {
-        TitanStompClient client = TitanStompClient.open(clientGroups(), ClientConfiguration.DEFAULT);
+        TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
             client.start();
@@ -492,7 +489,7 @@ class StompIntegrationTest {
             client.channel().commit("non-existent-tx").get(3, TimeUnit.SECONDS);
         } finally {
             if (!client.isClosed()) {
-                client.shutdown();
+                client.close();
             }
         }
     }

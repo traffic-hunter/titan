@@ -34,11 +34,12 @@ import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
 /**
- * Internal configuration assembled by the public {@link TitanClient.Builder}.
+ * Immutable configuration shared by a {@link TitanClient} facade and its client driver.
  *
- * <p>This type owns connection-runtime concerns that do not belong to STOMP framing. It remains
- * package-private so integrations configure clients through {@link TitanClient.Builder} instead
- * of depending on implementation details.</p>
+ * <p>The public {@link TitanClient.Builder} is the preferred configuration entry point. This
+ * record is also exposed for driver implementations and integrations that need to assemble a
+ * client explicitly. The compact constructor supplies defaults for omitted optional values and
+ * validates values that would make a connection attempt invalid.</p>
  *
  * @param host remote server host used by the transport
  * @param port remote server port
@@ -47,12 +48,12 @@ import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
  * @param connectTimeout maximum duration of one connection attempt
  * @param reconnectPolicy delay and attempt policy used after connection loss
  * @param reconnectListener observer notified about reconnect attempts
- * @param tlsContext optional client-side TLS context applied before the transport starts
+ * @param tlsContext optional client-side TLS context applied before the native transport starts
  * @param webSocketPath optional HTTP path that selects WebSocket transport
  *
  * @author yun
  */
-record ClientConfiguration(
+public record ClientConfiguration(
         String host,
         int port,
         StompSessionOption session,
@@ -78,7 +79,8 @@ record ClientConfiguration(
         return new Builder();
     }
 
-    ClientConfiguration {
+    /** Validates connection values after the record components have been initialized. */
+    public ClientConfiguration {
         if (host.isBlank()) {
             throw new IllegalArgumentException("host cannot be blank");
         }
