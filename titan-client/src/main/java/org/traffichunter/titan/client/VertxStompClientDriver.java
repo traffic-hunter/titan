@@ -66,7 +66,8 @@ public final class VertxStompClientDriver implements StompClientDriver {
 
     private final ClientConfiguration configuration;
     private final boolean managedVertx;
-    private @Nullable Vertx vertx;
+    private final Vertx vertx;
+    private final Worker worker;
     private @Nullable StompClient client;
     private @Nullable WebSocketClient webSocketClient;
     private volatile @Nullable StompClientConnection connection;
@@ -79,7 +80,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
      * @param configuration immutable client and protocol configuration
      */
     public VertxStompClientDriver(ClientConfiguration configuration) {
-        this(null, null, configuration, true);
+        this(Vertx.vertx(), null, configuration, true);
     }
 
     /**
@@ -93,7 +94,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
     }
 
     private VertxStompClientDriver(
-            @Nullable Vertx vertx,
+            Vertx vertx,
             @Nullable StompClient client,
             ClientConfiguration configuration,
             boolean managedVertx
@@ -102,6 +103,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
         this.client = client;
         this.configuration = configuration;
         this.managedVertx = managedVertx;
+        this.worker = new VertxWorker(vertx.getOrCreateContext());
         this.started = client != null && !client.isClosed();
     }
 
@@ -133,11 +135,6 @@ public final class VertxStompClientDriver implements StompClientDriver {
             return;
         }
 
-        Vertx vertx = this.vertx;
-        if (vertx == null) {
-            vertx = Vertx.vertx();
-            this.vertx = vertx;
-        }
         if (configuration.webSocketPath() == null) {
             client = StompClient.create(vertx, toVertxOptions(configuration));
         } else {
@@ -149,6 +146,11 @@ public final class VertxStompClientDriver implements StompClientDriver {
     @Override
     public ClientConfiguration clientConfiguration() {
         return configuration;
+    }
+
+    @Override
+    public Worker worker() {
+        return worker;
     }
 
     @Override
@@ -200,13 +202,16 @@ public final class VertxStompClientDriver implements StompClientDriver {
                 webSocketClient.shutdown(timeout, unit)
                         .await(timeout, unit);
             }
-            Vertx vertx = this.vertx;
-            if (managedVertx && vertx != null) {
+            if (managedVertx) {
                 vertx.close().await(timeout, unit);
             }
         } catch (TimeoutException e) {
             throw new ClientException("Timed out closing Vert.x STOMP client driver", e);
         }
+    }
+
+    public Vertx vertx() {
+        return vertx;
     }
 
     @Nullable StompClientConnection channel() {
@@ -217,9 +222,8 @@ public final class VertxStompClientDriver implements StompClientDriver {
             InetSocketAddress remoteAddress,
             String path
     ) {
-        Vertx vertx = this.vertx;
         WebSocketClient client = this.webSocketClient;
-        if (vertx == null || client == null) {
+        if (client == null) {
             return io.vertx.core.Future.failedFuture(new ClientException("Client driver is not started"));
         }
 

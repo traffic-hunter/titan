@@ -60,6 +60,13 @@ public interface StompClientDriver {
     ClientConfiguration clientConfiguration();
 
     /**
+     * Returns the serial execution context owned by this driver.
+     *
+     * @return worker used for client state and transport callbacks
+     */
+    Worker worker();
+
+    /**
      * Opens and negotiates one STOMP connection to the supplied host and port.
      *
      * @param host remote server host

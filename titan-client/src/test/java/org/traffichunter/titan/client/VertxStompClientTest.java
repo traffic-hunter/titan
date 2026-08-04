@@ -65,6 +65,7 @@ class VertxStompClientTest {
         when(nativeClient.close()).thenReturn(io.vertx.core.Future.succeededFuture());
         when(nativeClient.connect(61613, "127.0.0.1"))
                 .thenReturn(io.vertx.core.Future.succeededFuture(nativeConnection));
+        when(nativeConnection.isConnected()).thenReturn(true);
 
         driver = VertxStompClientDriver.wrap(nativeClient, option);
         client = new DefaultTitanClient(driver);
@@ -138,6 +139,8 @@ class VertxStompClientTest {
                 .thenReturn(io.vertx.core.Future.succeededFuture(firstConnection))
                 .thenReturn(io.vertx.core.Future.failedFuture("unavailable"))
                 .thenReturn(io.vertx.core.Future.succeededFuture(restoredConnection));
+        when(firstConnection.isConnected()).thenReturn(true, false);
+        when(restoredConnection.isConnected()).thenReturn(true);
         when(restoredConnection.send(eq("/queue/reconnected"), any(io.vertx.core.buffer.Buffer.class)))
                 .thenReturn(io.vertx.core.Future.succeededFuture(mock(Frame.class)));
 
@@ -176,6 +179,8 @@ class VertxStompClientTest {
         when(nativeClient.connect(option.port(), option.host()))
                 .thenReturn(io.vertx.core.Future.succeededFuture(nativeConnection))
                 .thenReturn(io.vertx.core.Future.succeededFuture(restoredConnection));
+        when(nativeConnection.isConnected()).thenReturn(true, false);
+        when(restoredConnection.isConnected()).thenReturn(true);
 
         driver = VertxStompClientDriver.wrap(nativeClient, option);
         client = new DefaultTitanClient(driver);
@@ -197,12 +202,14 @@ class VertxStompClientTest {
         StompClientConnection nativeConnection = mock(StompClientConnection.class);
         ClientConfiguration option = fastReconnectOption();
 
-        when(nativeClient.vertx()).thenReturn(mock(Vertx.class));
+        vertx = Vertx.vertx();
+        when(nativeClient.vertx()).thenReturn(vertx);
         when(nativeClient.isClosed()).thenReturn(false);
         when(nativeClient.close()).thenReturn(io.vertx.core.Future.succeededFuture());
         when(nativeClient.connect(option.port(), option.host()))
                 .thenReturn(io.vertx.core.Future.succeededFuture(nativeConnection));
         when(nativeConnection.disconnect()).thenReturn(io.vertx.core.Future.succeededFuture());
+        when(nativeConnection.isConnected()).thenReturn(true);
 
         driver = VertxStompClientDriver.wrap(nativeClient, option);
         client = new DefaultTitanClient(driver);

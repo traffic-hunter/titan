@@ -23,12 +23,87 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.client;
 
-import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
-import org.traffichunter.titan.core.transport.stomp.StompServer;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.util.concurrent.TimeUnit;
 
-public record StompTestServer(
-        String host,
-        int port,
-        StompServer server,
-        Dispatcher dispatcher
-) { }
+import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
+import org.traffichunter.titan.core.transport.option.InetServerOption;
+import org.traffichunter.titan.core.transport.stomp.StompServer;
+import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
+
+public final class StompTestServer implements AutoCloseable {
+
+    private static final int LIFECYCLE_TIMEOUT_SECONDS = 3;
+
+    private final EnableStompServer configuration;
+    private final Dispatcher dispatcher = Dispatcher.getDefault();
+
+    private int port;
+    private StompServer server;
+
+    public StompTestServer(EnableStompServer configuration) throws Exception {
+        this.configuration = configuration;
+        this.server = start(configuration.port());
+    }
+
+    public String host() {
+        return configuration.host();
+    }
+
+    public int port() {
+        return port;
+    }
+
+    public StompServer server() {
+        return server;
+    }
+
+    public Dispatcher dispatcher() {
+        return dispatcher;
+    }
+
+    public void stop() {
+        if (!server.isShutdown()) {
+            server.shutdown(LIFECYCLE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        }
+    }
+
+    public void restart() throws Exception {
+        int restartPort = port;
+        stop();
+        server = start(restartPort);
+    }
+
+    @Override
+    public void close() {
+        stop();
+    }
+
+    private StompServer start(int bindPort) throws Exception {
+        EventLoopGroups groups = EventLoopGroups.group(
+                configuration.primaryThreads(),
+                configuration.secondaryThreads()
+        );
+        InetServerOption inetOption = InetServerOption.builder()
+                .reuseAddress(true)
+                .childReuseAddress(true)
+                .build();
+        StompServerOption serverOption = StompServerOption.builder()
+                .maxBodyLength(configuration.maxFrameLength())
+                .inetServerOption(inetOption)
+                .build();
+        StompServer startedServer = StompServer.open(groups, serverOption);
+        startedServer.start();
+        startedServer.listen(host(), bindPort).get(LIFECYCLE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        SocketAddress localAddress = startedServer.connection().channel().localAddress();
+        if (!(localAddress instanceof InetSocketAddress inetAddress)) {
+            startedServer.shutdown(LIFECYCLE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            throw new IllegalStateException("STOMP test server has no local address");
+        }
+        port = inetAddress.getPort();
+        return startedServer;
+    }
+}

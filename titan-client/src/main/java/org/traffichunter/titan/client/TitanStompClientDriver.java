@@ -70,6 +70,7 @@ public final class TitanStompClientDriver implements StompClientDriver {
 
     private final InetClient inetClient;
     private final ClientConfiguration configuration;
+    private final Worker worker;
     private Handler<StompClientHandler> stompClientHandler = handler -> {};
     private volatile @Nullable StompClientChannel connection;
 
@@ -89,6 +90,7 @@ public final class TitanStompClientDriver implements StompClientDriver {
             ClientConfiguration configuration
     ) {
         this.configuration = configuration;
+        this.worker = new TitanWorker(groups.secondaryGroup().next());
         this.inetClient = inetClient == null
                 ? InetClient.open(groups, configuration.inetClientOption())
                 : inetClient;
@@ -114,6 +116,11 @@ public final class TitanStompClientDriver implements StompClientDriver {
     @Override
     public ClientConfiguration clientConfiguration() {
         return configuration;
+    }
+
+    @Override
+    public Worker worker() {
+        return worker;
     }
 
     @Override

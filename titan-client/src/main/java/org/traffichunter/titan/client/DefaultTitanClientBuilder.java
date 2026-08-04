@@ -153,7 +153,7 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
         if (implementation == TitanClient.Implementation.VERTX) {
             driver = new VertxStompClientDriver(option);
         } else {
-            // A client only needs secondary I/O loops; it never accepts inbound connections.
+            // A client only needs I/O loops; it never accepts inbound connections.
             driver = new TitanStompClientDriver(EventLoopGroups.group(workers), option);
         }
 

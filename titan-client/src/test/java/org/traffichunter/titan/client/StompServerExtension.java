@@ -23,9 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.client;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -34,10 +31,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
-import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
-import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 
 public final class StompServerExtension implements
         BeforeAllCallback,
@@ -46,7 +41,6 @@ public final class StompServerExtension implements
         AfterEachCallback,
         ParameterResolver {
 
-    private static final int SHUTDOWN_TIMEOUT_SECONDS = 3;
     private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(StompServerExtension.class);
     private static final String KEY = "stomp-test-server";
 
@@ -61,24 +55,7 @@ public final class StompServerExtension implements
             throw new IllegalStateException("@EnableStompServer is required");
         }
 
-        EventLoopGroups groups = EventLoopGroups.group(config.primaryThreads(), config.secondaryThreads());
-        StompServerOption serverOption = StompServerOption.builder()
-                .maxBodyLength(config.maxFrameLength())
-                .build();
-
-        StompServer server = StompServer.open(groups, serverOption);
-        server.start();
-        server.listen(config.host(), config.port()).get(3, TimeUnit.SECONDS);
-
-        // Get the default dispatcher that StompServer uses internally
-        Dispatcher dispatcher = Dispatcher.getDefault();
-
-        SocketAddress localAddress = server.connection().channel().localAddress();
-        int port = localAddress instanceof InetSocketAddress inetAddress
-                ? inetAddress.getPort()
-                : config.port();
-        StompTestServer testServer = new StompTestServer(config.host(), port, server, dispatcher);
-        context.getStore(NS).put(KEY, testServer);
+        context.getStore(NS).put(KEY, new StompTestServer(config));
     }
 
     @Override
@@ -89,7 +66,7 @@ public final class StompServerExtension implements
     public void afterEach(ExtensionContext context) {
         StompTestServer testServer = context.getStore(NS).remove(KEY, StompTestServer.class);
         if (testServer != null) {
-            testServer.server().shutdown(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            testServer.close();
         }
     }
 
