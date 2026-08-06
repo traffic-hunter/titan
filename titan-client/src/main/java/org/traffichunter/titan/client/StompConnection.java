@@ -48,8 +48,11 @@ public interface StompConnection {
     /**
      * Sends a message using the connection's default headers.
      *
+     * <p>The connection consumes exactly one reference from {@code payload}, including validation
+     * and transport failure paths. Callers must not release or reuse it after invocation.</p>
+     *
      * @param destination target STOMP destination
-     * @param payload message payload
+     * @param payload message payload whose ownership is transferred to this connection
      * @return future completed with the resulting transport frame
      */
     CompletableFuture<StompFrames> send(String destination, Buffer payload);
@@ -57,8 +60,11 @@ public interface StompConnection {
     /**
      * Sends a message with explicit STOMP headers.
      *
+     * <p>This overload follows the same ownership-transfer contract as
+     * {@link #send(String, Buffer)}.</p>
+     *
      * @param destination target STOMP destination
-     * @param payload message payload
+     * @param payload message payload whose ownership is transferred to this connection
      * @param headers additional STOMP headers
      * @return future completed with the resulting transport frame
      */

@@ -101,14 +101,22 @@ final class VertxStompConnection implements StompConnection {
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
-        validateDestination(destination);
-        return toFuture(connection.send(destination, toVertxBuffer(payload)));
+        try {
+            validateDestination(destination);
+            return toFuture(connection.send(destination, toVertxBuffer(payload)));
+        } finally {
+            payload.release();
+        }
     }
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
-        validateDestination(destination);
-        return toFuture(connection.send(destination, toVertxHeaders(headers), toVertxBuffer(payload)));
+        try {
+            validateDestination(destination);
+            return toFuture(connection.send(destination, toVertxHeaders(headers), toVertxBuffer(payload)));
+        } finally {
+            payload.release();
+        }
     }
 
     @Override

@@ -94,8 +94,13 @@ public interface TitanClient {
     /**
      * Sends a STOMP message using the default headers.
      *
+     * <p>Calling this method transfers ownership of {@code payload} to the client. The client
+     * consumes exactly one reference whether the operation succeeds, returns a failed future, or
+     * rejects the request synchronously. The caller must not access or release the buffer after
+     * invocation.</p>
+     *
      * @param destination target STOMP destination
-     * @param payload message payload
+     * @param payload message payload whose ownership is transferred to the client
      * @return the asynchronous transport result
      */
     CompletableFuture<StompFrames> send(String destination, Buffer payload);
@@ -103,8 +108,11 @@ public interface TitanClient {
     /**
      * Sends a STOMP message with additional headers.
      *
+     * <p>This overload follows the same ownership-transfer contract as
+     * {@link #send(String, Buffer)}.</p>
+     *
      * @param destination target STOMP destination
-     * @param payload message payload
+     * @param payload message payload whose ownership is transferred to the client
      * @param headers additional STOMP headers
      * @return the asynchronous transport result
      */

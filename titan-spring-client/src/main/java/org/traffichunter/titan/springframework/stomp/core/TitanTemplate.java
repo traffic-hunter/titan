@@ -34,12 +34,26 @@ public final class TitanTemplate implements StompOperations {
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
-        return connection().send(destination, payload);
+        TitanClient client;
+        try {
+            client = connection();
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return client.send(destination, payload);
     }
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
-        return connection().send(destination, payload, headers);
+        TitanClient client;
+        try {
+            client = connection();
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return client.send(destination, payload, headers);
     }
 
     @Override

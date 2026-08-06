@@ -91,6 +91,18 @@ class TitanTemplateTest {
     }
 
     @Test
+    void send_consumes_payload_when_connection_resolution_fails() {
+        when(client.isConnected()).thenReturn(false);
+        when(client.connect()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("unavailable")));
+        Buffer payload = Buffer.alloc("hello");
+
+        assertThatThrownBy(() -> template.send("/topic/test", payload))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Failed to resolve active STOMP connection");
+        assertThat(payload.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
     void connects_through_manager_when_no_connection_exists() throws Exception {
         when(client.isConnected()).thenReturn(false);
         when(client.send(eq("/topic/test"), any(Buffer.class)))

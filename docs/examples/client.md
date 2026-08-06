@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 public class TitanClientExample {
 
@@ -51,7 +50,7 @@ public class TitanClientExample {
                     frame -> System.out.println(new String(frame.body(), StandardCharsets.UTF_8))
             ).get(30, TimeUnit.SECONDS);
 
-            client.send("/notifications", Buffer.alloc("hello titan"))
+            client.send("/notifications", "hello titan")
                     .get(30, TimeUnit.SECONDS);
         } finally {
             client.shutdown(30, TimeUnit.SECONDS);
@@ -71,7 +70,6 @@ Client operations return `CompletableFuture`, so they can be composed without bl
 ```java
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.client.TitanClient;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 public class AsyncTitanClientExample {
 
@@ -84,10 +82,7 @@ public class AsyncTitanClientExample {
 
         client.start();
         client.connect()
-                .thenCompose(ignored -> client.send(
-                        "/notifications",
-                        Buffer.alloc("hello titan")
-                ))
+                .thenCompose(ignored -> client.send("/notifications", "hello titan"))
                 .whenComplete((frame, error) -> {
                     try {
                         if (error != null) {

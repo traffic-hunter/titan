@@ -171,6 +171,7 @@ public final class DefaultTitanClient implements TitanClient {
     public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
         StompConnection connection = activeConnection();
         if (connection == null) {
+            payload.release();
             return notConnected();
         }
 
@@ -185,6 +186,7 @@ public final class DefaultTitanClient implements TitanClient {
     ) {
         StompConnection connection = activeConnection();
         if (connection == null) {
+            payload.release();
             return notConnected();
         }
 

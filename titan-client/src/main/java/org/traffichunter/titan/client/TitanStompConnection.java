@@ -70,7 +70,12 @@ final class TitanStompConnection implements StompConnection {
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
-        validateDestination(destination);
+        try {
+            validateDestination(destination);
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
         return connection.send(destination, payload)
                 .map(StompFrames::from)
                 .toCompletableFuture();
@@ -78,8 +83,15 @@ final class TitanStompConnection implements StompConnection {
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
-        validateDestination(destination);
-        return connection.send(destination, payload, toHeaders(headers))
+        StompHeaders stompHeaders;
+        try {
+            validateDestination(destination);
+            stompHeaders = toHeaders(headers);
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return connection.send(destination, payload, stompHeaders)
                 .map(StompFrames::from)
                 .toCompletableFuture();
     }

@@ -136,6 +136,7 @@ class StompIntegrationTest {
             StompFrame result = client.channel().send("/queue/test", body).get(3, TimeUnit.SECONDS);
 
             assertThat(result).isNotNull();
+            assertThat(body.byteBuf().refCnt()).isZero();
             assertThat(result.getCommand()).isEqualTo(StompCommand.SEND);
             assertThat(result.body()).isNotNull();
             assertThat(new String(result.body(), StandardCharsets.UTF_8)).isEqualTo("Hello STOMP!");

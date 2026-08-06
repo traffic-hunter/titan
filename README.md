@@ -86,7 +86,6 @@ implementations behind the same asynchronous API.
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.client.TitanClient;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 TitanClient client = TitanClient.builder()
         .host("127.0.0.1")
@@ -102,10 +101,7 @@ try {
                             new String(frame.body(), StandardCharsets.UTF_8)
                     )
             ))
-            .thenCompose(ignored -> client.send(
-                    "/notifications",
-                    Buffer.alloc("hello titan")
-            ))
+            .thenCompose(ignored -> client.send("/notifications", "hello titan"))
             .get(30, TimeUnit.SECONDS);
 } finally {
     client.shutdown(30, TimeUnit.SECONDS);
