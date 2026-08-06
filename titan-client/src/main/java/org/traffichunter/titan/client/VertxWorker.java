@@ -33,6 +33,11 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * {@link Worker} backed by one fixed Vert.x {@link Context}.
+ *
+ * <p>The worker does not close the Vert.x runtime. Its driver owns runtime shutdown; this adapter
+ * only rejects submissions after it has been closed.</p>
+ *
  * @author yun
  */
 final class VertxWorker implements Worker {
@@ -40,6 +45,7 @@ final class VertxWorker implements Worker {
     private final Context context;
     private final AtomicBoolean closed = new AtomicBoolean();
 
+    /** Creates a worker that always schedules onto the supplied context. */
     public VertxWorker(Context context) {
         this.context = context;
     }

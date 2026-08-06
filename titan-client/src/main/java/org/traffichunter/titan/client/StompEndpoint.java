@@ -36,6 +36,11 @@ import org.jspecify.annotations.Nullable;
  * carry the HTTP upgrade path. Authentication and STOMP virtual-host values do
  * not belong to the endpoint and remain client options.</p>
  *
+ * @param scheme transport scheme
+ * @param host remote host without user information
+ * @param port remote TCP port
+ * @param path WebSocket upgrade path, or an empty string for TCP
+ *
  * @author yun
  */
 public record StompEndpoint(
@@ -49,6 +54,7 @@ public record StompEndpoint(
     public static final int DEFAULT_WEBSOCKET_PORT = 8080;
     public static final int DEFAULT_SECURE_WEBSOCKET_PORT = 443;
 
+    /** Validates and normalizes endpoint components. */
     public StompEndpoint {
         if (host.isBlank()) {
             throw new IllegalArgumentException("Endpoint host cannot be blank");
@@ -68,7 +74,12 @@ public record StompEndpoint(
         }
     }
 
-    /** Parses {@code tcp}, {@code ws}, or {@code wss} endpoint syntax and supplies default ports. */
+    /**
+     * Parses {@code tcp}, {@code ws}, or {@code wss} endpoint syntax and supplies default ports.
+     *
+     * @param endpoint endpoint URI
+     * @return validated endpoint
+     */
     public static StompEndpoint parse(String endpoint) {
         URI uri;
         try {
@@ -92,32 +103,61 @@ public record StompEndpoint(
         return new StompEndpoint(scheme, host, port, path == null ? "" : path);
     }
 
-    /** Creates a plain TCP endpoint without an HTTP path. */
+    /**
+     * Creates a plain TCP endpoint without an HTTP path.
+     *
+     * @param host remote host
+     * @param port remote port
+     * @return TCP endpoint
+     */
     public static StompEndpoint tcp(String host, int port) {
         return new StompEndpoint(Scheme.TCP, host, port, "");
     }
 
-    /** Creates a non-secure WebSocket endpoint with an HTTP upgrade path. */
+    /**
+     * Creates a non-secure WebSocket endpoint with an HTTP upgrade path.
+     *
+     * @param host remote host
+     * @param port remote port
+     * @param path HTTP upgrade path
+     * @return WebSocket endpoint
+     */
     public static StompEndpoint webSocket(String host, int port, String path) {
         return new StompEndpoint(Scheme.WS, host, port, path);
     }
 
-    /** Converts the endpoint host and port to a socket address. */
+    /**
+     * Converts the endpoint host and port to a socket address.
+     *
+     * @return socket address
+     */
     public InetSocketAddress socketAddress() {
         return new InetSocketAddress(host, port);
     }
 
-    /** Returns whether this endpoint requires WebSocket framing. */
+    /**
+     * Returns whether this endpoint requires WebSocket framing.
+     *
+     * @return {@code true} for {@code ws} and {@code wss}
+     */
     public boolean isWebSocket() {
         return scheme.isWebSocket();
     }
 
-    /** Returns whether this endpoint uses WebSocket over TLS. */
+    /**
+     * Returns whether this endpoint uses WebSocket over TLS.
+     *
+     * @return {@code true} for {@code wss}
+     */
     public boolean isSecure() {
         return scheme == Scheme.WSS;
     }
 
-    /** Converts this endpoint to its normalized URI representation. */
+    /**
+     * Converts this endpoint to its normalized URI representation.
+     *
+     * @return normalized URI
+     */
     public URI uri() {
         try {
             return new URI(scheme.value(), null, host, port, path, null, null);
@@ -133,8 +173,11 @@ public record StompEndpoint(
 
     /** Supported endpoint schemes and their default ports. */
     public enum Scheme {
+        /** Plain STOMP over TCP. */
         TCP("tcp", DEFAULT_STOMP_PORT),
+        /** STOMP over a non-secure WebSocket. */
         WS("ws", DEFAULT_WEBSOCKET_PORT),
+        /** STOMP over WebSocket and TLS. */
         WSS("wss", DEFAULT_SECURE_WEBSOCKET_PORT),
         ;
 
@@ -146,6 +189,12 @@ public record StompEndpoint(
             this.defaultPort = defaultPort;
         }
 
+        /**
+         * Resolves a case-insensitive scheme value.
+         *
+         * @param value scheme text
+         * @return matching scheme
+         */
         public static Scheme from(@Nullable String value) {
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("STOMP endpoint scheme is required");
@@ -160,14 +209,29 @@ public record StompEndpoint(
             throw new IllegalArgumentException("Unsupported STOMP endpoint scheme: " + value);
         }
 
+        /**
+         * Returns the lowercase URI scheme value.
+         *
+         * @return URI scheme value
+         */
         public String value() {
             return value;
         }
 
+        /**
+         * Returns the default port used when an endpoint omits one.
+         *
+         * @return default port
+         */
         public int defaultPort() {
             return defaultPort;
         }
 
+        /**
+         * Returns whether this scheme uses WebSocket framing.
+         *
+         * @return {@code true} for WebSocket schemes
+         */
         public boolean isWebSocket() {
             return this == WS || this == WSS;
         }

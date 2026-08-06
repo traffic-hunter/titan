@@ -84,6 +84,7 @@ public final class DefaultTitanClient implements TitanClient {
      * {@link #connect()}.</p>
      *
      * @param driver driver responsible for physical STOMP connections
+     * @param worker serial context used for client state and callbacks
      */
     public DefaultTitanClient(StompClientDriver driver, Worker worker) {
         this.driver = driver;
@@ -95,6 +96,11 @@ public final class DefaultTitanClient implements TitanClient {
         this.worker = worker;
     }
 
+    /**
+     * Creates a client facade using the worker supplied by the driver.
+     *
+     * @param driver driver responsible for runtime, worker, and physical connections
+     */
     public DefaultTitanClient(StompClientDriver driver) {
         this(driver, driver.worker());
     }
@@ -444,6 +450,12 @@ public final class DefaultTitanClient implements TitanClient {
         }));
     }
 
+    /**
+     * Moves an active client back to connecting and starts one retry sequence.
+     *
+     * <p>Both close and connection-drop callbacks may describe the same transport failure. The
+     * status transition ensures only the first callback creates reconnect work.</p>
+     */
     private void handleConnectionLoss() {
         if (!status.compareAndSet(Status.CONNECTED, Status.CONNECTING)) {
             return;
@@ -460,6 +472,14 @@ public final class DefaultTitanClient implements TitanClient {
         }
     }
 
+    /**
+     * Performs one reconnect attempt on the retry executor.
+     *
+     * <p>The replacement connection is bound first, then a snapshot of logical subscriptions is
+     * restored within one shared timeout. The client becomes connected only after every restore
+     * succeeds and the replacement connection is still active. Throwing keeps the retry sequence
+     * alive; a normal return ends the current sequence.</p>
+     */
     private void reconnect() {
         if (status.get() != Status.CONNECTING) {
             return;
@@ -515,6 +535,7 @@ public final class DefaultTitanClient implements TitanClient {
         }
     }
 
+    /** Waits on the dedicated reconnect thread and normalizes JDK future failures. */
     private static <T> T await(
             CompletableFuture<T> future,
             long timeoutNanos,

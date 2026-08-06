@@ -40,16 +40,18 @@ import java.util.concurrent.TimeUnit;
  *
  * @author yun
  */
-public interface StompClientDriver {
+public interface StompClientDriver extends ClientDriver {
 
     /**
      * Returns the implementation name exposed by the client facade.
      *
      * @return stable driver name such as {@code titan} or {@code vertx}
      */
+    @Override
     String name();
 
     /** Starts resources required to open connections without connecting to the remote server. */
+    @Override
     void start();
 
     /**
@@ -57,6 +59,7 @@ public interface StompClientDriver {
      *
      * @return configuration shared with the client facade
      */
+    @Override
     ClientConfiguration clientConfiguration();
 
     /**
@@ -64,6 +67,7 @@ public interface StompClientDriver {
      *
      * @return worker used for client state and transport callbacks
      */
+    @Override
     Worker worker();
 
     /**
@@ -93,5 +97,6 @@ public interface StompClientDriver {
      * @param timeout maximum time to wait for resource shutdown
      * @param unit unit of {@code timeout}
      */
+    @Override
     void close(long timeout, TimeUnit unit);
 }

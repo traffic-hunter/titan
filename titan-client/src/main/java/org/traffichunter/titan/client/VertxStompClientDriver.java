@@ -75,7 +75,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
     private volatile boolean closed;
 
     /**
-     * Creates a driver that lazily creates and owns its Vert.x runtime when started.
+     * Creates a driver that creates and owns its Vert.x runtime.
      *
      * @param configuration immutable client and protocol configuration
      */
@@ -210,6 +210,14 @@ public final class VertxStompClientDriver implements StompClientDriver {
         }
     }
 
+    /**
+     * Returns the Vert.x runtime used by this driver.
+     *
+     * <p>The return value does not transfer ownership. Runtime shutdown follows the constructor
+     * ownership rules documented by this class.</p>
+     *
+     * @return driver runtime
+     */
     public Vertx vertx() {
         return vertx;
     }

@@ -78,6 +78,20 @@ public interface TitanClient {
     CompletableFuture<TitanClient> connect();
 
     /**
+     * Sends a UTF-8 string payload using the default STOMP headers.
+     *
+     * <p>This convenience overload allocates the transport buffer and delegates to
+     * {@link #send(String, Buffer)}.</p>
+     *
+     * @param destination target STOMP destination
+     * @param payload string payload
+     * @return the asynchronous transport result
+     */
+    default CompletableFuture<StompFrames> send(String destination, String payload) {
+        return send(destination, Buffer.alloc(payload));
+    }
+
+    /**
      * Sends a STOMP message using the default headers.
      *
      * @param destination target STOMP destination

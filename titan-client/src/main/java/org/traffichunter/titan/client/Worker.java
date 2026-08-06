@@ -25,24 +25,64 @@ package org.traffichunter.titan.client;
 
 import org.jspecify.annotations.NonNull;
 
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
+ * Transport-neutral serial execution context for client state transitions.
+ *
+ * <p>Tasks submitted to one worker execute in order on the same logical context. Native Titan
+ * workers delegate to an {@code EventLoop}; Vert.x workers delegate to one fixed
+ * {@code Context}. This lets reconnect and subscription state use one concurrency model without
+ * exposing either runtime through the public client API.</p>
+ *
+ * <p>Closing a worker prevents further submissions. Ownership of the underlying runtime remains
+ * with the driver that supplied the worker.</p>
+ *
  * @author yun
  */
 public interface Worker extends Executor, AutoCloseable {
 
+    /**
+     * Schedules a task on this worker.
+     *
+     * @param task task to execute serially
+     */
     @Override
     void execute(@NonNull Runnable task);
 
+    /**
+     * Schedules a value-producing task and exposes its result as a JDK future.
+     *
+     * @param task task to execute
+     * @param <T> result type
+     * @return future completed with the returned value or task failure
+     */
     <T> CompletableFuture<T> submit(Callable<T> task);
 
+    /**
+     * Schedules an asynchronous operation and flattens its nested future.
+     *
+     * <p>The callable itself executes on this worker. Completion of the returned operation follows
+     * the executor semantics of the future returned by the callable.</p>
+     *
+     * @param task asynchronous operation supplier
+     * @param <T> result type
+     * @return flattened operation future
+     */
     default <T> CompletableFuture<T> thenCompose(Callable<? extends CompletableFuture<T>> task) {
         return submit(task).thenCompose(f -> f);
     }
 
+    /**
+     * Returns whether the current thread is executing in this worker's context.
+     *
+     * @return {@code true} when called from this worker
+     */
     boolean inWorker();
 
+    /** Stops accepting work without assuming ownership of an external runtime. */
     @Override
     void close() throws Exception;
 }
