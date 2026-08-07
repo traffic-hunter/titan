@@ -54,6 +54,14 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         this(new HashMap<>(), version.getName(), version.getVersion());
     }
 
+    public StompHeaders(final Map<Elements, String> headers) {
+        this(headers, StompVersion.STOMP_1_2);
+    }
+
+    public StompHeaders(final Map<Elements, String> headers, final StompVersion version) {
+        this(new HashMap<>(headers), version.getName(), version.getVersion());
+    }
+
     public StompHeaders(final Map<Elements, String> map, final String name, final String version) {
         super(map);
         Objects.requireNonNull(name, "name");

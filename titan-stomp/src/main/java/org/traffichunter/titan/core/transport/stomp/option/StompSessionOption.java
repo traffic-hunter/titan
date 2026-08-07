@@ -1,0 +1,112 @@
+/*
+The MIT License
+
+Copyright (c) 2025 traffic-hunter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package org.traffichunter.titan.core.transport.stomp.option;
+
+import lombok.Builder;
+import org.traffichunter.titan.core.codec.stomp.StompVersion;
+
+/**
+ * Configures STOMP framing and session negotiation independently of a client runtime.
+ *
+ * <p>The same option can be consumed by outbound client channels and accepted server child
+ * channels. It intentionally excludes remote ports, socket options, connection timeouts, and
+ * reconnect policies because those values belong to the transport runtime.</p>
+ *
+ * @param login optional CONNECT login header
+ * @param passcode optional CONNECT passcode header
+ * @param autoComputeContentLength whether outbound frames calculate {@code content-length}
+ * @param useStompFrame whether adapters may use their native STOMP frame representation
+ * @param bypassHostHeader whether the CONNECT host header is omitted
+ * @param heartbeatX outgoing heartbeat capability in milliseconds
+ * @param heartbeatY requested incoming heartbeat interval in milliseconds
+ * @param virtualHost optional virtual host used during STOMP negotiation
+ * @param maxFrameLength maximum decoded frame size in bytes
+ * @param version STOMP protocol version used by the channel
+ *
+ * @author yun
+ */
+public record StompSessionOption(
+        String login,
+        String passcode,
+        boolean autoComputeContentLength,
+        boolean useStompFrame,
+        boolean bypassHostHeader,
+        long heartbeatX,
+        long heartbeatY,
+        String virtualHost,
+        int maxFrameLength,
+        StompVersion version
+) {
+    public static final int DEFAULT_MAX_FRAME_LENGTH = 65536;
+    public static final long DEFAULT_HEARTBEAT_X = 1000L;
+    public static final long DEFAULT_HEARTBEAT_Y = 1000L;
+    public static final StompSessionOption DEFAULT = builder().build();
+
+    public StompSessionOption {
+        if (heartbeatX < 0 || heartbeatY < 0) {
+            throw new IllegalArgumentException("heartbeat values must be >= 0");
+        }
+        if (maxFrameLength <= 0) {
+            throw new IllegalArgumentException("maxFrameLength must be greater than zero");
+        }
+    }
+
+    /**
+     * Resolves nullable builder inputs to stable protocol defaults.
+     *
+     * <p>STOMP 1.2 is currently the only accepted version. Numeric validation is completed by
+     * the record's canonical constructor after defaults have been applied.</p>
+     */
+    @Builder(builderMethodName = "builder")
+    public static StompSessionOption of(
+            StompVersion version,
+            String login,
+            String passcode,
+            Boolean autoComputeContentLength,
+            Boolean useStompFrame,
+            Boolean bypassHostHeader,
+            Long heartbeatX,
+            Long heartbeatY,
+            String virtualHost,
+            Integer maxFrameLength
+    ) {
+        StompVersion resolvedVersion = version == null ? StompVersion.STOMP_1_2 : version;
+        if (resolvedVersion != StompVersion.STOMP_1_2) {
+            throw new IllegalArgumentException("Only STOMP 1.2 is supported");
+        }
+
+        return new StompSessionOption(
+                login,
+                passcode,
+                autoComputeContentLength == null || autoComputeContentLength,
+                useStompFrame != null && useStompFrame,
+                bypassHostHeader != null && bypassHostHeader,
+                heartbeatX == null ? DEFAULT_HEARTBEAT_X : heartbeatX,
+                heartbeatY == null ? DEFAULT_HEARTBEAT_Y : heartbeatY,
+                virtualHost,
+                maxFrameLength == null ? DEFAULT_MAX_FRAME_LENGTH : maxFrameLength,
+                resolvedVersion
+        );
+    }
+}

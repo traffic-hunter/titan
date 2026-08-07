@@ -7,4 +7,4 @@ spring:
     login: test
     passcode: test
     virtual-host: test
-    secondary-threads: 10
+    worker: 10

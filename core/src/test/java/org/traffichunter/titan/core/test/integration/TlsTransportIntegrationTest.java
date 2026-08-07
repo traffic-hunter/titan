@@ -71,7 +71,7 @@ class TlsTransportIntegrationTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("client-side");
 
-        assertThatThrownBy(() -> InetServer.open(EventLoopGroups.group(1))
+        assertThatThrownBy(() -> InetServer.open(EventLoopGroups.group(1, 1))
                 .tls(context(TlsSide.CLIENT, keyStore)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("server-side");
@@ -97,7 +97,7 @@ class TlsTransportIntegrationTest {
         LinkedBlockingQueue<String> serverMessages = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> clientMessages = new LinkedBlockingQueue<>();
 
-        server = InetServer.open(EventLoopGroups.group(1))
+        server = InetServer.open(EventLoopGroups.group(1, 1))
                 .tls(context(TlsSide.SERVER, keyStore))
                 .onChannel(channel -> channel.chain().add(echo(serverMessages)));
         server.start();
@@ -127,7 +127,7 @@ class TlsTransportIntegrationTest {
         Path keyStore = testKeyStore();
         LinkedBlockingQueue<String> serverMessages = new LinkedBlockingQueue<>();
 
-        server = InetServer.open(EventLoopGroups.group(1))
+        server = InetServer.open(EventLoopGroups.group(1, 1))
                 .tls(context(TlsSide.SERVER, TlsClientAuth.NEED, keyStore))
                 .onChannel(channel -> channel.chain().add(echo(serverMessages)));
         server.start();
@@ -153,9 +153,9 @@ class TlsTransportIntegrationTest {
         LinkedBlockingQueue<String> serverMessages = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> clientMessages = new LinkedBlockingQueue<>();
 
-        server = InetServer.open(EventLoopGroups.group(1))
+        server = InetServer.open(EventLoopGroups.group(1, 1))
                 .tls(context(TlsSide.SERVER, keyStore))
-                .upgradeWebsocket("/stomp")
+                .upgradeWebSocket("/stomp")
                 .onChannel(channel -> channel.chain().add(echo(serverMessages)));
         server.start();
         server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
@@ -163,7 +163,7 @@ class TlsTransportIntegrationTest {
         int port = ((InetSocketAddress) server.localAddress()).getPort();
         webSocketClient = InetClient.open(EventLoopGroups.group(1))
                 .tls(context(TlsSide.CLIENT, keyStore))
-                .upgradeWebsocket(Protocol.STOMP, "/stomp");
+                .upgradeWebSocket(Protocol.STOMP, "/stomp");
         webSocketClient.start();
 
         WebSocketChannel channel = webSocketClient.connect("localhost", port, 5, TimeUnit.SECONDS)

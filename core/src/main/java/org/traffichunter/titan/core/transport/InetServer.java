@@ -119,22 +119,36 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         return this;
     }
 
+    /**
+     * Enables WebSocket upgrade handling at the default {@code /titan} path.
+     *
+     * <p>This setting must be applied before {@link #start()}.</p>
+     */
     @CanIgnoreReturnValue
-    public InetServer upgradeWebsocket() {
+    public InetServer upgradeWebSocket() {
         if (isStarted()) {
-            throw new IllegalStateException("Cannot configure TLS after server start");
+            throw new IllegalStateException("Cannot configure WebSocket upgrade after server start");
         }
 
-        return upgradeWebsocket("/titan");
+        return upgradeWebSocket("/titan");
     }
 
+    /**
+     * Enables HTTP Upgrade handling for newly accepted connections at the supplied path.
+     *
+     * <p>The server still listens on its normal TCP socket. Each accepted connection must finish
+     * the WebSocket handshake before the configured child channel handler is invoked.</p>
+     *
+     * @param path HTTP request path accepted by the WebSocket handshaker
+     * @return this server
+     */
     @CanIgnoreReturnValue
-    public InetServer upgradeWebsocket(String path) {
+    public InetServer upgradeWebSocket(String path) {
         if (isStarted()) {
-            throw new IllegalStateException("Cannot configure TLS after server start");
+            throw new IllegalStateException("Cannot configure WebSocket upgrade after server start");
         }
 
-        this.acceptor.setUpgradeWebsocket(path);
+        this.acceptor.enableWebSocketUpgrade(path);
         return this;
     }
 
@@ -305,7 +319,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
 
         private volatile InetClientOption childOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
         private volatile Handler<Channel> childHandler = ch -> {};
-        private volatile boolean upgradeWebsocket;
+        private volatile boolean webSocketUpgrade;
         private volatile WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
         private volatile @Nullable TlsContext tlsContext;
 
@@ -325,9 +339,9 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             this.childHandler = childHandler;
         }
 
-        void setUpgradeWebsocket(String path) {
+        void enableWebSocketUpgrade(String path) {
             this.webSocketHandshaker = new WebSocketServerHandshaker(path);
-            this.upgradeWebsocket = true;
+            this.webSocketUpgrade = true;
         }
 
         void setTlsContext(TlsContext tlsContext) {
@@ -383,7 +397,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         }
 
         private void runTasks(NetChannel channel) {
-            if (upgradeWebsocket) {
+            if (webSocketUpgrade) {
                 webSocketHandshaker.handshake(channel).addListener(result -> {
                     if (result.isSuccess()) {
                         childHandler.handle(channel);

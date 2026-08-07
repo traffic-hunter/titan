@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Handler;
 
 /**
@@ -41,14 +41,14 @@ public final class StompClientWebSocketChannel extends StompClientTcpChannel {
 
     public StompClientWebSocketChannel(
             WebSocketChannel channel,
-            StompClientOption option
+            StompSessionOption option
     ) {
         this(channel, option, handler -> { });
     }
 
     public StompClientWebSocketChannel(
             WebSocketChannel channel,
-            StompClientOption option,
+            StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
         super(channel, option, clientHandlerConfigurer);

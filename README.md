@@ -17,6 +17,7 @@ Spring Boot client integration.
 
 - STOMP over TCP server and client.
 - STOMP over WebSocket for native, Vert.x, and Spring clients.
+- Transport-neutral `TitanClient` facade with reconnect and subscription recovery.
 - TLS transport support through PKCS12 or JKS key stores.
 - Exact destination matching with one FIFO dispatcher queue per destination.
 - Fanout delivery for publish-subscribe scenarios.
@@ -45,7 +46,13 @@ Spring client:
 implementation("org.traffichunter.titan:titan-spring-client:0.7.4")
 ```
 
-STOMP client/server:
+Standalone Java client:
+
+```kotlin
+implementation("org.traffichunter.titan:titan-client:0.7.4")
+```
+
+STOMP server and low-level transport APIs:
 
 ```kotlin
 implementation("org.traffichunter.titan:titan-stomp:0.7.4")
@@ -69,6 +76,43 @@ Bootstrap/runtime support:
 implementation("org.traffichunter.titan:titan-bootstrap:0.7.4")
 implementation("org.traffichunter.titan:titan-core:0.7.4")
 ```
+
+## Java Client
+
+`TitanClient` is the public client facade. It hides the native and Vert.x STOMP
+implementations behind the same asynchronous API.
+
+```java
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
+import org.traffichunter.titan.client.TitanClient;
+
+TitanClient client = TitanClient.builder()
+        .host("127.0.0.1")
+        .port(61613)
+        .build();
+
+try {
+    client.start();
+    client.connect()
+            .thenCompose(ignored -> client.subscribe(
+                    "/notifications",
+                    frame -> System.out.println(
+                            new String(frame.body(), StandardCharsets.UTF_8)
+                    )
+            ))
+            .thenCompose(ignored -> client.send("/notifications", "hello titan"))
+            .get(30, TimeUnit.SECONDS);
+} finally {
+    client.shutdown(30, TimeUnit.SECONDS);
+}
+```
+
+The native implementation is selected by default. Use
+`implementation(TitanClient.Implementation.VERTX)` to select Vert.x without
+changing the messaging API. After an unexpected connection loss, the client
+uses its configured reconnect policy and restores active subscriptions before
+reporting itself as connected again.
 
 ## Standalone Server
 
@@ -176,7 +220,7 @@ curl http://localhost:7777/titan/monitor/queues
 ## Examples
 
 - [Spring client usage](./docs/examples/spring-client.md)
-- [STOMP client usage](./docs/examples/client.md)
+- [Java client usage](./docs/examples/client.md)
 - [Server usage](./docs/examples/server.md)
 
 ## Architecture
@@ -192,7 +236,8 @@ curl http://localhost:7777/titan/monitor/queues
 
 - `titan-bootstrap`: loads `titan-env.yml` and starts Titan runtime modules.
 - `titan-core`: provides event loop, channel, transport, and runtime primitives.
-- `titan-stomp`: provides STOMP codec, server, client, and STOMP transport integration.
+- `titan-stomp`: provides STOMP codec, server, and low-level transport integration.
+- `titan-client`: provides the public `TitanClient` facade with native and Vert.x drivers.
 - `titan-fanout`: routes one published message to all matching subscribers.
 - `titan-monitor`: exposes JVM and dispatcher queue monitoring snapshots.
 - `titan-spring-client`: provides Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener`.
@@ -201,7 +246,8 @@ curl http://localhost:7777/titan/monitor/queues
 
 - `bootstrap`: startup, environment loading, lifecycle bootstrap.
 - `core`: transport/event loop/channel/dispatcher/concurrency primitives.
-- `titan-stomp`: STOMP codec, STOMP server/client transport, STOMP engine provider.
+- `titan-stomp`: STOMP codec, server, and low-level client transport.
+- `titan-client`: transport-neutral client facade, drivers, reconnect, and subscription recovery.
 - `fanout`: fanout gateway and exporter implementations.
 - `monitor`: monitoring snapshot model, JMX collectors, and Jetty HTTP endpoint.
 - `titan-cli`: Go CLI for rendering monitoring snapshots in the terminal.

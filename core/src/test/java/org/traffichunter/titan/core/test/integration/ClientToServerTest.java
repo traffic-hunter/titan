@@ -61,7 +61,7 @@ public class ClientToServerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        server = InetServer.open(EventLoopGroups.group(1))
+        server = InetServer.open(EventLoopGroups.group(1, 1))
                 .option(InetServerOption.builder().build())
                 .onChannel(ctx -> ctx.chain()
                         .add(new LineFrameChannelDecoder())

@@ -28,8 +28,7 @@ import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
@@ -37,18 +36,16 @@ import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListener
 
 class TitanListenerContainerFactoryTest {
 
-    private StompConnection connection;
+    private TitanClient client;
     private TitanClientManager manager;
 
     @BeforeEach
     void setUp() {
-        StompClient stompClient = mock(StompClient.class);
-        connection = mock(StompConnection.class);
-        manager = new TitanClientManager(stompClient, new TitanProperties());
+        client = mock(TitanClient.class);
+        manager = new TitanClientManager(client, new TitanProperties());
 
-        when(stompClient.connection()).thenReturn(connection);
-        when(connection.isConnected()).thenReturn(true);
-        when(connection.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
+        when(client.isConnected()).thenReturn(true);
+        when(client.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
                 .thenReturn(CompletableFuture.completedFuture("/topic/test"));
     }
 
@@ -93,8 +90,8 @@ class TitanListenerContainerFactoryTest {
         container.start();
         subscribedHandler().handle(messageFrame("msg-1"));
 
-        verify(connection).ack("msg-1");
-        verify(connection, never()).nack(anyString());
+        verify(client).ack("msg-1");
+        verify(client, never()).nack(anyString());
     }
 
     @Test
@@ -109,26 +106,26 @@ class TitanListenerContainerFactoryTest {
         subscribedHandler().handle(messageFrame("msg-2"));
 
         assertTrue(errorHandled.get());
-        verify(connection).nack("msg-2");
-        verify(connection, never()).ack(anyString());
+        verify(client).nack("msg-2");
+        verify(client, never()).ack(anyString());
     }
 
     @Test
     void listener_container_stops_by_unsubscribing_active_destination() throws Exception {
-        when(connection.unsubscribe("/topic/test"))
+        when(client.unsubscribe("/topic/test"))
                 .thenReturn(CompletableFuture.completedFuture(mock(StompFrames.class)));
         TitanListenerContainer container = listenerContainer(endpoint("handle"));
 
         container.start();
         container.stop();
 
-        verify(connection).unsubscribe("/topic/test");
+        verify(client).unsubscribe("/topic/test");
         assertTrue(container.isStopped());
     }
 
     @Test
     void listener_container_resets_running_when_subscribe_fails() throws Exception {
-        when(connection.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
+        when(client.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
                 .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("subscribe failed")));
         TitanListenerContainer container = listenerContainer(endpoint("handle"));
 
@@ -163,7 +160,7 @@ class TitanListenerContainerFactoryTest {
     @SuppressWarnings("unchecked")
     private Handler<StompFrames> subscribedHandler() {
         ArgumentCaptor<Handler<StompFrames>> captor = ArgumentCaptor.forClass(Handler.class);
-        verify(connection).subscribe(eq("/topic/test"), captor.capture());
+        verify(client).subscribe(eq("/topic/test"), captor.capture());
         return captor.getValue();
     }
 

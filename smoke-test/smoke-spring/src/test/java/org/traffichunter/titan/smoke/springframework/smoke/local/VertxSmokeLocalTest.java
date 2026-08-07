@@ -1,10 +1,6 @@
 package org.traffichunter.titan.smoke.springframework.smoke.local;
 
 import org.springframework.context.annotation.Import;
-import org.traffichunter.titan.core.transport.stomp.VertxStompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
-import org.traffichunter.titan.core.transport.stomp.client.VertxStompConnection;
 import org.traffichunter.titan.smoke.springframework.smoke.junit.VertxSmokeTest;
 
 @VertxSmokeTest
@@ -12,12 +8,7 @@ import org.traffichunter.titan.smoke.springframework.smoke.junit.VertxSmokeTest;
 class VertxSmokeLocalTest extends AbstractTitanSmokeLocalTest {
 
     @Override
-    protected Class<? extends StompClient> clientType() {
-        return VertxStompClient.class;
-    }
-
-    @Override
-    protected Class<? extends StompConnection> connectionType() {
-        return VertxStompConnection.class;
+    protected String clientName() {
+        return "vertx";
     }
 }

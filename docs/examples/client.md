@@ -1,7 +1,6 @@
-# STOMP Client Example
+# Titan Client Example
 
-Use `titan-stomp` when you want to create a Titan STOMP client directly without
-Spring.
+Use `titan-client` to connect to a Titan server directly without Spring.
 
 ## Dependency
 
@@ -14,55 +13,44 @@ repositories {
 ```
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-stomp:0.7.4")
+implementation("org.traffichunter.titan:titan-client:0.7.4")
 ```
 
 ## Connect, Subscribe, Send
 
 ```java
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
-public class StompClientExample {
+public class TitanClientExample {
 
     public static void main(String[] args) throws Exception {
-        EventLoopGroups groups = EventLoopGroups.group(1, 2);
-        StompClient client = StompClient.open(groups, StompClientOption.builder()
+        TitanClient client = TitanClient.builder()
+                .worker(2)
                 .host("127.0.0.1")
                 .port(61613)
-                .login("guest")
-                .passcode("guest")
-                .virtualHost("guest")
-                .build())
-                .onStomp(handler -> handler
-                        .messageHandler((event, context) -> {
-                            String payload = event.frame().getBody().toString(StandardCharsets.UTF_8);
-                            System.out.println(payload);
-                        }));
+                .session(StompSessionOption.builder()
+                        .login("guest")
+                        .passcode("guest")
+                        .virtualHost("guest")
+                        .build())
+                .build();
 
         try {
             client.start();
+            client.connect().get(30, TimeUnit.SECONDS);
 
-            StompClientConnection connection = client.connect(
-                    "127.0.0.1",
-                    61613,
-                    30,
-                    TimeUnit.SECONDS
+            client.subscribe(
+                    "/notifications",
+                    Map.of(StompHeaders.Elements.ID, "notifications"),
+                    frame -> System.out.println(new String(frame.body(), StandardCharsets.UTF_8))
             ).get(30, TimeUnit.SECONDS);
 
-            StompHeaders subscribeHeaders = StompHeaders.create();
-            subscribeHeaders.put(StompHeaders.Elements.ID, "notifications");
-
-            connection.subscribe("/notifications", subscribeHeaders)
-                    .get(30, TimeUnit.SECONDS);
-
-            connection.send("/notifications", Buffer.alloc("hello titan"))
+            client.send("/notifications", "hello titan")
                     .get(30, TimeUnit.SECONDS);
         } finally {
             client.shutdown(30, TimeUnit.SECONDS);
@@ -71,61 +59,41 @@ public class StompClientExample {
 }
 ```
 
-`StompClient.open(...).onStomp(...).onChannel(...)` can be used to configure
-the client fluently before `start()`. Create one `EventLoopGroups` per client
-lifecycle and shut the client down when the application no longer needs the
-connection.
+The builder is the public configuration surface for both Titan's native client and the Vert.x
+implementation. Keep the client for its full lifecycle and shut it down when it is no longer
+needed.
 
 ## Asynchronous Send
 
-`StompClientConnection` operations return Titan promises. You can keep them
-asynchronous and attach listeners instead of blocking with `get(...)`.
+Client operations return `CompletableFuture`, so they can be composed without blocking.
 
 ```java
 import java.util.concurrent.TimeUnit;
-import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.channel.stomp.StompClientConnection;
-import org.traffichunter.titan.core.codec.stomp.StompFrame;
-import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.transport.stomp.StompClient;
-import org.traffichunter.titan.core.transport.stomp.option.StompClientOption;
-import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.client.TitanClient;
 
-public class AsyncStompClientExample {
+public class AsyncTitanClientExample {
 
     public static void main(String[] args) {
-        EventLoopGroups groups = EventLoopGroups.group(1, 2);
-        StompClient client = StompClient.open(groups, StompClientOption.builder()
+        TitanClient client = TitanClient.builder()
+                .worker(2)
                 .host("127.0.0.1")
                 .port(61613)
-                .build());
+                .build();
 
         client.start();
-
-        client.connect("127.0.0.1", 61613, 30, TimeUnit.SECONDS)
-                .thenCompose(connection -> sendAsync(connection, "/notifications", "hello titan"))
-                .addListener(result -> {
-                    if (result.isSuccess()) {
+        client.connect()
+                .thenCompose(ignored -> client.send("/notifications", "hello titan"))
+                .whenComplete((frame, error) -> {
+                    try {
+                        if (error != null) {
+                            error.printStackTrace();
+                            return;
+                        }
                         System.out.println("message sent");
-                        return;
+                    } finally {
+                        client.shutdown(30, TimeUnit.SECONDS);
                     }
-
-                    result.error().printStackTrace();
                 });
     }
-
-    private static Promise<StompFrame> sendAsync(
-            StompClientConnection connection,
-            String destination,
-            String payload
-    ) {
-        return connection.send(destination, Buffer.alloc(payload));
-    }
 }
-```
-
-Use `future()` when integration code needs a JDK `Future`.
-
-```java
-var future = connection.send("/notifications", Buffer.alloc("hello titan")).future();
 ```

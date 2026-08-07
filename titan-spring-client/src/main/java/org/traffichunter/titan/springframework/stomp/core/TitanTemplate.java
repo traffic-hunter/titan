@@ -7,13 +7,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * Default {@link StompOperations} implementation.
- * Delegates every operation to the active {@link StompConnection} resolved through
+ * Delegates every operation to the active {@link TitanClient} resolved through
  * {@link TitanClientManager}, connecting on demand when no connection exists yet.
  *
  * <p>The {@link StompOperations} contract is asynchronous and returns {@link CompletableFuture}
@@ -34,12 +34,26 @@ public final class TitanTemplate implements StompOperations {
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload) {
-        return connection().send(destination, payload);
+        TitanClient client;
+        try {
+            client = connection();
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return client.send(destination, payload);
     }
 
     @Override
     public CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers) {
-        return connection().send(destination, payload, headers);
+        TitanClient client;
+        try {
+            client = connection();
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return client.send(destination, payload, headers);
     }
 
     @Override
@@ -100,7 +114,7 @@ public final class TitanTemplate implements StompOperations {
         return future.get(clientManager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
     }
 
-    private StompConnection connection() {
+    private TitanClient connection() {
         try {
             return clientManager.connection();
         } catch (Exception e) {

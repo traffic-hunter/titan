@@ -67,15 +67,15 @@ class WebSocketTransportIntegrationTest {
         LinkedBlockingQueue<String> serverMessages = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> clientMessages = new LinkedBlockingQueue<>();
 
-        server = InetServer.open(EventLoopGroups.group(1))
-                .upgradeWebsocket("/stomp")
+        server = InetServer.open(EventLoopGroups.group(1, 1))
+                .upgradeWebSocket("/stomp")
                 .onChannel(channel -> channel.chain().add(echo(serverMessages)));
         server.start();
         server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
 
         int port = ((InetSocketAddress) server.localAddress()).getPort();
         client = InetClient.open(EventLoopGroups.group(1))
-                .upgradeWebsocket(Protocol.STOMP, "/stomp");
+                .upgradeWebSocket(Protocol.STOMP, "/stomp");
         client.start();
 
         WebSocketChannel channel = client.connect("localhost", port, 5, TimeUnit.SECONDS)

@@ -118,6 +118,7 @@ val publishedArtifacts = mapOf(
     "bootstrap" to "titan-bootstrap",
     "core" to "titan-core",
     "titan-stomp" to "titan-stomp",
+    "titan-client" to "titan-client",
     "titan-spring-client" to "titan-spring-client",
     "fanout" to "titan-fanout",
     "monitor" to "titan-monitor",

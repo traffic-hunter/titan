@@ -88,7 +88,7 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
         }
         StompServer server = StompServer.open(groups, inetServer, stompServerOption);
         if (webSocket) {
-            server.upgradeWebsocket(path);
+            server.webSocket(path);
         }
         server.onChannel(channel -> {
                     inboundHandlers.forEach(inboundHandler ->

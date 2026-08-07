@@ -24,10 +24,6 @@ THE SOFTWARE.
 package org.traffichunter.titan.smoke.springframework.smoke.local;
 
 import org.springframework.context.annotation.Import;
-import org.traffichunter.titan.core.transport.stomp.TitanStompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
-import org.traffichunter.titan.core.transport.stomp.client.TitanStompConnection;
 import org.traffichunter.titan.smoke.springframework.smoke.junit.TitanSmokeTest;
 
 /**
@@ -38,12 +34,7 @@ import org.traffichunter.titan.smoke.springframework.smoke.junit.TitanSmokeTest;
 class TitanSmokeLocalTest extends AbstractTitanSmokeLocalTest {
 
     @Override
-    protected Class<? extends StompClient> clientType() {
-        return TitanStompClient.class;
-    }
-
-    @Override
-    protected Class<? extends StompConnection> connectionType() {
-        return TitanStompConnection.class;
+    protected String clientName() {
+        return "titan";
     }
 }

@@ -16,25 +16,21 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.traffichunter.titan.core.transport.stomp.client.StompClient;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.springframework.stomp.TitanProperties;
 
 class TitanClientManagerTest {
 
-    private StompClient client;
-    private StompConnection connection;
+    private TitanClient client;
     private TitanProperties properties;
     private TitanClientManager manager;
 
     @BeforeEach
     void setUp() {
-        client = mock(StompClient.class);
-        connection = mock(StompConnection.class);
+        client = mock(TitanClient.class);
         properties = new TitanProperties();
 
-        when(client.connect()).thenReturn(CompletableFuture.completedFuture(connection));
-        when(client.connection()).thenReturn(connection);
+        when(client.connect()).thenReturn(CompletableFuture.completedFuture(client));
 
         // Mirror a real client: start()/shutdown() flip the client's own lifecycle flags,
         // which the manager now treats as the single source of truth.
@@ -105,46 +101,43 @@ class TitanClientManagerTest {
     void connection_recovers_after_initial_connect_failure() throws Exception {
         when(client.connect())
                 .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("connect failed")))
-                .thenReturn(CompletableFuture.completedFuture(connection));
+                .thenReturn(CompletableFuture.completedFuture(client));
         manager = new TitanClientManager(client, properties);
 
         assertThatThrownBy(manager::start).isInstanceOf(IllegalStateException.class);
 
-        StompConnection resolved = manager.connection();
+        TitanClient resolved = manager.connection();
 
-        assertThat(resolved).isSameAs(connection);
+        assertThat(resolved).isSameAs(client);
         verify(client, times(1)).start();
         verify(client, times(2)).connect();
     }
 
     @Test
     void connection_starts_and_connects_client_when_no_connection_exists() throws Exception {
-        when(client.connection())
-                .thenThrow(new IllegalStateException("not connected"))
-                .thenReturn(connection);
         manager = new TitanClientManager(client, properties);
 
-        StompConnection resolved = manager.connection();
+        TitanClient resolved = manager.connection();
 
-        assertThat(resolved).isSameAs(connection);
+        assertThat(resolved).isSameAs(client);
         verify(client).start();
         verify(client).connect();
     }
 
     @Test
     void connection_reuses_current_connection_when_connected() throws Exception {
-        when(connection.isConnected()).thenReturn(true);
+        when(client.isConnected()).thenReturn(true);
         manager = new TitanClientManager(client, properties);
 
-        StompConnection resolved = manager.connection();
+        TitanClient resolved = manager.connection();
 
-        assertThat(resolved).isSameAs(connection);
+        assertThat(resolved).isSameAs(client);
         verify(client, never()).connect();
     }
 
     @Test
     void current_connection_returns_null_when_no_connection_exists() {
-        when(client.connection()).thenThrow(new IllegalStateException("not connected"));
+        when(client.isConnected()).thenReturn(false);
         manager = new TitanClientManager(client, properties);
 
         assertThat(manager.currentConnection()).isNull();

@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.core.transport.stomp.client.StompConnection;
+import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 import org.springframework.util.ErrorHandler;
@@ -56,7 +56,7 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompConnection connection = manager.connection();
+            TitanClient connection = manager.connection();
             String subscriptionId = connection.subscribe(endpoint.destination(), frame -> {
                 try {
                     invoke(frame);
@@ -94,7 +94,7 @@ public final class TitanListenerContainer {
         }
 
         try {
-            StompConnection connection = manager.currentConnection();
+            TitanClient connection = manager.currentConnection();
             if(connection == null) {
                 return;
             }
@@ -151,7 +151,7 @@ public final class TitanListenerContainer {
     /**
      * Send ACK for MESSAGE frames that include a message-id.
      */
-    private void acknowledgeIfPossible(StompFrames frame, StompConnection connection) {
+    private void acknowledgeIfPossible(StompFrames frame, TitanClient connection) {
         if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
@@ -168,7 +168,7 @@ public final class TitanListenerContainer {
     /**
      * Send NACK for MESSAGE frames that include a message-id.
      */
-    private void negativeAcknowledgeIfPossible(StompFrames frame, StompConnection connection) {
+    private void negativeAcknowledgeIfPossible(StompFrames frame, TitanClient connection) {
         if (frame.command() != StompCommand.MESSAGE) {
             return;
         }
