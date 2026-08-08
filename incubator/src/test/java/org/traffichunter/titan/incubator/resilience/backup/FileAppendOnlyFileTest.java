@@ -174,7 +174,7 @@ class FileAppendOnlyFileTest {
     }
 
     private Metadata metadata(Type type, String destination, String payload) {
-        Buffer buffer = Buffer.alloc(payload, UTF_8);
+        Buffer buffer = Buffer.heap().alloc(payload, UTF_8);
         try {
             return Metadata.create(type, 100, destination, buffer);
         } finally {
@@ -208,13 +208,13 @@ class FileAppendOnlyFileTest {
 
         @Override
         public Buffer readAll() {
-            return Buffer.alloc(bytes);
+            return Buffer.heap().alloc(bytes);
         }
 
         @Override
         public Buffer read(long position, int length) {
             byte[] slice = Arrays.copyOfRange(bytes, (int) position, (int) position + length);
-            return Buffer.alloc(slice);
+            return Buffer.heap().alloc(slice);
         }
 
         @Override

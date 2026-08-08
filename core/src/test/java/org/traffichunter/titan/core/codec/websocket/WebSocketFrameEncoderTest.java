@@ -36,7 +36,7 @@ class WebSocketFrameEncoderTest {
 
     @Test
     void release_input_after_encoding_server_frame() {
-        Buffer input = Buffer.alloc("OK");
+        Buffer input = Buffer.heap().alloc("OK");
 
         Buffer encoded = new WebSocketFrameEncoder(WebSocketSide.SERVER)
                 .encode(new InMemoryNetChannel(), input);
@@ -50,7 +50,7 @@ class WebSocketFrameEncoderTest {
 
     @Test
     void release_input_after_encoding_client_frame() {
-        Buffer input = Buffer.alloc("OK");
+        Buffer input = Buffer.heap().alloc("OK");
 
         Buffer encoded = new WebSocketFrameEncoder(WebSocketSide.CLIENT)
                 .encode(new InMemoryNetChannel(), input);

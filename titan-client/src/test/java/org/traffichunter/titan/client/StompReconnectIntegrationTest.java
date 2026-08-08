@@ -96,7 +96,7 @@ class StompReconnectIntegrationTest {
                     received::add
             ).get(3, SECONDS);
 
-            client.send(destination, Buffer.alloc("before-restart")).get(3, SECONDS);
+            client.send(destination, Buffer.heap().alloc("before-restart")).get(3, SECONDS);
             StompFrames beforeRestart = received.poll(3, SECONDS);
             assertThat(beforeRestart).isNotNull();
             assertThat(beforeRestart.body()).asString(StandardCharsets.UTF_8).isEqualTo("before-restart");
@@ -113,7 +113,7 @@ class StompReconnectIntegrationTest {
                         assertThat(client.isConnected()).isTrue();
                     });
 
-            client.send(destination, Buffer.alloc("after-restart")).get(3, SECONDS);
+            client.send(destination, Buffer.heap().alloc("after-restart")).get(3, SECONDS);
             StompFrames afterRestart = received.poll(3, SECONDS);
             assertThat(afterRestart).isNotNull();
             assertThat(afterRestart.body()).asString(StandardCharsets.UTF_8).isEqualTo("after-restart");
@@ -153,7 +153,7 @@ class StompReconnectIntegrationTest {
                         assertThat(client.isConnected()).isTrue();
                     });
 
-            client.send(destination, Buffer.alloc("must-not-be-delivered")).get(3, SECONDS);
+            client.send(destination, Buffer.heap().alloc("must-not-be-delivered")).get(3, SECONDS);
             assertThat(received.poll(500, TimeUnit.MILLISECONDS)).isNull();
         } finally {
             client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
@@ -189,8 +189,8 @@ class StompReconnectIntegrationTest {
             await().atMost(10, SECONDS)
                     .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
 
-            client.send("/queue/reconnect-first", Buffer.alloc("first")).get(3, SECONDS);
-            client.send("/queue/reconnect-second", Buffer.alloc("second")).get(3, SECONDS);
+            client.send("/queue/reconnect-first", Buffer.heap().alloc("first")).get(3, SECONDS);
+            client.send("/queue/reconnect-second", Buffer.heap().alloc("second")).get(3, SECONDS);
 
             assertThat(firstMessages.poll(3, SECONDS)).isNotNull()
                     .extracting(frame -> new String(frame.body(), StandardCharsets.UTF_8))
@@ -229,7 +229,7 @@ class StompReconnectIntegrationTest {
             await().atMost(10, SECONDS)
                     .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
 
-            client.send(destination, Buffer.alloc("vertx-restored")).get(3, SECONDS);
+            client.send(destination, Buffer.heap().alloc("vertx-restored")).get(3, SECONDS);
             StompFrames restored = received.poll(3, SECONDS);
             assertThat(restored).isNotNull();
             assertThat(restored.body()).asString(StandardCharsets.UTF_8).isEqualTo("vertx-restored");
@@ -285,8 +285,8 @@ class StompReconnectIntegrationTest {
                         assertThat(client.isConnected()).isTrue();
                     });
 
-            client.send("/queue/partial-first", Buffer.alloc("first-restored")).get(3, SECONDS);
-            client.send("/queue/partial-second", Buffer.alloc("second-restored")).get(3, SECONDS);
+            client.send("/queue/partial-first", Buffer.heap().alloc("first-restored")).get(3, SECONDS);
+            client.send("/queue/partial-second", Buffer.heap().alloc("second-restored")).get(3, SECONDS);
             assertThat(firstMessages.poll(3, SECONDS)).isNotNull();
             assertThat(secondMessages.poll(3, SECONDS)).isNotNull();
         } finally {
@@ -332,7 +332,7 @@ class StompReconnectIntegrationTest {
                         assertThat(client.isConnected()).isTrue();
                     });
 
-            client.send(destination, Buffer.alloc("restored-after-timeout")).get(3, SECONDS);
+            client.send(destination, Buffer.heap().alloc("restored-after-timeout")).get(3, SECONDS);
             assertThat(received.poll(3, SECONDS)).isNotNull();
         } finally {
             client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
@@ -381,7 +381,7 @@ class StompReconnectIntegrationTest {
 
             releaseSubscriptionResult.complete(null);
             subscription.get(3, SECONDS);
-            client.send(destination, Buffer.alloc("late-subscription-restored")).get(3, SECONDS);
+            client.send(destination, Buffer.heap().alloc("late-subscription-restored")).get(3, SECONDS);
             assertThat(received.poll(3, SECONDS)).isNotNull();
         } finally {
             releaseSubscriptionResult.complete(null);

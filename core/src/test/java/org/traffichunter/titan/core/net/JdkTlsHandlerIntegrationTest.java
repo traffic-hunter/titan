@@ -170,10 +170,10 @@ class JdkTlsHandlerIntegrationTest {
             }
 
             int splitIndex = 3;
-            server.receive(Buffer.alloc(Arrays.copyOfRange(record, 0, splitIndex)));
+            server.receive(Buffer.heap().alloc(Arrays.copyOfRange(record, 0, splitIndex)));
             assertThat(server.plainTexts).isEmpty();
 
-            server.receive(Buffer.alloc(Arrays.copyOfRange(record, splitIndex, record.length)));
+            server.receive(Buffer.heap().alloc(Arrays.copyOfRange(record, splitIndex, record.length)));
 
             assertPlainText(server, "fragmented-record");
         } finally {
@@ -361,7 +361,7 @@ class JdkTlsHandlerIntegrationTest {
         private void write(byte[] value) throws Exception {
             Promise<Void> result = eventLoop.submit(() -> {
                 ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl();
-                handler.sparkChannelWrite(channel, Buffer.alloc(value), chain);
+                handler.sparkChannelWrite(channel, Buffer.heap().alloc(value), chain);
                 channel.internal().flush();
             });
             result.get(2, TimeUnit.SECONDS);

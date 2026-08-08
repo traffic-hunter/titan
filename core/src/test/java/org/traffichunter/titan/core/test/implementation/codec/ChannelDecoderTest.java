@@ -30,8 +30,8 @@ class ChannelDecoderTest {
 
     @Test
     void when_keeping_buffer() {
-        Buffer keeping = Buffer.alloc("alloc");
-        Buffer in = Buffer.alloc("in");
+        Buffer keeping = Buffer.heap().alloc("alloc");
+        Buffer in = Buffer.heap().alloc("in");
 
         Buffer expandBuffer = ChannelDecoder.MERGE_BUFFER.merge(keeping, in);
 
@@ -44,7 +44,7 @@ class ChannelDecoderTest {
 
     @Test
     void when_decode_returns_null_after_consuming_then_no_frames() {
-        Buffer in = Buffer.alloc("drop");
+        Buffer in = Buffer.heap().alloc("drop");
         CollectingChain chain = new CollectingChain();
         ChannelDecoder decoder = new ChannelDecoder() {
             @Override
@@ -62,7 +62,7 @@ class ChannelDecoderTest {
 
     @Test
     void release_pending_buffer_when_channel_closes() {
-        Buffer input = Buffer.alloc("partial");
+        Buffer input = Buffer.heap().alloc("partial");
         ChannelDecoder decoder = new ChannelDecoder() {
             @Override
             protected Buffer decode(@NonNull NetChannel channel, @NonNull Buffer buffer) {
@@ -101,7 +101,7 @@ class ChannelDecoderTest {
         };
         channel.chain().add(decoder);
 
-        Buffer input = Buffer.alloc("partial");
+        Buffer input = Buffer.heap().alloc("partial");
         decoder.sparkChannelRead(channel, input, new CollectingChain());
 
         channel.close();

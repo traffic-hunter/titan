@@ -35,8 +35,41 @@ import org.junit.jupiter.api.Test;
 class BufferOwnershipTest {
 
     @Test
+    void allocate_application_buffer_on_heap() {
+        Buffer buffer = Buffer.heap().alloc("data");
+
+        assertThat(buffer.byteBuf().isDirect()).isFalse();
+
+        buffer.release();
+    }
+
+    @Test
+    void allocate_transport_buffer_in_direct_memory() {
+        Buffer buffer = Buffer.direct().alloc("data");
+
+        assertThat(buffer.byteBuf().isDirect()).isTrue();
+
+        buffer.release();
+    }
+
+    @Test
+    void preserve_memory_type_after_reallocation() {
+        Buffer heap = Buffer.heap().alloc(1, 1);
+        Buffer direct = Buffer.direct().alloc(1, 1);
+
+        heap.accumulateString("12");
+        direct.accumulateString("12");
+
+        assertThat(heap.byteBuf().isDirect()).isFalse();
+        assertThat(direct.byteBuf().isDirect()).isTrue();
+
+        heap.release();
+        direct.release();
+    }
+
+    @Test
     void release_previous_buffer_after_reallocation() {
-        Buffer buffer = Buffer.alloc(1, 1);
+        Buffer buffer = Buffer.heap().alloc(1, 1);
         ByteBuf previous = buffer.byteBuf();
 
         buffer.accumulateString("12");
@@ -64,7 +97,7 @@ class BufferOwnershipTest {
     @Test
     void keep_read_all_result_alive_after_accumulator_is_cleared() {
         BufferAccumulator accumulator = new BufferAccumulator();
-        Buffer input = Buffer.alloc("data");
+        Buffer input = Buffer.heap().alloc("data");
         accumulator.accumulate(input);
         input.release();
 

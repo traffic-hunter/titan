@@ -89,7 +89,7 @@ class NetChannelInternalTest {
         channel.register(eventLoop);
 
         try {
-            Buffer pipelineBuffer = Buffer.alloc("pipeline");
+            Buffer pipelineBuffer = Buffer.heap().alloc("pipeline");
             ChannelPromise publicWrite = channel.writeAndFlush(pipelineBuffer);
             publicWrite.await(2, TimeUnit.SECONDS);
             pipelineBuffer.release();
@@ -99,7 +99,7 @@ class NetChannelInternalTest {
             assertThat(pipelineWrites).hasValue(1);
             release(channel.pollWritten());
 
-            Buffer internalBuffer = Buffer.alloc("internal");
+            Buffer internalBuffer = Buffer.heap().alloc("internal");
             channel.internal().writeAndFlush(internalBuffer);
             internalBuffer.release();
 

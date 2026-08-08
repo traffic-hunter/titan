@@ -30,9 +30,14 @@ import lombok.Builder;
 import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Message stored and routed by Titan's dispatcher queues.
+ *
+ * <p>The payload is kept as a heap byte array rather than a reference-counted transport buffer.
+ * The constructor copies the supplied array, so queued messages do not retain codec or network
+ * resources and do not require explicit release.</p>
+ *
  * @author yungwang-o
  */
 @Getter
@@ -56,12 +61,12 @@ public final class Message {
     public Message(final Destination destination,
                    final Instant createdAt,
                    final String producerId,
-                   final Buffer body
+                   final byte[] body
     ) {
         this.destination = Objects.requireNonNull(destination, "routingKey");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.producerId = Objects.requireNonNull(producerId, "producerId");
-        this.body = Objects.requireNonNull(body, "body").getBytes();
+        this.body = Objects.requireNonNull(body, "body").clone();
         this.size = this.body.length;
     }
 

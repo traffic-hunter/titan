@@ -68,7 +68,7 @@ class DestinationBackupSystemTest {
     }
 
     private Metadata metadata(String destination, String payload) {
-        Buffer buffer = Buffer.alloc(payload, UTF_8);
+        Buffer buffer = Buffer.heap().alloc(payload, UTF_8);
         try {
             return Metadata.create(Type.MESSAGE_APPEND, 100, destination, buffer);
         } finally {

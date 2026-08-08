@@ -25,7 +25,6 @@ import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.fanout.AggregationResult;
 import org.traffichunter.titan.fanout.DispatchGateway;
 import org.traffichunter.titan.fanout.DispatchMode;
@@ -58,7 +57,7 @@ public class FanoutGatewayBenchmark {
                 .destination(destination)
                 .createdAt(Instant.now())
                 .producerId("benchmark-producer")
-                .body(Buffer.alloc("payload"))
+                .body("payload".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build();
         batchMessages = createBatchMessages(destination, batchSize);
 
@@ -103,7 +102,7 @@ public class FanoutGatewayBenchmark {
                     .destination(destination)
                     .createdAt(Instant.now())
                     .producerId("benchmark-producer-" + i)
-                    .body(Buffer.alloc("payload-" + i))
+                    .body(("payload-" + i).getBytes(java.nio.charset.StandardCharsets.UTF_8))
                     .build());
         }
         return messages;

@@ -126,7 +126,7 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
      * {@link #body()} when a byte array is sufficient.</p>
      */
     public Buffer getBody() {
-        return Buffer.alloc(body);
+        return Buffer.heap().alloc(body);
     }
 
     @Override
@@ -142,10 +142,10 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     @Override
     public Buffer toBuffer() {
         if(command == StompCommand.PING) {
-            return Buffer.alloc(StompDelimiter.LF.getString());
+            return Buffer.heap().alloc(StompDelimiter.LF.getString());
         }
 
-        Buffer buffer = Buffer.alloc(command.name());
+        Buffer buffer = Buffer.heap().alloc(command.name());
         buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
 
         Set<Entry<Elements, String>> entries = headers.entrySet();
@@ -258,7 +258,7 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     }
 
     public static StompFrame errorFrame(final StompHeaders headers, final String message, final String body) {
-        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, Buffer.alloc(body));
+        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, Buffer.heap().alloc(body));
         errorFrame.addHeader(Elements.MESSAGE, message);
         errorFrame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
         errorFrame.addHeader(Elements.CONTENT_TYPE, MediaType.TEXT_PLAIN);
@@ -267,7 +267,7 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     }
 
     public static Buffer errorFrame(final String message) {
-        return Buffer.alloc(message);
+        return Buffer.heap().alloc(message);
     }
 
     public static String formatString(final String message, final Object... obj) {

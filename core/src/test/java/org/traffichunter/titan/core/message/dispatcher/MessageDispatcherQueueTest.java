@@ -64,7 +64,7 @@ class MessageDispatcherQueueTest {
                 .destination(Destination.create(destination))
                 .createdAt(Instant.now())
                 .producerId("test")
-                .body(Buffer.alloc("test".getBytes()))
+                .body("test".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build();
     }
 }

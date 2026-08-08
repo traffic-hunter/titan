@@ -34,7 +34,7 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, IdGenerator.uuid());
 
-        StompFrame stompFrame = StompFrame.create(headers, command, Buffer.alloc("hello"));
+        StompFrame stompFrame = StompFrame.create(headers, command, Buffer.heap().alloc("hello"));
         Buffer frames = stompFrame.toBuffer();
 
         try {
@@ -53,7 +53,7 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, IdGenerator.uuid());
 
-        StompFrame stompFrame = StompFrame.create(headers, command, Buffer.alloc("hello"));
+        StompFrame stompFrame = StompFrame.create(headers, command, Buffer.heap().alloc("hello"));
         Buffer frame = stompFrame.toBuffer();
 
         Buffer notEofFrame = frame.readSlice(frame.length() - 1);
@@ -74,7 +74,7 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.CONTENT_LENGTH, "10");
 
-        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.alloc("hello"));
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
         try {
@@ -92,7 +92,7 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.CONTENT_LENGTH, "5");
 
-        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.alloc("hello"));
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
 
         Buffer buf = frame.toBuffer();
 
@@ -111,7 +111,7 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, "1");
 
-        StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.empty());
+        StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.heap().empty());
         Buffer buf = frame.toBuffer();
 
         try {
@@ -129,9 +129,9 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, "1");
 
-        StompFrame stompFrame = StompFrame.create(headers, StompCommand.SEND, Buffer.alloc("hello"));
+        StompFrame stompFrame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
 
-        Buffer stompFrames = Buffer.alloc(stompFrame + "CONNECT\r\nid:1\r");
+        Buffer stompFrames = Buffer.heap().alloc(stompFrame + "CONNECT\r\nid:1\r");
 
         try {
             TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
@@ -148,13 +148,13 @@ class StompChannelDecoderTest {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, "1");
 
-        StompFrame stompFrame = StompFrame.create(headers, StompCommand.SEND, Buffer.alloc("hello"));
+        StompFrame stompFrame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer total = stompFrame.toBuffer();
         byte[] bytes = total.getBytes();
 
         int split = bytes.length / 2;
-        Buffer part1 = Buffer.alloc(Arrays.copyOfRange(bytes, 0, split));
-        Buffer part2 = Buffer.alloc(Arrays.copyOfRange(bytes, split, bytes.length));
+        Buffer part1 = Buffer.heap().alloc(Arrays.copyOfRange(bytes, 0, split));
+        Buffer part2 = Buffer.heap().alloc(Arrays.copyOfRange(bytes, split, bytes.length));
 
         CollectingChain chain = new CollectingChain();
         TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
@@ -182,7 +182,7 @@ class StompChannelDecoderTest {
         // returned by decode() when it reaches the end of the chain (next == null).
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, IdGenerator.uuid());
-        StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.alloc("hello"));
+        StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
         TerminalChain terminal = new TerminalChain();
@@ -208,7 +208,7 @@ class StompChannelDecoderTest {
         // must be released even when ERR_STOMP_FRAME is returned early.
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.CONTENT_LENGTH, "999");
-        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.alloc("hello"));
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
         TerminalChain terminal = new TerminalChain();

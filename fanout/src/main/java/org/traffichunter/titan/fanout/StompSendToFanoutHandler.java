@@ -38,7 +38,6 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 
@@ -73,18 +72,12 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
             return;
         }
 
-        Buffer body = Buffer.alloc(sf.body());
-        Message message;
-        try {
-            message = Message.builder()
-                    .destination(Destination.create(destination))
-                    .createdAt(Instant.now())
-                    .producerId(connection.session())
-                    .body(body)
-                    .build();
-        } finally {
-            body.release();
-        }
+        Message message = Message.builder()
+                .destination(Destination.create(destination))
+                .createdAt(Instant.now())
+                .producerId(connection.session())
+                .body(sf.body())
+                .build();
 
         try {
             CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);

@@ -27,89 +27,88 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.netty.buffer.ByteBuf;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.Objects;
-import org.traffichunter.titan.core.codec.base64.Base64Codec;
 import org.traffichunter.titan.core.util.Clearable;
 
 /**
- * Byte buffer abstraction used by Titan codecs and transports.
+ * Reference-counted byte buffer used inside Titan codecs and transports.
  *
  * <p>{@code Buffer} wraps Netty's {@link ByteBuf} while keeping the rest of the codebase
  * independent from direct Netty APIs. It preserves the familiar reader/writer index model:
  * read operations consume or inspect readable bytes, and {@code accumulate*} operations append
  * bytes at the writer index.</p>
  *
- * <p>Buffers are reference-counted through the underlying {@link ByteBuf}. Callers that keep
- * slices or pass buffers across asynchronous boundaries should use {@link #retain()} or retained
- * slice operations where ownership must outlive the current handler call.</p>
+ * <p>Every buffer returned by an allocator owns one reference to its underlying {@link ByteBuf}.
+ * The owner must either call {@link #release()} exactly once or transfer that reference to an API
+ * whose contract takes ownership. Passing a buffer to a borrowing API does not transfer that
+ * responsibility.</p>
+ *
+ * <p>Use {@link #heap()} for short-lived codec and protocol processing. Use {@link #direct()} only
+ * where native I/O benefits from direct memory, such as socket reads and TLS packet processing.
+ * Messages stored by queues and fanout use byte arrays rather than {@code Buffer}, so their
+ * lifetime is managed by the JVM.</p>
+ *
+ * <p>Non-retained slices share both storage and reference count with their parent. Use retained
+ * slice operations only when a view must outlive the current call, and release that retained
+ * reference when it is no longer needed.</p>
  *
  * @author yungwang-o
  */
 public interface Buffer extends Clearable {
 
     /**
-     * Allocates a direct buffer with bounded capacity.
+     * Returns the shared pooled allocator for short-lived heap buffers.
+     *
+     * <p>Heap buffers remain reference-counted and must be released even though their storage is
+     * located in JVM heap memory.</p>
      */
-    static Buffer alloc(final int initialCapacity, final int maxCapacity) {
-        return new InternalBuffer(initialCapacity, maxCapacity);
+    static BufferAllocator heap() {
+        return BufferAllocators.HEAP;
     }
 
     /**
-     * Allocates a direct buffer using the default maximum capacity of the allocator.
+     * Returns the shared pooled allocator for native transport buffers.
+     *
+     * <p>Prefer this allocator at socket and TLS boundaries. Application state and queued message
+     * payloads should not retain direct buffers.</p>
      */
-    static Buffer alloc(final int initialCapacity) {
-        return new InternalBuffer(initialCapacity);
-    }
-
-    static Buffer alloc(final String data) {
-        Objects.requireNonNull(data);
-        return new InternalBuffer(data);
-    }
-
-    static Buffer alloc(final String data, final Charset charset) {
-        Objects.requireNonNull(data); Objects.requireNonNull(charset);
-        return new InternalBuffer(data, charset);
-    }
-
-    static Buffer alloc(final byte[] data) {
-        Objects.requireNonNull(data);
-        return new InternalBuffer(data);
-    }
-
-    static Buffer allocAfterBase64Decode(final String data) {
-        Objects.requireNonNull(data);
-        byte[] decode = Base64Codec.decode(data);
-        return new InternalBuffer(decode);
-    }
-
-    static Buffer empty() {
-        return new InternalBuffer();
+    static BufferAllocator direct() {
+        return BufferAllocators.DIRECT;
     }
 
     /**
-     * Wraps an existing {@link ByteBuf}. Ownership follows the wrapped buffer's reference count.
+     * Wraps an existing {@link ByteBuf} without retaining it.
+     *
+     * <p>The returned wrapper represents the reference already owned by the supplied buffer. The
+     * caller must not release both objects as if they owned independent references.</p>
      */
     static Buffer buffer(final ByteBuf buffer) {
         return new InternalBuffer(buffer);
     }
 
     /**
-     * Returns a NIO view over the readable/writable region of the underlying buffer.
+     * Returns a shared NIO view over the readable bytes of this buffer.
+     *
+     * <p>The view has no independent lifetime and must not be used after this buffer is released.</p>
      */
     ByteBuffer byteBuffer();
 
     /**
-     * Exposes the underlying Netty buffer for channel I/O and codec internals.
+     * Exposes a borrowed reference to the underlying Netty buffer for channel I/O and codec
+     * internals.
+     *
+     * <p>Calling this method does not retain the returned buffer.</p>
      */
     ByteBuf byteBuf();
 
     /**
-     * Releases one reference to the underlying buffer.
+     * Releases the reference represented by this buffer.
      */
     void release();
 
     /**
-     * Retains the underlying buffer and returns a buffer view for the retained reference.
+     * Adds one reference to the underlying storage.
+     *
+     * <p>The returned buffer must eventually be released independently from the original owner.</p>
      */
     Buffer retain();
 
@@ -266,19 +265,21 @@ public interface Buffer extends Clearable {
     }
 
     /**
-     * Creates a copy with independent storage.
+     * Creates an owned copy with independent storage and reference count.
      */
     @CanIgnoreReturnValue
     Buffer copy();
 
     /**
-     * Creates a non-retained slice sharing the underlying storage.
+     * Creates a non-retained slice sharing storage and reference count with this buffer.
+     *
+     * <p>The slice must not outlive this buffer.</p>
      */
     @CanIgnoreReturnValue
     Buffer slice();
 
     /**
-     * Creates a retained slice sharing the underlying storage.
+     * Creates a retained slice with an independently releasable reference to shared storage.
      */
     @CanIgnoreReturnValue
     Buffer retainSlice();

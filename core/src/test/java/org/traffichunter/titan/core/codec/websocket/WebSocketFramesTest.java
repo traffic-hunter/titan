@@ -37,7 +37,7 @@ class WebSocketFramesTest {
 
     @Test
     void create_unmasked_server_ping_frame() {
-        Buffer payload = Buffer.alloc("OK");
+        Buffer payload = Buffer.heap().alloc("OK");
         WebSocketFrame frame = WebSocketFrames.ping(payload, WebSocketSide.SERVER, Protocol.STOMP);
 
         assertThat(frame.header().getOpCode()).isEqualTo(WebSocketFrameHeader.OpCode.PING);
@@ -49,7 +49,7 @@ class WebSocketFramesTest {
 
     @Test
     void create_masked_client_pong_frame() {
-        Buffer payload = Buffer.alloc("OK");
+        Buffer payload = Buffer.heap().alloc("OK");
         WebSocketFrame frame = WebSocketFrames.pong(payload, WebSocketSide.CLIENT, Protocol.STOMP);
 
         assertThat(frame.header().getOpCode()).isEqualTo(WebSocketFrameHeader.OpCode.PONG);
@@ -70,7 +70,7 @@ class WebSocketFramesTest {
 
     @Test
     void reject_oversized_control_frame_payload() {
-        Buffer payload = Buffer.alloc(new byte[126]);
+        Buffer payload = Buffer.heap().alloc(new byte[126]);
 
         assertThatThrownBy(() -> WebSocketFrames.ping(payload, WebSocketSide.SERVER, Protocol.STOMP))
                 .isInstanceOf(WebSocketFrameException.class)
@@ -81,7 +81,7 @@ class WebSocketFramesTest {
 
     @Test
     void reject_one_byte_close_payload() {
-        Buffer payload = Buffer.alloc(new byte[1]);
+        Buffer payload = Buffer.heap().alloc(new byte[1]);
 
         assertThatThrownBy(() -> WebSocketFrames.close(payload, WebSocketSide.SERVER, Protocol.STOMP))
                 .isInstanceOf(WebSocketFrameException.class)

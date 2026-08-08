@@ -50,7 +50,7 @@ public final class WebSocketControlFrameHandlerImpl implements WebSocketControlF
         WebSocketFrame frame = context.frame();
         try {
             WebSocketFrame pong = WebSocketFrames.pong(
-                    Buffer.alloc(frame.payload().getBytes()),
+                    Buffer.heap().alloc(frame.payload().getBytes()),
                     context.side(),
                     frame.subProtocol()
             );
@@ -62,7 +62,7 @@ public final class WebSocketControlFrameHandlerImpl implements WebSocketControlF
 
     private void handleClose(WebSocketContext context) {
         WebSocketFrame frame = context.frame();
-        Buffer closePayload = Buffer.alloc(frame.payload().getBytes());
+        Buffer closePayload = Buffer.heap().alloc(frame.payload().getBytes());
         try {
             WebSocketFrame close = WebSocketFrames.close(
                     closePayload,

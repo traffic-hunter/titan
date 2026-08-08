@@ -94,7 +94,7 @@ public class ClientToServerTest {
         assertThat(channel.isConnected()).isTrue();
         assertThat(channel.isActive()).isTrue();
 
-        client.send(Buffer.alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
+        client.send(Buffer.heap().alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
             if(future.isSuccess()) {
                 log.info("Send successfully");
             }
@@ -122,7 +122,7 @@ public class ClientToServerTest {
         for (int i = 0; i < count; i++) {
             es.execute(() -> {
                 try {
-                    client.send(Buffer.alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
+                    client.send(Buffer.heap().alloc("hello\n".getBytes(StandardCharsets.UTF_8))).addListener(future -> {
                         if(future.isSuccess()) {
                             log.info("Send successfully");
                         }
@@ -147,7 +147,7 @@ public class ClientToServerTest {
         public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer, @NonNull ChannelInBoundHandlerChain chain) {
             final Message msg = Message.builder()
                     .destination(Destination.create("/route/test"))
-                    .body(buffer)
+                    .body(buffer.getBytes())
                     .producerId(IdGenerator.uuid())
                     .createdAt(Instant.now())
                     .build();

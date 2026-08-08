@@ -88,7 +88,7 @@ public interface TitanClient {
      * @return the asynchronous transport result
      */
     default CompletableFuture<StompFrames> send(String destination, String payload) {
-        return send(destination, Buffer.alloc(payload));
+        return send(destination, Buffer.heap().alloc(payload));
     }
 
     /**

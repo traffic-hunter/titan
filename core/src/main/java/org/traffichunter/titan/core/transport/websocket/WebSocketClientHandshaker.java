@@ -93,7 +93,7 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
         Promise<NetChannel> upgradeResult = Promise.newPromise(channel.eventLoop());
         channel.chain().add(new WebSocketUpgradeHandler(this, key, upgradeResult));
 
-        channel.writeAndFlush(Buffer.alloc(request.toString())).addListener(result -> {
+        channel.writeAndFlush(Buffer.heap().alloc(request.toString())).addListener(result -> {
             if (result.isFailed() && !upgradeResult.isDone()) {
                 Throwable error = result.error();
                 upgradeResult.fail(error == null

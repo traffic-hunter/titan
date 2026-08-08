@@ -103,7 +103,7 @@ public final class TitanTemplate implements StompOperations {
     }
 
     public StompFrames send(String destination, byte[] payload) throws Exception {
-        return await(send(destination, Buffer.alloc(payload)));
+        return await(send(destination, Buffer.heap().alloc(payload)));
     }
 
     public String subscribe(String destination) throws Exception {

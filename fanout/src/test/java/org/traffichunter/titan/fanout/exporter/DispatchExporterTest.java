@@ -102,18 +102,12 @@ class DispatchExporterTest {
 
     @Test
     void default_message_export_releases_temporary_buffer() {
-        Buffer source = Buffer.alloc("payload");
-        Message message;
-        try {
-            message = Message.builder()
-                    .destination(Destination.create("/topic/test"))
-                    .createdAt(Instant.now())
-                    .producerId("producer")
-                    .body(source)
-                    .build();
-        } finally {
-            source.release();
-        }
+        Message message = Message.builder()
+                .destination(Destination.create("/topic/test"))
+                .createdAt(Instant.now())
+                .producerId("producer")
+                .body("payload".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .build();
 
         AtomicReference<Buffer> exported = new AtomicReference<>();
         DispatchExporter exporter = new DispatchExporter() {
@@ -170,7 +164,7 @@ class DispatchExporterTest {
                 .build());
 
         StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
-        AggregationResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
+        AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isEqualTo(2);
         assertThat(result.done()).isEqualTo(2);
@@ -181,7 +175,7 @@ class DispatchExporterTest {
     @Test
     void vertxStompDispatchExporter_dispatches_message_frame_to_subscribers() {
         Destination destination = Destination.create("/topic/orders");
-        Buffer payload = Buffer.alloc("hello".getBytes());
+        Buffer payload = Buffer.heap().alloc("hello".getBytes());
 
         when(vertxServer.isListening()).thenReturn(true);
         when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
@@ -215,7 +209,7 @@ class DispatchExporterTest {
         when(vertxServerHandler.getDestination(destination.path())).thenReturn(null);
 
         VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        AggregationResult result = exporter.export(destination, Buffer.alloc("hello".getBytes()));
+        AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isZero();
         assertThat(result.succeeded()).isZero();
@@ -243,7 +237,7 @@ class DispatchExporterTest {
         when(inetServer.childChannel()).thenReturn(registry.getChannels());
 
         TcpDispatchExporter exporter = new TcpDispatchExporter(inetServer);
-        AggregationResult result = exporter.export(Destination.create("/topic/a"), Buffer.alloc("p".getBytes()));
+        AggregationResult result = exporter.export(Destination.create("/topic/a"), Buffer.heap().alloc("p".getBytes()));
 
         assertThat(result.isDone()).isTrue();
         assertThat(result.totalAttempted()).isEqualTo(2);

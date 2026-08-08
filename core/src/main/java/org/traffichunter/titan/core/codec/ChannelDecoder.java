@@ -45,7 +45,7 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoClose
      * Combines a previously retained buffer with newly received bytes.
      */
     public static final MergeBuffer MERGE_BUFFER = ((mergeBuffer, in) -> {
-        final Buffer newBuffer = Buffer.alloc(mergeBuffer.length() + in.length());
+        final Buffer newBuffer = Buffer.heap().alloc(mergeBuffer.length() + in.length());
         boolean isExpanding = false;
         try {
             newBuffer.accumulateBuffer(mergeBuffer);

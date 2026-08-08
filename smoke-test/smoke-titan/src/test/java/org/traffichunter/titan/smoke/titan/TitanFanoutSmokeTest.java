@@ -96,7 +96,7 @@ class TitanFanoutSmokeTest {
                 received.countDown();
             }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-            producerConnection.send(FANOUT_DESTINATION, Buffer.alloc(payload))
+            producerConnection.send(FANOUT_DESTINATION, Buffer.heap().alloc(payload))
                     .get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
             assertThat(received.await(10, TimeUnit.SECONDS)).isTrue();

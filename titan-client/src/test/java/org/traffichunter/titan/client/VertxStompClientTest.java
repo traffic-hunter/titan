@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.after;
 import static org.mockito.ArgumentMatchers.any;
@@ -153,10 +154,12 @@ class VertxStompClientTest {
         connectionDroppedHandler(firstConnection).handle(firstConnection);
 
         verify(nativeClient, timeout(1000).times(3)).connect(option.port(), option.host());
+        await().atMost(2, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
         assertThat(driver.channel()).isSameAs(restoredConnection);
         assertThat(client.connection()).isNotSameAs(initialConnection);
 
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
         client.send("/queue/reconnected", payload).get();
         assertThat(payload.byteBuf().refCnt()).isZero();
         verify(restoredConnection).send(eq("/queue/reconnected"), any(io.vertx.core.buffer.Buffer.class));
