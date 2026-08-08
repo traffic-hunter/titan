@@ -21,7 +21,7 @@ class ChannelInBoundHandlerChainImplTest {
 
     @Test
     void when_terminal_chain_then_buffer_refCnt_is_zero() {
-        Buffer buf = Buffer.alloc("data");
+        Buffer buf = Buffer.heap().alloc("data");
         ChannelHandlerChain chain = new ChannelHandlerChain();
 
         chain.processChannelRead(new InMemoryNetChannel(), buf);
@@ -33,7 +33,7 @@ class ChannelInBoundHandlerChainImplTest {
 
     @Test
     void when_pass_through_handler_then_buffer_released_at_chain_end() {
-        Buffer buf = Buffer.alloc("data");
+        Buffer buf = Buffer.heap().alloc("data");
         ChannelHandlerChain chain = new ChannelHandlerChain();
         chain.add(new PassThroughHandler());
 
@@ -46,7 +46,7 @@ class ChannelInBoundHandlerChainImplTest {
 
     @Test
     void when_handler_retains_buffer_then_refCnt_reflects_retain() {
-        Buffer buf = Buffer.alloc("data");
+        Buffer buf = Buffer.heap().alloc("data");
         ChannelHandlerChain chain = new ChannelHandlerChain();
         chain.add(new RetainingHandler());
 
@@ -62,7 +62,7 @@ class ChannelInBoundHandlerChainImplTest {
 
     @Test
     void addFirst_places_inbound_handler_before_existing_handlers() {
-        Buffer buf = Buffer.alloc("data");
+        Buffer buf = Buffer.heap().alloc("data");
         List<String> order = new ArrayList<>();
         ChannelHandlerChain chain = new ChannelHandlerChain();
         chain.add(new RecordingInboundHandler("second", order));
@@ -75,7 +75,7 @@ class ChannelInBoundHandlerChainImplTest {
 
     @Test
     void remove_detaches_inbound_handler_and_preserves_tail() {
-        Buffer buf = Buffer.alloc("data");
+        Buffer buf = Buffer.heap().alloc("data");
         List<String> order = new ArrayList<>();
         ChannelHandlerChain chain = new ChannelHandlerChain();
         RecordingInboundHandler first = new RecordingInboundHandler("first", order);

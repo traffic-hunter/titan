@@ -25,7 +25,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnFrame_whenDelimiterIsCRLF() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("hello\r\nhello\r\n");
+        Buffer buffer = Buffer.heap().alloc("hello\r\nhello\r\n");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -41,7 +41,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnFrame_whenDelimiterIsLF() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("hello\nhello\n");
+        Buffer buffer = Buffer.heap().alloc("hello\nhello\n");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -57,7 +57,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnIsEmpty_whenDelimiterNotFound() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("hello");
+        Buffer buffer = Buffer.heap().alloc("hello");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -72,7 +72,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnIsEmpty_whenFrameExceedsMaxLength_withDelimiter() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("hellohellohello\r\n");
+        Buffer buffer = Buffer.heap().alloc("hellohellohello\r\n");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -87,7 +87,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnIsEmpty_whenFrameExceedsMaxLength_withoutDelimiter() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("hellohellohello");
+        Buffer buffer = Buffer.heap().alloc("hellohellohello");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -102,7 +102,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnFrame_whenFrameExceedsMaxLength_withDelimiterAndCRLF() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("hellohellohello\r\nhello\r\n");
+        Buffer buffer = Buffer.heap().alloc("hellohellohello\r\nhello\r\n");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -117,7 +117,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnFrame_whenStripDelimiter() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10, false);
 
-        Buffer buffer = Buffer.alloc("hello\r\n");
+        Buffer buffer = Buffer.heap().alloc("hello\r\n");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {
@@ -133,7 +133,7 @@ class LineFrameChannelDecoderTest {
     void shouldReturnEmptyFrame_whenFrameIsEmpty() {
         TestLineFrameChannelDecoder decoder = new TestLineFrameChannelDecoder(10);
 
-        Buffer buffer = Buffer.alloc("\nabc\n");
+        Buffer buffer = Buffer.heap().alloc("\nabc\n");
         List<Buffer> frames = decoder.decodes(buffer);
 
         try {

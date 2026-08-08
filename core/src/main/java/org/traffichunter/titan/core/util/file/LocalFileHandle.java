@@ -74,7 +74,7 @@ final class LocalFileHandle implements FileHandle {
         Assert.checkArgument(position >= 0, "position must be greater than or equal to zero");
         Assert.checkArgument(length >= 0, "length must be greater than or equal to zero");
 
-        Buffer destination = Buffer.alloc(length);
+        Buffer destination = Buffer.heap().alloc(length);
         try {
             ByteBuffer buffer = Buffers.writableByteBuffer(destination);
             long nextPosition = position;

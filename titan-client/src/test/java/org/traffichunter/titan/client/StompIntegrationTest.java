@@ -132,7 +132,7 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
-            Buffer body = Buffer.alloc("Hello STOMP!");
+            Buffer body = Buffer.heap().alloc("Hello STOMP!");
             StompFrame result = client.channel().send("/queue/test", body).get(3, TimeUnit.SECONDS);
 
             assertThat(result).isNotNull();
@@ -174,7 +174,7 @@ class StompIntegrationTest {
             assertThat(client.channel().subscriptions()).hasSize(1);
 
             // Publish message
-            client.channel().send("/topic/test", Buffer.alloc("Test message")).get(3, TimeUnit.SECONDS);
+            client.channel().send("/topic/test", Buffer.heap().alloc("Test message")).get(3, TimeUnit.SECONDS);
 
             // Wait for message
             boolean received = latch.await(5, TimeUnit.SECONDS);
@@ -406,7 +406,7 @@ class StompIntegrationTest {
             // Send within transaction
             StompHeaders headers = StompHeaders.create();
             headers.put(Elements.TRANSACTION, txId);
-            client.channel().send("/queue/tx-test", Buffer.alloc("TX message"), headers).get(3, TimeUnit.SECONDS);
+            client.channel().send("/queue/tx-test", Buffer.heap().alloc("TX message"), headers).get(3, TimeUnit.SECONDS);
 
             client.channel().commit(txId).get(3, TimeUnit.SECONDS);
 
@@ -519,7 +519,7 @@ class StompIntegrationTest {
                     .destination(queue.route())
                     .createdAt(Instant.now())
                     .producerId(UUID.randomUUID().toString())
-                    .body(buffer)
+                    .body(buffer.getBytes())
                     .build();
 
             queue.enqueue(message);

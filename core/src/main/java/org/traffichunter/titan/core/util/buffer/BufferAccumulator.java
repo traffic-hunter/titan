@@ -49,7 +49,7 @@ public final class BufferAccumulator implements Clearable {
 
     public BufferAccumulator(int maxAccumulatedSize) {
         this.maxAccumulatedSize = maxAccumulatedSize;
-        this.accumulator = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
+        this.accumulator = Buffer.heap().alloc(Buffers.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
     }
 
     /**
@@ -162,7 +162,7 @@ public final class BufferAccumulator implements Clearable {
         if (accumulator != null) {
             accumulator.release();
         }
-        accumulator = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
+        accumulator = Buffer.heap().alloc(Buffers.DEFAULT_INITIAL_CAPACITY, maxAccumulatedSize);
     }
 
     /**

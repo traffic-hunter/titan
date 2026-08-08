@@ -199,7 +199,7 @@ class WebSocketServerHandshakerTest {
                 EVENT_LOOP.submit(() ->
                         handler.sparkChannelRead(
                                 channel,
-                                Buffer.alloc(data.getBytes(ISO_8859_1)),
+                                Buffer.heap().alloc(data.getBytes(ISO_8859_1)),
                                 chain
                         )
                 ).get(2, TimeUnit.SECONDS);

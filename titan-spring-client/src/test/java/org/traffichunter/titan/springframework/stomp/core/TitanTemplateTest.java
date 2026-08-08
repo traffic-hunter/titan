@@ -82,7 +82,7 @@ class TitanTemplateTest {
     @Test
     void async_send_buffer_returns_connection_future() {
         CompletableFuture<StompFrames> expected = CompletableFuture.completedFuture(frame);
-        Buffer payload = Buffer.alloc("hello".getBytes(StandardCharsets.UTF_8));
+        Buffer payload = Buffer.heap().alloc("hello".getBytes(StandardCharsets.UTF_8));
         when(client.send("/topic/test", payload)).thenReturn(expected);
 
         CompletableFuture<StompFrames> result = template.send("/topic/test", payload);
@@ -94,7 +94,7 @@ class TitanTemplateTest {
     void send_consumes_payload_when_connection_resolution_fails() {
         when(client.isConnected()).thenReturn(false);
         when(client.connect()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("unavailable")));
-        Buffer payload = Buffer.alloc("hello");
+        Buffer payload = Buffer.heap().alloc("hello");
 
         assertThatThrownBy(() -> template.send("/topic/test", payload))
                 .isInstanceOf(IllegalStateException.class)

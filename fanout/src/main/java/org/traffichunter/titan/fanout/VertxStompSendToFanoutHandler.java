@@ -35,7 +35,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
@@ -75,18 +74,12 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
         }
 
         io.vertx.core.buffer.Buffer body = frame.getBody();
-        Buffer payload = Buffer.alloc(body == null ? new byte[]{} : body.getBytes());
-        Message message;
-        try {
-            message = Message.builder()
-                    .destination(Destination.create(destination))
-                    .createdAt(Instant.now())
-                    .producerId(serverFrame.connection().session())
-                    .body(payload)
-                    .build();
-        } finally {
-            payload.release();
-        }
+        Message message = Message.builder()
+                .destination(Destination.create(destination))
+                .createdAt(Instant.now())
+                .producerId(serverFrame.connection().session())
+                .body(body == null ? new byte[]{} : body.getBytes())
+                .build();
 
         try {
             CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);

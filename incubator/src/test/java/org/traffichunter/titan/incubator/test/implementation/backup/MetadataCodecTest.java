@@ -25,7 +25,7 @@ class MetadataCodecTest {
     @Test
     void encode_and_decode_round_trip_binary_payload() {
         byte[] payloadBytes = new byte[] { 'a', '\n', 0, (byte) 0xff };
-        Buffer payload = Buffer.alloc(payloadBytes);
+        Buffer payload = Buffer.heap().alloc(payloadBytes);
         Buffer encoded = null;
 
         try {
@@ -51,7 +51,7 @@ class MetadataCodecTest {
 
     @Test
     void encode_does_not_release_input_payload() {
-        Buffer payload = Buffer.alloc("payload", UTF_8);
+        Buffer payload = Buffer.heap().alloc("payload", UTF_8);
         Buffer encoded = null;
 
         try {
@@ -132,7 +132,7 @@ class MetadataCodecTest {
     }
 
     private Buffer encodeSample() {
-        Buffer payload = Buffer.alloc("payload", UTF_8);
+        Buffer payload = Buffer.heap().alloc("payload", UTF_8);
         try {
             return MetadataCodec.encode(Metadata.create(Type.MESSAGE_APPEND, 100, "/queue/orders", payload));
         } finally {

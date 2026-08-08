@@ -44,7 +44,7 @@ class FileHandlerTest {
     @Test
     void create_directories_and_open_create_file() {
         Path file = tempDir.resolve("data/queue.log");
-        Buffer content = Buffer.alloc("hello", UTF_8);
+        Buffer content = Buffer.heap().alloc("hello", UTF_8);
 
         try (FileHandle resource = FileHandle.open(file, CREATE, WRITE)) {
             resource.write(content);
@@ -59,8 +59,8 @@ class FileHandlerTest {
     @Test
     void append_returns_start_offset_and_read_reads_positioned_bytes() {
         Path file = tempDir.resolve("queue.log");
-        Buffer first = Buffer.alloc("hello", UTF_8);
-        Buffer second = Buffer.alloc(" titan", UTF_8);
+        Buffer first = Buffer.heap().alloc("hello", UTF_8);
+        Buffer second = Buffer.heap().alloc(" titan", UTF_8);
         Buffer buffer = null;
 
         try (FileHandle resource = FileHandle.open(file, CREATE, READ, WRITE)) {
@@ -85,8 +85,8 @@ class FileHandlerTest {
     @Test
     void positioned_write_replaces_content_at_offset() throws Exception {
         Path file = tempDir.resolve("queue.log");
-        Buffer content = Buffer.alloc("hello", UTF_8);
-        Buffer replacement = Buffer.alloc("y", UTF_8);
+        Buffer content = Buffer.heap().alloc("hello", UTF_8);
+        Buffer replacement = Buffer.heap().alloc("y", UTF_8);
 
         try (FileHandle resource = FileHandle.open(file, CREATE, READ, WRITE, TRUNCATE_EXISTING)) {
             resource.write(content);
@@ -102,7 +102,7 @@ class FileHandlerTest {
     @Test
     void truncate_reduces_file_size() {
         Path file = tempDir.resolve("queue.log");
-        Buffer content = Buffer.alloc("hello", UTF_8);
+        Buffer content = Buffer.heap().alloc("hello", UTF_8);
 
         try (FileHandle resource = FileHandle.open(file, CREATE, READ, WRITE, TRUNCATE_EXISTING)) {
             resource.write(content);
@@ -145,7 +145,7 @@ class FileHandlerTest {
     void atomic_write_replaces_file_content() throws Exception {
         Path file = tempDir.resolve("manifest.json");
         Files.writeString(file, "old");
-        Buffer content = Buffer.alloc("new", UTF_8);
+        Buffer content = Buffer.heap().alloc("new", UTF_8);
 
         try {
             FileHandler.atomicWrite(file, content);
@@ -162,8 +162,8 @@ class FileHandlerTest {
     @Test
     void utility_read_write_and_append_handle_whole_file_buffers() {
         Path file = tempDir.resolve("data.log");
-        Buffer first = Buffer.alloc("hello", UTF_8);
-        Buffer second = Buffer.alloc(" titan", UTF_8);
+        Buffer first = Buffer.heap().alloc("hello", UTF_8);
+        Buffer second = Buffer.heap().alloc(" titan", UTF_8);
         Buffer read = null;
 
         try {

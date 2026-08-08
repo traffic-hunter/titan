@@ -90,7 +90,7 @@ public class WebSocketFrameHeader {
 
     static Buffer unmask(Buffer payload, int maskingKey) {
         try {
-            return Buffer.alloc(unmask(payload.getBytes(), maskingKey));
+            return Buffer.heap().alloc(unmask(payload.getBytes(), maskingKey));
         } finally {
             payload.release();
         }
@@ -106,7 +106,7 @@ public class WebSocketFrameHeader {
 
     Buffer mask(Buffer payload) {
         try {
-            return Buffer.alloc(mask(payload.getBytes()));
+            return Buffer.heap().alloc(mask(payload.getBytes()));
         } finally {
             payload.release();
         }

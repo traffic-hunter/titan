@@ -107,7 +107,7 @@ public final class MetadataCodec {
         buffer.putInt(crc32);
         buffer.put(destination);
         buffer.put(payload);
-        return Buffer.alloc(buffer.array());
+        return Buffer.heap().alloc(buffer.array());
     }
 
     /**

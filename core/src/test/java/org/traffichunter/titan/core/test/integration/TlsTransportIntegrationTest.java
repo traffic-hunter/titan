@@ -115,7 +115,7 @@ class TlsTransportIntegrationTest {
         assertThat(channel.isConnected()).isTrue();
         assertThat(channel.isActive()).isTrue();
 
-        client.send(Buffer.alloc("hello tls")).get(5, TimeUnit.SECONDS);
+        client.send(Buffer.heap().alloc("hello tls")).get(5, TimeUnit.SECONDS);
 
         assertThat(serverMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("hello tls");
         assertThat(clientMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("echo:hello tls");
@@ -140,7 +140,7 @@ class TlsTransportIntegrationTest {
 
         NetChannel channel = client.connect("localhost", port, 5, TimeUnit.SECONDS)
                 .get(5, TimeUnit.SECONDS);
-        client.send(Buffer.alloc("mutual tls")).get(5, TimeUnit.SECONDS);
+        client.send(Buffer.heap().alloc("mutual tls")).get(5, TimeUnit.SECONDS);
 
         assertThat(channel.isConnected()).isTrue();
         assertThat(serverMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("mutual tls");
@@ -170,7 +170,7 @@ class TlsTransportIntegrationTest {
                 .get(5, TimeUnit.SECONDS);
         channel.chain().add(capture(clientMessages));
 
-        webSocketClient.send(Buffer.alloc("secure websocket")).get(5, TimeUnit.SECONDS);
+        webSocketClient.send(Buffer.heap().alloc("secure websocket")).get(5, TimeUnit.SECONDS);
 
         assertThat(serverMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("secure websocket");
         assertThat(clientMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("echo:secure websocket");
@@ -201,7 +201,7 @@ class TlsTransportIntegrationTest {
                 try {
                     String message = buffer.toString();
                     messages.add(message);
-                    channel.writeAndFlush(Buffer.alloc("echo:" + message));
+                    channel.writeAndFlush(Buffer.heap().alloc("echo:" + message));
                 } finally {
                     buffer.release();
                 }

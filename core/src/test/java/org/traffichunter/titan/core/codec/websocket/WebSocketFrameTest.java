@@ -37,7 +37,7 @@ class WebSocketFrameTest {
 
     @Test
     void convert_unmasked_frame_to_buffer() {
-        Buffer payload = Buffer.alloc("OK");
+        Buffer payload = Buffer.heap().alloc("OK");
         WebSocketFrameHeader header = WebSocketFrameHeader.builder()
                 .op(TEXT, true)
                 .payloadLength(payload.length())
@@ -55,7 +55,7 @@ class WebSocketFrameTest {
 
     @Test
     void convert_masked_frame_to_buffer() {
-        Buffer payload = Buffer.alloc("OK");
+        Buffer payload = Buffer.heap().alloc("OK");
         WebSocketFrameHeader header = WebSocketFrameHeader.builder()
                 .op(TEXT, true)
                 .masked(0x01020304)
@@ -83,7 +83,7 @@ class WebSocketFrameTest {
 
     @Test
     void reject_payload_length_mismatch() {
-        Buffer payload = Buffer.alloc("OK");
+        Buffer payload = Buffer.heap().alloc("OK");
         WebSocketFrameHeader header = WebSocketFrameHeader.builder()
                 .op(TEXT, true)
                 .payloadLength(1)

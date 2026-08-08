@@ -51,7 +51,7 @@ class BufferOwnershipTest {
     @Test
     void disconnected_client_consumes_payload() {
         TitanClient client = TitanClient.builder().build();
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
 
         try {
             assertThatThrownBy(() -> client.send("/queue/test", payload).join())
@@ -65,7 +65,7 @@ class BufferOwnershipTest {
     @Test
     void disconnected_client_consumes_payload_with_headers() {
         TitanClient client = TitanClient.builder().build();
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
 
         try {
             assertThatThrownBy(() -> client.send(
@@ -84,7 +84,7 @@ class BufferOwnershipTest {
         StompClientChannel channel = mock(StompClientChannel.class);
         when(channel.handler()).thenReturn(mock(StompClientHandler.class));
         TitanStompConnection connection = new TitanStompConnection(channel);
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
 
         assertThatThrownBy(() -> connection.send("/queue/invalid destination", payload))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -98,7 +98,7 @@ class BufferOwnershipTest {
         when(nativeConnection.send(eq("/queue/test"), any(io.vertx.core.buffer.Buffer.class)))
                 .thenReturn(io.vertx.core.Future.succeededFuture(response));
         VertxStompConnection connection = new VertxStompConnection(nativeConnection);
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
 
         connection.send("/queue/test", payload).join();
 
@@ -116,7 +116,7 @@ class BufferOwnershipTest {
                 any(io.vertx.core.buffer.Buffer.class)
         )).thenReturn(io.vertx.core.Future.succeededFuture(response));
         VertxStompConnection connection = new VertxStompConnection(nativeConnection);
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
 
         connection.send(
                 "/queue/test",
@@ -136,7 +136,7 @@ class BufferOwnershipTest {
     void vertx_connection_consumes_payload_when_destination_is_invalid() {
         StompClientConnection nativeConnection = mock(StompClientConnection.class);
         VertxStompConnection connection = new VertxStompConnection(nativeConnection);
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
 
         assertThatThrownBy(() -> connection.send("/queue/invalid destination", payload))
                 .isInstanceOf(IllegalArgumentException.class);

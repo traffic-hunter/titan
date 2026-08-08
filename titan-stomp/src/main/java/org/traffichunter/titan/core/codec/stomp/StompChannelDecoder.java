@@ -116,7 +116,7 @@ public class StompChannelDecoder extends ChannelDecoder {
             // Skip stomp last delimiter (null)
             buffer.skipBytes(1);
 
-            Buffer stompFrame = Buffer.alloc(sliceBuffer.length() + 1);
+            Buffer stompFrame = Buffer.heap().alloc(sliceBuffer.length() + 1);
             List<Buffer> frames = List.of();
             try {
                 stompFrame.accumulateBuffer(sliceBuffer)

@@ -57,7 +57,7 @@ public record WebSocketFrame(
             throw new WebSocketFrameException("Frame payload length mismatch: header=" + payloadLength + ", actual=" + payload.length());
         }
 
-        Buffer frame = Buffer.alloc(Math.addExact(header.size(), payload.length()));
+        Buffer frame = Buffer.heap().alloc(Math.addExact(header.size(), payload.length()));
         try {
             int firstByte = (header.isFin() ? 0x80 : 0) | header.getOpCode().code();
             int maskBit = header.isMasked() ? 0x80 : 0;

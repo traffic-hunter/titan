@@ -156,7 +156,7 @@ class VertxStompClientTest {
         assertThat(driver.channel()).isSameAs(restoredConnection);
         assertThat(client.connection()).isNotSameAs(initialConnection);
 
-        Buffer payload = Buffer.alloc("message");
+        Buffer payload = Buffer.heap().alloc("message");
         client.send("/queue/reconnected", payload).get();
         assertThat(payload.byteBuf().refCnt()).isZero();
         verify(restoredConnection).send(eq("/queue/reconnected"), any(io.vertx.core.buffer.Buffer.class));

@@ -82,7 +82,7 @@ class WebSocketTransportIntegrationTest {
                 .get(5, TimeUnit.SECONDS);
         channel.chain().add(capture(clientMessages));
 
-        client.send(Buffer.alloc("hello websocket")).get(5, TimeUnit.SECONDS);
+        client.send(Buffer.heap().alloc("hello websocket")).get(5, TimeUnit.SECONDS);
 
         assertThat(serverMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("hello websocket");
         assertThat(clientMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("echo:hello websocket");
@@ -99,7 +99,7 @@ class WebSocketTransportIntegrationTest {
                 try {
                     String message = buffer.toString();
                     messages.add(message);
-                    channel.writeAndFlush(Buffer.alloc("echo:" + message));
+                    channel.writeAndFlush(Buffer.heap().alloc("echo:" + message));
                 } finally {
                     buffer.release();
                 }

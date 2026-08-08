@@ -20,7 +20,6 @@ import org.traffichunter.titan.core.message.dispatcher.MapDispatcher;
 import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -60,7 +59,7 @@ public class DispatcherBenchmark {
                 .destination(exactKey)
                 .createdAt(Instant.now())
                 .producerId("benchmark-producer")
-                .body(Buffer.alloc("payload"))
+                .body("payload".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build();
     }
 

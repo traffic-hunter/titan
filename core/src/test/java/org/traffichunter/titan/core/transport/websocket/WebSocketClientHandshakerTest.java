@@ -175,7 +175,7 @@ class WebSocketClientHandshakerTest {
         }
 
         private void read(byte[] data) {
-            handler.sparkChannelRead(channel, Buffer.alloc(data), chain);
+            handler.sparkChannelRead(channel, Buffer.heap().alloc(data), chain);
         }
     }
 

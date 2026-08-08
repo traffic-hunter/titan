@@ -45,7 +45,7 @@ class StompFrameTest {
 
     @Test
     void consume_buffer_and_keep_copied_body() {
-        Buffer body = Buffer.alloc("body");
+        Buffer body = Buffer.heap().alloc("body");
 
         StompFrame frame = StompFrame.create(
                 StompHeaders.create(),

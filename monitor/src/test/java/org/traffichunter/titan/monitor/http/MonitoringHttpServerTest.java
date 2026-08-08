@@ -206,7 +206,7 @@ class MonitoringHttpServerTest {
                 .destination(Destination.create("/queue/non-empty"))
                 .createdAt(java.time.Instant.now())
                 .producerId("test")
-                .body(Buffer.alloc("test".getBytes()))
+                .body("test".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build());
         DispatcherQueueManagers.register("test", manager);
 

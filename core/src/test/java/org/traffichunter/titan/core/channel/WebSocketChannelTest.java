@@ -54,7 +54,7 @@ class WebSocketChannelTest {
         eventLoop.start();
         delegate.register(eventLoop);
         WebSocketChannel channel = new WebSocketChannel(delegate, Protocol.STOMP);
-        Buffer payload = Buffer.alloc("data");
+        Buffer payload = Buffer.heap().alloc("data");
 
         try {
             ChannelPromise write = channel.writeAndFlush(payload);
@@ -86,7 +86,7 @@ class WebSocketChannelTest {
         when(delegate.eventLoop()).thenReturn(eventLoop);
         when(eventLoop.inEventLoop()).thenReturn(true);
         WebSocketChannel channel = new WebSocketChannel(delegate, Protocol.STOMP);
-        Buffer payload = Buffer.alloc("OK");
+        Buffer payload = Buffer.heap().alloc("OK");
         WebSocketFrame frame = new WebSocketFrame(
                 WebSocketFrameHeader.builder()
                         .op(WebSocketFrameHeader.OpCode.TEXT, true)
@@ -113,7 +113,7 @@ class WebSocketChannelTest {
     void reject_frame_with_different_subprotocol() {
         NetChannel delegate = mock(NetChannel.class);
         WebSocketChannel channel = new WebSocketChannel(delegate, Protocol.STOMP);
-        Buffer payload = Buffer.alloc("data");
+        Buffer payload = Buffer.heap().alloc("data");
         WebSocketFrame frame = new WebSocketFrame(
                 WebSocketFrameHeader.builder()
                         .op(WebSocketFrameHeader.OpCode.BINARY, true)

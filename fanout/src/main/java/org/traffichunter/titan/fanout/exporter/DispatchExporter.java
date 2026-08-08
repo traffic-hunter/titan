@@ -54,7 +54,7 @@ public interface DispatchExporter {
 
     @CanIgnoreReturnValue
     default AggregationResult export(Destination destination, Message payload) {
-        Buffer buffer = Buffer.alloc(payload.getBody());
+        Buffer buffer = Buffer.heap().alloc(payload.getBody());
         try {
             return export(destination, buffer);
         } finally {

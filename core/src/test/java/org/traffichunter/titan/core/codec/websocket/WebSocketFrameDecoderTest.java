@@ -24,7 +24,7 @@ class WebSocketFrameDecoderTest {
         InMemoryNetChannel channel = new InMemoryNetChannel();
 
         byte[] bytes = {(byte) 0x81, (byte) 0x02, 'O', 'K'};
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -42,7 +42,7 @@ class WebSocketFrameDecoderTest {
         InMemoryNetChannel channel = new InMemoryNetChannel();
 
         byte[] bytes = {(byte) 0x81, (byte) 0x04, 'O', 'K', 'O', 'K'};
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -61,7 +61,7 @@ class WebSocketFrameDecoderTest {
 
         // ASCII payloads = 'A', 'B', 'A', 'B'
         byte[] bytes = {(byte) 0x82, (byte) 0x04, (byte) 0x41, (byte) 0x42, (byte) 0x41, (byte) 0x42};
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -89,7 +89,7 @@ class WebSocketFrameDecoderTest {
                 body[0],
                 body[1]
         };
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -115,7 +115,7 @@ class WebSocketFrameDecoderTest {
                 'O',
                 'K'
         };
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -138,7 +138,7 @@ class WebSocketFrameDecoderTest {
         bytes[2] = 0x00;
         bytes[3] = 0x7E;
         System.arraycopy(body, 0, bytes, 4, body.length);
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -168,7 +168,7 @@ class WebSocketFrameDecoderTest {
         bytes[8] = 0x00;
         bytes[9] = 0x00;
         System.arraycopy(body, 0, bytes, 10, body.length);
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -185,7 +185,7 @@ class WebSocketFrameDecoderTest {
     @Test
     void return_null_when_frame_header_is_incomplete() {
         InMemoryNetChannel channel = new InMemoryNetChannel();
-        Buffer buffer = Buffer.alloc(new byte[]{(byte) 0x81});
+        Buffer buffer = Buffer.heap().alloc(new byte[]{(byte) 0x81});
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -200,7 +200,7 @@ class WebSocketFrameDecoderTest {
     @Test
     void preserve_buffer_when_extended_length_is_incomplete() {
         InMemoryNetChannel channel = new InMemoryNetChannel();
-        Buffer buffer = Buffer.alloc(new byte[]{(byte) 0x81, 0x7E, 0x00});
+        Buffer buffer = Buffer.heap().alloc(new byte[]{(byte) 0x81, 0x7E, 0x00});
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -216,7 +216,7 @@ class WebSocketFrameDecoderTest {
     @Test
     void preserve_buffer_when_payload_is_incomplete() {
         InMemoryNetChannel channel = new InMemoryNetChannel();
-        Buffer buffer = Buffer.alloc(new byte[]{(byte) 0x81, 0x04, 'O', 'K'});
+        Buffer buffer = Buffer.heap().alloc(new byte[]{(byte) 0x81, 0x04, 'O', 'K'});
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -285,7 +285,7 @@ class WebSocketFrameDecoderTest {
     @Test
     void consume_close_frame_without_forwarding_payload() {
         InMemoryNetChannel channel = new InMemoryNetChannel();
-        Buffer buffer = Buffer.alloc(new byte[]{(byte) 0x88, 0x00});
+        Buffer buffer = Buffer.heap().alloc(new byte[]{(byte) 0x88, 0x00});
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);
@@ -300,7 +300,7 @@ class WebSocketFrameDecoderTest {
     @Test
     void consume_ping_frame_without_forwarding_payload() {
         InMemoryNetChannel channel = new InMemoryNetChannel();
-        Buffer buffer = Buffer.alloc(new byte[]{(byte) 0x89, 0x02, 'O', 'K'});
+        Buffer buffer = Buffer.heap().alloc(new byte[]{(byte) 0x89, 0x02, 'O', 'K'});
         AtomicReference<WebSocketContext> received = new AtomicReference<>();
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder(
@@ -340,7 +340,7 @@ class WebSocketFrameDecoderTest {
 
     private static void assertInvalidFrameClosesChannel(byte[] bytes) {
         InMemoryNetChannel channel = new InMemoryNetChannel();
-        Buffer buffer = Buffer.alloc(bytes);
+        Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
         Buffer payload = decoder.decode(channel, buffer);

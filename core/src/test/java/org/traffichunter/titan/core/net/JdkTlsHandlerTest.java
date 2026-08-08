@@ -198,7 +198,7 @@ class JdkTlsHandlerTest {
 
         JdkTlsHandler handler = handler(sslEngine);
         handler.handshakeResult = ChannelPromise.newPromise(eventLoop, channel).success();
-        Buffer plainText = Buffer.alloc("message");
+        Buffer plainText = Buffer.heap().alloc("message");
 
         handler.sparkChannelWrite(channel, plainText, chain);
 
@@ -232,7 +232,7 @@ class JdkTlsHandlerTest {
         when(channel.internal()).thenReturn(internal);
 
         eventLoop.start();
-        Buffer encrypted = Buffer.alloc(new byte[]{0x01});
+        Buffer encrypted = Buffer.heap().alloc(new byte[]{0x01});
         Buffer closeNotify = null;
         try {
             JdkTlsHandler handler = handler(sslEngine);

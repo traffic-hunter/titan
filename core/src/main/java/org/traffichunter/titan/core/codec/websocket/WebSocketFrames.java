@@ -87,7 +87,7 @@ public final class WebSocketFrames {
 
         Assert.check(reasonBytes.length <= 123, () -> new WebSocketFrameException("Close reason must be at most 123 bytes"));
 
-        Buffer payload = Buffer.alloc(Short.BYTES + reasonBytes.length)
+        Buffer payload = Buffer.heap().alloc(Short.BYTES + reasonBytes.length)
                 .accumulateUnsignedShort(statusCode)
                 .accumulateBytes(reasonBytes);
 

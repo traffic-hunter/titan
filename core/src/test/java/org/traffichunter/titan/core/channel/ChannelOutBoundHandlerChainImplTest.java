@@ -41,7 +41,7 @@ class ChannelOutBoundHandlerChainImplTest {
 
     @Test
     void terminal_chain_writes_to_internal_channel() {
-        Buffer buffer = Buffer.alloc("data");
+        Buffer buffer = Buffer.heap().alloc("data");
         InMemoryNetChannel channel = new InMemoryNetChannel();
         ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl();
 
@@ -58,7 +58,7 @@ class ChannelOutBoundHandlerChainImplTest {
 
     @Test
     void addFirst_places_handler_before_existing_handlers() {
-        Buffer buffer = Buffer.alloc("data");
+        Buffer buffer = Buffer.heap().alloc("data");
         List<String> order = new ArrayList<>();
         InMemoryNetChannel channel = new InMemoryNetChannel();
         ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl()
@@ -75,7 +75,7 @@ class ChannelOutBoundHandlerChainImplTest {
 
     @Test
     void remove_detaches_handler_and_preserves_tail() {
-        Buffer buffer = Buffer.alloc("data");
+        Buffer buffer = Buffer.heap().alloc("data");
         List<String> order = new ArrayList<>();
         InMemoryNetChannel channel = new InMemoryNetChannel();
         RecordingHandler first = new RecordingHandler("first", order);

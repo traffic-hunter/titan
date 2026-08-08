@@ -24,7 +24,7 @@ class JmxDispatcherQueueCollectorTest {
                 .destination(Destination.create("/queue/orders"))
                 .createdAt(Instant.now())
                 .producerId("test")
-                .body(Buffer.alloc("hello".getBytes()))
+                .body("hello".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build());
         queue.pause();
         DispatcherQueueMbeans.register(server, queue);

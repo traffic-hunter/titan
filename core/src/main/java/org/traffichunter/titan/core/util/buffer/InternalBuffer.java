@@ -29,52 +29,26 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
-import io.netty.buffer.ByteBufAllocator;
-import lombok.extern.slf4j.Slf4j;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
- * Default {@link Buffer} implementation backed by a Netty {@link ByteBuf}.
+ * Internal {@link Buffer} wrapper backed by a Netty {@link ByteBuf}.
  *
- * <p>The implementation delegates most primitive accessors directly to {@code ByteBuf}.
- * Append-style methods use Netty's writer index, while slice methods preserve Netty's
- * shared-storage semantics. When appending strings, the buffer expands beyond its current
- * max capacity by allocating a larger direct buffer and copying existing contents.</p>
+ * <p>This class does not choose an initial allocation policy. {@link BufferAllocator}
+ * implementations create the underlying storage and this wrapper delegates primitive access,
+ * reader/writer indexes, slicing, copying and reference counting to it. Internal growth preserves
+ * the current buffer's heap or direct memory type.</p>
  *
- * <p>Reference: Vert.x buffer API shape.</p>
+ * <p>The class is package-private so callers cannot bypass {@link Buffer#heap()} and
+ * {@link Buffer#direct()} when creating buffers.</p>
  *
  * @author yungwang-o
  */
-@Slf4j
-public class InternalBuffer implements Buffer {
+final class InternalBuffer implements Buffer {
 
     private ByteBuf buf;
 
-    public InternalBuffer() {
-        this(0);
-    }
-
-    public InternalBuffer(final String src) {
-        this(src.getBytes(StandardCharsets.UTF_8));
-    }
-
-    public InternalBuffer(final String src, final Charset charset) {
-        this(src.getBytes(charset));
-    }
-
-    public InternalBuffer(final int initialCapacity, final int maxCapacity) {
-        this.buf = ByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
-    }
-
-    public InternalBuffer(final int initialCapacity) {
-        this.buf = ByteBufAllocator.DEFAULT.directBuffer(initialCapacity);
-    }
-
-    public InternalBuffer(final byte[] bytes) {
-        this.buf = ByteBufAllocator.DEFAULT.directBuffer(bytes.length).writeBytes(bytes);
-    }
-
-    public InternalBuffer(final ByteBuf buf) {
+    InternalBuffer(final ByteBuf buf) {
         this.buf = buf;
     }
 
@@ -207,8 +181,9 @@ public class InternalBuffer implements Buffer {
 
     @Override
     public Buffer getBuffer(final int start, final int length) {
-        final byte[] bytes = getBytes(start, length);
-        return new InternalBuffer(bytes);
+        ByteBuf copy = allocateLike(length);
+        copy.writeBytes(buf, start, length);
+        return new InternalBuffer(copy);
     }
 
     @Override
@@ -568,7 +543,7 @@ public class InternalBuffer implements Buffer {
 
     private void reAlloc(final int capacity) {
         ByteBuf previous = buf;
-        ByteBuf replacement = previous.alloc().directBuffer(capacity);
+        ByteBuf replacement = allocateLike(capacity);
         boolean replaced = false;
         try {
             replacement.writeBytes(previous, previous.readerIndex(), previous.readableBytes());
@@ -581,5 +556,11 @@ public class InternalBuffer implements Buffer {
                 replacement.release();
             }
         }
+    }
+
+    private ByteBuf allocateLike(int capacity) {
+        return buf.isDirect()
+                ? buf.alloc().directBuffer(capacity)
+                : buf.alloc().heapBuffer(capacity);
     }
 }

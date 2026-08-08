@@ -108,7 +108,7 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
     }
 
     private void processRead(NetChannel channel, ChannelHandlerChain chain) {
-        Buffer buffer = Buffer.alloc(Buffers.DEFAULT_INITIAL_CAPACITY, Buffers.DEFAULT_MAX_CAPACITY);
+        Buffer buffer = Buffer.direct().alloc(Buffers.DEFAULT_INITIAL_CAPACITY, Buffers.DEFAULT_MAX_CAPACITY);
         final int read;
         try {
             read = channel.internal().read(buffer);

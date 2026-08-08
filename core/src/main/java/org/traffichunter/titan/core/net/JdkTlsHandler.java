@@ -235,7 +235,7 @@ class JdkTlsHandler extends TlsHandler {
 
     private Buffer wrap(Buffer plainBuffer) throws SSLException {
         int packetSize = sslEngine.getSession().getPacketBufferSize();
-        Buffer encrypted = Buffer.alloc(packetSize);
+        Buffer encrypted = Buffer.direct().alloc(packetSize);
         boolean success = false;
 
         try {
@@ -276,7 +276,7 @@ class JdkTlsHandler extends TlsHandler {
 
     private @Nullable Buffer unwrap(NetChannel channel, Buffer encrypted) throws SSLException {
         int appBufferSize = sslEngine.getSession().getApplicationBufferSize();
-        Buffer plainText = Buffer.alloc(appBufferSize);
+        Buffer plainText = Buffer.direct().alloc(appBufferSize);
         boolean success = false;
 
         try {
@@ -317,7 +317,7 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     private void writeHandshake(NetChannel channel) throws SSLException {
-        Buffer empty = Buffer.empty();
+        Buffer empty = Buffer.heap().empty();
         Buffer encrypted = null;
         try {
             encrypted = wrap(empty);
@@ -338,7 +338,7 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     private void unwrapAgain(NetChannel channel) throws SSLException {
-        Buffer empty = Buffer.empty();
+        Buffer empty = Buffer.heap().empty();
         Buffer plainText = null;
         try {
             plainText = unwrap(channel, empty);
@@ -367,8 +367,8 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     private Buffer wrapCloseNotify() throws SSLException {
-        Buffer source = Buffer.empty();
-        Buffer encrypted = Buffer.alloc(sslEngine.getSession().getPacketBufferSize());
+        Buffer source = Buffer.heap().empty();
+        Buffer encrypted = Buffer.direct().alloc(sslEngine.getSession().getPacketBufferSize());
         boolean success = false;
 
         try {
