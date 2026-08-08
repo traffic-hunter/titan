@@ -8,7 +8,7 @@ import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
+import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;

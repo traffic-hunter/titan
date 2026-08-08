@@ -10,4 +10,5 @@ dependencies {
     api(project(":titan-stomp"))
 
     implementation(project.libs.vertx.stomp)
+    testImplementation(project(":dispatch"))
 }

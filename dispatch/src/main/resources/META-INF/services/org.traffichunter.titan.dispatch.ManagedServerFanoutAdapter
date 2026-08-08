@@ -1,0 +1,2 @@
+org.traffichunter.titan.dispatch.TitanStompManagedServerFanoutAdapter
+org.traffichunter.titan.dispatch.VertxStompManagedServerFanoutAdapter

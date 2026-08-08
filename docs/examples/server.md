@@ -21,7 +21,7 @@ repositories {
 implementation("org.traffichunter.titan:titan-bootstrap:0.7.4")
 implementation("org.traffichunter.titan:titan-core:0.7.4")
 implementation("org.traffichunter.titan:titan-stomp:0.7.4")
-implementation("org.traffichunter.titan:titan-fanout:0.7.4")
+implementation("org.traffichunter.titan:titan-dispatch:0.7.4")
 ```
 
 ### `titan-env.yml`
@@ -80,9 +80,9 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
-import org.traffichunter.titan.fanout.DispatchGateway;
-import org.traffichunter.titan.fanout.StompSendToFanoutHandler;
-import org.traffichunter.titan.fanout.exporter.StompDispatchExporter;
+import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
+import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
 public class EmbeddedStompServerExample {
 

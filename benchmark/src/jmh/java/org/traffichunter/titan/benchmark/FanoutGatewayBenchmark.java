@@ -25,10 +25,11 @@ import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.fanout.AggregationResult;
-import org.traffichunter.titan.fanout.DispatchGateway;
-import org.traffichunter.titan.fanout.DispatchMode;
-import org.traffichunter.titan.fanout.exporter.DispatchExporter;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.dispatch.AggregationResult;
+import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.DispatchMode;
+import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.Throughput)
