@@ -28,7 +28,7 @@ import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.message.dispatcher.Dispatcher;
+import org.traffichunter.titan.dispatch.Dispatcher;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;

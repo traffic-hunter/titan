@@ -23,7 +23,7 @@ titan:
         fanout-mode: "virtual"
 ```
 
-The `titan-fanout` module supplies the gateway and exporter that connect STOMP
+The `titan-dispatch` module supplies the gateway and exporter that connect STOMP
 `SEND` frames to matching subscriptions. The `virtual` mode uses virtual-thread
 based dispatch workers.
 

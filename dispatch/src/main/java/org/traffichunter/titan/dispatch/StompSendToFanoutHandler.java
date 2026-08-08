@@ -1,0 +1,114 @@
+/*
+The MIT License
+
+Copyright (c) 2025 traffic-hunter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package org.traffichunter.titan.dispatch;
+
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
+import org.traffichunter.titan.core.channel.stomp.StompServerEvent;
+import org.traffichunter.titan.core.channel.stomp.StompServerHandlerContext;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.util.Destination;
+
+import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
+
+/**
+ * Converts inbound STOMP {@code SEND} frames into fanout messages.
+ *
+ * <p>This handler is deliberately narrow. It validates the required STOMP
+ * destination header, maps the frame body into Titan's internal {@link Message}
+ * type, and delegates routing to {@link DispatchGateway}. It does not write
+ * directly to subscribers; the exporter layer owns that protocol-specific
+ * delivery step.</p>
+ */
+public final class StompSendToFanoutHandler implements StompServerCommandHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(StompSendToFanoutHandler.class);
+
+    private final DispatchGateway dispatchGateway;
+
+    public StompSendToFanoutHandler(DispatchGateway dispatchGateway) {
+        this.dispatchGateway = dispatchGateway;
+    }
+
+    @Override
+    public void handle(StompServerEvent event, StompServerHandlerContext context) {
+        StompFrame sf = event.frame();
+        StompClientChannel connection = event.connection();
+        String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
+        if (destination == null || destination.isBlank()) {
+            log.warn("Rejected fanout publish due to missing destination. session={}", connection.session());
+            connection.send(errorFrame("Wrong send.", "Wrong send destination id, Id is required."));
+            connection.close();
+            return;
+        }
+
+        Message message = Message.builder()
+                .destination(Destination.create(destination))
+                .createdAt(Instant.now())
+                .producerId(connection.session())
+                .body(sf.body())
+                .build();
+
+        try {
+            CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);
+            publish.whenComplete((ignored, error) -> {
+                if (error != null) {
+                    handlePublishFailure(connection, destination, unwrap(error));
+                    return;
+                }
+
+                context.receipt(sf, connection);
+            });
+        } catch (Exception e) {
+            handlePublishFailure(connection, destination, e);
+        }
+    }
+
+    private static void handlePublishFailure(StompClientChannel connection, String destination, Throwable error) {
+        log.error(
+                "Failed to publish fanout message. session={}, destination={}",
+                connection.session(),
+                destination,
+                error
+        );
+        connection.send(errorFrame("Failed to publish.", "Failed to publish inbound SEND frame."));
+        connection.close();
+    }
+
+    private static Throwable unwrap(Throwable error) {
+        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
+            return completionException.getCause();
+        }
+        return error;
+    }
+}

@@ -15,9 +15,9 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.traffichunter.titan.core.message.dispatcher.DispatcherQueue;
-import org.traffichunter.titan.core.message.dispatcher.MapDispatcher;
-import org.traffichunter.titan.core.message.dispatcher.TrieDispatcher;
+import org.traffichunter.titan.dispatch.DispatcherQueue;
+import org.traffichunter.titan.dispatch.MapDispatcher;
+import org.traffichunter.titan.dispatch.TrieDispatcher;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 

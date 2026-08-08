@@ -42,9 +42,9 @@ import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.fanout.DispatchGateway;
-import org.traffichunter.titan.fanout.StompSendToFanoutHandler;
-import org.traffichunter.titan.fanout.exporter.StompDispatchExporter;
+import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
+import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
 class TitanFanoutSmokeTest {
 

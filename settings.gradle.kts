@@ -7,7 +7,7 @@ include("titan-stomp")
 include("titan-client")
 
 include("benchmark")
-include("fanout")
+include("dispatch")
 include("titan-spring-client")
 include("smoke-test")
 include("smoke-test:smoke-spring")
