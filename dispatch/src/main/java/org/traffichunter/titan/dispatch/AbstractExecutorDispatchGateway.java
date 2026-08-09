@@ -27,11 +27,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.util.concurrent.ConcurrencyLimiter;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.concurrent.Damper;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.concurrent.NoopDamper;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
@@ -81,7 +80,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>{@link #fanout(Destination)} starts a destination consumer directly when a
  * caller wants to pre-warm delivery without publishing a message.</p>
  *
- * <p>The optional {@link Damper} is a small back-pressure hook for executor
+ * <p>The optional {@link ConcurrencyLimiter} bounds concurrent exporter
  * implementations that can create many concurrent tasks. The virtual-thread
  * gateway uses it to cap active fanout dispatch work.</p>
  *
@@ -99,7 +98,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     private final DispatchExporter exporter;
     private final Dispatcher dispatcher;
     private final AtomicBoolean isClosed = new AtomicBoolean();
-    private final Damper damper;
+    private final ConcurrencyLimiter concurrencyLimiter;
 
     private DispatchHandlerChain dispatchHandlerChain;
 
@@ -108,19 +107,19 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
-        this(dispatchExecutor, exporter, dispatcher, NoopDamper.getInstance());
+        this(dispatchExecutor, exporter, dispatcher, new ConcurrencyLimiter(10_000));
     }
 
     protected AbstractExecutorDispatchGateway(
             ExecutorService dispatchExecutor,
             DispatchExporter exporter,
             Dispatcher dispatcher,
-            Damper damper
+            ConcurrencyLimiter concurrencyLimiter
     ) {
         this.dispatchExecutor = dispatchExecutor;
         this.exporter = exporter;
         this.dispatcher = dispatcher;
-        this.damper = damper;
+        this.concurrencyLimiter = concurrencyLimiter;
         this.dispatchHandlerChain = DispatchHandlerChain.chain(dispatchExecutor)
                 .add(new RouteDispatchChainHandler(this::route))
                 .add(new FanoutDispatchChainHandler(this::fanout));
@@ -281,11 +280,11 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
                             continue;
                         }
 
-                        damper.acquire();
+                        concurrencyLimiter.acquire();
                         try {
                             exporter.export(destination, message);
                         } finally {
-                            damper.release();
+                            concurrencyLimiter.release();
                         }
                     } catch (InterruptedException e) {
                         log.error("Interrupted while waiting for message to be delivered", e);

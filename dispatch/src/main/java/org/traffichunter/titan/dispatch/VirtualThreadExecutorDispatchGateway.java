@@ -23,11 +23,10 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import org.traffichunter.titan.core.util.concurrent.Damper;
+import org.traffichunter.titan.core.util.concurrent.ConcurrencyLimiter;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 
 /**
@@ -42,7 +41,7 @@ import java.util.concurrent.ThreadFactory;
  */
 class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
 
-    private static final int DEFAULT_CONCURRENCY_LIMIT = 100;
+    private static final int DEFAULT_CONCURRENCY_LIMIT = 10_000;
 
     public VirtualThreadExecutorDispatchGateway(DispatchExporter exporter) {
         this(exporter, Dispatcher.getDefault());
@@ -56,7 +55,7 @@ class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGatew
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,
                 dispatcher,
-                new SemaphoreBasedFlowControlDamper(DEFAULT_CONCURRENCY_LIMIT)
+                new ConcurrencyLimiter(DEFAULT_CONCURRENCY_LIMIT)
         );
     }
 
@@ -64,24 +63,5 @@ class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGatew
         return Thread.ofVirtual()
                 .name("DispatchVirtualThread")
                 .factory();
-    }
-
-    private static final class SemaphoreBasedFlowControlDamper implements Damper {
-
-        private final Semaphore semaphore;
-
-        private SemaphoreBasedFlowControlDamper(int limit) {
-            this.semaphore = new Semaphore(limit);
-        }
-
-        @Override
-        public void acquire() {
-            semaphore.acquireUninterruptibly();
-        }
-
-        @Override
-        public void release() {
-            semaphore.release();
-        }
     }
 }

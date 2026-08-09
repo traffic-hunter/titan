@@ -23,12 +23,26 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.util.concurrent;
 
+import java.util.concurrent.Semaphore;
+
 /**
+ * Bounds the number of operations that may execute concurrently.
+ *
  * @author yun
  */
-public interface Damper {
+public final class ConcurrencyLimiter {
 
-    void acquire();
+    private final Semaphore semaphore;
 
-    void release();
+    public ConcurrencyLimiter(int limit) {
+        this.semaphore = new Semaphore(limit);
+    }
+
+    public void acquire() {
+        semaphore.acquireUninterruptibly();
+    }
+
+    public void release() {
+        semaphore.release();
+    }
 }
