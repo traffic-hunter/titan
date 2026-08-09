@@ -20,13 +20,13 @@ class DispatchChainHandlerChainTest {
     void chain_runs_handlers_in_order() {
         List<String> calls = new ArrayList<>();
         DispatchHandlerChain chain = new DispatchHandlerChain()
-                .add(context -> {
+                .add((context, chainContext) -> {
                     calls.add("first");
-                    return CompletableFuture.completedFuture(null);
+                    return chainContext.next(context);
                 })
-                .add(context -> {
+                .add((context, chainContext) -> {
                     calls.add("second");
-                    return CompletableFuture.completedFuture(null);
+                    return chainContext.next(context);
                 });
 
         chain.dispatch(new DispatchContext(message("/queue/chain-order"))).join();
@@ -39,9 +39,9 @@ class DispatchChainHandlerChainTest {
         Message message = message("/queue/route");
         DispatchHandlerChain chain = new DispatchHandlerChain(List.of(
                 new RouteDispatchChainHandler(ignored -> message),
-                context -> {
+                (context, chainContext) -> {
                     assertThat(context.getRoutedMessage()).isSameAs(message);
-                    return CompletableFuture.completedFuture(null);
+                    return chainContext.next(context);
                 }
         ));
 

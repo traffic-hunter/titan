@@ -26,29 +26,21 @@ package org.traffichunter.titan.dispatch;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Handles one ordered step in the message dispatch lifecycle.
+ * Continuation passed to a dispatch handler.
  *
- * <p>The handler receives the mutable {@link DispatchContext} and a continuation
- * representing the remaining chain. It must invoke
- * {@link DispatchChain#next(DispatchContext)} to propagate the operation. Not
- * invoking the continuation is an intentional short circuit.</p>
- *
- * <p>The returned future must represent all work performed by this stage. Implementations should
- * compose asynchronous work into that future rather than launching untracked tasks.</p>
+ * <p>The continuation represents only the handlers following the current
+ * handler. A handler must invoke {@link #next(DispatchContext)} to propagate
+ * the dispatch operation, and may omit that invocation to stop processing.</p>
  *
  * @author yun
  */
-public interface DispatchChainHandler {
-
-    /** Sentinel behavior that completes without modifying the dispatch context. */
-    DispatchChainHandler NOOP = (context, chain) -> chain.next(context);
+public interface DispatchChain {
 
     /**
-     * Processes one dispatch stage.
+     * Propagates the context to the next dispatch handler.
      *
-     * @param context state shared by the dispatch lifecycle
-     * @param chain remaining dispatch handlers
-     * @return completion of this stage and any propagated handlers
+     * @param context dispatch state shared by the chain
+     * @return completion of the remaining dispatch handlers
      */
-    CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain);
+    CompletableFuture<Void> next(DispatchContext context);
 }

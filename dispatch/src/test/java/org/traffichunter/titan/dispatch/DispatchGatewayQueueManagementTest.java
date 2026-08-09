@@ -64,9 +64,9 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         AtomicInteger customHandlerCalls = new AtomicInteger();
-        gateway.chainHandler(chain -> chain.add(context -> {
+        gateway.chainHandler(chain -> chain.add((context, chainContext) -> {
             customHandlerCalls.incrementAndGet();
-            return CompletableFuture.completedFuture(null);
+            return chainContext.next(context);
         }));
 
         gateway.publish(message(Destination.create("/queue/publish-fanout-chain"))).get();
