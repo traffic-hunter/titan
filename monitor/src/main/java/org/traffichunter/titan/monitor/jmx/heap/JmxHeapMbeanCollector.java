@@ -23,15 +23,25 @@
  */
 package org.traffichunter.titan.monitor.jmx.heap;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
+import org.traffichunter.titan.core.util.management.HeapResource;
+import org.traffichunter.titan.core.util.management.HeapResourceDetector;
+import org.traffichunter.titan.core.util.management.ResourceDetector;
 import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 
 /**
  * @author yungwang-o
  */
 public final class JmxHeapMbeanCollector implements JmxMbeanCollector<HeapData> {
+
+    private final ResourceDetector<HeapResource> resourceDetector;
+
+    public JmxHeapMbeanCollector() {
+        this(new HeapResourceDetector());
+    }
+
+    public JmxHeapMbeanCollector(ResourceDetector<HeapResource> resourceDetector) {
+        this.resourceDetector = resourceDetector;
+    }
 
     @Override
     public CollectorType getCollectorType() {
@@ -45,16 +55,7 @@ public final class JmxHeapMbeanCollector implements JmxMbeanCollector<HeapData> 
 
     @Override
     public HeapData collect() {
-
-        MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
-
-        MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
-
-        return HeapData.builder()
-                .max(heapMemoryUsage.getMax())
-                .used(heapMemoryUsage.getUsed())
-                .init(heapMemoryUsage.getInit())
-                .committed(heapMemoryUsage.getCommitted())
-                .build();
+        HeapResource heap = resourceDetector.detect();
+        return new HeapData(heap.init(), heap.used(), heap.committed(), heap.max());
     }
 }
