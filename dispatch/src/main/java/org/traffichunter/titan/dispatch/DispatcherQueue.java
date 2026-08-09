@@ -45,7 +45,7 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
-    int DEFAULT_CAPACITY = 11;
+    int DEFAULT_CAPACITY = Integer.MAX_VALUE;
 
     static DispatcherQueue create(Destination key) {
         DispatcherQueue queue = new MessageDispatcherQueue(key);

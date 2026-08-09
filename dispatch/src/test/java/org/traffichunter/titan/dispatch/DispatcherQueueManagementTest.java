@@ -12,6 +12,16 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 class DispatcherQueueManagementTest {
 
     @Test
+    void dispatcher_queue_uses_unbounded_default_capacity() {
+        Destination destination = Destination.create("/queue/default-capacity");
+        DispatcherQueue queue = DispatcherQueue.create(destination);
+
+        assertThat(queue.capacity()).isEqualTo(Integer.MAX_VALUE);
+
+        DispatcherQueueMbeans.unregister(destination.path());
+    }
+
+    @Test
     void map_dispatcher_returns_created_queue_with_requested_capacity() {
         Dispatcher dispatcher = new MapDispatcher(1);
         Destination destination = Destination.create("/queue/orders");
