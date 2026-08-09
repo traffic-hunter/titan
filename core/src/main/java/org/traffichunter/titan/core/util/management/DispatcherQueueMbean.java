@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.mbeans;
+package org.traffichunter.titan.core.util.management;
 
 /**
  * @author yungwang-o

@@ -20,8 +20,7 @@ import org.traffichunter.titan.dispatch.*;
 import org.traffichunter.titan.dispatch.Dispatcher;
 import org.traffichunter.titan.dispatch.TrieDispatcher;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.monitor.MonitoringSnapshotService;
 
 class MonitoringHttpServerTest {

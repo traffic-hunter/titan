@@ -1,4 +1,4 @@
-package org.traffichunter.titan.core.util.mbeans;
+package org.traffichunter.titan.core.util.management;
 
 import java.lang.management.ManagementFactory;
 import javax.management.JMException;

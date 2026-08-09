@@ -32,7 +32,7 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.Damper;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.NoopDamper;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 import java.util.Collection;

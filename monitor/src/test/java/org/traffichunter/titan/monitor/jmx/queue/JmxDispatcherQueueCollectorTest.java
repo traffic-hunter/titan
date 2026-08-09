@@ -10,8 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.monitor.model.QueueSnapshot;
 
 class JmxDispatcherQueueCollectorTest {

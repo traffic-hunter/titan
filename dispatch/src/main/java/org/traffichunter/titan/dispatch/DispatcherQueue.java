@@ -32,8 +32,8 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
  * Queue of messages for one destination.

@@ -1,50 +1,36 @@
 package org.traffichunter.titan.monitor.jmx.queue;
 
-import java.lang.management.ManagementFactory;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import javax.management.MBeanServerConnection;
-import javax.management.ObjectName;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.QueueResource;
+import org.traffichunter.titan.core.util.management.QueueResourceDetector;
+import org.traffichunter.titan.core.util.management.ResourceDetector;
 import org.traffichunter.titan.monitor.model.QueueSnapshot;
 
 public final class JmxDispatcherQueueCollector {
 
-    private final MBeanServerConnection server;
+    private final ResourceDetector<List<QueueResource>> resourceDetector;
 
     public JmxDispatcherQueueCollector() {
-        this(ManagementFactory.getPlatformMBeanServer());
+        this(new QueueResourceDetector());
     }
 
     public JmxDispatcherQueueCollector(MBeanServerConnection server) {
-        this.server = server;
+        this(new QueueResourceDetector(server));
+    }
+
+    public JmxDispatcherQueueCollector(ResourceDetector<List<QueueResource>> resourceDetector) {
+        this.resourceDetector = resourceDetector;
     }
 
     public List<QueueSnapshot> collect() {
-        try {
-            ObjectName query = new ObjectName(DispatcherQueueMbeans.DOMAIN + ":type=" + DispatcherQueueMbeans.TYPE + ",*");
-            List<QueueSnapshot> queues = new ArrayList<>();
-            for (ObjectName name : server.queryNames(query, null)) {
-                queues.add(new QueueSnapshot(
-                        attribute(name, "Destination", String.class),
-                        attribute(name, "Size", Integer.class),
-                        attribute(name, "Capacity", Integer.class),
-                        attribute(name, "Paused", Boolean.class)
-                ));
-            }
-            queues.sort(Comparator.comparing(QueueSnapshot::destination));
-            return List.copyOf(queues);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to collect dispatcher queue MBeans", e);
-        }
-    }
-
-    private <T> T attribute(ObjectName name, String attribute, Class<T> type) throws Exception {
-        Object value = server.getAttribute(name, attribute);
-        if (value == null) {
-            throw new IllegalStateException("Missing dispatcher queue MBean attribute: " + attribute);
-        }
-        return type.cast(value);
+        return resourceDetector.detect().stream()
+                .map(queue -> new QueueSnapshot(
+                        queue.destination(),
+                        queue.size(),
+                        queue.capacity(),
+                        queue.paused()
+                ))
+                .toList();
     }
 }

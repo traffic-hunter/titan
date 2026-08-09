@@ -7,7 +7,7 @@ import java.util.List;
 import javax.management.ObjectName;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 class DispatcherQueueManagementTest {
 
