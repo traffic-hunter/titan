@@ -1,4 +1,10 @@
 titan:
+  flow-control:
+    enabled: false
+    heap:
+      enabled: true
+      high-watermark: 0.90
+      low-watermark: 0.70
   servers:
     - name: stomp-dispatch
       protocol: stomp

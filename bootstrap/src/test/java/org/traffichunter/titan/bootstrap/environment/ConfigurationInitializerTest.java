@@ -1,6 +1,7 @@
 package org.traffichunter.titan.bootstrap.environment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +10,61 @@ import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
 
 class ConfigurationInitializerTest {
+
+    @Test
+    void load_maps_heap_flow_control_settings() {
+        String yaml = """
+                titan:
+                  flow-control:
+                    enabled: true
+                    heap:
+                      enabled: true
+                      high-watermark: 0.85
+                      low-watermark: 0.65
+                """;
+
+        Settings settings = ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(settings.flowControl().enabled()).isTrue();
+        assertThat(settings.flowControl().heap().enabled()).isTrue();
+        assertThat(settings.flowControl().heap().highWatermark()).isEqualTo(0.85);
+        assertThat(settings.flowControl().heap().lowWatermark()).isEqualTo(0.65);
+    }
+
+    @Test
+    void load_uses_default_heap_thresholds_when_flow_control_heap_is_missing() {
+        String yaml = """
+                titan:
+                  flow-control:
+                    enabled: true
+                """;
+
+        Settings settings = ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(settings.flowControl().enabled()).isTrue();
+        assertThat(settings.flowControl().heap().enabled()).isTrue();
+        assertThat(settings.flowControl().heap().highWatermark()).isEqualTo(0.90);
+        assertThat(settings.flowControl().heap().lowWatermark()).isEqualTo(0.70);
+    }
+
+    @Test
+    void load_rejects_invalid_heap_watermarks() {
+        String yaml = """
+                titan:
+                  flow-control:
+                    enabled: true
+                    heap:
+                      high-watermark: 0.70
+                      low-watermark: 0.80
+                """;
+
+        assertThatThrownBy(() -> ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("lower than high watermark");
+    }
 
     @Test
     void load_maps_monitor_settings() {
@@ -80,6 +136,10 @@ class ConfigurationInitializerTest {
         assertThat(settings.backup().type()).isEqualTo("aof");
         assertThat(settings.backup().syncPolicy()).isEqualTo("every_sec");
         assertThat(settings.backup().recoveryPolicy()).isEqualTo("load_truncated_tail");
+        assertThat(settings.flowControl().enabled()).isFalse();
+        assertThat(settings.flowControl().heap().enabled()).isTrue();
+        assertThat(settings.flowControl().heap().highWatermark()).isEqualTo(0.90);
+        assertThat(settings.flowControl().heap().lowWatermark()).isEqualTo(0.70);
         assertThat(settings.servers().getFirst().tls().enabled()).isFalse();
     }
 
@@ -140,5 +200,6 @@ class ConfigurationInitializerTest {
         assertThat(settings.monitor().host()).isEqualTo("127.0.0.1");
         assertThat(settings.monitor().port()).isEqualTo(7777);
         assertThat(settings.backup().enabled()).isFalse();
+        assertThat(settings.flowControl().enabled()).isFalse();
     }
 }
