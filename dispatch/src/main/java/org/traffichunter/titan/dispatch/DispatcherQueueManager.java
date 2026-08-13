@@ -19,14 +19,14 @@ public interface DispatcherQueueManager {
      * Creates the queue for the destination if it does not exist.
      *
      * <p>Implementations should be idempotent. When the queue already exists,
-     * they should return the existing queue and leave its original capacity
+     * they should return the existing queue and leave its original byte limit
      * unchanged.</p>
      *
      * @param destination destination to register
-     * @param capacity requested capacity for a newly created queue
+     * @param maxPendingBytes maximum queued payload bytes
      * @return existing or newly created queue
      */
-    DispatcherQueue createQueue(Destination destination, int capacity);
+    DispatcherQueue createQueue(Destination destination, long maxPendingBytes);
 
     /**
      * Deletes the queue for the destination.

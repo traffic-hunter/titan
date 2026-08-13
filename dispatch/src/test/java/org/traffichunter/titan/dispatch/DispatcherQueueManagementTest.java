@@ -12,36 +12,36 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 class DispatcherQueueManagementTest {
 
     @Test
-    void dispatcher_queue_uses_unbounded_default_capacity() {
-        Destination destination = Destination.create("/queue/default-capacity");
+    void dispatcher_queue_uses_unbounded_default_byte_limit() {
+        Destination destination = Destination.create("/queue/default-byte-limit");
         DispatcherQueue queue = DispatcherQueue.create(destination);
 
-        assertThat(queue.capacity()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(queue.getMaxPendingBytes()).isEqualTo(Long.MAX_VALUE);
 
         DispatcherQueueMbeans.unregister(destination.path());
     }
 
     @Test
-    void map_dispatcher_returns_created_queue_with_requested_capacity() {
+    void map_dispatcher_returns_created_queue_with_requested_byte_limit() {
         Dispatcher dispatcher = new MapDispatcher(1);
         Destination destination = Destination.create("/queue/orders");
 
         DispatcherQueue queue = dispatcher.getOrPut(destination, 32);
 
         assertThat(queue).isNotNull();
-        assertThat(queue.capacity()).isEqualTo(32);
+        assertThat(queue.getMaxPendingBytes()).isEqualTo(32);
         assertThat(dispatcher.get(destination)).isSameAs(queue);
     }
 
     @Test
-    void trie_dispatcher_returns_created_queue_with_requested_capacity() {
+    void trie_dispatcher_returns_created_queue_with_requested_byte_limit() {
         Dispatcher dispatcher = new TrieDispatcher();
         Destination destination = Destination.create("/queue/payments");
 
         DispatcherQueue queue = dispatcher.getOrPut(destination, 64);
 
         assertThat(queue).isNotNull();
-        assertThat(queue.capacity()).isEqualTo(64);
+        assertThat(queue.getMaxPendingBytes()).isEqualTo(64);
         assertThat(dispatcher.get(destination)).isSameAs(queue);
     }
 

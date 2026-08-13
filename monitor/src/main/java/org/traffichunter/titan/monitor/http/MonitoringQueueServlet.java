@@ -69,12 +69,12 @@ public final class MonitoringQueueServlet extends HttpServlet {
         if (destination == null) {
             return;
         }
-        int capacity = capacity(request, response);
-        if (capacity <= 0) {
+        long maxPendingBytes = maxPendingBytes(request, response);
+        if (maxPendingBytes <= 0) {
             return;
         }
 
-        DispatcherQueue queue = manager.createQueue(destination, capacity);
+        DispatcherQueue queue = manager.createQueue(destination, maxPendingBytes);
         writeJson(response, HttpServletResponse.SC_OK, snapshot(queue));
     }
 
@@ -145,19 +145,19 @@ public final class MonitoringQueueServlet extends HttpServlet {
         }
     }
 
-    private int capacity(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        String raw = request.getParameter("capacity");
+    private long maxPendingBytes(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String raw = request.getParameter("maxPendingBytes");
         if (raw == null || raw.isBlank()) {
-            return DispatcherQueue.DEFAULT_CAPACITY;
+            return DispatcherQueue.DEFAULT_MAX_PENDING_BYTES;
         }
         try {
-            int capacity = Integer.parseInt(raw);
-            if (capacity > 0) {
-                return capacity;
+            long maxPendingBytes = Long.parseLong(raw);
+            if (maxPendingBytes > 0) {
+                return maxPendingBytes;
             }
         } catch (NumberFormatException ignored) {
         }
-        writeJson(response, HttpServletResponse.SC_BAD_REQUEST, new ErrorResponse("capacity must be greater than zero"));
+        writeJson(response, HttpServletResponse.SC_BAD_REQUEST, new ErrorResponse("maxPendingBytes must be greater than zero"));
         return -1;
     }
 
@@ -166,7 +166,13 @@ public final class MonitoringQueueServlet extends HttpServlet {
     }
 
     private static QueueSnapshot snapshot(DispatcherQueue queue) {
-        return new QueueSnapshot(queue.getDestination(), queue.size(), queue.capacity(), queue.isPaused());
+        return new QueueSnapshot(
+                queue.getDestination(),
+                queue.size(),
+                queue.getPendingBytes(),
+                queue.getMaxPendingBytes(),
+                queue.isPaused()
+        );
     }
 
     private static void writeJson(HttpServletResponse response, int status, Object body) throws IOException {

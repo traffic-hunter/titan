@@ -28,14 +28,16 @@ package org.traffichunter.titan.core.util.management;
  *
  * @param destination queue destination
  * @param size current number of queued messages
- * @param capacity configured queue capacity
+ * @param pendingBytes current queued payload bytes
+ * @param maxPendingBytes maximum queued payload bytes
  * @param paused whether the queue currently rejects or delays new work
  * @author yun
  */
 public record QueueResource(
         String destination,
         int size,
-        int capacity,
+        long pendingBytes,
+        long maxPendingBytes,
         boolean paused
 ) {
 }

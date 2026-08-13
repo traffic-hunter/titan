@@ -90,7 +90,7 @@ destination. A queue created by normal publishing uses
 You can create the queue before traffic arrives and choose its capacity:
 
 ```bash
-titan --addr http://localhost:7777 queue create /orders --capacity 100
+titan --addr http://localhost:7777 queue create /orders --max-pending-bytes 1048576
 ```
 
 Queue creation is idempotent. If `/orders` already exists, a later create call

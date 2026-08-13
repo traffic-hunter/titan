@@ -56,7 +56,7 @@ func fixture() monitor.Snapshot {
 			},
 		},
 		Queues: []monitor.QueueSnapshot{
-			{Destination: "/queue/orders", Size: 5, Capacity: 10, Paused: true},
+			{Destination: "/queue/orders", Size: 5, PendingBytes: 20, MaxPendingBytes: 40, Paused: true},
 		},
 	}
 }

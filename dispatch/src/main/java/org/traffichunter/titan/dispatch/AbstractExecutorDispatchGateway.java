@@ -213,15 +213,15 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * Creates a dispatcher queue through the gateway-owned dispatcher.
      *
      * <p>Queue creation is idempotent. If the queue already exists, the
-     * existing instance is returned and the supplied capacity is ignored.</p>
+     * existing instance is returned and the supplied byte limit is ignored.</p>
      */
     @Override
-    public DispatcherQueue createQueue(Destination destination, int capacity) {
+    public DispatcherQueue createQueue(Destination destination, long maxPendingBytes) {
         if (isClosed.get()) {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatcher.getOrPut(destination, capacity);
+        return dispatcher.getOrPut(destination, maxPendingBytes);
     }
 
     /**

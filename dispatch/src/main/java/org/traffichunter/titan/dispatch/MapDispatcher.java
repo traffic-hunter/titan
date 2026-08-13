@@ -63,8 +63,8 @@ public class MapDispatcher implements Dispatcher {
     }
 
     @Override
-    public DispatcherQueue getOrPut(final Destination destination, int capacity) {
-        return map.computeIfAbsent(destination, key -> DispatcherQueue.create(key, capacity));
+    public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
+        return map.computeIfAbsent(destination, key -> DispatcherQueue.create(key, maxPendingBytes));
     }
 
     @Override

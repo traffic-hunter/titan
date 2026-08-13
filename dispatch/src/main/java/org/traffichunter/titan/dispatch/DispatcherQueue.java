@@ -24,6 +24,7 @@
 package org.traffichunter.titan.dispatch;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -45,19 +46,26 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
-    int DEFAULT_CAPACITY = Integer.MAX_VALUE;
+    long DEFAULT_MAX_PENDING_BYTES = Long.MAX_VALUE;
 
     static DispatcherQueue create(Destination key) {
-        DispatcherQueue queue = new MessageDispatcherQueue(key);
+        return create(key, DEFAULT_MAX_PENDING_BYTES);
+    }
+
+    static DispatcherQueue create(Destination key, long maxPendingBytes) {
+        DispatcherQueue queue = new MessageDispatcherQueue(
+                key,
+                new DestinationQueueMetadata(
+                        key.path(),
+                        Instant.now(),
+                        maxPendingBytes
+                )
+        );
         DispatcherQueueMbeans.register(queue);
         return queue;
     }
 
-    static DispatcherQueue create(Destination key, int capacity) {
-        DispatcherQueue queue = new MessageDispatcherQueue(key, capacity);
-        DispatcherQueueMbeans.register(queue);
-        return queue;
-    }
+    DestinationQueueMetadata metadata();
 
     /**
      * Destination served by this queue.
@@ -99,8 +107,6 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     void updateRoutingKey(Destination key);
 
     int size();
-
-    int capacity();
 
     void clear();
 }

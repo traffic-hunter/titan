@@ -58,13 +58,13 @@ public interface Dispatcher {
     DispatcherQueue getOrPut(Destination destination);
 
     /**
-     * Returns the existing queue or creates one with the requested capacity.
+     * Returns the existing queue or creates one with the requested byte limit.
      *
      * <p>If the queue already exists, implementations should return it without
-     * changing its capacity.</p>
+     * changing its byte limit.</p>
      */
     @CanIgnoreReturnValue
-    DispatcherQueue getOrPut(Destination destination, int capacity);
+    DispatcherQueue getOrPut(Destination destination, long maxPendingBytes);
 
     /**
      * Returns queues matching the destination pattern.

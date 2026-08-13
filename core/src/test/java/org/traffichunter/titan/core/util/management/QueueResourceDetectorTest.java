@@ -38,21 +38,22 @@ class QueueResourceDetectorTest {
     @Test
     void detect_and_sort_dispatcher_queue_resources() {
         MBeanServer server = MBeanServerFactory.createMBeanServer();
-        DispatcherQueueMbeans.register(server, new TestQueue("/queue/z", 3, 10, true));
-        DispatcherQueueMbeans.register(server, new TestQueue("/queue/a", 1, 20, false));
+        DispatcherQueueMbeans.register(server, new TestQueue("/queue/z", 3, 12, 100, true));
+        DispatcherQueueMbeans.register(server, new TestQueue("/queue/a", 1, 4, 200, false));
 
         List<QueueResource> queues = new QueueResourceDetector(server).detect();
 
         assertThat(queues).containsExactly(
-                new QueueResource("/queue/a", 1, 20, false),
-                new QueueResource("/queue/z", 3, 10, true)
+                new QueueResource("/queue/a", 1, 4, 200, false),
+                new QueueResource("/queue/z", 3, 12, 100, true)
         );
     }
 
     private record TestQueue(
             String destination,
             int size,
-            int capacity,
+            long pendingBytes,
+            long maxPendingBytes,
             boolean paused
     ) implements DispatcherQueueMbean {
 
@@ -67,8 +68,13 @@ class QueueResourceDetectorTest {
         }
 
         @Override
-        public int getCapacity() {
-            return capacity;
+        public long getPendingBytes() {
+            return pendingBytes;
+        }
+
+        @Override
+        public long getMaxPendingBytes() {
+            return maxPendingBytes;
         }
 
         @Override

@@ -116,12 +116,12 @@ func TestQueueCreateUsesTokenFromEnvironment(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
-		_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"capacity":30,"paused":false}`))
+		_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":30,"paused":false}`))
 	}))
 	defer server.Close()
 	var stdout bytes.Buffer
 
-	code := Run([]string{"--addr", server.URL, "queue", "create", "/queue/orders", "--capacity", "30"}, &stdout, &bytes.Buffer{}, "test")
+	code := Run([]string{"--addr", server.URL, "queue", "create", "/queue/orders", "--max-pending-bytes", "30"}, &stdout, &bytes.Buffer{}, "test")
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
@@ -159,7 +159,7 @@ func snapshotServer(t *testing.T) *httptest.Server {
 				"heap":{"used":512,"max":1024},
 				"thread":{"threadCount":4,"peakThreadCount":8,"totalStartedThreadCount":16}
 			},
-			"queues":[{"destination":"/queue/orders","size":5,"capacity":10,"paused":false}]
+			"queues":[{"destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]
 		}`))
 	}))
 }
@@ -172,7 +172,7 @@ func queueServer(t *testing.T, status int) *httptest.Server {
 		}
 		w.WriteHeader(status)
 		if status == http.StatusOK {
-			_, _ = w.Write([]byte(`[{"destination":"/queue/orders","size":5,"capacity":10,"paused":false}]`))
+			_, _ = w.Write([]byte(`[{"destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]`))
 		}
 	}))
 }

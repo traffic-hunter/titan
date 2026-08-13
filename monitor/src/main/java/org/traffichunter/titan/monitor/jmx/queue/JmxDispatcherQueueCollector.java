@@ -28,7 +28,8 @@ public final class JmxDispatcherQueueCollector {
                 .map(queue -> new QueueSnapshot(
                         queue.destination(),
                         queue.size(),
-                        queue.capacity(),
+                        queue.pendingBytes(),
+                        queue.maxPendingBytes(),
                         queue.paused()
                 ))
                 .toList();

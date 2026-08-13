@@ -53,7 +53,7 @@ When the monitor is protected, provide its token through the environment:
 ```bash
 export TITAN_MONITOR_TOKEN=<monitor-token>
 ./titan --addr http://localhost:7777 queue list
-./titan --addr http://localhost:7777 queue create /orders --capacity 100
+./titan --addr http://localhost:7777 queue create /orders --max-pending-bytes 1048576
 ./titan --addr http://localhost:7777 queue delete /orders
 ```
 

@@ -66,7 +66,8 @@ public final class QueueResourceDetector implements ResourceDetector<List<QueueR
                 queues.add(new QueueResource(
                         attribute(name, "Destination", String.class),
                         attribute(name, "Size", Integer.class),
-                        attribute(name, "Capacity", Integer.class),
+                        attribute(name, "PendingBytes", Long.class),
+                        attribute(name, "MaxPendingBytes", Long.class),
                         attribute(name, "Paused", Boolean.class)
                 ));
             }

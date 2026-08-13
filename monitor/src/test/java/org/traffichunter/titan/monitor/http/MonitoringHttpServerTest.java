@@ -306,7 +306,7 @@ class MonitoringHttpServerTest {
         return URI.create("http://127.0.0.1:" + port + "/titan"
                 + MonitoringHttpServer.QUEUES_PATH
                 + "?destination=" + encoded
-                + "&capacity=10"
+                + "&maxPendingBytes=10"
                 + "&force=" + force);
     }
 
@@ -322,8 +322,8 @@ class MonitoringHttpServerTest {
         private final Dispatcher dispatcher = new TrieDispatcher();
 
         @Override
-        public DispatcherQueue createQueue(Destination destination, int capacity) {
-            return dispatcher.getOrPut(destination, capacity);
+        public DispatcherQueue createQueue(Destination destination, long maxPendingBytes) {
+            return dispatcher.getOrPut(destination, maxPendingBytes);
         }
 
         @Override

@@ -32,7 +32,9 @@ public interface DispatcherQueueMbean {
 
     int getSize();
 
-    int getCapacity();
+    long getPendingBytes();
+
+    long getMaxPendingBytes();
 
     boolean isPaused();
 }

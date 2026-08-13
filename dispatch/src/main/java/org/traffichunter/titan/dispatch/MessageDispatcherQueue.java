@@ -23,14 +23,17 @@
  */
 package org.traffichunter.titan.dispatch;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -42,28 +45,53 @@ import org.traffichunter.titan.core.util.Destination;
  *
  * @author yungwang-o
  */
-@Slf4j
 class MessageDispatcherQueue implements DispatcherQueue {
 
+    private static final Logger log = LoggerFactory.getLogger(MessageDispatcherQueue.class);
+
     private final BlockingQueue<Message> queue;
-    private final int capacity;
-    private Destination destination;
+    private final DestinationQueueMetadata metadata;
+    private volatile Destination destination;
 
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
-    private volatile boolean isPaused = false;
+    private volatile boolean manuallyPaused;
+    private volatile boolean pressurePaused;
 
     /**
      * {@link LinkedBlockingQueue} unbounded queue.
      */
     MessageDispatcherQueue(final Destination destination) {
-        this(destination, Integer.MAX_VALUE);
+        this(
+                destination,
+                new DestinationQueueMetadata(
+                        destination.path(),
+                        Instant.now(),
+                        DispatcherQueue.DEFAULT_MAX_PENDING_BYTES
+                )
+        );
     }
 
-    MessageDispatcherQueue(final Destination destination, final int capacity) {
-        this.capacity = capacity;
-        this.queue = new LinkedBlockingQueue<>(capacity);
+    MessageDispatcherQueue(final Destination destination, final long maxPendingBytes) {
+        this(
+                destination,
+                new DestinationQueueMetadata(
+                        destination.path(),
+                        Instant.now(),
+                        maxPendingBytes
+                )
+        );
+    }
+
+    MessageDispatcherQueue(final Destination destination, DestinationQueueMetadata metadata) {
+        this.metadata = metadata;
+        this.queue = new LinkedBlockingQueue<>();
         this.destination = destination;
+    }
+
+    @Override
+    public DestinationQueueMetadata metadata() {
+        return metadata;
     }
 
     @Override
@@ -83,17 +111,28 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public @Nullable Message enqueue(final Message message) {
-        if(isPaused) {
+        if(isPaused()) {
             log.info("Waiting for queue to be resumed");
             if (!awaitResume()) {
                 return null;
             }
         }
 
+        long messageSize = message.getSize();
+        if (messageSize > metadata.getMaxPendingBytes()) {
+            return null;
+        }
+
+        if (!metadata.tryReserve(messageSize)) {
+            pauseForPressure();
+            return null;
+        }
+
         if(queue.offer(message)) {
             return message;
         }
 
+        metadata.release(messageSize);
         return null;
     }
 
@@ -121,7 +160,8 @@ class MessageDispatcherQueue implements DispatcherQueue {
     public void pause() {
         pauseLock.lock();
         try {
-            isPaused = true;
+            manuallyPaused = true;
+            metadata.paused(true);
             log.info("Pausing queue");
         } finally {
             pauseLock.unlock();
@@ -132,9 +172,8 @@ class MessageDispatcherQueue implements DispatcherQueue {
     public void resume() {
         pauseLock.lock();
         try {
-            isPaused = false;
-            log.info("Resuming queue");
-            pauseCondition.signalAll();
+            manuallyPaused = false;
+            updatePauseState();
         } finally {
             pauseLock.unlock();
         }
@@ -142,7 +181,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public boolean isPaused() {
-        return isPaused;
+        return manuallyPaused || pressurePaused;
     }
 
     @Override
@@ -152,12 +191,20 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public Message dispatch() throws InterruptedException {
-        return queue.take();
+        Message message = queue.take();
+        metadata.release(message.getSize());
+        resumeAfterPressure();
+        return message;
     }
 
     @Override
     public @Nullable Message dispatch(long timeout, TimeUnit unit) throws InterruptedException {
-        return queue.poll(timeout, unit);
+        Message message = queue.poll(timeout, unit);
+        if (message != null) {
+            metadata.release(message.getSize());
+            resumeAfterPressure();
+        }
+        return message;
     }
 
     @Override
@@ -165,6 +212,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
         synchronized (this) {
             this.destination = key;
+            metadata.destination(key.path());
         }
     }
 
@@ -173,16 +221,18 @@ class MessageDispatcherQueue implements DispatcherQueue {
         if(!queue.remove(message)) {
             throw new IllegalStateException("Message not found");
         }
+        metadata.release(message.getSize());
+        resumeAfterPressure();
     }
 
     @Override
-    public int capacity() {
-        return capacity;
+    public long getPendingBytes() {
+        return metadata.getPendingBytes();
     }
 
     @Override
-    public int getCapacity() {
-        return capacity();
+    public long getMaxPendingBytes() {
+        return metadata.getMaxPendingBytes();
     }
 
     @Override
@@ -197,13 +247,21 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public void clear() {
-        queue.clear();
+        List<Message> removed = new ArrayList<>();
+        queue.drainTo(removed);
+        if (removed.isEmpty()) {
+            return;
+        }
+
+        long releasedBytes = removed.stream().mapToLong(Message::getSize).sum();
+        metadata.release(releasedBytes);
+        resumeAfterPressure();
     }
 
     private boolean awaitResume() {
         pauseLock.lock();
         try {
-            while (isPaused) {
+            while (isPaused()) {
                 pauseCondition.await();
             }
             return true;
@@ -212,6 +270,44 @@ class MessageDispatcherQueue implements DispatcherQueue {
             return false;
         } finally {
             pauseLock.unlock();
+        }
+    }
+
+    private void pauseForPressure() {
+        pauseLock.lock();
+        try {
+            if (!pressurePaused) {
+                pressurePaused = true;
+                metadata.paused(true);
+                log.info("Pausing queue due to pending bytes. destination={}", destination.path());
+            }
+        } finally {
+            pauseLock.unlock();
+        }
+    }
+
+    private void resumeAfterPressure() {
+        if (!pressurePaused || metadata.isSaturated()) {
+            return;
+        }
+
+        pauseLock.lock();
+        try {
+            if (pressurePaused && !metadata.isSaturated()) {
+                pressurePaused = false;
+                updatePauseState();
+            }
+        } finally {
+            pauseLock.unlock();
+        }
+    }
+
+    private void updatePauseState() {
+        boolean paused = isPaused();
+        metadata.paused(paused);
+        if (!paused) {
+            log.info("Resuming queue. destination={}", destination.path());
+            pauseCondition.signalAll();
         }
     }
 }

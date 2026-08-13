@@ -50,13 +50,13 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination) {
-        return getOrPut(destination, DispatcherQueue.DEFAULT_CAPACITY);
+        return getOrPut(destination, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
     }
 
     @Override
-    public DispatcherQueue getOrPut(final Destination destination, int capacity) {
+    public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
         return trie.computeIfAbsent(destination.path(), path -> {
-            DispatcherQueue queue = DispatcherQueue.create(destination, capacity);
+            DispatcherQueue queue = DispatcherQueue.create(destination, maxPendingBytes);
             log.info("Created new dispatcher for path {}", path);
             return queue;
         });
