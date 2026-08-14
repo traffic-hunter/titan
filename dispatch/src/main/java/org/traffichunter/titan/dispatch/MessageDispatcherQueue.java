@@ -236,6 +236,11 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
+    public long getResumePendingBytes() {
+        return metadata.getResumePendingBytes();
+    }
+
+    @Override
     public int size() {
         return queue.size();
     }
@@ -287,13 +292,13 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     private void resumeAfterPressure() {
-        if (!pressurePaused || metadata.isSaturated()) {
+        if (!pressurePaused || !metadata.canResume()) {
             return;
         }
 
         pauseLock.lock();
         try {
-            if (pressurePaused && !metadata.isSaturated()) {
+            if (pressurePaused && metadata.canResume()) {
                 pressurePaused = false;
                 updatePauseState();
             }

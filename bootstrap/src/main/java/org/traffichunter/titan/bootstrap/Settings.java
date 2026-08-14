@@ -136,19 +136,63 @@ public record Settings(
      */
     public record FlowControlSettings(
             boolean enabled,
-            HeapFlowControlSettings heap
+            HeapFlowControlSettings heap,
+            QueueFlowControlSettings queue
     ) {
 
         public static FlowControlSettings disabled() {
-            return new FlowControlSettings(false, HeapFlowControlSettings.defaults());
+            return new FlowControlSettings(
+                    false,
+                    HeapFlowControlSettings.defaults(),
+                    QueueFlowControlSettings.defaults()
+            );
         }
 
         public FlowControlSettings(
                 boolean enabled,
                 @Nullable HeapFlowControlSettings heap
         ) {
+            this(enabled, heap, null);
+        }
+
+        public FlowControlSettings(
+                boolean enabled,
+                @Nullable HeapFlowControlSettings heap,
+                @Nullable QueueFlowControlSettings queue
+        ) {
             this.enabled = enabled;
             this.heap = heap == null ? HeapFlowControlSettings.defaults() : heap;
+            this.queue = queue == null ? QueueFlowControlSettings.defaults() : queue;
+        }
+    }
+
+    /** Destination queue admission limit measured in queued payload bytes. */
+    public record QueueFlowControlSettings(
+            boolean enabled,
+            long maxPendingBytes,
+            long resumePendingBytes
+    ) {
+
+        private static final long DEFAULT_MAX_PENDING_BYTES = 64L * 1024 * 1024;
+        private static final long DEFAULT_RESUME_PENDING_BYTES = 48L * 1024 * 1024;
+
+        public static QueueFlowControlSettings defaults() {
+            return new QueueFlowControlSettings(
+                    true,
+                    DEFAULT_MAX_PENDING_BYTES,
+                    DEFAULT_RESUME_PENDING_BYTES
+            );
+        }
+
+        public QueueFlowControlSettings {
+            if (maxPendingBytes <= 0) {
+                throw new IllegalArgumentException("Queue max pending bytes must be greater than zero");
+            }
+            if (resumePendingBytes < 0 || resumePendingBytes >= maxPendingBytes) {
+                throw new IllegalArgumentException(
+                        "Queue resume pending bytes must be at least zero and lower than max pending bytes"
+                );
+            }
         }
     }
 

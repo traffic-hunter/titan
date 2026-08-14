@@ -146,6 +146,35 @@ class MessageDispatcherQueueTest {
     }
 
     @Test
+    void queue_remains_paused_until_pending_bytes_reach_resume_threshold() throws Exception {
+        Destination destination = Destination.create("/queue/low-watermark");
+        DestinationQueueMetadata metadata = new DestinationQueueMetadata(
+                destination.path(),
+                Instant.now(),
+                12,
+                6
+        );
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(destination, metadata);
+        Message first = message("/queue/low-watermark");
+        Message second = message("/queue/low-watermark");
+        Message third = message("/queue/low-watermark");
+
+        assertThat(queue.enqueue(first)).isSameAs(first);
+        assertThat(queue.enqueue(second)).isSameAs(second);
+        assertThat(queue.enqueue(third)).isSameAs(third);
+        assertThat(queue.enqueue(message("/queue/low-watermark"))).isNull();
+        assertThat(queue.isPaused()).isTrue();
+
+        assertThat(queue.dispatch()).isSameAs(first);
+        assertThat(metadata.getPendingBytes()).isEqualTo(8);
+        assertThat(queue.isPaused()).isTrue();
+
+        assertThat(queue.dispatch()).isSameAs(second);
+        assertThat(metadata.getPendingBytes()).isEqualTo(4);
+        assertThat(queue.isPaused()).isFalse();
+    }
+
+    @Test
     void oversized_message_is_rejected_without_pausing_queue() {
         Destination destination = Destination.create("/queue/oversized");
         DestinationQueueMetadata metadata = new DestinationQueueMetadata(

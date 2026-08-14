@@ -30,6 +30,6 @@ class JmxDispatcherQueueCollectorTest {
 
         List<QueueSnapshot> queues = new JmxDispatcherQueueCollector(server).collect();
 
-        assertThat(queues).containsExactly(new QueueSnapshot("/queue/orders", 1, 5, 10, true));
+        assertThat(queues).containsExactly(new QueueSnapshot("/queue/orders", 1, 5, 10, 8, true));
     }
 }

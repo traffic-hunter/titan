@@ -39,9 +39,10 @@ type ThreadSnapshot struct {
 }
 
 type QueueSnapshot struct {
-	Destination     string `json:"destination"`
-	Size            int    `json:"size"`
-	PendingBytes    int64  `json:"pendingBytes"`
-	MaxPendingBytes int64  `json:"maxPendingBytes"`
-	Paused          bool   `json:"paused"`
+	Destination        string `json:"destination"`
+	Size               int    `json:"size"`
+	PendingBytes       int64  `json:"pendingBytes"`
+	MaxPendingBytes    int64  `json:"maxPendingBytes"`
+	ResumePendingBytes int64  `json:"resumePendingBytes"`
+	Paused             bool   `json:"paused"`
 }

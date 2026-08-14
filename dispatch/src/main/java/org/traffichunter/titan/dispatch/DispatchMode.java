@@ -42,11 +42,21 @@ public enum DispatchMode {
         public DispatchGateway dispatchGateway(DispatchExporter dispatchExporter) {
             return DispatchGateway.ofThread(dispatchExporter);
         }
+
+        @Override
+        public DispatchGateway dispatchGateway(DispatchExporter dispatchExporter, Dispatcher dispatcher) {
+            return DispatchGateway.ofThread(dispatchExporter, dispatcher);
+        }
     },
     VT_EXECUTOR("virtual") {
         @Override
         public DispatchGateway dispatchGateway(DispatchExporter dispatchExporter) {
             return DispatchGateway.ofVirtual(dispatchExporter);
+        }
+
+        @Override
+        public DispatchGateway dispatchGateway(DispatchExporter dispatchExporter, Dispatcher dispatcher) {
+            return DispatchGateway.ofVirtual(dispatchExporter, dispatcher);
         }
     },
     ;
@@ -58,6 +68,8 @@ public enum DispatchMode {
     }
 
     public abstract DispatchGateway dispatchGateway(DispatchExporter dispatchExporter);
+
+    public abstract DispatchGateway dispatchGateway(DispatchExporter dispatchExporter, Dispatcher dispatcher);
 
     public static DispatchMode resolveMode(String modeName) {
         return switch (modeName) {

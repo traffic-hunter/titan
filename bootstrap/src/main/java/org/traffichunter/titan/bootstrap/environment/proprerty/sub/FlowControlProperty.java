@@ -28,6 +28,7 @@ public final class FlowControlProperty {
 
     private boolean enabled;
     private HeapFlowControlProperty heap;
+    private QueueFlowControlProperty queue;
 
     public boolean isEnabled() {
         return enabled;
@@ -43,5 +44,13 @@ public final class FlowControlProperty {
 
     public void setHeap(HeapFlowControlProperty heap) {
         this.heap = heap;
+    }
+
+    public QueueFlowControlProperty getQueue() {
+        return queue;
+    }
+
+    public void setQueue(QueueFlowControlProperty queue) {
+        this.queue = queue;
     }
 }

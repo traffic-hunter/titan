@@ -50,6 +50,7 @@ public final class DestinationQueueMetadata {
     private volatile String destination;
     private final Instant createdAt;
     private final long maxPendingBytes;
+    private final long resumePendingBytes;
     private final AtomicLong pendingBytes = new AtomicLong();
     private final AtomicBoolean paused = new AtomicBoolean();
 
@@ -58,15 +59,23 @@ public final class DestinationQueueMetadata {
             Instant createdAt,
             long maxPendingBytes
     ) {
+        this(destination, createdAt, maxPendingBytes, defaultResumePendingBytes(maxPendingBytes));
+    }
+
+    public DestinationQueueMetadata(
+            String destination,
+            Instant createdAt,
+            long maxPendingBytes,
+            long resumePendingBytes
+    ) {
         if (destination.isBlank()) {
             throw new IllegalArgumentException("Destination must not be blank");
         }
-        if (maxPendingBytes <= 0) {
-            throw new IllegalArgumentException("Max pending bytes must be greater than zero");
-        }
+        validateThresholds(maxPendingBytes, resumePendingBytes);
         this.destination = destination;
         this.createdAt = createdAt;
         this.maxPendingBytes = maxPendingBytes;
+        this.resumePendingBytes = resumePendingBytes;
     }
 
     boolean tryReserve(long bytes) {
@@ -116,12 +125,38 @@ public final class DestinationQueueMetadata {
         return pendingBytes.get();
     }
 
+    public long getResumePendingBytes() {
+        return resumePendingBytes;
+    }
+
     public boolean isPaused() {
         return paused.get();
     }
 
     public boolean isSaturated() {
         return getPendingBytes() >= maxPendingBytes;
+    }
+
+    public boolean canResume() {
+        return getPendingBytes() <= resumePendingBytes;
+    }
+
+    static long defaultResumePendingBytes(long maxPendingBytes) {
+        if (maxPendingBytes <= 0) {
+            throw new IllegalArgumentException("Max pending bytes must be greater than zero");
+        }
+        return maxPendingBytes - Math.max(1, maxPendingBytes / 4);
+    }
+
+    static void validateThresholds(long maxPendingBytes, long resumePendingBytes) {
+        if (maxPendingBytes <= 0) {
+            throw new IllegalArgumentException("Max pending bytes must be greater than zero");
+        }
+        if (resumePendingBytes < 0 || resumePendingBytes >= maxPendingBytes) {
+            throw new IllegalArgumentException(
+                    "Resume pending bytes must be at least zero and lower than max pending bytes"
+            );
+        }
     }
 
     private boolean reserveBytes(long bytes) {

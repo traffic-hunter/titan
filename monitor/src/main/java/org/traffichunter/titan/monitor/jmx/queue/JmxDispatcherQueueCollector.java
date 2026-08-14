@@ -30,6 +30,7 @@ public final class JmxDispatcherQueueCollector {
                         queue.size(),
                         queue.pendingBytes(),
                         queue.maxPendingBytes(),
+                        queue.resumePendingBytes(),
                         queue.paused()
                 ))
                 .toList();

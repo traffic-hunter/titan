@@ -68,8 +68,18 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                 protocolOptions,
                 managedServer,
                 dispatchExporter -> {
-                    DispatchGateway gateway = mode.dispatchGateway(dispatchExporter);
                     Settings.FlowControlSettings flowControl = settings.flowControl();
+                    Settings.QueueFlowControlSettings queue = flowControl.queue();
+                    long maxPendingBytes = flowControl.enabled() && queue.enabled()
+                            ? queue.maxPendingBytes()
+                            : DispatcherQueue.DEFAULT_MAX_PENDING_BYTES;
+                    long resumePendingBytes = flowControl.enabled() && queue.enabled()
+                            ? queue.resumePendingBytes()
+                            : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
+                    DispatchGateway gateway = mode.dispatchGateway(
+                            dispatchExporter,
+                            Dispatcher.getDefault(maxPendingBytes, resumePendingBytes)
+                    );
                     Settings.HeapFlowControlSettings heap = flowControl.heap();
                     if (flowControl.enabled() && heap.enabled()) {
                         MemoryPressureDamper damper = new MemoryPressureDamper(

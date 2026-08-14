@@ -17,6 +17,10 @@ class ConfigurationInitializerTest {
                 titan:
                   flow-control:
                     enabled: true
+                    queue:
+                      enabled: true
+                      max-pending-bytes: 1048576
+                      resume-pending-bytes: 786432
                     heap:
                       enabled: true
                       high-watermark: 0.85
@@ -27,6 +31,9 @@ class ConfigurationInitializerTest {
                 .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
         assertThat(settings.flowControl().enabled()).isTrue();
+        assertThat(settings.flowControl().queue().enabled()).isTrue();
+        assertThat(settings.flowControl().queue().maxPendingBytes()).isEqualTo(1048576);
+        assertThat(settings.flowControl().queue().resumePendingBytes()).isEqualTo(786432);
         assertThat(settings.flowControl().heap().enabled()).isTrue();
         assertThat(settings.flowControl().heap().highWatermark()).isEqualTo(0.85);
         assertThat(settings.flowControl().heap().lowWatermark()).isEqualTo(0.65);
@@ -47,6 +54,9 @@ class ConfigurationInitializerTest {
         assertThat(settings.flowControl().heap().enabled()).isTrue();
         assertThat(settings.flowControl().heap().highWatermark()).isEqualTo(0.90);
         assertThat(settings.flowControl().heap().lowWatermark()).isEqualTo(0.70);
+        assertThat(settings.flowControl().queue().enabled()).isTrue();
+        assertThat(settings.flowControl().queue().maxPendingBytes()).isEqualTo(64L * 1024 * 1024);
+        assertThat(settings.flowControl().queue().resumePendingBytes()).isEqualTo(48L * 1024 * 1024);
     }
 
     @Test
@@ -64,6 +74,39 @@ class ConfigurationInitializerTest {
                 .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("lower than high watermark");
+    }
+
+    @Test
+    void load_rejects_non_positive_queue_byte_limit() {
+        String yaml = """
+                titan:
+                  flow-control:
+                    enabled: true
+                    queue:
+                      max-pending-bytes: 0
+                """;
+
+        assertThatThrownBy(() -> ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("greater than zero");
+    }
+
+    @Test
+    void load_rejects_queue_resume_threshold_at_or_above_maximum() {
+        String yaml = """
+                titan:
+                  flow-control:
+                    enabled: true
+                    queue:
+                      max-pending-bytes: 1024
+                      resume-pending-bytes: 1024
+                """;
+
+        assertThatThrownBy(() -> ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("lower than max pending bytes");
     }
 
     @Test

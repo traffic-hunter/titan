@@ -21,22 +21,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.management;
+package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
-/**
- * @author yungwang-o
- */
-public interface DispatcherQueueMbean {
+/** Mutable YAML DTO for destination queue byte limits. */
+public final class QueueFlowControlProperty {
 
-    String getDestination();
+    private boolean enabled = true;
+    private long maxPendingBytes = 64L * 1024 * 1024;
+    private long resumePendingBytes = 48L * 1024 * 1024;
 
-    int getSize();
+    public boolean isEnabled() {
+        return enabled;
+    }
 
-    long getPendingBytes();
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
-    long getMaxPendingBytes();
+    public long getMaxPendingBytes() {
+        return maxPendingBytes;
+    }
 
-    long getResumePendingBytes();
+    public void setMaxPendingBytes(long maxPendingBytes) {
+        this.maxPendingBytes = maxPendingBytes;
+    }
 
-    boolean isPaused();
+    public long getResumePendingBytes() {
+        return resumePendingBytes;
+    }
+
+    public void setResumePendingBytes(long resumePendingBytes) {
+        this.resumePendingBytes = resumePendingBytes;
+    }
 }

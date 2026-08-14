@@ -60,8 +60,16 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
         return new ThreadPoolExecutorDispatchGateway(exporter);
     }
 
+    static DispatchGateway ofThread(DispatchExporter exporter, Dispatcher dispatcher) {
+        return new ThreadPoolExecutorDispatchGateway(exporter, dispatcher);
+    }
+
     static DispatchGateway ofVirtual(DispatchExporter exporter) {
         return new VirtualThreadExecutorDispatchGateway(exporter);
+    }
+
+    static DispatchGateway ofVirtual(DispatchExporter exporter, Dispatcher dispatcher) {
+        return new VirtualThreadExecutorDispatchGateway(exporter, dispatcher);
     }
 
     /**

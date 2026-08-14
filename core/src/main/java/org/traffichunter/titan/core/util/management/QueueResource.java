@@ -30,6 +30,7 @@ package org.traffichunter.titan.core.util.management;
  * @param size current number of queued messages
  * @param pendingBytes current queued payload bytes
  * @param maxPendingBytes maximum queued payload bytes
+ * @param resumePendingBytes queued payload bytes at which admission resumes
  * @param paused whether the queue currently rejects or delays new work
  * @author yun
  */
@@ -38,6 +39,7 @@ public record QueueResource(
         int size,
         long pendingBytes,
         long maxPendingBytes,
+        long resumePendingBytes,
         boolean paused
 ) {
 }

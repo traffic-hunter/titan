@@ -36,6 +36,7 @@ import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupPropert
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.FlowControlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HeapFlowControlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.QueueFlowControlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.TlsProperty;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -136,7 +137,15 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
                         heap.getHighWatermark(),
                         heap.getLowWatermark()
                 );
-        return new Settings.FlowControlSettings(property.isEnabled(), heapSettings);
+        QueueFlowControlProperty queue = property.getQueue();
+        Settings.QueueFlowControlSettings queueSettings = queue == null
+                ? Settings.QueueFlowControlSettings.defaults()
+                : new Settings.QueueFlowControlSettings(
+                        queue.isEnabled(),
+                        queue.getMaxPendingBytes(),
+                        queue.getResumePendingBytes()
+                );
+        return new Settings.FlowControlSettings(property.isEnabled(), heapSettings, queueSettings);
     }
 
     private static Settings.BackupSettings mapBackup(final @Nullable BackupProperty property) {

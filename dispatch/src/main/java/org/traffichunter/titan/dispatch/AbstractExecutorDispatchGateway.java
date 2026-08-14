@@ -308,15 +308,19 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         return result;
     }
 
-    protected @Nullable Message route(Message message) {
+    protected Message route(Message message) {
         Destination destination = message.getDestination();
         Assert.checkNotNull(destination, "message.destination");
 
         DispatcherQueue dq = dispatcher.getOrPut(destination);
 
         try {
-            dq.enqueue(message);
-            return message;
+            Message routeMessage = dq.enqueue(message);
+            if (routeMessage == null) {
+                throw new IllegalStateException("routeMessage is null");
+            }
+
+            return routeMessage;
         } catch (Exception e) {
             log.warn(
                     "Failed to route fanout message. destination={}",
@@ -326,7 +330,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             if(dq.contains(message)) {
                 dq.remove(message);
             }
-            return null;
+            throw e;
         }
     }
 }

@@ -53,12 +53,21 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     }
 
     static DispatcherQueue create(Destination key, long maxPendingBytes) {
+        return create(
+                key,
+                maxPendingBytes,
+                DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes)
+        );
+    }
+
+    static DispatcherQueue create(Destination key, long maxPendingBytes, long resumePendingBytes) {
         DispatcherQueue queue = new MessageDispatcherQueue(
                 key,
                 new DestinationQueueMetadata(
                         key.path(),
                         Instant.now(),
-                        maxPendingBytes
+                        maxPendingBytes,
+                        resumePendingBytes
                 )
         );
         DispatcherQueueMbeans.register(queue);

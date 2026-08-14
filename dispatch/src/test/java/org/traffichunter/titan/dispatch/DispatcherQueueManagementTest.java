@@ -22,6 +22,28 @@ class DispatcherQueueManagementTest {
     }
 
     @Test
+    void trie_dispatcher_applies_default_byte_limit_to_automatic_queue() {
+        Dispatcher dispatcher = new TrieDispatcher(128);
+        Destination destination = Destination.create("/queue/automatic-trie");
+
+        DispatcherQueue queue = dispatcher.getOrPut(destination);
+
+        assertThat(queue.getMaxPendingBytes()).isEqualTo(128);
+        assertThat(queue.getResumePendingBytes()).isEqualTo(96);
+    }
+
+    @Test
+    void map_dispatcher_applies_default_byte_limit_to_automatic_queue() {
+        Dispatcher dispatcher = new MapDispatcher(1, 256);
+        Destination destination = Destination.create("/queue/automatic-map");
+
+        DispatcherQueue queue = dispatcher.getOrPut(destination);
+
+        assertThat(queue.getMaxPendingBytes()).isEqualTo(256);
+        assertThat(queue.getResumePendingBytes()).isEqualTo(192);
+    }
+
+    @Test
     void map_dispatcher_returns_created_queue_with_requested_byte_limit() {
         Dispatcher dispatcher = new MapDispatcher(1);
         Destination destination = Destination.create("/queue/orders");

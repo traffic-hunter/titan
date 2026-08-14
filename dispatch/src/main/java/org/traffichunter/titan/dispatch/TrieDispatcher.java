@@ -42,6 +42,25 @@ import org.traffichunter.titan.core.util.TrieImpl;
 public class TrieDispatcher implements Dispatcher {
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
+    private final long defaultMaxPendingBytes;
+    private final long defaultResumePendingBytes;
+
+    public TrieDispatcher() {
+        this(DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
+    }
+
+    public TrieDispatcher(long defaultMaxPendingBytes) {
+        this(
+                defaultMaxPendingBytes,
+                DestinationQueueMetadata.defaultResumePendingBytes(defaultMaxPendingBytes)
+        );
+    }
+
+    public TrieDispatcher(long defaultMaxPendingBytes, long defaultResumePendingBytes) {
+        DestinationQueueMetadata.validateThresholds(defaultMaxPendingBytes, defaultResumePendingBytes);
+        this.defaultMaxPendingBytes = defaultMaxPendingBytes;
+        this.defaultResumePendingBytes = defaultResumePendingBytes;
+    }
 
     @Override
     public @Nullable DispatcherQueue get(Destination destination) {
@@ -50,7 +69,15 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination) {
-        return getOrPut(destination, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
+        return trie.computeIfAbsent(destination.path(), path -> {
+            DispatcherQueue queue = DispatcherQueue.create(
+                    destination,
+                    defaultMaxPendingBytes,
+                    defaultResumePendingBytes
+            );
+            log.info("Created new dispatcher for path {}", path);
+            return queue;
+        });
     }
 
     @Override

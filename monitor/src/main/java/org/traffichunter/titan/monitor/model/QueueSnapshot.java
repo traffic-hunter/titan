@@ -5,6 +5,7 @@ public record QueueSnapshot(
         int size,
         long pendingBytes,
         long maxPendingBytes,
+        long resumePendingBytes,
         boolean paused
 ) {
 }

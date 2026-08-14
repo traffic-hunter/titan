@@ -68,6 +68,7 @@ public final class QueueResourceDetector implements ResourceDetector<List<QueueR
                         attribute(name, "Size", Integer.class),
                         attribute(name, "PendingBytes", Long.class),
                         attribute(name, "MaxPendingBytes", Long.class),
+                        attribute(name, "ResumePendingBytes", Long.class),
                         attribute(name, "Paused", Boolean.class)
                 ));
             }

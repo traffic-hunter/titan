@@ -171,6 +171,7 @@ public final class MonitoringQueueServlet extends HttpServlet {
                 queue.size(),
                 queue.getPendingBytes(),
                 queue.getMaxPendingBytes(),
+                queue.getResumePendingBytes(),
                 queue.isPaused()
         );
     }
