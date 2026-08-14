@@ -23,14 +23,25 @@
  */
 package org.traffichunter.titan.monitor.jmx.cpu;
 
-import com.sun.management.OperatingSystemMXBean;
-import java.lang.management.ManagementFactory;
+import org.traffichunter.titan.core.util.management.CpuResource;
+import org.traffichunter.titan.core.util.management.CpuResourceDetector;
+import org.traffichunter.titan.core.util.management.ResourceDetector;
 import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 
 /**
  * @author yungwang-o
  */
 public final class JmxCpuMbeanCollector implements JmxMbeanCollector<CpuData> {
+
+    private final ResourceDetector<CpuResource> resourceDetector;
+
+    public JmxCpuMbeanCollector() {
+        this(new CpuResourceDetector());
+    }
+
+    public JmxCpuMbeanCollector(ResourceDetector<CpuResource> resourceDetector) {
+        this.resourceDetector = resourceDetector;
+    }
 
     @Override
     public CollectorType getCollectorType() {
@@ -44,14 +55,7 @@ public final class JmxCpuMbeanCollector implements JmxMbeanCollector<CpuData> {
 
     @Override
     public CpuData collect() {
-
-        OperatingSystemMXBean osMXBean =
-                (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-
-        return CpuData.builder()
-                .systemCpuLoad(osMXBean.getCpuLoad())
-                .processCpuLoad(osMXBean.getProcessCpuLoad())
-                .availableProcessors(osMXBean.getAvailableProcessors())
-                .build();
+        CpuResource cpu = resourceDetector.detect();
+        return new CpuData(cpu.systemCpuLoad(), cpu.processCpuLoad(), cpu.availableProcessors());
     }
 }

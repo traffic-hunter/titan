@@ -1,4 +1,14 @@
 titan:
+  flow-control:
+    enabled: false
+    queue:
+      enabled: true
+      max-pending-bytes: 67108864
+      resume-pending-bytes: 50331648
+    heap:
+      enabled: true
+      high-watermark: 0.90
+      low-watermark: 0.70
   servers:
     - name: stomp-dispatch
       protocol: stomp

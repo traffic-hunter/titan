@@ -38,7 +38,7 @@ import java.util.function.Function;
 public interface ManagedServerFanoutAdapter {
 
     static List<ManagedServerFanoutAdapter> load() {
-        return ServiceLoader.load(ManagedServerFanoutAdapter.class, ManagedServerFanoutAdapter.class.getClassLoader())
+        return ServiceLoader.load(ManagedServerFanoutAdapter.class)
                 .stream()
                 .map(ServiceLoader.Provider::get)
                 .sorted(Comparator.comparingInt(ManagedServerFanoutAdapter::order))

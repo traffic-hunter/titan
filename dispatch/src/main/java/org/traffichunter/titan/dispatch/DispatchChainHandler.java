@@ -28,10 +28,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Handles one ordered step in the message dispatch lifecycle.
  *
- * <p>The handler receives the mutable {@link DispatchContext} and performs only its own stage.
- * The owning {@link DispatchHandlerChain} advances to the next handler after the returned future
- * completes successfully. A handler may mutate the context, perform asynchronous work, or fail
- * the future to prevent later handlers from running.</p>
+ * <p>The handler receives the mutable {@link DispatchContext} and a continuation
+ * representing the remaining chain. It must invoke
+ * {@link DispatchChain#next(DispatchContext)} to propagate the operation. Not
+ * invoking the continuation is an intentional short circuit.</p>
  *
  * <p>The returned future must represent all work performed by this stage. Implementations should
  * compose asynchronous work into that future rather than launching untracked tasks.</p>
@@ -41,13 +41,14 @@ import java.util.concurrent.CompletableFuture;
 public interface DispatchChainHandler {
 
     /** Sentinel behavior that completes without modifying the dispatch context. */
-    DispatchChainHandler NOOP = context -> CompletableFuture.completedFuture(null);
+    DispatchChainHandler NOOP = (context, chain) -> chain.next(context);
 
     /**
      * Processes one dispatch stage.
      *
      * @param context state shared by the dispatch lifecycle
-     * @return completion of this stage
+     * @param chain remaining dispatch handlers
+     * @return completion of this stage and any propagated handlers
      */
-    CompletableFuture<Void> handle(DispatchContext context);
+    CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain);
 }

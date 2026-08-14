@@ -43,13 +43,38 @@ import org.traffichunter.titan.core.util.Destination;
 public class MapDispatcher implements Dispatcher {
 
     private final Map<Destination, DispatcherQueue> map;
+    private final long defaultMaxPendingBytes;
+    private final long defaultResumePendingBytes;
 
     public MapDispatcher(final int initialCapacity) {
-        this(new ConcurrentHashMap<>(initialCapacity));
+        this(initialCapacity, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
+    }
+
+    public MapDispatcher(final int initialCapacity, long defaultMaxPendingBytes) {
+        this(
+                new ConcurrentHashMap<>(initialCapacity),
+                defaultMaxPendingBytes,
+                DestinationQueueMetadata.defaultResumePendingBytes(defaultMaxPendingBytes)
+        );
     }
 
     public MapDispatcher(final Map<Destination, DispatcherQueue> map) {
+        this(map, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
+    }
+
+    public MapDispatcher(final Map<Destination, DispatcherQueue> map, long defaultMaxPendingBytes) {
+        this(map, defaultMaxPendingBytes, DestinationQueueMetadata.defaultResumePendingBytes(defaultMaxPendingBytes));
+    }
+
+    public MapDispatcher(
+            final Map<Destination, DispatcherQueue> map,
+            long defaultMaxPendingBytes,
+            long defaultResumePendingBytes
+    ) {
+        DestinationQueueMetadata.validateThresholds(defaultMaxPendingBytes, defaultResumePendingBytes);
         this.map = map;
+        this.defaultMaxPendingBytes = defaultMaxPendingBytes;
+        this.defaultResumePendingBytes = defaultResumePendingBytes;
     }
 
     @Override
@@ -59,12 +84,15 @@ public class MapDispatcher implements Dispatcher {
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination) {
-        return map.computeIfAbsent(destination, DispatcherQueue::create);
+        return map.computeIfAbsent(
+                destination,
+                key -> DispatcherQueue.create(key, defaultMaxPendingBytes, defaultResumePendingBytes)
+        );
     }
 
     @Override
-    public DispatcherQueue getOrPut(final Destination destination, int capacity) {
-        return map.computeIfAbsent(destination, key -> DispatcherQueue.create(key, capacity));
+    public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
+        return map.computeIfAbsent(destination, key -> DispatcherQueue.create(key, maxPendingBytes));
     }
 
     @Override

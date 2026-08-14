@@ -60,8 +60,16 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
         return new ThreadPoolExecutorDispatchGateway(exporter);
     }
 
+    static DispatchGateway ofThread(DispatchExporter exporter, Dispatcher dispatcher) {
+        return new ThreadPoolExecutorDispatchGateway(exporter, dispatcher);
+    }
+
     static DispatchGateway ofVirtual(DispatchExporter exporter) {
         return new VirtualThreadExecutorDispatchGateway(exporter);
+    }
+
+    static DispatchGateway ofVirtual(DispatchExporter exporter, Dispatcher dispatcher) {
+        return new VirtualThreadExecutorDispatchGateway(exporter, dispatcher);
     }
 
     /**
@@ -70,7 +78,9 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
      * <p>The gateway installs routing before the callback and fanout after the
      * callback. Custom handlers therefore run after the message is routed into
      * the dispatcher queue and before the destination consumer is started. This
-     * is the extension point for backup, metrics, validation, and filtering.</p>
+     * is the extension point for backup, metrics, validation, and filtering.
+     * Admission controls that must run before routing can be inserted with
+     * {@link DispatchHandlerChain#addFirst(DispatchChainHandler)}.</p>
      *
      * @param chainHandler callback that adds custom handlers to the chain
      * @return this gateway

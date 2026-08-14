@@ -24,6 +24,7 @@
 package org.traffichunter.titan.dispatch;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -32,8 +33,8 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbean;
-import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
  * Queue of messages for one destination.
@@ -45,19 +46,35 @@ import org.traffichunter.titan.core.util.mbeans.DispatcherQueueMbeans;
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
 
-    int DEFAULT_CAPACITY = 11;
+    long DEFAULT_MAX_PENDING_BYTES = Long.MAX_VALUE;
 
     static DispatcherQueue create(Destination key) {
-        DispatcherQueue queue = new MessageDispatcherQueue(key);
+        return create(key, DEFAULT_MAX_PENDING_BYTES);
+    }
+
+    static DispatcherQueue create(Destination key, long maxPendingBytes) {
+        return create(
+                key,
+                maxPendingBytes,
+                DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes)
+        );
+    }
+
+    static DispatcherQueue create(Destination key, long maxPendingBytes, long resumePendingBytes) {
+        DispatcherQueue queue = new MessageDispatcherQueue(
+                key,
+                new DestinationQueueMetadata(
+                        key.path(),
+                        Instant.now(),
+                        maxPendingBytes,
+                        resumePendingBytes
+                )
+        );
         DispatcherQueueMbeans.register(queue);
         return queue;
     }
 
-    static DispatcherQueue create(Destination key, int capacity) {
-        DispatcherQueue queue = new MessageDispatcherQueue(key, capacity);
-        DispatcherQueueMbeans.register(queue);
-        return queue;
-    }
+    DestinationQueueMetadata metadata();
 
     /**
      * Destination served by this queue.
@@ -99,8 +116,6 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     void updateRoutingKey(Destination key);
 
     int size();
-
-    int capacity();
 
     void clear();
 }

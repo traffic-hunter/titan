@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import org.traffichunter.titan.core.util.concurrent.NoopDamper;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 import java.util.concurrent.Executors;
@@ -55,8 +54,7 @@ class ThreadPoolExecutorDispatchGateway extends AbstractExecutorDispatchGateway 
         super(
                 Executors.newFixedThreadPool(nThreads, newThreadFactory()),
                 exporter,
-                dispatcher,
-                NoopDamper.getInstance()
+                dispatcher
         );
     }
 

@@ -36,12 +36,12 @@ type viewOptions struct {
 }
 
 type queueOptions struct {
-	addr     string
-	token    string
-	timeout  time.Duration
-	noColor  bool
-	capacity int
-	force    bool
+	addr            string
+	token           string
+	timeout         time.Duration
+	noColor         bool
+	maxPendingBytes int64
+	force           bool
 }
 
 func Run(args []string, stdout io.Writer, stderr io.Writer, version string) int {
@@ -134,19 +134,19 @@ func queueCreateCommand(stdout io.Writer, options *queueOptions) *cobra.Command 
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if options.capacity <= 0 {
-				return exitError{code: 2, err: fmt.Errorf("capacity must be greater than 0")}
+			if options.maxPendingBytes <= 0 {
+				return exitError{code: 2, err: fmt.Errorf("max pending bytes must be greater than 0")}
 			}
 			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
-			queue, err := client.CreateQueue(cmd.Context(), args[0], options.capacity)
+			queue, err := client.CreateQueue(cmd.Context(), args[0], options.maxPendingBytes)
 			if err != nil {
 				return queueError(err)
 			}
-			fmt.Fprintf(stdout, "created %s size=%d capacity=%d\n", queue.Destination, queue.Size, queue.Capacity)
+			fmt.Fprintf(stdout, "created %s size=%d maxPendingBytes=%d\n", queue.Destination, queue.Size, queue.MaxPendingBytes)
 			return nil
 		},
 	}
-	command.Flags().IntVar(&options.capacity, "capacity", 11, "Queue capacity")
+	command.Flags().Int64Var(&options.maxPendingBytes, "max-pending-bytes", 64*1024*1024, "Maximum queued payload bytes")
 	return command
 }
 

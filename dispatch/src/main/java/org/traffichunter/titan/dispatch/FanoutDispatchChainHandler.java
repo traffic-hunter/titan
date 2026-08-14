@@ -46,11 +46,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     }
 
     @Override
-    public CompletableFuture<Void> handle(DispatchContext context) {
+    public CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain) {
         Message routed = context.getRoutedMessage();
         if (routed != null) {
             fanout.apply(routed.getDestination());
         }
-        return CompletableFuture.completedFuture(null);
+        return chain.next(context);
     }
 }

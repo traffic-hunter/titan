@@ -23,14 +23,25 @@
  */
 package org.traffichunter.titan.monitor.jmx.thread;
 
-import com.sun.management.ThreadMXBean;
-import java.lang.management.ManagementFactory;
+import org.traffichunter.titan.core.util.management.ResourceDetector;
+import org.traffichunter.titan.core.util.management.ThreadResource;
+import org.traffichunter.titan.core.util.management.ThreadResourceDetector;
 import org.traffichunter.titan.monitor.jmx.JmxMbeanCollector;
 
 /**
  * @author yungwang-o
  */
 public final class JmxThreadMbeanCollector implements JmxMbeanCollector<ThreadData> {
+
+    private final ResourceDetector<ThreadResource> resourceDetector;
+
+    public JmxThreadMbeanCollector() {
+        this(new ThreadResourceDetector());
+    }
+
+    public JmxThreadMbeanCollector(ResourceDetector<ThreadResource> resourceDetector) {
+        this.resourceDetector = resourceDetector;
+    }
 
     @Override
     public CollectorType getCollectorType() {
@@ -44,13 +55,11 @@ public final class JmxThreadMbeanCollector implements JmxMbeanCollector<ThreadDa
 
     @Override
     public ThreadData collect() {
-
-        ThreadMXBean threadMXBean = (ThreadMXBean) ManagementFactory.getThreadMXBean();
-
-        return ThreadData.builder()
-                .threadCount(threadMXBean.getThreadCount())
-                .peakThreadCount(threadMXBean.getPeakThreadCount())
-                .totalStartedThreadCount(threadMXBean.getTotalStartedThreadCount())
-                .build();
+        ThreadResource thread = resourceDetector.detect();
+        return new ThreadData(
+                thread.threadCount(),
+                thread.peakThreadCount(),
+                thread.totalStartedThreadCount()
+        );
     }
 }

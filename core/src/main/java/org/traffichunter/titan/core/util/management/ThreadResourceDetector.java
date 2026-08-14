@@ -21,24 +21,42 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.concurrent;
+package org.traffichunter.titan.core.util.management;
 
-public final class NoopDamper implements Damper {
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 
-    private static final NoopDamper INSTANCE = new NoopDamper();
+/**
+ * Detects JVM thread counts through the platform thread management bean.
+ *
+ * @author yun
+ */
+public final class ThreadResourceDetector implements ResourceDetector<ThreadResource> {
 
-    private NoopDamper() {
+    private final ThreadMXBean threadMXBean;
+
+    /**
+     * Creates a detector backed by the platform thread management bean.
+     */
+    public ThreadResourceDetector() {
+        this(ManagementFactory.getThreadMXBean());
     }
 
-    public static NoopDamper getInstance() {
-        return INSTANCE;
+    /**
+     * Creates a detector backed by the supplied thread management bean.
+     *
+     * @param threadMXBean thread management bean used for measurements
+     */
+    public ThreadResourceDetector(ThreadMXBean threadMXBean) {
+        this.threadMXBean = threadMXBean;
     }
 
     @Override
-    public void acquire() {
-    }
-
-    @Override
-    public void release() {
+    public ThreadResource detect() {
+        return new ThreadResource(
+                threadMXBean.getThreadCount(),
+                threadMXBean.getPeakThreadCount(),
+                threadMXBean.getTotalStartedThreadCount()
+        );
     }
 }

@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.mbeans;
+package org.traffichunter.titan.core.util.management;
 
 /**
  * @author yungwang-o
@@ -32,7 +32,11 @@ public interface DispatcherQueueMbean {
 
     int getSize();
 
-    int getCapacity();
+    long getPendingBytes();
+
+    long getMaxPendingBytes();
+
+    long getResumePendingBytes();
 
     boolean isPaused();
 }

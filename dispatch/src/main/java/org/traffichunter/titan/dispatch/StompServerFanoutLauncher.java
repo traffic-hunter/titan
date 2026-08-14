@@ -6,6 +6,8 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Settings;
+import org.traffichunter.titan.core.resilience.flowcontrol.FlowControlConfiguration;
+import org.traffichunter.titan.core.resilience.flowcontrol.MemoryPressureDamper;
 import org.traffichunter.titan.core.spi.*;
 
 /**
@@ -65,7 +67,33 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                 transport,
                 protocolOptions,
                 managedServer,
-                mode::dispatchGateway
+                dispatchExporter -> {
+                    Settings.FlowControlSettings flowControl = settings.flowControl();
+                    Settings.QueueFlowControlSettings queue = flowControl.queue();
+                    long maxPendingBytes = flowControl.enabled() && queue.enabled()
+                            ? queue.maxPendingBytes()
+                            : DispatcherQueue.DEFAULT_MAX_PENDING_BYTES;
+                    long resumePendingBytes = flowControl.enabled() && queue.enabled()
+                            ? queue.resumePendingBytes()
+                            : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
+                    DispatchGateway gateway = mode.dispatchGateway(
+                            dispatchExporter,
+                            Dispatcher.getDefault(maxPendingBytes, resumePendingBytes)
+                    );
+                    Settings.HeapFlowControlSettings heap = flowControl.heap();
+                    if (flowControl.enabled() && heap.enabled()) {
+                        MemoryPressureDamper damper = new MemoryPressureDamper(
+                                new FlowControlConfiguration(
+                                        heap.highWatermark(),
+                                        heap.lowWatermark()
+                                )
+                        );
+                        gateway.chainHandler(chain -> chain.addFirst(
+                                new FlowControlDispatchChainHandler(damper)
+                        ));
+                    }
+                    return gateway;
+                }
         );
         log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
     }

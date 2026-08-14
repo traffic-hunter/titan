@@ -46,6 +46,16 @@ public interface Dispatcher {
         return new TrieDispatcher();
     }
 
+    /** Returns the default destination registry with an automatic queue byte limit. */
+    static Dispatcher getDefault(long maxPendingBytes) {
+        return new TrieDispatcher(maxPendingBytes);
+    }
+
+    /** Returns the default destination registry with byte pause and resume thresholds. */
+    static Dispatcher getDefault(long maxPendingBytes, long resumePendingBytes) {
+        return new TrieDispatcher(maxPendingBytes, resumePendingBytes);
+    }
+
     /**
      * Returns the queue for the destination, or {@code null} when it has not been created.
      */
@@ -58,13 +68,13 @@ public interface Dispatcher {
     DispatcherQueue getOrPut(Destination destination);
 
     /**
-     * Returns the existing queue or creates one with the requested capacity.
+     * Returns the existing queue or creates one with the requested byte limit.
      *
      * <p>If the queue already exists, implementations should return it without
-     * changing its capacity.</p>
+     * changing its byte limit.</p>
      */
     @CanIgnoreReturnValue
-    DispatcherQueue getOrPut(Destination destination, int capacity);
+    DispatcherQueue getOrPut(Destination destination, long maxPendingBytes);
 
     /**
      * Returns queues matching the destination pattern.

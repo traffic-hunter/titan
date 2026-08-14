@@ -125,19 +125,20 @@ func Queues(w io.Writer, queues []monitor.QueueSnapshot, options Options) {
 		return
 	}
 
-	fmt.Fprintf(w, "  %s\n", paint("DESTINATION                           SIZE     CAPACITY  STATE    PRESSURE", cyan, options))
-	fmt.Fprintf(w, "  %s\n", paint(strings.Repeat("-", 76), muted, options))
+	fmt.Fprintf(w, "  %s\n", paint("DESTINATION                           SIZE    PENDING      LIMIT  STATE    PRESSURE", cyan, options))
+	fmt.Fprintf(w, "  %s\n", paint(strings.Repeat("-", 88), muted, options))
 	for _, queue := range copied {
 		state := queueState("run", options)
 		if queue.Paused {
 			state = queueState("pause", options)
 		}
-		fmt.Fprintf(w, "  %-34s %7s  %9s  %s %s\n",
+		fmt.Fprintf(w, "  %-34s %7s  %9s  %9s  %s %s\n",
 			truncate(queue.Destination, 34),
 			compactInt(queue.Size),
-			compactInt(queue.Capacity),
+			byteSize(queue.PendingBytes),
+			byteSize(queue.MaxPendingBytes),
 			state,
-			metricBar(ratio(int64(queue.Size), int64(queue.Capacity)), 18, options),
+			metricBar(ratio(queue.PendingBytes, queue.MaxPendingBytes), 18, options),
 		)
 	}
 }

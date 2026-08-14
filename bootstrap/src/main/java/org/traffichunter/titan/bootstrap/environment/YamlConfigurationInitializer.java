@@ -33,7 +33,10 @@ import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.bootstrap.environment.proprerty.RootYamlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.FlowControlProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HeapFlowControlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
+import org.traffichunter.titan.bootstrap.environment.proprerty.sub.QueueFlowControlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.TlsProperty;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -44,10 +47,9 @@ import org.yaml.snakeyaml.constructor.Constructor;
  * SnakeYAML-backed environment loader.
  *
  * <p>The loader binds YAML into {@link RootYamlProperty} using
- * {@link RelaxedBindingUtils}, then maps only the server configuration that the
- * runtime currently consumes into {@link Settings}. Keeping the mapping step
- * explicit makes it clear where defaults and validation move from parser DTOs
- * into runtime records.</p>
+ * {@link RelaxedBindingUtils}, then maps server and process-wide configuration
+ * into {@link Settings}. Keeping the mapping step explicit makes it clear where
+ * defaults and validation move from parser DTOs into runtime records.</p>
  *
  * <pre>{@code
  * titan-env.yml
@@ -115,8 +117,35 @@ final class YamlConfigurationInitializer implements ConfigurationInitializer {
         return new Settings(
                 servers,
                 mapMonitor(root.getTitan() == null ? null : root.getTitan().getMonitor()),
-                mapBackup(root.getTitan() == null ? null : root.getTitan().getBackup())
+                mapBackup(root.getTitan() == null ? null : root.getTitan().getBackup()),
+                mapFlowControl(root.getTitan() == null ? null : root.getTitan().getFlowControl())
         );
+    }
+
+    private static Settings.FlowControlSettings mapFlowControl(
+            final @Nullable FlowControlProperty property
+    ) {
+        if (property == null) {
+            return Settings.FlowControlSettings.disabled();
+        }
+
+        HeapFlowControlProperty heap = property.getHeap();
+        Settings.HeapFlowControlSettings heapSettings = heap == null
+                ? Settings.HeapFlowControlSettings.defaults()
+                : new Settings.HeapFlowControlSettings(
+                        heap.isEnabled(),
+                        heap.getHighWatermark(),
+                        heap.getLowWatermark()
+                );
+        QueueFlowControlProperty queue = property.getQueue();
+        Settings.QueueFlowControlSettings queueSettings = queue == null
+                ? Settings.QueueFlowControlSettings.defaults()
+                : new Settings.QueueFlowControlSettings(
+                        queue.isEnabled(),
+                        queue.getMaxPendingBytes(),
+                        queue.getResumePendingBytes()
+                );
+        return new Settings.FlowControlSettings(property.isEnabled(), heapSettings, queueSettings);
     }
 
     private static Settings.BackupSettings mapBackup(final @Nullable BackupProperty property) {

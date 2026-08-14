@@ -87,11 +87,11 @@ func (c Client) Queues(ctx context.Context) ([]QueueSnapshot, error) {
 	return queues, nil
 }
 
-func (c Client) CreateQueue(ctx context.Context, destination string, capacity int) (QueueSnapshot, error) {
+func (c Client) CreateQueue(ctx context.Context, destination string, maxPendingBytes int64) (QueueSnapshot, error) {
 	values := url.Values{}
 	values.Set("destination", destination)
-	if capacity > 0 {
-		values.Set("capacity", fmt.Sprintf("%d", capacity))
+	if maxPendingBytes > 0 {
+		values.Set("maxPendingBytes", fmt.Sprintf("%d", maxPendingBytes))
 	}
 	request, err := c.request(ctx, http.MethodPost, "/titan/monitor/queues?"+values.Encode())
 	if err != nil {

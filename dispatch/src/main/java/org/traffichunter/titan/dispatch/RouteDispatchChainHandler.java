@@ -42,9 +42,9 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
     }
 
     @Override
-    public CompletableFuture<Void> handle(DispatchContext context) {
+    public CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain) {
         Message routed = route.apply(context.getMessage());
         context.setRoutedMessage(routed);
-        return CompletableFuture.completedFuture(null);
+        return chain.next(context);
     }
 }

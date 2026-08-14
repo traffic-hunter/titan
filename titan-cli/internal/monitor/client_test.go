@@ -60,10 +60,10 @@ func TestCreateAndDeleteQueueUseManagementEndpoint(t *testing.T) {
 			if r.URL.Query().Get("destination") != "/queue/orders" {
 				t.Fatalf("unexpected destination %q", r.URL.Query().Get("destination"))
 			}
-			if r.URL.Query().Get("capacity") != "20" {
-				t.Fatalf("unexpected capacity %q", r.URL.Query().Get("capacity"))
+			if r.URL.Query().Get("maxPendingBytes") != "20" {
+				t.Fatalf("unexpected maxPendingBytes %q", r.URL.Query().Get("maxPendingBytes"))
 			}
-			_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"capacity":20,"paused":false}`))
+			_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":20,"paused":false}`))
 		case http.MethodDelete:
 			sawDelete = true
 			if r.URL.Query().Get("force") != "true" {
@@ -81,8 +81,8 @@ func TestCreateAndDeleteQueueUseManagementEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected create error: %v", err)
 	}
-	if queue.Capacity != 20 {
-		t.Fatalf("expected capacity 20, got %d", queue.Capacity)
+	if queue.MaxPendingBytes != 20 {
+		t.Fatalf("expected maxPendingBytes 20, got %d", queue.MaxPendingBytes)
 	}
 	if err := client.DeleteQueue(context.Background(), "/queue/orders", true); err != nil {
 		t.Fatalf("unexpected delete error: %v", err)
