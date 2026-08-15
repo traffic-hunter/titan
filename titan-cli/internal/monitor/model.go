@@ -1,9 +1,16 @@
 package monitor
 
 type Snapshot struct {
-	Server ServerSnapshot  `json:"server"`
-	JVM    JVMSnapshot     `json:"jvm"`
-	Queues []QueueSnapshot `json:"queues"`
+	Server        ServerSnapshot       `json:"server"`
+	JVM           JVMSnapshot          `json:"jvm"`
+	ChannelWrites ChannelWriteSnapshot `json:"channelWrites"`
+	Queues        []QueueSnapshot      `json:"queues"`
+}
+
+type ChannelWriteSnapshot struct {
+	ActiveBuffers      int   `json:"activeBuffers"`
+	PendingBytes       int64 `json:"pendingBytes"`
+	NonWritableBuffers int   `json:"nonWritableBuffers"`
 }
 
 type ServerSnapshot struct {

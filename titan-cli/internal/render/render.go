@@ -92,6 +92,12 @@ func Status(w io.Writer, snapshot monitor.Snapshot, options Options) {
 		snapshot.JVM.Thread.PeakThreadCount,
 		snapshot.JVM.Thread.TotalStartedThreadCount,
 	)
+	fmt.Fprintf(w, "  %s %s pending   %d active   %d non-writable\n",
+		label("channel I/O", 11, options),
+		byteSize(snapshot.ChannelWrites.PendingBytes),
+		snapshot.ChannelWrites.ActiveBuffers,
+		snapshot.ChannelWrites.NonWritableBuffers,
+	)
 	fmt.Fprintf(w, "  %s %d destinations\n", label("queues", 11, options), len(snapshot.Queues))
 }
 
