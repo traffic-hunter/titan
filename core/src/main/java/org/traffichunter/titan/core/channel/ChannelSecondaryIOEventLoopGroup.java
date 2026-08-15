@@ -138,13 +138,7 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     @Override
     public boolean inEventLoop(Thread thread) {
-        for(EventLoop el : group) {
-            if(el.inEventLoop(thread)) {
-                return true;
-            }
-        }
-
-        return false;
+        return group.stream().anyMatch(el -> el.inEventLoop(thread));
     }
 
     @Override
