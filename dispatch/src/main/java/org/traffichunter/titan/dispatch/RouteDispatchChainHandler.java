@@ -23,28 +23,38 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.util.Destination;
 
 /**
- * Routes a published message into memory before later fanout handlers run.
+ * Routes an inbound message into memory before later fanout handlers run.
  *
  * @author yun
  */
 final class RouteDispatchChainHandler implements DispatchChainHandler {
 
-    private final Function<Message, @Nullable Message> route;
+    private static final Logger log = LoggerFactory.getLogger(RouteDispatchChainHandler.class);
 
-    RouteDispatchChainHandler(Function<Message, @Nullable Message> route) {
-        this.route = route;
+    private final Dispatcher dispatcher;
+
+    RouteDispatchChainHandler(Dispatcher dispatcher) {
+        this.dispatcher = dispatcher;
     }
 
     @Override
-    public CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain) {
-        Message routed = route.apply(context.getMessage());
-        context.setRoutedMessage(routed);
+    public DispatchChain handle(DispatchContext context, DispatchChain chain) {
+        Message message = context.getMessage();
+        Destination destination = message.getDestination();
+
+        DispatcherQueue dq = dispatcher.getOrPut(destination);
+
+        if (dq.enqueue(message) == null) {
+            log.warn("Dispatcher queue is full, no message was enqueued = {}", destination);
+            throw new IllegalStateException("Dispatcher queue is full = " + destination);
+        }
+
         return chain.next(context);
     }
 }

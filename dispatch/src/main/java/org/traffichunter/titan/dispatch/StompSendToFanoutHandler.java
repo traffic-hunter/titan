@@ -66,7 +66,7 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
         StompClientChannel connection = event.connection();
         String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
         if (destination == null || destination.isBlank()) {
-            log.warn("Rejected fanout publish due to missing destination. session={}", connection.session());
+            log.warn("Rejected dispatch due to missing destination. session={}", connection.session());
             connection.send(errorFrame("Wrong send.", "Wrong send destination id, Id is required."));
             connection.close();
             return;
@@ -80,28 +80,28 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
                 .build();
 
         try {
-            CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);
-            publish.whenComplete((ignored, error) -> {
+            CompletableFuture<@Nullable Void> dispatchResult = dispatchGateway.sparkDispatch(message);
+            dispatchResult.whenComplete((ignored, error) -> {
                 if (error != null) {
-                    handlePublishFailure(connection, destination, unwrap(error));
+                    handleDispatchFailure(connection, destination, unwrap(error));
                     return;
                 }
 
                 context.receipt(sf, connection);
             });
         } catch (Exception e) {
-            handlePublishFailure(connection, destination, e);
+            handleDispatchFailure(connection, destination, e);
         }
     }
 
-    private static void handlePublishFailure(StompClientChannel connection, String destination, Throwable error) {
+    private static void handleDispatchFailure(StompClientChannel connection, String destination, Throwable error) {
         log.error(
-                "Failed to publish fanout message. session={}, destination={}",
+                "Failed to dispatch message. session={}, destination={}",
                 connection.session(),
                 destination,
                 error
         );
-        connection.send(errorFrame("Failed to publish.", "Failed to publish inbound SEND frame."));
+        connection.send(errorFrame("Failed to dispatch.", "Failed to dispatch inbound SEND frame."));
         connection.close();
     }
 

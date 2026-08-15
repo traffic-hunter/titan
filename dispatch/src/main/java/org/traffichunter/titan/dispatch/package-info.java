@@ -11,13 +11,13 @@
  * StompSendToFanoutHandler
  *        |
  *        v
- * DispatchGateway.publish(message)
+ * DispatchGateway.sparkDispatch(message)
  *        |
  *        v
  * DispatcherQueue per Destination
  *        |
  *        v
- * DispatchGateway consumer task
+ * FanoutDispatchChainHandler consumer task
  *        |
  *        v
  * DispatchExporter (STOMP, TCP, ...)
@@ -26,10 +26,10 @@
  * subscribed clients
  * }</pre>
  *
- * <p>{@link org.traffichunter.titan.dispatch.DispatchGateway} owns the asynchronous
- * queue consumers. {@link org.traffichunter.titan.dispatch.Dispatcher} resolves destination
- * queues, and exporter implementations own protocol-specific delivery. This keeps message
- * routing independent from the protocol used to write the payload to connected clients.</p>
+ * <p>{@link org.traffichunter.titan.dispatch.DispatchGateway} starts the dispatch chain,
+ * {@link org.traffichunter.titan.dispatch.Dispatcher} resolves destination queues, and exporter
+ * implementations own protocol-specific delivery. This keeps message routing independent from
+ * the protocol used to write the payload to connected clients.</p>
  */
 @NullMarked
 package org.traffichunter.titan.dispatch;

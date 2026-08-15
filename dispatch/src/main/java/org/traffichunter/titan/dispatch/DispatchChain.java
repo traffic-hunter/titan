@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Continuation passed to a dispatch handler.
  *
@@ -40,7 +38,7 @@ public interface DispatchChain {
      * Propagates the context to the next dispatch handler.
      *
      * @param context dispatch state shared by the chain
-     * @return completion of the remaining dispatch handlers
+     * @return continuation reached after propagation
      */
-    CompletableFuture<Void> next(DispatchContext context);
+    DispatchChain next(DispatchContext context);
 }

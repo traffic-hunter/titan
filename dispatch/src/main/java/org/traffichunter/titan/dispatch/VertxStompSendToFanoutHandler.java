@@ -62,7 +62,7 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
         String destination = frame.getDestination();
         if (destination == null || destination.isBlank()) {
             vertx.runOnContext(v -> {
-                log.warn("Rejected Vert.x fanout publish due to missing destination. session={}", serverConnection.session());
+                log.warn("Rejected Vert.x dispatch due to missing destination. session={}", serverConnection.session());
                 serverConnection.write(Frames.createErrorFrame(
                         "Wrong send.",
                         Headers.create(frame.getHeaders()),
@@ -82,11 +82,11 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
                 .build();
 
         try {
-            CompletableFuture<@Nullable Void> publish = dispatchGateway.publish(message);
-            publish.whenComplete((ignored, error) ->
+            CompletableFuture<@Nullable Void> dispatchResult = dispatchGateway.sparkDispatch(message);
+            dispatchResult.whenComplete((ignored, error) ->
                 vertx.runOnContext(v -> {
                     if (error != null) {
-                        handlePublishFailure(serverConnection, frame, destination, unwrap(error));
+                        handleDispatchFailure(serverConnection, frame, destination, unwrap(error));
                         return;
                     }
 
@@ -94,21 +94,21 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
                 })
             );
         } catch (Exception e) {
-            vertx.runOnContext(v -> handlePublishFailure(serverConnection, frame, destination, e));
+            vertx.runOnContext(v -> handleDispatchFailure(serverConnection, frame, destination, e));
         }
     }
 
-    private static void handlePublishFailure(StompServerConnection serverConnection, Frame frame, String destination, Throwable error) {
+    private static void handleDispatchFailure(StompServerConnection serverConnection, Frame frame, String destination, Throwable error) {
         log.error(
-                "Failed to publish Vert.x fanout message. session={}, destination={}",
+                "Failed to dispatch Vert.x message. session={}, destination={}",
                 serverConnection.session(),
                 destination,
                 error
         );
         serverConnection.write(Frames.createErrorFrame(
-                "Failed to publish.",
+                "Failed to dispatch.",
                 Headers.create(frame.getHeaders()),
-                "Failed to publish inbound SEND frame."
+                "Failed to dispatch inbound SEND frame."
         ));
         serverConnection.close();
     }

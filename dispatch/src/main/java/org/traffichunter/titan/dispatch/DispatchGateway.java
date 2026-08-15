@@ -24,33 +24,21 @@ THE SOFTWARE.
 package org.traffichunter.titan.dispatch;
 
 import java.io.Closeable;
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
  * Asynchronous ingress and routing facade for fanout delivery.
  *
- * <p>The gateway has two responsibilities:</p>
- *
- * <ul>
- *     <li>{@link #publish(Message)} enqueues producer messages into the
- *     dispatcher queue keyed by {@link Destination}.</li>
- *     <li>{@link #fanout(Destination)} starts one long-lived consumer task for
- *     a destination, if it has not already been started.</li>
- * </ul>
- *
- * <p>Callers normally publish first and let the implementation ensure that the
- * matching destination consumer exists. The returned futures represent gateway
- * task submission, not necessarily remote protocol acknowledgement for every
- * subscribed client.</p>
+ * <p>The gateway is the public entry point for one message dispatch lifecycle. Dispatching starts
+ * the configured handler chain; routing and fanout remain internal handler responsibilities. The
+ * returned future represents completion of that chain, not remote protocol acknowledgement from
+ * every subscribed client.</p>
  *
  * @author yungwang-o
  */
@@ -73,7 +61,7 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
     }
 
     /**
-     * Configures the dispatch handler chain used by {@link #publish(Message)}.
+     * Configures the dispatch handler chain used by {@link #sparkDispatch(Message)}.
      *
      * <p>The gateway installs routing before the callback and fanout after the
      * callback. Custom handlers therefore run after the message is routed into
@@ -89,36 +77,12 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
     DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler);
 
     /**
-     * Starts consumers for the destinations if they are not already running.
-     *
-     * <p>The returned futures complete with {@code null}; the value is only a
-     * completion signal.</p>
-     */
-    List<CompletableFuture<@Nullable Void>> fanout(Collection<Destination> destinations);
-
-    /**
-     * Starts the consumer for a destination if it is not already running.
+     * Sparks one message through the configured routing and fanout handler chain.
      *
      * <p>The returned future completes with {@code null}; the value is only a
      * completion signal.</p>
      */
-    CompletableFuture<@Nullable Void> fanout(Destination destination);
-
-    /**
-     * Publishes messages into destination queues.
-     *
-     * <p>The returned futures represent dispatch-chain and consumer-start submission,
-     * not delivery acknowledgement from subscribed clients.</p>
-     */
-    List<CompletableFuture<@Nullable Void>> publish(Collection<Message> messages);
-
-    /**
-     * Publishes one message into its destination queue.
-     *
-     * <p>The returned future completes with {@code null}; the value is only a
-     * completion signal.</p>
-     */
-    CompletableFuture<@Nullable Void> publish(Message message);
+    CompletableFuture<@Nullable Void> sparkDispatch(Message message);
 
     boolean isOpen();
 

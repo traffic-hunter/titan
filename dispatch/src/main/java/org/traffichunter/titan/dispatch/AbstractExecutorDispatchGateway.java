@@ -30,38 +30,26 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Executor-backed {@link DispatchGateway} implementation shared by platform and
- * virtual-thread variants.
+ * Executor-backed {@link DispatchGateway} facade shared by platform and virtual-thread variants.
  *
- * <p>Each destination has at most one active consumer task in {@link #consumers}.
- * Producer calls are processed through one {@link DispatchHandlerChain}. The
- * gateway installs routing as the first handler and fanout as the last handler,
- * while optional middle handlers can add behavior such as backup without being
- * embedded in the core queue and consumer flow.</p>
+ * <p>The gateway owns the executor and the public lifecycle, while concrete dispatch work belongs
+ * to the handlers. {@link RouteDispatchChainHandler} admits messages to destination queues and
+ * {@link FanoutDispatchChainHandler} owns destination consumers and fanout lifecycle. Optional
+ * handlers run between those two boundaries.</p>
  *
- * <p>Routing enqueues the message into the dispatcher queue. After middle
- * handlers complete, the terminal fanout handler ensures that a destination
- * consumer exists. The consumer drains the queue sequentially into the
- * configured {@link DispatchExporter}. This gives a simple fanout invariant:
- * ordering is preserved per destination queue, while different destinations can
- * progress independently on the executor.</p>
+ * <p>Queue deletion delegates to the terminal fanout handler so consumer state remains within its
+ * owner. Queue creation remains a direct dispatcher registry operation.</p>
  *
  * <pre>{@code
- * publish(message)
+ * sparkDispatch(message)
  *      |
  *      v
  * DispatchHandlerChain
@@ -76,120 +64,62 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * FanoutDispatchChainHandler -> computeIfAbsent(destination, consume)
  * }</pre>
  *
- * <p>{@link #fanout(Destination)} starts a destination consumer directly when a
- * caller wants to pre-warm delivery without publishing a message.</p>
- *
  * @author yun
  */
 abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractExecutorDispatchGateway.class);
-    private static final long SHUTDOWN_TIMEOUT_SECONDS = 10;
+    private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
 
-    private final Map<Destination, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
-    private final Set<DispatcherQueue> deletedQueues = ConcurrentHashMap.newKeySet();
-
-    private final ExecutorService dispatchExecutor;
-    private final DispatchExporter exporter;
+    private final ExecutorService executor;
     private final Dispatcher dispatcher;
-    private final AtomicBoolean isClosed = new AtomicBoolean();
-    private DispatchHandlerChain dispatchHandlerChain;
+    private final FanoutDispatchChainHandler fanoutHandler;
+    private final AtomicBoolean closed = new AtomicBoolean();
+    private DispatchHandlerChain handlerChain;
 
     protected AbstractExecutorDispatchGateway(
-            ExecutorService dispatchExecutor,
+            ExecutorService executor,
             DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
-        this.dispatchExecutor = dispatchExecutor;
-        this.exporter = exporter;
+        this.executor = executor;
         this.dispatcher = dispatcher;
-        this.dispatchHandlerChain = DispatchHandlerChain.chain(dispatchExecutor)
-                .add(new RouteDispatchChainHandler(this::route))
-                .add(new FanoutDispatchChainHandler(this::fanout));
+        this.fanoutHandler = new FanoutDispatchChainHandler(executor, exporter, dispatcher);
+        this.handlerChain = DispatchHandlerChain.chain(executor)
+                .add(new RouteDispatchChainHandler(dispatcher))
+                .add(fanoutHandler);
     }
 
     @Override
     public DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler) {
-        DispatchHandlerChain chain = DispatchHandlerChain.chain(dispatchExecutor);
-        chain.add(new RouteDispatchChainHandler(this::route));
+        DispatchHandlerChain chain = DispatchHandlerChain.chain(executor);
+        chain.add(new RouteDispatchChainHandler(dispatcher));
         chainHandler.handle(chain);
-        chain.add(new FanoutDispatchChainHandler(this::fanout));
-        this.dispatchHandlerChain = chain;
+        chain.add(fanoutHandler);
+        this.handlerChain = chain;
         return this;
     }
 
     @Override
-    public List<CompletableFuture<@Nullable Void>> fanout(Collection<Destination> destinations) {
-        if (isClosed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
-        }
-
-        return destinations.stream()
-                .map(this::fanout)
-                .toList();
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Void> fanout(Destination destination) {
-        if (isClosed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
-        }
-
-        return consumers.computeIfAbsent(destination, this::consume);
-    }
-
-    @Override
-    public List<CompletableFuture<@Nullable Void>> publish(Collection<Message> messages) {
-        if (isClosed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
-        }
-
-        return messages.stream()
-                .map(this::publish)
-                .toList();
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Void> publish(Message message) {
+    public CompletableFuture<@Nullable Void> sparkDispatch(Message message) {
         Assert.checkNotNull(message, "message");
 
-        if (isClosed.get()) {
+        if (closed.get()) {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatchHandlerChain.dispatch(new DispatchContext(message))
+        return handlerChain.sparkDispatch(new DispatchContext(message))
                 .thenApply(ignored -> null);
     }
 
     @Override
     public boolean isOpen() {
-        return !isClosed.get();
+        return !closed.get();
     }
 
     @Override
     public boolean isClosed() {
-        return isClosed.get();
-    }
-
-    @Override
-    public void close() {
-        if (isClosed.compareAndSet(false, true)) {
-            consumers.values().forEach(future -> future.cancel(true));
-            consumers.clear();
-            dispatchExecutor.shutdown();
-            try {
-                if (!dispatchExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                    dispatchExecutor.shutdownNow();
-                    if (!dispatchExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                        log.warn("Fanout executor did not terminate cleanly");
-                    }
-                }
-            } catch (InterruptedException e) {
-                dispatchExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-            dispatchHandlerChain.clear();
-        }
+        return closed.get();
     }
 
     /**
@@ -200,7 +130,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      */
     @Override
     public DispatcherQueue createQueue(Destination destination, long maxPendingBytes) {
-        if (isClosed.get()) {
+        if (closed.get()) {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
@@ -217,98 +147,29 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      */
     @Override
     public DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
-        DispatcherQueue queue = dispatcher.get(destination);
-        if (queue == null) {
-            return DispatcherQueueDeleteResult.notFound();
+        if (closed.get()) {
+            throw new IllegalStateException("DispatchGateway is closed");
         }
-        int size = queue.size();
-        if (size > 0 && !force) {
-            return DispatcherQueueDeleteResult.notEmpty(size);
-        }
-        if (force) {
-            queue.clear();
-        }
-
-        deletedQueues.add(queue);
-        CompletableFuture<@Nullable Void> consumer = consumers.remove(destination);
-        if (consumer != null) {
-            consumer.cancel(true);
-        }
-        dispatcher.remove(destination);
-        DispatcherQueueMbeans.unregister(queue.getDestination());
-        return DispatcherQueueDeleteResult.deleted(size);
+        return fanoutHandler.deleteQueue(destination, force);
     }
 
-    /**
-     * Runs one destination consumer.
-     *
-     * <p>The loop polls with a timeout instead of blocking indefinitely so it
-     * can observe queue deletion and shutdown state. The returned future uses
-     * {@code @Nullable Void} because successful completion is represented by a
-     * {@code null} value.</p>
-     */
-    protected CompletableFuture<@Nullable Void> consume(Destination destination) {
-        DispatcherQueue dispatcherQueue = dispatcher.getOrPut(destination);
-        log.info("Starting fanout consumer for destination={}", destination.path());
-
-        CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
-        dispatchExecutor.execute(() -> {
+    @Override
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
+            fanoutHandler.close();
+            executor.shutdown();
             try {
-                while (!isClosed()
-                        && !Thread.currentThread().isInterrupted()
-                        && !deletedQueues.contains(dispatcherQueue)) {
-                    try {
-                        Message message = dispatcherQueue.dispatch(1, TimeUnit.SECONDS);
-                        if (message == null) {
-                            continue;
-                        }
-
-                        exporter.export(destination, message);
-                    } catch (InterruptedException e) {
-                        log.error("Interrupted while waiting for message to be delivered", e);
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (Exception e) {
-                        log.error("Unexpected error while dispatching message", e);
-                        if (isClosed() || dispatchExecutor.isShutdown()) {
-                            break;
-                        }
+                if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                    if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                        log.warn("Fanout executor did not terminate cleanly");
                     }
                 }
-                result.complete(null);
-            } catch (Exception e) {
-                result.completeExceptionally(e);
-            } finally {
-                deletedQueues.remove(dispatcherQueue);
-                consumers.remove(destination, result);
+            } catch (InterruptedException e) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
             }
-        });
-        return result;
-    }
-
-    protected Message route(Message message) {
-        Destination destination = message.getDestination();
-        Assert.checkNotNull(destination, "message.destination");
-
-        DispatcherQueue dq = dispatcher.getOrPut(destination);
-
-        try {
-            Message routeMessage = dq.enqueue(message);
-            if (routeMessage == null) {
-                throw new IllegalStateException("routeMessage is null");
-            }
-
-            return routeMessage;
-        } catch (Exception e) {
-            log.warn(
-                    "Failed to route fanout message. destination={}",
-                    destination.path(),
-                    e
-            );
-            if(dq.contains(message)) {
-                dq.remove(message);
-            }
-            throw e;
+            handlerChain.clear();
         }
     }
 }
