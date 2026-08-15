@@ -43,38 +43,38 @@ repositories {
 Spring client:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.7.4")
+implementation("org.traffichunter.titan:titan-spring-client:0.8.0")
 ```
 
 Standalone Java client:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-client:0.7.4")
+implementation("org.traffichunter.titan:titan-client:0.8.0")
 ```
 
 STOMP server and low-level transport APIs:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-stomp:0.7.4")
+implementation("org.traffichunter.titan:titan-stomp:0.8.0")
 ```
 
 Fanout support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-dispatch:0.7.4")
+implementation("org.traffichunter.titan:titan-dispatch:0.8.0")
 ```
 
 Monitoring support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-monitor:0.7.4")
+implementation("org.traffichunter.titan:titan-monitor:0.8.0")
 ```
 
 Bootstrap/runtime support:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-bootstrap:0.7.4")
-implementation("org.traffichunter.titan:titan-core:0.7.4")
+implementation("org.traffichunter.titan:titan-bootstrap:0.8.0")
+implementation("org.traffichunter.titan:titan-core:0.8.0")
 ```
 
 The native implementation is selected by default. Use
