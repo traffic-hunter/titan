@@ -39,20 +39,28 @@ public final class ChannelWriteBufferMbeans {
     public static final String DOMAIN = "org.traffichunter.titan";
     public static final String TYPE = "ChannelWriteBuffer";
 
-    public static ObjectName objectName() {
+    public static ObjectName objectName(String group) {
         try {
-            return new ObjectName(DOMAIN + ":type=" + TYPE);
+            return new ObjectName(DOMAIN + ":type=" + TYPE + ",group=" + ObjectName.quote(group));
         } catch (JMException e) {
             throw new IllegalStateException("Invalid channel write buffer MBean name", e);
         }
     }
 
-    public static ObjectName register(ChannelWriteBufferMbean metrics) {
-        return register(ManagementFactory.getPlatformMBeanServer(), metrics);
+    public static ObjectName objectNamePattern() {
+        try {
+            return new ObjectName(DOMAIN + ":type=" + TYPE + ",*");
+        } catch (JMException e) {
+            throw new IllegalStateException("Invalid channel write buffer MBean pattern", e);
+        }
     }
 
-    public static ObjectName register(MBeanServer server, ChannelWriteBufferMbean metrics) {
-        ObjectName name = objectName();
+    public static ObjectName register(String group, ChannelWriteBufferMbean metrics) {
+        return register(ManagementFactory.getPlatformMBeanServer(), group, metrics);
+    }
+
+    public static ObjectName register(MBeanServer server, String group, ChannelWriteBufferMbean metrics) {
+        ObjectName name = objectName(group);
         try {
             if (!server.isRegistered(name)) {
                 server.registerMBean(new StandardMBean(metrics, ChannelWriteBufferMbean.class), name);
@@ -60,6 +68,20 @@ public final class ChannelWriteBufferMbeans {
             return name;
         } catch (JMException e) {
             throw new IllegalStateException("Failed to register channel write buffer MBean", e);
+        }
+    }
+
+    public static void unregister(ObjectName name) {
+        unregister(ManagementFactory.getPlatformMBeanServer(), name);
+    }
+
+    public static void unregister(MBeanServer server, ObjectName name) {
+        try {
+            if (server.isRegistered(name)) {
+                server.unregisterMBean(name);
+            }
+        } catch (JMException e) {
+            throw new IllegalStateException("Failed to unregister channel write buffer MBean", e);
         }
     }
 

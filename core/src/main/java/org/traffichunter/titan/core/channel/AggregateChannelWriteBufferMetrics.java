@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.channel;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.traffichunter.titan.core.util.management.ChannelWriteBufferMbean;
-import org.traffichunter.titan.core.util.management.ChannelWriteBufferMbeans;
 
 /**
  * Aggregates write buffer state without retaining channel references.
@@ -35,18 +34,16 @@ import org.traffichunter.titan.core.util.management.ChannelWriteBufferMbeans;
  */
 final class AggregateChannelWriteBufferMetrics implements ChannelWriteBufferMbean {
 
-    private static final AggregateChannelWriteBufferMetrics GLOBAL = globalMetrics();
-
     private final AtomicInteger activeBuffers = new AtomicInteger();
     private final AtomicLong pendingBytes = new AtomicLong();
     private final AtomicInteger nonWritableBuffers = new AtomicInteger();
 
-    static AggregateChannelWriteBufferMetrics global() {
-        return GLOBAL;
-    }
-
-    void open() {
+    void open(long initialPendingBytes, boolean writable) {
         activeBuffers.incrementAndGet();
+        pendingBytes.addAndGet(initialPendingBytes);
+        if (!writable) {
+            nonWritableBuffers.incrementAndGet();
+        }
     }
 
     void close(long remainingBytes, boolean writable) {
@@ -86,11 +83,5 @@ final class AggregateChannelWriteBufferMetrics implements ChannelWriteBufferMbea
     @Override
     public int getNonWritableBuffers() {
         return nonWritableBuffers.get();
-    }
-
-    private static AggregateChannelWriteBufferMetrics globalMetrics() {
-        AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBufferMbeans.register(metrics);
-        return metrics;
     }
 }

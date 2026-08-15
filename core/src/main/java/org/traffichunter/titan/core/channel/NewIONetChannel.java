@@ -65,7 +65,11 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     NewIONetChannel(SocketChannel channel, ChannelHandShakeEventListener initializer) {
         super(channel, initializer);
-        this.channelWriteBuffer = new ChannelWriteBuffer(this);
+        this.channelWriteBuffer = new ChannelWriteBuffer();
+    }
+
+    void attachWriteBufferMetrics(AggregateChannelWriteBufferMetrics metrics) {
+        channelWriteBuffer.attachMetrics(metrics);
     }
 
     @Override
@@ -182,6 +186,18 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public void close() {
+        if (isRegistered()) {
+            IOEventLoop owner = eventLoop();
+            if (!owner.inEventLoop()) {
+                try {
+                    owner.register(this::close);
+                    return;
+                } catch (RejectedExecutionException ignored) {
+                    // The event loop can no longer mutate this channel, so direct cleanup is safe.
+                }
+            }
+        }
+
         channelWriteBuffer.close();
         super.close();
     }

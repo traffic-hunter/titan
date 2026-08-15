@@ -24,6 +24,7 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.util.management;
 
 import java.lang.management.ManagementFactory;
+import java.util.Set;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 
@@ -46,16 +47,26 @@ public final class ChannelWriteBufferResourceDetector implements ResourceDetecto
 
     @Override
     public ChannelWriteBufferResource detect() {
-        ObjectName name = ChannelWriteBufferMbeans.objectName();
         try {
-            if (!server.isRegistered(name)) {
-                return new ChannelWriteBufferResource(0, 0, 0);
+            Set<ObjectName> names = server.queryNames(ChannelWriteBufferMbeans.objectNamePattern(), null);
+            int activeBuffers = 0;
+            long pendingBytes = 0;
+            int nonWritableBuffers = 0;
+            for (ObjectName name : names) {
+                activeBuffers = Math.addExact(
+                        activeBuffers,
+                        attribute(name, "ActiveBuffers", Integer.class)
+                );
+                pendingBytes = Math.addExact(
+                        pendingBytes,
+                        attribute(name, "PendingBytes", Long.class)
+                );
+                nonWritableBuffers = Math.addExact(
+                        nonWritableBuffers,
+                        attribute(name, "NonWritableBuffers", Integer.class)
+                );
             }
-            return new ChannelWriteBufferResource(
-                    attribute(name, "ActiveBuffers", Integer.class),
-                    attribute(name, "PendingBytes", Long.class),
-                    attribute(name, "NonWritableBuffers", Integer.class)
-            );
+            return new ChannelWriteBufferResource(activeBuffers, pendingBytes, nonWritableBuffers);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to detect channel write buffer resources", e);
         }

@@ -34,9 +34,28 @@ package org.traffichunter.titan.core.util.management;
  */
 public interface ChannelWriteBufferMbean {
 
+    /**
+     * Returns the number of open channel write buffers attached to this event-loop group.
+     *
+     * <p>One active buffer corresponds to one registered network channel. The value decreases
+     * when the channel closes and its write buffer releases any remaining outbound data.</p>
+     */
     int getActiveBuffers();
 
+    /**
+     * Returns bytes accepted for outbound delivery but not yet written to socket buffers.
+     *
+     * <p>The unit is bytes. The value decreases as partial or complete socket writes make
+     * progress; it does not represent application payload size after the write has completed.</p>
+     */
     long getPendingBytes();
 
+    /**
+     * Returns the number of buffers currently above their configured high watermark.
+     *
+     * <p>A buffer enters this state after pending bytes exceed the high watermark and leaves it
+     * only after pending bytes fall below the low watermark. This is Titan write-buffer pressure,
+     * not the operating system selector's socket-writability state.</p>
+     */
     int getNonWritableBuffers();
 }

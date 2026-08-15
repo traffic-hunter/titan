@@ -24,8 +24,11 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.util.management;
 
 /**
- * Process-wide outbound channel buffer usage.
+ * Process-wide channel write-buffer pressure aggregated from all active event-loop groups.
  *
+ * @param activeBuffers number of open channel write buffers
+ * @param pendingBytes bytes accepted for outbound delivery but not yet written to sockets
+ * @param nonWritableBuffers buffers above their high watermark and not yet below their low watermark
  * @author yun
  */
 public record ChannelWriteBufferResource(

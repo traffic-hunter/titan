@@ -34,9 +34,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChannelWriteBufferTest {
 
     @Test
+    void attach_existing_buffer_state_to_event_loop_group_metrics() {
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4);
+        writeBuffer.add(Buffer.heap().alloc(new byte[9]));
+
+        AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
+        writeBuffer.attachMetrics(metrics);
+
+        assertThat(metrics.getActiveBuffers()).isOne();
+        assertThat(metrics.getPendingBytes()).isEqualTo(9);
+        assertThat(metrics.getNonWritableBuffers()).isOne();
+
+        writeBuffer.close();
+    }
+
+    @Test
     void expose_pending_bytes_and_watermark_state() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(new InMemoryNetChannel(), 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         Buffer first = Buffer.heap().alloc(new byte[5]);
         Buffer second = Buffer.heap().alloc(new byte[4]);
 
@@ -57,7 +72,7 @@ class ChannelWriteBufferTest {
     @Test
     void reduce_pending_bytes_as_socket_write_progresses() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(new InMemoryNetChannel(), 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         Buffer payload = Buffer.heap().alloc(new byte[9]);
         writeBuffer.add(payload);
 
@@ -79,7 +94,7 @@ class ChannelWriteBufferTest {
     @Test
     void close_releases_remaining_metrics_once() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(new InMemoryNetChannel(), 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         writeBuffer.add(Buffer.heap().alloc(new byte[9]));
 
         writeBuffer.close();

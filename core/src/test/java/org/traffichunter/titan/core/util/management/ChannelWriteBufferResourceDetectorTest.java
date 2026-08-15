@@ -25,6 +25,7 @@ package org.traffichunter.titan.core.util.management;
 
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
+import javax.management.ObjectName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,11 +38,12 @@ class ChannelWriteBufferResourceDetectorTest {
     @Test
     void detect_aggregate_channel_write_buffer_resource() {
         MBeanServer server = MBeanServerFactory.createMBeanServer();
-        ChannelWriteBufferMbeans.register(server, new TestMetrics(4, 1024, 2));
+        ChannelWriteBufferMbeans.register(server, "server", new TestMetrics(4, 1024, 2));
+        ChannelWriteBufferMbeans.register(server, "client", new TestMetrics(3, 2048, 1));
 
         ChannelWriteBufferResource resource = new ChannelWriteBufferResourceDetector(server).detect();
 
-        assertThat(resource).isEqualTo(new ChannelWriteBufferResource(4, 1024, 2));
+        assertThat(resource).isEqualTo(new ChannelWriteBufferResource(7, 3072, 3));
     }
 
     @Test
@@ -51,6 +53,22 @@ class ChannelWriteBufferResourceDetectorTest {
         ChannelWriteBufferResource resource = new ChannelWriteBufferResourceDetector(server).detect();
 
         assertThat(resource).isEqualTo(new ChannelWriteBufferResource(0, 0, 0));
+    }
+
+    @Test
+    void unregister_only_selected_event_loop_group_metrics() {
+        MBeanServer server = MBeanServerFactory.createMBeanServer();
+        ObjectName serverMetrics = ChannelWriteBufferMbeans.register(
+                server,
+                "server",
+                new TestMetrics(4, 1024, 2)
+        );
+        ChannelWriteBufferMbeans.register(server, "client", new TestMetrics(3, 2048, 1));
+
+        ChannelWriteBufferMbeans.unregister(server, serverMetrics);
+
+        ChannelWriteBufferResource resource = new ChannelWriteBufferResourceDetector(server).detect();
+        assertThat(resource).isEqualTo(new ChannelWriteBufferResource(3, 2048, 1));
     }
 
     private record TestMetrics(
