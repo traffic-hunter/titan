@@ -30,7 +30,6 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 /**
  * @author yun
@@ -40,37 +39,62 @@ public final class ChannelWriteBuffer {
     /**
      * default upperPoint and lowerPoint
      */
-    private static final int DEFAULT_UPPER_POINT = 64 * 1024;
-    private static final int DEFAULT_LOWER_POINT = 32 * 1024;
+    private static final int DEFAULT_HIGH_WATERMARK = 64 * 1024;
+    private static final int DEFAULT_LOW_WATERMARK = 32 * 1024;
 
     private final Queue<Buffer> writeBuffer;
-    private final NetChannel channel;
+    private @Nullable AggregateChannelWriteBufferMetrics metrics;
 
-    private static final AtomicIntegerFieldUpdater<ChannelWriteBuffer> PENDING_BYTES_UPDATER =
-            AtomicIntegerFieldUpdater.newUpdater(ChannelWriteBuffer.class, "pendingBytes");
-    private volatile int pendingBytes;
+    private int pendingBytes;
 
-    private final int upperPoint;
-    private final int lowerPoint;
+    private final int highWatermark;
+    private final int lowWatermark;
 
-    private volatile boolean isWritable = true;
+    private boolean isWritable = true;
+    private boolean isClosed;
 
-    public ChannelWriteBuffer(NetChannel channel) {
-        this(channel, DEFAULT_UPPER_POINT, DEFAULT_LOWER_POINT);
+    public ChannelWriteBuffer() {
+        this(DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK);
     }
 
-    public ChannelWriteBuffer(NetChannel channel, int upperPoint, int lowerPoint) {
-        Assert.checkArgument(upperPoint > lowerPoint, "upperPoint must be greater than lowerPoint");
-        Assert.checkArgument(upperPoint > 0, "upperPoint must be greater than 0");
-        Assert.checkArgument(lowerPoint > 0, "lowerPoint must be greater than 0");
+    public ChannelWriteBuffer(int highWatermark, int lowWatermark) {
+        Assert.checkArgument(highWatermark > lowWatermark, "highWatermark must be greater than lowerPoint");
+        Assert.checkArgument(highWatermark > 0, "highWatermark must be greater than 0");
+        Assert.checkArgument(lowWatermark > 0, "lowWatermark must be greater than 0");
 
         this.writeBuffer = new ArrayDeque<>();
-        this.channel = channel;
-        this.upperPoint = upperPoint;
-        this.lowerPoint = lowerPoint;
+        this.highWatermark = highWatermark;
+        this.lowWatermark = lowWatermark;
+    }
+
+    ChannelWriteBuffer(
+            int highWatermark,
+            int lowWatermark,
+            AggregateChannelWriteBufferMetrics metrics
+    ) {
+        this(highWatermark, lowWatermark);
+        attachMetrics(metrics);
+    }
+
+    void attachMetrics(AggregateChannelWriteBufferMetrics metrics) {
+        if (isClosed) {
+            throw new ChannelException("Cannot attach metrics to a closed channel write buffer");
+        }
+        if (this.metrics == metrics) {
+            return;
+        }
+        if (this.metrics != null) {
+            throw new ChannelException("Channel write buffer metrics are already attached");
+        }
+
+        this.metrics = metrics;
+        metrics.open(pendingBytes, isWritable);
     }
 
     public void add(Buffer buffer) {
+        if (isClosed) {
+            throw new ChannelException("Channel write buffer is closed");
+        }
         if(!buffer.hasRemaining()) {
             buffer.release();
             return;
@@ -78,9 +102,16 @@ public final class ChannelWriteBuffer {
 
         writeBuffer.add(buffer);
 
-        int pendingBytes = PENDING_BYTES_UPDATER.addAndGet(this, buffer.length());
-        if(isWritable && pendingBytes > upperPoint) {
+        pendingBytes += buffer.length();
+        AggregateChannelWriteBufferMetrics currentMetrics = metrics;
+        if (currentMetrics != null) {
+            currentMetrics.addPendingBytes(buffer.length());
+        }
+        if(isWritable && pendingBytes > highWatermark) {
             isWritable = false;
+            if (currentMetrics != null) {
+                currentMetrics.becameNonWritable();
+            }
         }
 
     }
@@ -101,9 +132,17 @@ public final class ChannelWriteBuffer {
 
         Buffer buffer = writeBuffer.poll();
 
-        int pendingBytes = PENDING_BYTES_UPDATER.addAndGet(this, -buffer.length());
-        if(!isWritable && pendingBytes < lowerPoint) {
+        int remainingBytes = buffer.length();
+        pendingBytes -= remainingBytes;
+        AggregateChannelWriteBufferMetrics currentMetrics = metrics;
+        if (currentMetrics != null) {
+            currentMetrics.removePendingBytes(remainingBytes);
+        }
+        if(!isWritable && pendingBytes < lowWatermark) {
             isWritable = true;
+            if (currentMetrics != null) {
+                currentMetrics.becameWritable();
+            }
         }
 
         return buffer;
@@ -113,13 +152,52 @@ public final class ChannelWriteBuffer {
         return isWritable;
     }
 
+    public int pendingBytes() {
+        return pendingBytes;
+    }
+
+    public int highWatermark() {
+        return highWatermark;
+    }
+
+    public int lowWatermark() {
+        return lowWatermark;
+    }
+
+    void progress(int bytes) {
+        Assert.checkArgument(bytes >= 0, "bytes must not be negative");
+        Assert.checkArgument(bytes <= pendingBytes, "bytes must not exceed pending bytes");
+        pendingBytes -= bytes;
+        AggregateChannelWriteBufferMetrics currentMetrics = metrics;
+        if (currentMetrics != null) {
+            currentMetrics.removePendingBytes(bytes);
+        }
+        if (!isWritable && pendingBytes < lowWatermark) {
+            isWritable = true;
+            if (currentMetrics != null) {
+                currentMetrics.becameWritable();
+            }
+        }
+    }
+
     public void close() {
+        if (isClosed) {
+            return;
+        }
+        isClosed = true;
+
         if(!writeBuffer.isEmpty()) {
             writeBuffer.forEach(Buffer::release);
         }
 
         writeBuffer.clear();
-        PENDING_BYTES_UPDATER.set(this, 0);
+        int remainingBytes = pendingBytes;
+        pendingBytes = 0;
+        AggregateChannelWriteBufferMetrics currentMetrics = metrics;
+        if (currentMetrics != null) {
+            currentMetrics.close(remainingBytes, isWritable);
+            metrics = null;
+        }
         isWritable = false;
     }
 }

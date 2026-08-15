@@ -52,7 +52,7 @@ class MonitoringHttpServerTest {
             );
 
             assertThat(snapshot.statusCode()).isEqualTo(200);
-            assertThat(snapshot.body()).contains("\"server\"", "\"jvm\"", "\"queues\"");
+            assertThat(snapshot.body()).contains("\"server\"", "\"jvm\"", "\"channelWrites\"", "\"queues\"");
         } finally {
             server.close();
         }

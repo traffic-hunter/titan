@@ -3,6 +3,7 @@ package org.traffichunter.titan.monitor;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import org.traffichunter.titan.monitor.jmx.channel.JmxChannelWriteBufferCollector;
 import org.traffichunter.titan.monitor.jmx.cpu.JmxCpuMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.heap.JmxHeapMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.queue.JmxDispatcherQueueCollector;
@@ -19,6 +20,7 @@ public final class MonitoringSnapshotService {
     private final JmxCpuMbeanCollector cpuCollector;
     private final JmxHeapMbeanCollector heapCollector;
     private final JmxThreadMbeanCollector threadCollector;
+    private final JmxChannelWriteBufferCollector channelWriteCollector;
     private final JmxDispatcherQueueCollector queueCollector;
 
     public MonitoringSnapshotService(String version) {
@@ -29,6 +31,7 @@ public final class MonitoringSnapshotService {
                 new JmxCpuMbeanCollector(),
                 new JmxHeapMbeanCollector(),
                 new JmxThreadMbeanCollector(),
+                new JmxChannelWriteBufferCollector(),
                 new JmxDispatcherQueueCollector()
         );
     }
@@ -42,12 +45,35 @@ public final class MonitoringSnapshotService {
             JmxThreadMbeanCollector threadCollector,
             JmxDispatcherQueueCollector queueCollector
     ) {
+        this(
+                clock,
+                startedAt,
+                version,
+                cpuCollector,
+                heapCollector,
+                threadCollector,
+                new JmxChannelWriteBufferCollector(),
+                queueCollector
+        );
+    }
+
+    public MonitoringSnapshotService(
+            Clock clock,
+            Instant startedAt,
+            String version,
+            JmxCpuMbeanCollector cpuCollector,
+            JmxHeapMbeanCollector heapCollector,
+            JmxThreadMbeanCollector threadCollector,
+            JmxChannelWriteBufferCollector channelWriteCollector,
+            JmxDispatcherQueueCollector queueCollector
+    ) {
         this.clock = clock;
         this.startedAt = startedAt;
         this.version = version;
         this.cpuCollector = cpuCollector;
         this.heapCollector = heapCollector;
         this.threadCollector = threadCollector;
+        this.channelWriteCollector = channelWriteCollector;
         this.queueCollector = queueCollector;
     }
 
@@ -65,6 +91,7 @@ public final class MonitoringSnapshotService {
                         heapCollector.collect(),
                         threadCollector.collect()
                 ),
+                channelWriteCollector.collect(),
                 queueCollector.collect()
         );
     }

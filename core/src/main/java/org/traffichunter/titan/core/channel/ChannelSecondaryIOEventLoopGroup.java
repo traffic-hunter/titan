@@ -23,14 +23,18 @@
  */
 package org.traffichunter.titan.core.channel;
 
+import javax.management.ObjectName;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.management.ChannelWriteBufferMbeans;
 import org.traffichunter.titan.core.util.selector.RoundRobinSelector;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Event-loop group for connection read/write processing.
@@ -42,8 +46,13 @@ import java.util.concurrent.TimeUnit;
  */
 public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> {
 
+    private static final AtomicInteger GROUP_SEQUENCE = new AtomicInteger();
+
     private final RoundRobinSelector<ChannelSecondaryIOEventLoop> selector;
     private final List<ChannelSecondaryIOEventLoop> group;
+    private final String metricsGroup;
+    private final AggregateChannelWriteBufferMetrics writeBufferMetrics;
+    private @Nullable ObjectName writeBufferMetricsName;
 
     public ChannelSecondaryIOEventLoopGroup() {
         this(Runtime.getRuntime().availableProcessors() * 2);
@@ -51,6 +60,8 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     public ChannelSecondaryIOEventLoopGroup(final int size) {
         List<ChannelSecondaryIOEventLoop> eventLoops = new ArrayList<>(size);
+        this.metricsGroup = "secondary-" + GROUP_SEQUENCE.incrementAndGet();
+        this.writeBufferMetrics = new AggregateChannelWriteBufferMetrics();
 
         try {
             for (int i = 0; i < size; i++) {
@@ -71,12 +82,22 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     @Override
     public void start() {
-        group.forEach(ChannelSecondaryIOEventLoop::start);
+        writeBufferMetricsName = ChannelWriteBufferMbeans.register(metricsGroup, writeBufferMetrics);
+        try {
+            group.forEach(ChannelSecondaryIOEventLoop::start);
+        } catch (RuntimeException e) {
+            unregisterWriteBufferMetrics();
+            throw e;
+        }
     }
 
     @Override
     public void register(Channel channel) {
-        selector.next(group).register(channel);
+        ChannelSecondaryIOEventLoop eventLoop = selector.next(group);
+        if (channel instanceof NewIONetChannel netChannel) {
+            netChannel.attachWriteBufferMetrics(writeBufferMetrics);
+        }
+        eventLoop.register(channel);
     }
 
     @Override
@@ -117,18 +138,13 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
 
     @Override
     public boolean inEventLoop(Thread thread) {
-        for(EventLoop el : group) {
-            if(el.inEventLoop(thread)) {
-                return true;
-            }
-        }
-
-        return false;
+        return group.stream().anyMatch(el -> el.inEventLoop(thread));
     }
 
     @Override
     public void gracefullyShutdown(long timeout, TimeUnit unit) {
         group.forEach(eventLoop -> eventLoop.gracefullyShutdown(timeout, unit));
+        unregisterWriteBufferMetrics();
     }
 
     @Override
@@ -139,6 +155,7 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     @Override
     public void close() {
         group.forEach(IOEventLoop::close);
+        unregisterWriteBufferMetrics();
     }
 
     @Override
@@ -164,5 +181,13 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     @Override
     public boolean isTerminated() {
         return group.stream().allMatch(EventLoop::isTerminated);
+    }
+
+    private void unregisterWriteBufferMetrics() {
+        ObjectName name = writeBufferMetricsName;
+        if (name != null) {
+            ChannelWriteBufferMbeans.unregister(name);
+            writeBufferMetricsName = null;
+        }
     }
 }

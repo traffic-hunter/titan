@@ -21,28 +21,19 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package org.traffichunter.titan.core.util.concurrent;
-
-import java.util.concurrent.Semaphore;
+package org.traffichunter.titan.core.util.management;
 
 /**
- * Bounds the number of operations that may execute concurrently.
+ * Process-wide channel write-buffer pressure aggregated from all active event-loop groups.
  *
+ * @param activeBuffers number of open channel write buffers
+ * @param pendingBytes bytes accepted for outbound delivery but not yet written to sockets
+ * @param nonWritableBuffers buffers above their high watermark and not yet below their low watermark
  * @author yun
  */
-public final class ConcurrencyLimiter {
-
-    private final Semaphore semaphore;
-
-    public ConcurrencyLimiter(int limit) {
-        this.semaphore = new Semaphore(limit);
-    }
-
-    public void acquire() {
-        semaphore.acquireUninterruptibly();
-    }
-
-    public void release() {
-        semaphore.release();
-    }
+public record ChannelWriteBufferResource(
+        int activeBuffers,
+        long pendingBytes,
+        int nonWritableBuffers
+) {
 }
