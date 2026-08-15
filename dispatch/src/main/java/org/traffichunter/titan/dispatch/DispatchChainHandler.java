@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Handles one ordered step in the message dispatch lifecycle.
  *
@@ -33,8 +31,8 @@ import java.util.concurrent.CompletableFuture;
  * {@link DispatchChain#next(DispatchContext)} to propagate the operation. Not
  * invoking the continuation is an intentional short circuit.</p>
  *
- * <p>The returned future must represent all work performed by this stage. Implementations should
- * compose asynchronous work into that future rather than launching untracked tasks.</p>
+ * <p>Handlers run sequentially on the dispatch executor selected by the gateway. A handler may
+ * stop propagation by returning the supplied continuation without invoking it.</p>
  *
  * @author yun
  */
@@ -48,7 +46,7 @@ public interface DispatchChainHandler {
      *
      * @param context state shared by the dispatch lifecycle
      * @param chain remaining dispatch handlers
-     * @return completion of this stage and any propagated handlers
+     * @return continuation reached after this handler runs
      */
-    CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain);
+    DispatchChain handle(DispatchContext context, DispatchChain chain);
 }

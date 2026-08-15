@@ -23,22 +23,20 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 
 /**
  * Mutable state shared while one dispatch operation moves through a handler chain.
  *
- * <p>The context starts with the original producer {@link Message}. The route
- * handler stores the routed message after enqueueing it, and later handlers use
- * that routed value to decide whether the operation should continue.</p>
+ * <p>The context retains the producer {@link Message} while handlers route, observe, and fan out
+ * one dispatch operation. A routing failure terminates traversal by throwing rather than storing
+ * a nullable routing result.</p>
  *
  * @author yun
  */
 public class DispatchContext {
 
     private final Message message;
-    private @Nullable Message routedMessage;
 
     public DispatchContext(Message message) {
         this.message = message;
@@ -46,13 +44,5 @@ public class DispatchContext {
 
     public Message getMessage() {
         return message;
-    }
-
-    public @Nullable Message getRoutedMessage() {
-        return routedMessage;
-    }
-
-    public void setRoutedMessage(@Nullable Message routedMessage) {
-        this.routedMessage = routedMessage;
     }
 }

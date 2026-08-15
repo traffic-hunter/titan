@@ -63,8 +63,7 @@ public class FanoutGatewayBenchmark {
         batchMessages = createBatchMessages(destination, batchSize);
 
         gateway = DispatchMode.resolveMode(mode).dispatchGateway(new CountingNoopExporter(exportCount));
-        gateway.fanout(destination);
-        gateway.publish(message).get(1, TimeUnit.SECONDS);
+        gateway.sparkDispatch(message).get(1, TimeUnit.SECONDS);
     }
 
     @TearDown(Level.Trial)
@@ -74,22 +73,22 @@ public class FanoutGatewayBenchmark {
 
     @Benchmark
     @Threads(1)
-    public void publishSingleThreadOneMessage() throws Exception {
-        gateway.publish(message).get(1, TimeUnit.SECONDS);
+    public void sparkDispatchSingleThreadOneMessage() throws Exception {
+        gateway.sparkDispatch(message).get(1, TimeUnit.SECONDS);
     }
 
     @Benchmark
     @Threads(16)
-    public void publishConcurrentOneMessage() throws Exception {
-        gateway.publish(message).get(1, TimeUnit.SECONDS);
+    public void sparkDispatchConcurrentOneMessage() throws Exception {
+        gateway.sparkDispatch(message).get(1, TimeUnit.SECONDS);
     }
 
     @Benchmark
     @Threads(16)
-    public void publishConcurrentBatch() throws Exception {
+    public void sparkDispatchConcurrentBatch() throws Exception {
         List<Future<Void>> futures = new ArrayList<>(batchMessages.size());
         for (Message batchMessage : batchMessages) {
-            futures.add(gateway.publish(batchMessage));
+            futures.add(gateway.sparkDispatch(batchMessage));
         }
         for (Future<Void> future : futures) {
             future.get(1, TimeUnit.SECONDS);

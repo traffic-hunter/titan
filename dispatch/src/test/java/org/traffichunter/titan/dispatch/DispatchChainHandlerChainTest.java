@@ -5,14 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 class DispatchChainHandlerChainTest {
 
@@ -29,57 +31,51 @@ class DispatchChainHandlerChainTest {
                     return chainContext.next(context);
                 });
 
-        chain.dispatch(new DispatchContext(message("/queue/chain-order"))).join();
+        chain.sparkDispatch(new DispatchContext(message("/queue/chain-order"))).join();
 
         assertThat(calls).containsExactly("first", "second");
     }
 
     @Test
-    void route_handler_sets_routed_message_before_next_handler() {
+    void route_handler_routes_message_before_next_handler() {
         Message message = message("/queue/route");
+        TrieDispatcher dispatcher = new TrieDispatcher();
         DispatchHandlerChain chain = new DispatchHandlerChain(List.of(
-                new RouteDispatchChainHandler(ignored -> message),
+                new RouteDispatchChainHandler(dispatcher),
                 (context, chainContext) -> {
-                    assertThat(context.getRoutedMessage()).isSameAs(message);
+                    DispatcherQueue queue = dispatcher.get(message.getDestination());
+                    assertThat(queue).isNotNull();
+                    assertThat(queue.contains(message)).isTrue();
+                    assertThat(context.getMessage()).isSameAs(message);
                     return chainContext.next(context);
                 }
         ));
 
-        chain.dispatch(new DispatchContext(message)).join();
+        chain.sparkDispatch(new DispatchContext(message)).join();
     }
 
     @Test
-    void dispatch_handler_ignores_unrouted_message() {
-        AtomicInteger fanoutCount = new AtomicInteger();
-        DispatchHandlerChain chain = new DispatchHandlerChain(List.of(
-                new FanoutDispatchChainHandler(ignored -> {
-                    fanoutCount.incrementAndGet();
-                    return CompletableFuture.completedFuture(null);
-                })
-        ));
-
-        chain.dispatch(new DispatchContext(message("/queue/no-route"))).join();
-
-        assertThat(fanoutCount).hasValue(0);
-    }
-
-    @Test
-    void dispatch_handler_uses_routed_destination() {
-        AtomicInteger fanoutCount = new AtomicInteger();
+    void dispatch_handler_fans_out_message_destination() throws Exception {
         Message message = message("/queue/fanout");
-        DispatchContext context = new DispatchContext(message);
-        context.setRoutedMessage(message);
-        DispatchHandlerChain chain = new DispatchHandlerChain(List.of(
-                new FanoutDispatchChainHandler(destination -> {
-                    assertThat(destination).isEqualTo(message.getDestination());
-                    fanoutCount.incrementAndGet();
-                    return CompletableFuture.completedFuture(null);
-                })
-        ));
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        dispatcher.getOrPut(message.getDestination()).enqueue(message);
+        CountDownLatch exported = new CountDownLatch(1);
 
-        chain.dispatch(context).join();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            FanoutDispatchChainHandler handler = new FanoutDispatchChainHandler(
+                    executor,
+                    exporter(exported, message.getDestination()),
+                    dispatcher
+            );
+            DispatchHandlerChain chain = new DispatchHandlerChain(List.of(handler));
 
-        assertThat(fanoutCount).hasValue(1);
+            try {
+                chain.sparkDispatch(new DispatchContext(message)).join();
+                assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                handler.close();
+            }
+        }
     }
 
     @Test
@@ -89,17 +85,33 @@ class DispatchChainHandlerChainTest {
             Thread callerThread = Thread.currentThread();
             AtomicReference<Thread> handlerThread = new AtomicReference<>();
             DispatchHandlerChain chain = new DispatchHandlerChain(executor, List.of(
-                    new RouteDispatchChainHandler(ignored -> {
+                    (context, chainContext) -> {
                         handlerThread.set(Thread.currentThread());
-                        return message;
-                    })
+                        return chainContext.next(context);
+                    }
             ));
 
-            CompletableFuture<?> future = chain.dispatch(new DispatchContext(message));
+            CompletableFuture<?> future = chain.sparkDispatch(new DispatchContext(message));
 
             future.join();
             assertThat(handlerThread.get()).isNotSameAs(callerThread);
         }
+    }
+
+    private static DispatchExporter exporter(CountDownLatch exported, Destination expected) {
+        return new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public AggregationResult export(Destination destination, Buffer payload) {
+                assertThat(destination).isEqualTo(expected);
+                exported.countDown();
+                return AggregationResult.completed(List.of(destination), 0, 0, 0);
+            }
+        };
     }
 
     private static Message message(String destination) {

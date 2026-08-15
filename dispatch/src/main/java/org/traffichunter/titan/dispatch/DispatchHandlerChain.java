@@ -40,9 +40,9 @@ import org.traffichunter.titan.core.util.channel.chain.LinkedNode;
  * metrics to participate without coupling them directly to the gateway. Handler order is
  * significant because each stage observes mutations made by all preceding stages.</p>
  *
- * <p>Starting the chain schedules its first step on the configured {@link Executor}. Each handler
- * decides whether to continue by invoking its supplied {@link DispatchChain}. The future returned
- * to the caller represents every stage propagated by the handlers.</p>
+ * <p>Starting the chain schedules the complete traversal on the configured {@link Executor}.
+ * Each handler decides whether to continue by invoking its supplied {@link DispatchChain}. The
+ * future returned to the caller completes when traversal finishes or a handler throws.</p>
  *
  * <p>A no-op sentinel head is excluded from iteration. The chain only manages structure and
  * propagation; lifecycle ownership remains with the component that creates a handler. Structural
@@ -67,7 +67,7 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
     }
 
     public DispatchHandlerChain(Executor executor) {
-        super(new Node(DispatchChainHandler.NOOP, executor));
+        super(new Node(DispatchChainHandler.NOOP));
         this.executor = executor;
     }
 
@@ -93,14 +93,14 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
     /** Inserts a handler before every existing user handler. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain addFirst(DispatchChainHandler handler) {
-        addFirst(new Node(handler, executor));
+        addFirst(new Node(handler));
         return this;
     }
 
     /** Appends a handler after every existing user handler. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain addLast(DispatchChainHandler handler) {
-        addLast(new Node(handler, executor));
+        addLast(new Node(handler));
         return this;
     }
 
@@ -114,21 +114,19 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
     }
 
     /**
-     * Enters the chain on the configured executor.
+     * Sparks dispatch propagation on the configured executor.
      */
-    public CompletableFuture<Void> dispatch(DispatchContext context) {
-        return head().next(context);
+    public CompletableFuture<Void> sparkDispatch(DispatchContext context) {
+        return CompletableFuture.runAsync(() -> head().next(context), executor);
     }
 
     static final class Node implements LinkedNode<Node>, DispatchChain {
 
         private final DispatchChainHandler handler;
-        private final Executor executor;
         private @Nullable Node next;
 
-        Node(DispatchChainHandler handler, Executor executor) {
+        Node(DispatchChainHandler handler) {
             this.handler = handler;
-            this.executor = executor;
         }
 
         @Override
@@ -142,15 +140,13 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
         }
 
         @Override
-        public CompletableFuture<Void> next(DispatchContext context) {
+        public DispatchChain next(DispatchContext context) {
             Node chain = next;
             if (chain == null) {
-                return CompletableFuture.completedFuture(null);
+                return this;
             }
 
-            return CompletableFuture
-                    .supplyAsync(() -> chain.handler.handle(context, chain), executor)
-                    .thenCompose(future -> future);
+            return chain.handler.handle(context, chain);
         }
     }
 }

@@ -48,7 +48,7 @@ class DispatchGatewayQueueManagementTest {
         assertThat(result.isDeleted()).isTrue();
         assertThat(dispatcher.get(destination)).isNull();
 
-        gateway.publish(message(destination)).get();
+        gateway.sparkDispatch(message(destination)).get();
 
         assertThat(dispatcher.get(destination)).isNotNull();
         assertThat(dispatcher.get(destination)).isNotSameAs(first);
@@ -57,7 +57,7 @@ class DispatchGatewayQueueManagementTest {
     }
 
     @Test
-    void publish_runs_custom_handler_between_route_and_fanout() throws Exception {
+    void spark_dispatch_runs_custom_handler_between_route_and_fanout() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
         ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
                 noopExporter(),
@@ -69,7 +69,7 @@ class DispatchGatewayQueueManagementTest {
             return chainContext.next(context);
         }));
 
-        gateway.publish(message(Destination.create("/queue/publish-fanout-chain"))).get();
+        gateway.sparkDispatch(message(Destination.create("/queue/dispatch-fanout-chain"))).get();
 
         assertThat(customHandlerCalls).hasValue(1);
 

@@ -27,8 +27,6 @@ import org.traffichunter.titan.core.resilience.flowcontrol.Damper;
 import org.traffichunter.titan.core.resilience.flowcontrol.DamperStatus;
 import org.traffichunter.titan.core.resilience.flowcontrol.FlowControlRejectException;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * @author yun
  */
@@ -41,9 +39,9 @@ public class FlowControlDispatchChainHandler implements DispatchChainHandler {
     }
 
     @Override
-    public CompletableFuture<Void> handle(DispatchContext context, DispatchChain chain) {
+    public DispatchChain handle(DispatchContext context, DispatchChain chain) {
         if (damper.regulate() == DamperStatus.CLOSED) {
-            return CompletableFuture.failedFuture(new FlowControlRejectException());
+            throw new FlowControlRejectException();
         }
 
         return chain.next(context);
