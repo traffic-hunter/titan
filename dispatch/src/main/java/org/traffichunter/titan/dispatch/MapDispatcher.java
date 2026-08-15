@@ -27,7 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -39,8 +40,9 @@ import org.traffichunter.titan.core.util.Destination;
  *
  * @author yungwang-o
  */
-@Slf4j
 public class MapDispatcher implements Dispatcher {
+
+    private static final Logger log = LoggerFactory.getLogger(MapDispatcher.class);
 
     private final Map<Destination, DispatcherQueue> map;
     private final long defaultMaxPendingBytes;

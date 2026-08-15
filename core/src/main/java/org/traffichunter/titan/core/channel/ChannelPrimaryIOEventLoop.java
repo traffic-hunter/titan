@@ -27,7 +27,8 @@ import java.nio.channels.SelectionKey;
 import java.util.Iterator;
 import java.util.Set;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -37,8 +38,9 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
  * read/write registration for those child channels is delegated by the server acceptor to a
  * secondary event loop.</p>
  */
-@Slf4j
 public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
+
+    private static final Logger log = LoggerFactory.getLogger(ChannelPrimaryIOEventLoop.class);
 
     public ChannelPrimaryIOEventLoop() {
         this(EventLoopConstants.PRIMARY_EVENT_LOOP_THREAD_NAME);

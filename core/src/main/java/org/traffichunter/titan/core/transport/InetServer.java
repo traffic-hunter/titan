@@ -31,7 +31,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
@@ -54,8 +55,9 @@ import org.traffichunter.titan.core.util.channel.ChannelRegistry;
  *
  * @author yungwang-o
  */
-@Slf4j
 public class InetServer extends AbstractTransport<NetServerChannel> {
+
+    private static final Logger log = LoggerFactory.getLogger(InetServer.class);
 
     private final NetServerChannel channel;
     private final ChannelRegistry<NetChannel> childChannels;

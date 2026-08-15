@@ -23,7 +23,8 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -33,8 +34,9 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
  *
  * @author yungwang-o
  */
-@Slf4j
 public final class EventLoopFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(EventLoopFactory.class);
 
     public static ChannelPrimaryIOEventLoop createPrimaryIOEventLoop() {
         return new ChannelPrimaryIOEventLoop();

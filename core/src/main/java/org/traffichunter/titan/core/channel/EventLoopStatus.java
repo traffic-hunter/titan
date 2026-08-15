@@ -1,14 +1,11 @@
 package org.traffichunter.titan.core.channel;
 
-import lombok.Getter;
-
 /**
  * Ordered lifecycle states for event-loop shutdown checks.
  *
  * <p>The enum order is significant; code compares states to determine whether a loop has
  * reached or passed a shutdown phase.</p>
  */
-@Getter
 enum EventLoopStatus {
 
     NOT_STARTED(1),
@@ -22,5 +19,9 @@ enum EventLoopStatus {
 
     EventLoopStatus(int value) {
         this.value = value;
+    }
+
+    int getValue() {
+        return value;
     }
 }

@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp.option;
 
-import lombok.Builder;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
 
 /**
@@ -78,7 +77,6 @@ public record StompSessionOption(
      * <p>STOMP 1.2 is currently the only accepted version. Numeric validation is completed by
      * the record's canonical constructor after defaults have been applied.</p>
      */
-    @Builder(builderMethodName = "builder")
     public static StompSessionOption of(
             StompVersion version,
             String login,
@@ -108,5 +106,91 @@ public record StompSessionOption(
                 maxFrameLength == null ? DEFAULT_MAX_FRAME_LENGTH : maxFrameLength,
                 resolvedVersion
         );
+    }
+
+    public static StompSessionOptionBuilder builder() {
+        return new StompSessionOptionBuilder();
+    }
+
+    public static final class StompSessionOptionBuilder {
+
+        private StompVersion version;
+        private String login;
+        private String passcode;
+        private Boolean autoComputeContentLength;
+        private Boolean useStompFrame;
+        private Boolean bypassHostHeader;
+        private Long heartbeatX;
+        private Long heartbeatY;
+        private String virtualHost;
+        private Integer maxFrameLength;
+
+        private StompSessionOptionBuilder() {
+        }
+
+        public StompSessionOptionBuilder version(StompVersion value) {
+            this.version = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder login(String value) {
+            this.login = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder passcode(String value) {
+            this.passcode = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder autoComputeContentLength(Boolean value) {
+            this.autoComputeContentLength = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder useStompFrame(Boolean value) {
+            this.useStompFrame = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder bypassHostHeader(Boolean value) {
+            this.bypassHostHeader = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder heartbeatX(Long value) {
+            this.heartbeatX = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder heartbeatY(Long value) {
+            this.heartbeatY = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder virtualHost(String value) {
+            this.virtualHost = value;
+            return this;
+        }
+
+        public StompSessionOptionBuilder maxFrameLength(Integer value) {
+            this.maxFrameLength = value;
+            return this;
+        }
+
+        public StompSessionOption build() {
+            return StompSessionOption.of(
+                    version,
+                    login,
+                    passcode,
+                    autoComputeContentLength,
+                    useStompFrame,
+                    bypassHostHeader,
+                    heartbeatX,
+                    heartbeatY,
+                    virtualHost,
+                    maxFrameLength
+            );
+        }
     }
 }

@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.codec.stomp;
 import java.util.*;
 import java.util.Map.Entry;
 
-import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.frame.Headers;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
@@ -34,7 +33,6 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 /**
  * @author yungwang-o
  */
-@Getter
 public final class StompHeaders extends Headers<StompHeaders.Elements, String, StompHeaders> {
 
     private static final char ESCAPE = '\\';
@@ -72,6 +70,14 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
 
     public static StompHeaders create() {
         return new StompHeaders(StompVersion.STOMP_1_2);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getVersion() {
+        return version;
     }
 
     public static String encode(@Nullable final String value, final StompCommand command) {
@@ -181,7 +187,6 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         return new StompHeaders(new HashMap<>(), "stomp", "1.2");
     }
 
-    @Getter
     public enum Elements {
         ACCEPT_VERSION("accept-version"),
         HOST("host"),
@@ -208,6 +213,10 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
 
         Elements(final String name) {
             this.name = name;
+        }
+
+        public String getName() {
+            return name;
         }
 
         public static Elements convertToElements(final String value) {

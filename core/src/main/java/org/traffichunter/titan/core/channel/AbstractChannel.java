@@ -23,8 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullUnmarked;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
@@ -51,9 +51,10 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  *
  * @author yun
  */
-@Slf4j
 @NullUnmarked
 public abstract class AbstractChannel implements Channel {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractChannel.class);
 
     private final SelectableChannel sc;
     private final ChannelHandShakeEventListener initializer;
@@ -82,7 +83,6 @@ public abstract class AbstractChannel implements Channel {
         }
     }
 
-    @Getter
     protected enum ChannelState {
         INIT(1),
         ACTIVE(2),
@@ -93,6 +93,10 @@ public abstract class AbstractChannel implements Channel {
 
         ChannelState(int value) {
             this.value = value;
+        }
+
+        public int getValue() {
+            return value;
         }
     }
 

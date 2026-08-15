@@ -24,10 +24,7 @@
 package org.traffichunter.titan.bootstrap.environment.proprerty;
 
 import java.util.List;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.Objects;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.FlowControlProperty;
 import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HttpServerProperty;
@@ -42,9 +39,6 @@ import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServiceDiscov
  * {@link #servers} is the active path used to construct managed server
  * settings.</p>
  */
-@Data
-@NoArgsConstructor(access = AccessLevel.PUBLIC)
-@AllArgsConstructor
 public class TitanSubProperty {
 
     private HttpServerProperty httpServer;
@@ -58,4 +52,99 @@ public class TitanSubProperty {
     private ServiceDiscoveryProperty serviceDiscovery;
 
     private List<ServerProperty> servers;
+
+    public TitanSubProperty() {
+    }
+
+    public TitanSubProperty(
+            HttpServerProperty httpServer,
+            MonitorProperty monitor,
+            BackupProperty backup,
+            FlowControlProperty flowControl,
+            ServiceDiscoveryProperty serviceDiscovery,
+            List<ServerProperty> servers
+    ) {
+        this.httpServer = httpServer;
+        this.monitor = monitor;
+        this.backup = backup;
+        this.flowControl = flowControl;
+        this.serviceDiscovery = serviceDiscovery;
+        this.servers = servers;
+    }
+
+    public HttpServerProperty getHttpServer() {
+        return httpServer;
+    }
+
+    public void setHttpServer(HttpServerProperty httpServer) {
+        this.httpServer = httpServer;
+    }
+
+    public MonitorProperty getMonitor() {
+        return monitor;
+    }
+
+    public void setMonitor(MonitorProperty monitor) {
+        this.monitor = monitor;
+    }
+
+    public BackupProperty getBackup() {
+        return backup;
+    }
+
+    public void setBackup(BackupProperty backup) {
+        this.backup = backup;
+    }
+
+    public FlowControlProperty getFlowControl() {
+        return flowControl;
+    }
+
+    public void setFlowControl(FlowControlProperty flowControl) {
+        this.flowControl = flowControl;
+    }
+
+    public ServiceDiscoveryProperty getServiceDiscovery() {
+        return serviceDiscovery;
+    }
+
+    public void setServiceDiscovery(ServiceDiscoveryProperty serviceDiscovery) {
+        this.serviceDiscovery = serviceDiscovery;
+    }
+
+    public List<ServerProperty> getServers() {
+        return servers;
+    }
+
+    public void setServers(List<ServerProperty> servers) {
+        this.servers = servers;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return this == obj || obj instanceof TitanSubProperty other
+                && Objects.equals(httpServer, other.httpServer)
+                && Objects.equals(monitor, other.monitor)
+                && Objects.equals(backup, other.backup)
+                && Objects.equals(flowControl, other.flowControl)
+                && Objects.equals(serviceDiscovery, other.serviceDiscovery)
+                && Objects.equals(servers, other.servers);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(httpServer, monitor, backup, flowControl, serviceDiscovery, servers);
+    }
+
+    @Override
+    public String toString() {
+        return "TitanSubProperty{" +
+                "httpServer=" + httpServer +
+                ", monitor=" + monitor +
+                ", backup=" + backup +
+                ", flowControl=" + flowControl +
+                ", serviceDiscovery=" + serviceDiscovery +
+                ", servers=" + servers +
+                '}';
+    }
 }

@@ -23,7 +23,6 @@
  */
 package org.traffichunter.titan.core.httpserver.threadpool;
 
-import lombok.Getter;
 import org.eclipse.jetty.util.thread.MonitoredQueuedThreadPool;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
@@ -33,7 +32,6 @@ import org.traffichunter.titan.core.util.Pooling;
 /**
  * @author yungwang-o
  */
-@Getter
 public enum JettyThreadPool {
 
     _VIRTUAL(Pooling._VIRTUAL) {
@@ -75,6 +73,10 @@ public enum JettyThreadPool {
 
     JettyThreadPool(final Pooling pooling) {
         this.pooling = pooling;
+    }
+
+    public Pooling getPooling() {
+        return pooling;
     }
 
     public JettyThreadPool match(final Pooling pooling) {

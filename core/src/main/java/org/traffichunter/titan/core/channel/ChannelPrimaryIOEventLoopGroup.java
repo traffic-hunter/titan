@@ -23,7 +23,8 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.selector.RoundRobinSelector;
@@ -41,8 +42,9 @@ import java.util.concurrent.TimeUnit;
  *
  * @author yun
  */
-@Slf4j
 public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGroup<ChannelPrimaryIOEventLoop> {
+
+    private static final Logger log = LoggerFactory.getLogger(ChannelPrimaryIOEventLoopGroup.class);
 
     private final RoundRobinSelector<ChannelPrimaryIOEventLoop> selector;
     private final List<ChannelPrimaryIOEventLoop> group;

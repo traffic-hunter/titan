@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec.stomp;
 
-import lombok.Builder;
-import lombok.Getter;
 import org.traffichunter.titan.core.channel.Subscription;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
@@ -32,12 +30,10 @@ import org.traffichunter.titan.core.util.Handler;
 /**
  * @author yun
  */
-@Getter
 public class StompClientSubscription extends Subscription implements StompSubscription {
 
     private final Handler<StompFrame> handler;
 
-    @Builder
     public StompClientSubscription(
             String destination,
             String id,
@@ -45,6 +41,14 @@ public class StompClientSubscription extends Subscription implements StompSubscr
     ) {
         super(Destination.create(destination), id);
         this.handler = handler;
+    }
+
+    public static StompClientSubscriptionBuilder builder() {
+        return new StompClientSubscriptionBuilder();
+    }
+
+    public Handler<StompFrame> getHandler() {
+        return handler;
     }
 
     @Override
@@ -55,5 +59,34 @@ public class StompClientSubscription extends Subscription implements StompSubscr
     @Override
     public Destination destination() {
         return getDestination();
+    }
+
+    public static final class StompClientSubscriptionBuilder {
+
+        private String destination;
+        private String id;
+        private Handler<StompFrame> handler;
+
+        private StompClientSubscriptionBuilder() {
+        }
+
+        public StompClientSubscriptionBuilder destination(String destination) {
+            this.destination = destination;
+            return this;
+        }
+
+        public StompClientSubscriptionBuilder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public StompClientSubscriptionBuilder handler(Handler<StompFrame> handler) {
+            this.handler = handler;
+            return this;
+        }
+
+        public StompClientSubscription build() {
+            return new StompClientSubscription(destination, id, handler);
+        }
     }
 }

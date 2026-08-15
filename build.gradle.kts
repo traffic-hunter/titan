@@ -92,9 +92,6 @@ subprojects {
         testImplementation(rootProject.libs.mokito)
         testImplementation("org.mockito:mockito-junit-jupiter:5.21.0")
 
-        compileOnly(rootProject.libs.lombok)
-        annotationProcessor(rootProject.libs.lombok)
-
         implementation(rootProject.libs.slf4j)
         implementation(rootProject.libs.google.guava)
 

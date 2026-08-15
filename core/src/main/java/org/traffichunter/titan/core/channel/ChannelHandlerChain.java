@@ -27,7 +27,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
@@ -85,8 +86,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  *
  * @author yun
  */
-@Slf4j
 public class ChannelHandlerChain {
+
+    private static final Logger log = LoggerFactory.getLogger(ChannelHandlerChain.class);
 
     private final ChannelOutBoundHandlerChainImpl outboundChain;
     private final ChannelInBoundHandlerChainImpl inboundChain;

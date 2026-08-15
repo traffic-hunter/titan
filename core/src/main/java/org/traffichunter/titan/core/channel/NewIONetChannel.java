@@ -24,7 +24,8 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import io.netty.buffer.ByteBuf;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
@@ -49,8 +50,9 @@ import java.util.concurrent.TimeUnit;
  *
  * @author yun, gkdbssla97
  */
-@Slf4j
 public class NewIONetChannel extends AbstractChannel implements NetChannel {
+
+    private static final Logger log = LoggerFactory.getLogger(NewIONetChannel.class);
 
     private final ChannelWriteBuffer channelWriteBuffer;
     private final Internal internal = new NewIOInternal();

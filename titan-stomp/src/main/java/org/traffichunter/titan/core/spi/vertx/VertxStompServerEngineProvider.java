@@ -29,7 +29,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.stomp.StompServer;
 import io.vertx.ext.stomp.StompServerHandler;
 import io.vertx.ext.stomp.StompServerOptions;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
@@ -43,8 +44,9 @@ import java.util.Map;
 /**
  * @author yun
  */
-@Slf4j
 public class VertxStompServerEngineProvider implements NetworkServerEngineProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(VertxStompServerEngineProvider.class);
 
     @Override
     public String transport() {

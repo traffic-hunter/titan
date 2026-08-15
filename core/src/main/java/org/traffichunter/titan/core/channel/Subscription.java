@@ -23,13 +23,11 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import lombok.Getter;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
  * @author yun
  */
-@Getter
 public class Subscription {
 
     private final Destination destination;
@@ -38,5 +36,13 @@ public class Subscription {
     public Subscription(Destination destination, String id) {
         this.destination = destination;
         this.id = id;
+    }
+
+    public Destination getDestination() {
+        return destination;
+    }
+
+    public String getId() {
+        return id;
     }
 }

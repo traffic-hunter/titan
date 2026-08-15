@@ -27,7 +27,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
@@ -64,8 +65,9 @@ import org.yaml.snakeyaml.constructor.Constructor;
  * Settings
  * }</pre>
  */
-@Slf4j
 final class YamlConfigurationInitializer implements ConfigurationInitializer {
+
+    private static final Logger log = LoggerFactory.getLogger(YamlConfigurationInitializer.class);
 
     private static final String DEFAULT_ENV_FILE = "titan-env.yml";
 

@@ -24,7 +24,8 @@
 package org.traffichunter.titan.core.codec.json;
 
 import java.io.InputStream;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
@@ -36,8 +37,9 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author yungwang-o
  */
-@Slf4j
 public final class Json {
+
+    private static final Logger log = LoggerFactory.getLogger(Json.class);
 
     private static final JsonMapper mapper = new JsonMapper();
 

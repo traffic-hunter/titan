@@ -23,8 +23,6 @@
  */
 package org.traffichunter.titan.bootstrap;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
@@ -57,7 +55,6 @@ import java.time.Instant;
  *
  * @author yungwang-o
 */
-@Getter
 public abstract class StopWatch {
 
     private final Instant startTime;
@@ -66,6 +63,14 @@ public abstract class StopWatch {
 
     protected StopWatch() {
         this.startTime = Instant.now();
+    }
+
+    public Instant getStartTime() {
+        return startTime;
+    }
+
+    public @Nullable Instant getEndTime() {
+        return endTime;
     }
 
     public void setEndTime() {

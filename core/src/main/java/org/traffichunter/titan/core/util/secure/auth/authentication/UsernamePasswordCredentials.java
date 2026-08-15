@@ -23,22 +23,29 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.util.secure.auth.authentication;
 
-import lombok.Builder;
-import lombok.Getter;
-
 /**
  * @author yun
  */
-@Getter
 public class UsernamePasswordCredentials implements Credentials {
 
     private final String username;
     private final String password;
 
-    @Builder
     public UsernamePasswordCredentials(String username, String password) {
         this.username = username;
         this.password = password;
+    }
+
+    public static UsernamePasswordCredentialsBuilder builder() {
+        return new UsernamePasswordCredentialsBuilder();
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
     }
 
     @Override
@@ -49,6 +56,29 @@ public class UsernamePasswordCredentials implements Credentials {
 
         if(password.isBlank()) {
             throw new CredentialsException("Password cannot be blank");
+        }
+    }
+
+    public static final class UsernamePasswordCredentialsBuilder {
+
+        private String username;
+        private String password;
+
+        private UsernamePasswordCredentialsBuilder() {
+        }
+
+        public UsernamePasswordCredentialsBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public UsernamePasswordCredentialsBuilder password(String password) {
+            this.password = password;
+            return this;
+        }
+
+        public UsernamePasswordCredentials build() {
+            return new UsernamePasswordCredentials(username, password);
         }
     }
 }

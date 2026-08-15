@@ -26,7 +26,8 @@ package org.traffichunter.titan.bootstrap;
 import java.lang.reflect.Constructor;
 import java.time.Duration;
 import java.time.Instant;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.bootstrap.Configurations.Property;
 import org.traffichunter.titan.bootstrap.environment.ConfigurationInitializer;
 
@@ -43,8 +44,9 @@ import org.traffichunter.titan.bootstrap.environment.ConfigurationInitializer;
  * protocol packages. The only contract shared across that boundary is
  * {@link ApplicationStarter#start(Settings)}.</p>
  */
-@Slf4j
 public final class TitanBootstrap {
+
+    private static final Logger log = LoggerFactory.getLogger(TitanBootstrap.class);
 
     private static final String CALL_CORE_APPLICATION =
             "org.traffichunter.titan.core.TitanApplication";

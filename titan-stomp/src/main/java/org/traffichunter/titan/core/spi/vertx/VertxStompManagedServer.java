@@ -25,7 +25,8 @@ package org.traffichunter.titan.core.spi.vertx;
 
 import io.vertx.core.Future;
 import io.vertx.ext.stomp.StompServer;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.spi.ManagedServer;
 
@@ -35,8 +36,9 @@ import java.util.concurrent.TimeoutException;
 /**
  * @author yun
  */
-@Slf4j
 public final class VertxStompManagedServer implements ManagedServer {
+
+    private static final Logger log = LoggerFactory.getLogger(VertxStompManagedServer.class);
 
     private final StompServer server;
     private final ServerSettings settings;

@@ -3,7 +3,8 @@ package org.traffichunter.titan.dispatch;
 import java.util.Locale;
 import java.util.Map;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.core.resilience.flowcontrol.FlowControlConfiguration;
@@ -32,9 +33,10 @@ import org.traffichunter.titan.core.spi.*;
  * SEND handler -> DispatchGateway -> StompDispatchExporter
  * }</pre>
  */
-@Slf4j
 @SuppressWarnings("unused")
 public final class StompServerFanoutLauncher implements FanoutLauncher {
+
+    private static final Logger log = LoggerFactory.getLogger(StompServerFanoutLauncher.class);
 
     private static final String OPTION_FANOUT_MODE = "fanout-mode";
 

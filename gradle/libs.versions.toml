@@ -1,5 +1,4 @@
 [versions]
-lombok = "1.18.46"
 slf4j = "2.0.17"
 google-guava = "33.6.0-jre"
 netty = "4.2.15.Final"
@@ -17,7 +16,6 @@ spring = "6.1.14"
 spring-boot = "3.3.5"
 
 [libraries]
-lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 mokito = { module = "org.mockito:mockito-core", version.ref = "mokito" }
 slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 google-guava = { module = "com.google.guava:guava", version.ref = "google-guava" }

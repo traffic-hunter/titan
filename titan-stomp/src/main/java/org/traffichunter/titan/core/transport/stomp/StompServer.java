@@ -27,7 +27,8 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -50,8 +51,9 @@ import org.traffichunter.titan.core.util.Protocol;
 /**
  * @author yun
  */
-@Slf4j
 public final class StompServer {
+
+    private static final Logger log = LoggerFactory.getLogger(StompServer.class);
 
     private final InetServer inetServer;
     private final StompServerChannel serverConnection;

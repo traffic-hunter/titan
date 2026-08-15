@@ -27,7 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.NullMarked;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.bootstrap.TitanBootstrap.ApplicationStarter;
@@ -51,10 +52,11 @@ import org.traffichunter.titan.core.spi.RuntimeLauncher;
  * the resulting managed server is started and registered for process shutdown
  * cleanup.</p>
  */
-@Slf4j
 @NullMarked
 @SuppressWarnings("unused")
 public class TitanApplication implements ApplicationStarter {
+
+    private static final Logger log = LoggerFactory.getLogger(TitanApplication.class);
 
     private static final GlobalShutdownHook SHUTDOWN_HOOK = GlobalShutdownHook.INSTANCE;
 

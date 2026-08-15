@@ -23,18 +23,43 @@
  */
 package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.Objects;
 
 /**
  * YAML DTO for service discovery configuration.
  */
-@Data
-@NoArgsConstructor(access = AccessLevel.PUBLIC)
-@AllArgsConstructor
 public class ServiceDiscoveryProperty {
 
     private String struct;
+
+    public ServiceDiscoveryProperty() {
+    }
+
+    public ServiceDiscoveryProperty(String struct) {
+        this.struct = struct;
+    }
+
+    public String getStruct() {
+        return struct;
+    }
+
+    public void setStruct(String struct) {
+        this.struct = struct;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return this == obj || obj instanceof ServiceDiscoveryProperty other
+                && Objects.equals(struct, other.struct);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(struct);
+    }
+
+    @Override
+    public String toString() {
+        return "ServiceDiscoveryProperty{struct='" + struct + "'}";
+    }
 }

@@ -23,20 +23,55 @@
  */
 package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.Objects;
 
 /**
  * YAML DTO for the optional HTTP server section.
  */
-@Data
-@NoArgsConstructor(access = AccessLevel.PUBLIC)
-@AllArgsConstructor
 public class HttpServerProperty {
 
     private int port;
 
     private String pool;
+
+    public HttpServerProperty() {
+    }
+
+    public HttpServerProperty(int port, String pool) {
+        this.port = port;
+        this.pool = pool;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public String getPool() {
+        return pool;
+    }
+
+    public void setPool(String pool) {
+        this.pool = pool;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return this == obj || obj instanceof HttpServerProperty other
+                && port == other.port
+                && Objects.equals(pool, other.pool);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(port, pool);
+    }
+
+    @Override
+    public String toString() {
+        return "HttpServerProperty{port=" + port + ", pool='" + pool + "'}";
+    }
 }
