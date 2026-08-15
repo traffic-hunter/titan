@@ -23,7 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec.stomp;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
@@ -40,8 +41,9 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 /**
  * @author yun, gkdbssla97
  */
-@Slf4j
 public class StompChannelDecoder extends ChannelDecoder {
+
+    private static final Logger log = LoggerFactory.getLogger(StompChannelDecoder.class);
 
     private static final int DEFAULT_MAX_LENGTH = 65536;
 

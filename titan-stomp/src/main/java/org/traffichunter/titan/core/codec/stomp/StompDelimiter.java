@@ -23,12 +23,9 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
-import lombok.Getter;
-
 /**
  * @author yungwang-o
  */
-@Getter
 public enum StompDelimiter {
 
     CR((byte) 0x0D, '\r'),         // carriage return
@@ -43,6 +40,14 @@ public enum StompDelimiter {
     StompDelimiter(final byte hex, final char character) {
         this.hex = hex;
         this.character = character;
+    }
+
+    public byte getHex() {
+        return hex;
+    }
+
+    public char getCharacter() {
+        return character;
     }
 
     public String getString() {

@@ -23,10 +23,7 @@
  */
 package org.traffichunter.titan.bootstrap.environment.proprerty;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.Objects;
 
 /**
  * Root object used only for YAML binding.
@@ -35,10 +32,37 @@ import lombok.NoArgsConstructor;
  * should not depend on this DTO directly; it is mapped to {@code Settings}
  * after parsing.</p>
  */
-@Data
-@NoArgsConstructor(access = AccessLevel.PUBLIC)
-@AllArgsConstructor
 public class RootYamlProperty {
 
     private TitanSubProperty titan;
+
+    public RootYamlProperty() {
+    }
+
+    public RootYamlProperty(TitanSubProperty titan) {
+        this.titan = titan;
+    }
+
+    public TitanSubProperty getTitan() {
+        return titan;
+    }
+
+    public void setTitan(TitanSubProperty titan) {
+        this.titan = titan;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return this == obj || obj instanceof RootYamlProperty other && Objects.equals(titan, other.titan);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(titan);
+    }
+
+    @Override
+    public String toString() {
+        return "RootYamlProperty{titan=" + titan + '}';
+    }
 }

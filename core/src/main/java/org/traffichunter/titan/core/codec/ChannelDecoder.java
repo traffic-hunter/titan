@@ -23,7 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
@@ -38,8 +39,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  *
  * @author yun
  */
-@Slf4j
 public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoCloseable {
+
+    private static final Logger log = LoggerFactory.getLogger(ChannelDecoder.class);
 
     /**
      * Combines a previously retained buffer with newly received bytes.

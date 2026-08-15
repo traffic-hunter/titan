@@ -23,13 +23,11 @@
  */
 package org.traffichunter.titan.monitor.jmx.heap;
 
-import lombok.Builder;
 import org.traffichunter.titan.monitor.jmx.ThreshHold;
 
 /**
  * @author yungwang-o
  */
-@Builder
 public record HeapData(
 
         long init,
@@ -42,6 +40,10 @@ public record HeapData(
 
 ) implements ThreshHold {
 
+    public static HeapDataBuilder builder() {
+        return new HeapDataBuilder();
+    }
+
     @Override
     public boolean isCheckThreshold(final double factor) {
         if (this.max() <= 0) {
@@ -50,5 +52,40 @@ public record HeapData(
 
         double usageRate = (double) this.used() / this.max();
         return usageRate > factor;
+    }
+
+    public static final class HeapDataBuilder {
+
+        private long init;
+        private long used;
+        private long committed;
+        private long max;
+
+        private HeapDataBuilder() {
+        }
+
+        public HeapDataBuilder init(long value) {
+            this.init = value;
+            return this;
+        }
+
+        public HeapDataBuilder used(long value) {
+            this.used = value;
+            return this;
+        }
+
+        public HeapDataBuilder committed(long value) {
+            this.committed = value;
+            return this;
+        }
+
+        public HeapDataBuilder max(long value) {
+            this.max = value;
+            return this;
+        }
+
+        public HeapData build() {
+            return new HeapData(init, used, committed, max);
+        }
     }
 }

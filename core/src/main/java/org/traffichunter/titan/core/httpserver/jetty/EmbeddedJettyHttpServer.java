@@ -28,7 +28,8 @@ import jakarta.servlet.Servlet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Server;
@@ -42,8 +43,9 @@ import org.traffichunter.titan.core.util.Pooling;
  * Embedded jetty web-server
  * @author yungwang-o
  */
-@Slf4j
 public class EmbeddedJettyHttpServer implements HttpServer {
+
+    private static final Logger log = LoggerFactory.getLogger(EmbeddedJettyHttpServer.class);
 
     private static final String ROOT_PATH = "/titan";
 

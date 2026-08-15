@@ -31,7 +31,8 @@ import io.netty.buffer.WrappedByteBuf;
 import io.netty.util.IllegalReferenceCountException;
 import java.lang.ref.Cleaner;
 import java.util.concurrent.atomic.AtomicBoolean;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
@@ -75,8 +76,9 @@ public class AutoManagedByteBufAllocator extends AbstractByteBufAllocator {
     /**
      * Wrapped buffer that marks the cleaner state when Netty reference count reaches zero.
      */
-    @Slf4j
     static class AutoReleaseByteBuf extends WrappedByteBuf {
+
+        private static final Logger log = LoggerFactory.getLogger(AutoReleaseByteBuf.class);
 
         private static final Cleaner CLEANER = Cleaner.create();
 

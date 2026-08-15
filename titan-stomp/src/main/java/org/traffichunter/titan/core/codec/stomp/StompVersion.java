@@ -23,12 +23,9 @@
  */
 package org.traffichunter.titan.core.codec.stomp;
 
-import lombok.Getter;
-
 /**
  * @author yungwang-o
  */
-@Getter
 public enum StompVersion {
     STOMP_1_2("stomp", "1.2"),
     STOMP_1_1("stomp", "1.1"),
@@ -41,6 +38,14 @@ public enum StompVersion {
     StompVersion(final String name, final String version) {
         this.name = name;
         this.version = version;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getVersion() {
+        return version;
     }
 
     public void validate(final String version) {

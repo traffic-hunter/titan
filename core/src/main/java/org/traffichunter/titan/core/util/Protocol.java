@@ -23,12 +23,9 @@
  */
 package org.traffichunter.titan.core.util;
 
-import lombok.Getter;
-
 /**
  * @author yungwang-o
  */
-@Getter
 public enum Protocol {
     STOMP("stomp", "1.2", "v12.stomp"),
     MQTT("mqtt", "5.0", "v50.mqtt"),
@@ -42,6 +39,18 @@ public enum Protocol {
         this.name = name;
         this.version = version;
         this.subProtocol = subProtocol;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public String getSubProtocol() {
+        return subProtocol;
     }
 
     public static Protocol subProtocol(String subProtocol) {

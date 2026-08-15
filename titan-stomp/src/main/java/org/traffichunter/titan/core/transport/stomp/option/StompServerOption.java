@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.transport.stomp.option;
 
-import lombok.Builder;
 import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 
@@ -72,7 +71,6 @@ public record StompServerOption(
         }
     }
 
-    @Builder(builderMethodName = "builder")
     public static StompServerOption of(
             Integer maxHeaderLength,
             Integer maxHeaders,
@@ -106,5 +104,119 @@ public record StompServerOption(
                 StompVersion.STOMP_1_2,
                 inetServerOption == null ? InetServerOption.DEFAULT_INET_SERVER_OPTION : inetServerOption
         );
+    }
+
+    public static StompServerOptionBuilder builder() {
+        return new StompServerOptionBuilder();
+    }
+
+    public static final class StompServerOptionBuilder {
+
+        private Integer maxHeaderLength;
+        private Integer maxHeaders;
+        private Integer maxBodyLength;
+        private Integer maxFrameInTransaction;
+        private String supportedVersions;
+        private Boolean secured;
+        private Boolean sendErrorOnNoSubscriptions;
+        private Long ackTimeoutMillis;
+        private Integer timeFactor;
+        private Long heartbeatX;
+        private Long heartbeatY;
+        private Integer transactionChunkSize;
+        private Integer maxSubscriptionsByClient;
+        private InetServerOption inetServerOption;
+
+        private StompServerOptionBuilder() {
+        }
+
+        public StompServerOptionBuilder maxHeaderLength(Integer value) {
+            this.maxHeaderLength = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder maxHeaders(Integer value) {
+            this.maxHeaders = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder maxBodyLength(Integer value) {
+            this.maxBodyLength = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder maxFrameInTransaction(Integer value) {
+            this.maxFrameInTransaction = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder supportedVersions(String value) {
+            this.supportedVersions = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder secured(Boolean value) {
+            this.secured = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder sendErrorOnNoSubscriptions(Boolean value) {
+            this.sendErrorOnNoSubscriptions = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder ackTimeoutMillis(Long value) {
+            this.ackTimeoutMillis = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder timeFactor(Integer value) {
+            this.timeFactor = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder heartbeatX(Long value) {
+            this.heartbeatX = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder heartbeatY(Long value) {
+            this.heartbeatY = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder transactionChunkSize(Integer value) {
+            this.transactionChunkSize = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder maxSubscriptionsByClient(Integer value) {
+            this.maxSubscriptionsByClient = value;
+            return this;
+        }
+
+        public StompServerOptionBuilder inetServerOption(InetServerOption value) {
+            this.inetServerOption = value;
+            return this;
+        }
+
+        public StompServerOption build() {
+            return StompServerOption.of(
+                    maxHeaderLength,
+                    maxHeaders,
+                    maxBodyLength,
+                    maxFrameInTransaction,
+                    supportedVersions,
+                    secured,
+                    sendErrorOnNoSubscriptions,
+                    ackTimeoutMillis,
+                    timeFactor,
+                    heartbeatX,
+                    heartbeatY,
+                    transactionChunkSize,
+                    maxSubscriptionsByClient,
+                    inetServerOption
+            );
+        }
     }
 }

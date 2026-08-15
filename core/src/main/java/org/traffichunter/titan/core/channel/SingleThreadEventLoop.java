@@ -30,7 +30,8 @@ import java.util.Comparator;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
@@ -48,8 +49,9 @@ import org.traffichunter.titan.core.util.Time;
  *
  * @author yungwang-o
  */
-@Slf4j
 public abstract class SingleThreadEventLoop extends AbstractEventLoop {
+
+    private static final Logger log = LoggerFactory.getLogger(SingleThreadEventLoop.class);
 
     private static final int INITIAL_TASK_QUEUE_CAPACITY = 16;
     private static final Comparator<ScheduledPromise<?>> SCHEDULE_PROMISE_COMPARATOR = ScheduledPromise::compareTo;

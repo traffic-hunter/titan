@@ -23,13 +23,11 @@
  */
 package org.traffichunter.titan.monitor.jmx.cpu;
 
-import lombok.Builder;
 import org.traffichunter.titan.monitor.jmx.ThreshHold;
 
 /**
  * @author yungwang-o
  */
-@Builder
 public record CpuData(
 
         double systemCpuLoad,
@@ -40,8 +38,41 @@ public record CpuData(
 
 ) implements ThreshHold {
 
+    public static CpuDataBuilder builder() {
+        return new CpuDataBuilder();
+    }
+
     @Override
     public boolean isCheckThreshold(final double factor) {
         return this.systemCpuLoad() > factor;
+    }
+
+    public static final class CpuDataBuilder {
+
+        private double systemCpuLoad;
+        private double processCpuLoad;
+        private long availableProcessors;
+
+        private CpuDataBuilder() {
+        }
+
+        public CpuDataBuilder systemCpuLoad(double value) {
+            this.systemCpuLoad = value;
+            return this;
+        }
+
+        public CpuDataBuilder processCpuLoad(double value) {
+            this.processCpuLoad = value;
+            return this;
+        }
+
+        public CpuDataBuilder availableProcessors(long value) {
+            this.availableProcessors = value;
+            return this;
+        }
+
+        public CpuData build() {
+            return new CpuData(systemCpuLoad, processCpuLoad, availableProcessors);
+        }
     }
 }

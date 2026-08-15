@@ -30,8 +30,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.helpers.MessageFormatter;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
@@ -43,9 +43,9 @@ import org.traffichunter.titan.core.util.inet.Frame;
 /**
  * @author yungwang-o
  */
-@Getter
-@Slf4j
 public final class StompFrame implements Frame<Elements, String>, StompFrames {
+
+    private static final Logger log = LoggerFactory.getLogger(StompFrame.class);
 
     public static final StompFrame ERR_STOMP_FRAME =
             new StompFrame(new StompHeaders(StompVersion.STOMP_1_2), StompCommand.ERROR);
@@ -95,6 +95,14 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
                                     final Buffer body) {
 
         return new StompFrame(headers, command, body);
+    }
+
+    public StompHeaders getHeaders() {
+        return headers;
+    }
+
+    public StompCommand getCommand() {
+        return command;
     }
 
     public static StompFrame create(final StompHeaders headers,

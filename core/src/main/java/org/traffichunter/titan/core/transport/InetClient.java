@@ -29,7 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
@@ -57,8 +58,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  *
  * @author yungwang-o
  */
-@Slf4j
 public class InetClient extends AbstractTransport<NetChannel> {
+
+    private static final Logger log = LoggerFactory.getLogger(InetClient.class);
 
     private final AtomicReference<State> state = new AtomicReference<>(State.INIT);
     private final InetClientOption option;

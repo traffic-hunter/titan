@@ -24,7 +24,8 @@
 package org.traffichunter.titan.dispatch;
 
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
@@ -38,8 +39,9 @@ import org.traffichunter.titan.core.util.TrieImpl;
  *
  * @author yungwang-o
  */
-@Slf4j
 public class TrieDispatcher implements Dispatcher {
+
+    private static final Logger log = LoggerFactory.getLogger(TrieDispatcher.class);
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
     private final long defaultMaxPendingBytes;

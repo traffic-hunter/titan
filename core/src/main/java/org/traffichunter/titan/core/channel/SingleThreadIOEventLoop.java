@@ -29,7 +29,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.Assert;
 
 /**
@@ -41,8 +42,9 @@ import org.traffichunter.titan.core.util.Assert;
  *
  * @author yungwang-o
  */
-@Slf4j
 public abstract class SingleThreadIOEventLoop extends SingleThreadEventLoop implements IOEventLoop {
+
+    private static final Logger log = LoggerFactory.getLogger(SingleThreadIOEventLoop.class);
 
     private final IOSelector ioSelector;
 

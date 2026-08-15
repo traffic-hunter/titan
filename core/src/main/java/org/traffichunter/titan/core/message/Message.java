@@ -26,8 +26,6 @@ package org.traffichunter.titan.core.message;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
-import lombok.Builder;
-import lombok.Getter;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -40,7 +38,6 @@ import org.traffichunter.titan.core.util.Destination;
  *
  * @author yungwang-o
  */
-@Getter
 public final class Message {
 
     private final String uniqueId = IdGenerator.uuid();
@@ -57,7 +54,6 @@ public final class Message {
 
     private final byte[] body;
 
-    @Builder
     public Message(final Destination destination,
                    final Instant createdAt,
                    final String producerId,
@@ -68,6 +64,38 @@ public final class Message {
         this.producerId = Objects.requireNonNull(producerId, "producerId");
         this.body = Objects.requireNonNull(body, "body").clone();
         this.size = this.body.length;
+    }
+
+    public static MessageBuilder builder() {
+        return new MessageBuilder();
+    }
+
+    public String getUniqueId() {
+        return uniqueId;
+    }
+
+    public Destination getDestination() {
+        return destination;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getDispatchedAt() {
+        return dispatchedAt;
+    }
+
+    public String getProducerId() {
+        return producerId;
+    }
+
+    public long getSize() {
+        return size;
+    }
+
+    public byte[] getBody() {
+        return body;
     }
 
     public void setDispatchAt(final Instant dispatchedAt) {
@@ -112,5 +140,40 @@ public final class Message {
                 ", size:" + size +
                 ", body:" + Arrays.toString(body) +
                 '}';
+    }
+
+    public static final class MessageBuilder {
+
+        private Destination destination;
+        private Instant createdAt;
+        private String producerId;
+        private byte[] body;
+
+        private MessageBuilder() {
+        }
+
+        public MessageBuilder destination(Destination destination) {
+            this.destination = destination;
+            return this;
+        }
+
+        public MessageBuilder createdAt(Instant createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public MessageBuilder producerId(String producerId) {
+            this.producerId = producerId;
+            return this;
+        }
+
+        public MessageBuilder body(byte[] body) {
+            this.body = body;
+            return this;
+        }
+
+        public Message build() {
+            return new Message(destination, createdAt, producerId, body);
+        }
     }
 }

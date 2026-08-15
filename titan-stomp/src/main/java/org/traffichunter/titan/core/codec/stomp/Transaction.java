@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.codec.stomp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import lombok.Getter;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 
 /**
@@ -34,7 +33,6 @@ import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
  *
  * @author yungwang-o
  */
-@Getter
 public final class Transaction {
 
     private final StompClientChannel stompClientChannel;
@@ -51,6 +49,18 @@ public final class Transaction {
 
     public static Transaction create(final StompClientChannel serverConnection, final String txId) {
         return new Transaction(serverConnection, txId);
+    }
+
+    public StompClientChannel getStompClientChannel() {
+        return stompClientChannel;
+    }
+
+    public String getTxId() {
+        return txId;
+    }
+
+    public int getDEFAULT_TX_SIZE() {
+        return DEFAULT_TX_SIZE;
     }
 
     public synchronized void addFrame(final StompFrame frame) {

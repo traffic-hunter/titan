@@ -23,13 +23,11 @@
  */
 package org.traffichunter.titan.monitor.jmx.thread;
 
-import lombok.Builder;
 import org.traffichunter.titan.monitor.jmx.ThreshHold;
 
 /**
  * @author yungwang-o
  */
-@Builder
 public record ThreadData(
 
         int threadCount,
@@ -40,8 +38,41 @@ public record ThreadData(
 
 ) implements ThreshHold {
 
+    public static ThreadDataBuilder builder() {
+        return new ThreadDataBuilder();
+    }
+
     @Override
     public boolean isCheckThreshold(final double factor) {
         return this.threadCount() > (int) factor;
+    }
+
+    public static final class ThreadDataBuilder {
+
+        private int threadCount;
+        private int peakThreadCount;
+        private long totalStartedThreadCount;
+
+        private ThreadDataBuilder() {
+        }
+
+        public ThreadDataBuilder threadCount(int value) {
+            this.threadCount = value;
+            return this;
+        }
+
+        public ThreadDataBuilder peakThreadCount(int value) {
+            this.peakThreadCount = value;
+            return this;
+        }
+
+        public ThreadDataBuilder totalStartedThreadCount(long value) {
+            this.totalStartedThreadCount = value;
+            return this;
+        }
+
+        public ThreadData build() {
+            return new ThreadData(threadCount, peakThreadCount, totalStartedThreadCount);
+        }
     }
 }

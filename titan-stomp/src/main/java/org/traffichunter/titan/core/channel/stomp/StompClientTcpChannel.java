@@ -32,7 +32,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
@@ -54,8 +55,9 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 /**
  * @author yun
  */
-@Slf4j
 public class StompClientTcpChannel implements StompClientChannel {
+
+    private static final Logger log = LoggerFactory.getLogger(StompClientTcpChannel.class);
 
     private final String sessionId = IdGenerator.randomId16("session");
     private final NetChannel netChannel;

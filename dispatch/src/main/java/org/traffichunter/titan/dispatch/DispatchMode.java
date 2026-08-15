@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import lombok.Getter;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
@@ -34,7 +33,6 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * so protocol launchers can switch execution strategy without changing the
  * fanout contract.</p>
  */
-@Getter
 public enum DispatchMode {
 
     PLATFORM_EXECUTOR("platform") {
@@ -65,6 +63,10 @@ public enum DispatchMode {
 
     DispatchMode(String name) {
         this.name = name;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public abstract DispatchGateway dispatchGateway(DispatchExporter dispatchExporter);

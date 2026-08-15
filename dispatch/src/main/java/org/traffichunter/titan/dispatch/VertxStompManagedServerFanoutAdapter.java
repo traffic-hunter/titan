@@ -23,7 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.vertx.VertxStompManagedServer;
@@ -38,8 +39,9 @@ import java.util.function.Function;
  *
  * @author yun
  */
-@Slf4j
 public final class VertxStompManagedServerFanoutAdapter implements ManagedServerFanoutAdapter {
+
+    private static final Logger log = LoggerFactory.getLogger(VertxStompManagedServerFanoutAdapter.class);
 
     private static final GlobalShutdownHook SHUTDOWN_HOOK = GlobalShutdownHook.INSTANCE;
 

@@ -23,7 +23,8 @@
  */
 package org.traffichunter.titan.core.channel.stomp;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
@@ -37,9 +38,10 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.create;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.formatString;
 import static org.traffichunter.titan.core.codec.stomp.StompVersion.STOMP_1_0;
-
-@Slf4j
 public final class StompServerHandlerImpl implements StompServerHandler {
+
+
+    private static final Logger log = LoggerFactory.getLogger(StompServerHandlerImpl.class);
 
     private final StompServerHandlerContext context;
 

@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec.stomp;
 
-import lombok.Builder;
-import lombok.Getter;
 import org.traffichunter.titan.core.channel.Subscription;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.util.Destination;
@@ -32,13 +30,11 @@ import org.traffichunter.titan.core.util.Destination;
 /**
  * @author yun
  */
-@Getter
 public class StompServerSubscription extends Subscription implements StompSubscription {
 
     private final String ackMode;
     private final StompClientChannel connection;
 
-    @Builder
     public StompServerSubscription(
             Destination destination,
             String id,
@@ -50,6 +46,18 @@ public class StompServerSubscription extends Subscription implements StompSubscr
         this.connection = connection;
     }
 
+    public static StompServerSubscriptionBuilder builder() {
+        return new StompServerSubscriptionBuilder();
+    }
+
+    public String getAckMode() {
+        return ackMode;
+    }
+
+    public StompClientChannel getConnection() {
+        return connection;
+    }
+
     @Override
     public String id() {
         return getId();
@@ -58,5 +66,40 @@ public class StompServerSubscription extends Subscription implements StompSubscr
     @Override
     public Destination destination() {
         return getDestination();
+    }
+
+    public static final class StompServerSubscriptionBuilder {
+
+        private Destination destination;
+        private String id;
+        private String ackMode;
+        private StompClientChannel connection;
+
+        private StompServerSubscriptionBuilder() {
+        }
+
+        public StompServerSubscriptionBuilder destination(Destination destination) {
+            this.destination = destination;
+            return this;
+        }
+
+        public StompServerSubscriptionBuilder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public StompServerSubscriptionBuilder ackMode(String ackMode) {
+            this.ackMode = ackMode;
+            return this;
+        }
+
+        public StompServerSubscriptionBuilder connection(StompClientChannel connection) {
+            this.connection = connection;
+            return this;
+        }
+
+        public StompServerSubscription build() {
+            return new StompServerSubscription(destination, id, ackMode, connection);
+        }
     }
 }

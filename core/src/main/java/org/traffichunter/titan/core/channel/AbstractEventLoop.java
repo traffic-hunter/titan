@@ -27,7 +27,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.concurrent.AdvancedThreadPoolExecutor;
@@ -42,8 +43,9 @@ import org.traffichunter.titan.core.concurrent.Promise;
  *
  * @author yungwang-o
  */
-@Slf4j
 public abstract class AbstractEventLoop extends ThreadPoolExecutor implements EventLoop {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractEventLoop.class);
 
     private static final Runnable WAKEUP_TASK = () -> {};
 

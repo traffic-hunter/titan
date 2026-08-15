@@ -27,7 +27,8 @@ import java.nio.channels.SelectionKey;
 import java.util.Iterator;
 import java.util.Set;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.buffer.Buffers;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
@@ -40,8 +41,9 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
  *
  * @author yungwang-o
  */
-@Slf4j
 public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
+
+    private static final Logger log = LoggerFactory.getLogger(ChannelSecondaryIOEventLoop.class);
 
     public ChannelSecondaryIOEventLoop() {
         this(EventLoopConstants.SECONDARY_EVENT_LOOP_THREAD_NAME);

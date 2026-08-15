@@ -30,7 +30,8 @@ import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
@@ -45,8 +46,9 @@ import org.traffichunter.titan.core.util.Assert;
  *
  * @author yungwang-o
  */
-@Slf4j
 public class PromiseImpl<C> implements Promise<C> {
+
+    private static final Logger log = LoggerFactory.getLogger(PromiseImpl.class);
 
     protected final EventLoop eventLoop;
 
