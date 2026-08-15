@@ -23,7 +23,6 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch;
 
-import org.traffichunter.titan.core.util.concurrent.ConcurrencyLimiter;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 import java.util.concurrent.Executors;
@@ -33,15 +32,12 @@ import java.util.concurrent.ThreadFactory;
  * Dispatch gateway backed by one virtual thread per submitted task.
  *
  * <p>Destination consumers are naturally long-lived and often block while
- * waiting for dispatcher queues. Virtual threads make that blocking cheap, while
- * the internal damper still caps active dispatch sections so exporter work does
- * not grow without a limit.</p>
+ * waiting for dispatcher queues. Virtual threads make that blocking cheap while
+ * each destination consumer still exports messages sequentially.</p>
  *
  * @author yun
  */
 class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
-
-    private static final int DEFAULT_CONCURRENCY_LIMIT = 10_000;
 
     public VirtualThreadExecutorDispatchGateway(DispatchExporter exporter) {
         this(exporter, Dispatcher.getDefault());
@@ -54,8 +50,7 @@ class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGatew
         super(
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,
-                dispatcher,
-                new ConcurrencyLimiter(DEFAULT_CONCURRENCY_LIMIT)
+                dispatcher
         );
     }
 
