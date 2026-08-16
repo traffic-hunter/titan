@@ -32,9 +32,9 @@ import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.ChannelFactory;
 import org.traffichunter.titan.core.channel.ReflectiveChannelFactory;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelRegistry;
+import org.traffichunter.titan.core.channel.ChannelRegistry;
 
 /**
  * Base transport that owns event loops and the channels created for the transport.

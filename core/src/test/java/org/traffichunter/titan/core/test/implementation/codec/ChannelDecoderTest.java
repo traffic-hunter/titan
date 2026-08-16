@@ -8,7 +8,7 @@ import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.ArrayList;

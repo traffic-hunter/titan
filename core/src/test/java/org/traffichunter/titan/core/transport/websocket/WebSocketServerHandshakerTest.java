@@ -30,7 +30,7 @@ import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.net.HttpRequest;
 import org.traffichunter.titan.core.transport.websocket.WebSocketServerHandshaker.WebSocketUpgradeHandler;
 import org.traffichunter.titan.core.util.buffer.Buffer;

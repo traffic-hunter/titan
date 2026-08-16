@@ -28,7 +28,7 @@ import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.TaskEventLoop;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.transport.websocket.WebSocketClientHandshaker.WebSocketUpgradeHandler;
 import org.traffichunter.titan.core.util.buffer.Buffer;

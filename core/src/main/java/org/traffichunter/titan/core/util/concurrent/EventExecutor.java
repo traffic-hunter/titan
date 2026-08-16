@@ -27,8 +27,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
 import org.jspecify.annotations.NonNull;
-import org.traffichunter.titan.core.concurrent.Promise;
-
 /**
  * Execution contract for components backed by a Titan-managed execution context.
  *

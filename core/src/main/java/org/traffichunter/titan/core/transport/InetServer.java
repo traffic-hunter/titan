@@ -35,17 +35,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.net.TlsContext;
 import org.traffichunter.titan.core.net.TlsHandler;
 import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.websocket.WebSocketServerHandshaker;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelRegistry;
+import org.traffichunter.titan.core.channel.ChannelRegistry;
 
 /**
  * TCP server transport with a single listening channel and many accepted child channels.

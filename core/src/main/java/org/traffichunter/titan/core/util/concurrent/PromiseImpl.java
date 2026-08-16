@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.util.concurrent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.util.concurrent.EventExecutor;
-
 /**
  * Default {@link Promise} implementation.
  *

@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullUnmarked;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.IdGenerator;
 
 import java.io.IOException;

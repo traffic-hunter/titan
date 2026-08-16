@@ -27,7 +27,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 
 import java.util.concurrent.TimeUnit;
 

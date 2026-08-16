@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.channel;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.concurrent.EventExecutor;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 

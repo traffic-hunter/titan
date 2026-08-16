@@ -28,7 +28,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;

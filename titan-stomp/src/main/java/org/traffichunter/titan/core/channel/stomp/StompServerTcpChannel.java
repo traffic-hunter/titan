@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.Transactions;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.jspecify.annotations.Nullable;

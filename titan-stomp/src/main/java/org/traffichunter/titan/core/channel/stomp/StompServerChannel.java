@@ -27,7 +27,7 @@ import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.jspecify.annotations.Nullable;

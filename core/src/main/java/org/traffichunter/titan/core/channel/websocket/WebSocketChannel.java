@@ -28,7 +28,7 @@ import org.traffichunter.titan.core.channel.ChannelHandlerChain;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 

@@ -28,14 +28,14 @@ import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameException;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameHeader;
-import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.transport.ClientException;
 import org.traffichunter.titan.core.transport.InetClient;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelRegistry;
+import org.traffichunter.titan.core.channel.ChannelRegistry;
 
 import java.net.InetSocketAddress;
 import java.util.List;

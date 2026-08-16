@@ -31,7 +31,7 @@ import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameDecoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameEncoder;
 import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 

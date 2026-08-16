@@ -29,7 +29,7 @@ import java.time.Instant;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 /**
  * Base abstraction for a non-blocking I/O endpoint.

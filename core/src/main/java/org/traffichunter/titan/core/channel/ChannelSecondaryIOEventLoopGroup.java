@@ -25,10 +25,9 @@ package org.traffichunter.titan.core.channel;
 
 import javax.management.ObjectName;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.management.ChannelWriteBufferMbeans;
-import org.traffichunter.titan.core.util.selector.RoundRobinSelector;
 
 import java.util.ArrayList;
 import java.util.List;

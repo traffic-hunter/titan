@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.channel;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.util.concurrent.NewIOException;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;

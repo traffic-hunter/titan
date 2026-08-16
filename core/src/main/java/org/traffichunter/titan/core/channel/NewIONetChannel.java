@@ -27,8 +27,8 @@ import io.netty.buffer.ByteBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.IOException;

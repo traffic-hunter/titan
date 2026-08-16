@@ -2,7 +2,7 @@ package org.traffichunter.titan.core.test.implementation;
 
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
-import org.traffichunter.titan.core.util.selector.RoundRobinSelector;
+import org.traffichunter.titan.core.channel.RoundRobinSelector;
 
 import java.util.List;
 import java.util.NoSuchElementException;

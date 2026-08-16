@@ -8,14 +8,14 @@
  * <p>Core types:</p>
  *
  * <ul>
- *     <li>{@link org.traffichunter.titan.core.concurrent.Promise}: runnable future plus manual completion.</li>
- *     <li>{@link org.traffichunter.titan.core.concurrent.ChannelPromise}: promise carrying a channel context.</li>
- *     <li>{@link org.traffichunter.titan.core.concurrent.ScheduledPromise}: promise scheduled by event-loop deadline.</li>
+ *     <li>{@link org.traffichunter.titan.core.util.concurrent.Promise}: runnable future plus manual completion.</li>
+ *     <li>{@link org.traffichunter.titan.core.util.concurrent.ChannelPromise}: promise carrying a channel context.</li>
+ *     <li>{@link org.traffichunter.titan.core.util.concurrent.ScheduledPromise}: promise scheduled by event-loop deadline.</li>
  * </ul>
  *
  * @author yun
  */
 @NullMarked
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.util.concurrent;
 
 import org.jspecify.annotations.NullMarked;

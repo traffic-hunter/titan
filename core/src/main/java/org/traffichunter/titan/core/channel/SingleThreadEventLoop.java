@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Time;
 

@@ -52,12 +52,12 @@ import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.channel.ChannelRegistry;
+import org.traffichunter.titan.core.channel.ChannelRegistry;
 import org.traffichunter.titan.dispatch.AggregationResult;
 
 @ExtendWith(MockitoExtension.class)

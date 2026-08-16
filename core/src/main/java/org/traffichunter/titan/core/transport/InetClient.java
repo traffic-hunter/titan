@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.NewIONetChannel;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.net.TlsContext;
 import org.traffichunter.titan.core.net.TlsHandler;
 import org.traffichunter.titan.core.net.TlsSide;

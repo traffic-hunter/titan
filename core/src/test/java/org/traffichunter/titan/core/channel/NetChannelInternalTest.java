@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.channel;
 
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.net.InetSocketAddress;

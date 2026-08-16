@@ -21,33 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.util.concurrent;
 
 /**
- * Runtime exception used for promise state and composition failures.
+ * Completion callback for a {@link Promise}.
+ *
+ * <p>Listeners are invoked by the promise's owning event loop. Implementations should keep
+ * callbacks lightweight because they run in the same execution lane as channel I/O callbacks.
+ * Do not run blocking code here.</p>
  *
  * @author yungwang-o
  */
-public class PromiseException extends RuntimeException {
+@FunctionalInterface
+public interface AsyncListener<C> {
 
-    public PromiseException() {
-        super();
-    }
-
-    public PromiseException(final String message) {
-        super(message);
-    }
-
-    public PromiseException(final String message, final Throwable cause) {
-        super(message, cause);
-    }
-
-    public PromiseException(final Throwable cause) {
-        super(cause);
-    }
-
-    protected PromiseException(final String message, final Throwable cause, final boolean enableSuppression,
-                               final boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+    /**
+     * Handles completion of the given promise on its owning event loop.
+     *
+     * <p>Do not run blocking code in this callback.</p>
+     */
+    void onComplete(Promise<C> promise);
 }

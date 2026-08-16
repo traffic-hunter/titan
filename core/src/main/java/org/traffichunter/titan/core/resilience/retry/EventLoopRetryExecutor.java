@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.resilience.retry;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.channel.TaskEventLoop;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 
 import java.time.Duration;
 import java.util.concurrent.Callable;

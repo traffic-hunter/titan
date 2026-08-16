@@ -23,8 +23,8 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.io.IOException;

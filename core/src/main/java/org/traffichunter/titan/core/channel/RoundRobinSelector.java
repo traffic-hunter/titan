@@ -21,24 +21,43 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.channel;
+
+import org.jspecify.annotations.NullUnmarked;
+
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Completion callback for a {@link Promise}.
+ * Round-robin selector that keeps only cursor state.
  *
- * <p>Listeners are invoked by the promise's owning event loop. Implementations should keep
- * callbacks lightweight because they run in the same execution lane as channel I/O callbacks.
- * Do not run blocking code here.</p>
+ * <p>Candidates are supplied by the caller on each selection so the selector can be reused
+ * with dynamic registries without owning their storage.</p>
  *
- * @author yungwang-o
+ * @author yun
  */
-@FunctionalInterface
-public interface AsyncListener<C> {
+@NullUnmarked
+public class RoundRobinSelector<E> implements Selector<E> {
 
-    /**
-     * Handles completion of the given promise on its owning event loop.
-     *
-     * <p>Do not run blocking code in this callback.</p>
-     */
-    void onComplete(Promise<C> promise);
+    private final AtomicInteger counter = new AtomicInteger();
+
+    @Override
+    public E next(List<E> candidates) {
+        if (candidates.isEmpty()) {
+            throw new NoSuchElementException("No more elements");
+        }
+
+        int index = adjustSignedArrayIndex(counter.getAndIncrement(), candidates.size());
+        E candidate = candidates.get(index);
+        if (candidate == null) {
+            throw new NoSuchElementException("No more elements");
+        }
+
+        return candidate;
+    }
+
+    private static int adjustSignedArrayIndex(final int idx, final int size) {
+        return (idx & Integer.MAX_VALUE) % size;
+    }
 }

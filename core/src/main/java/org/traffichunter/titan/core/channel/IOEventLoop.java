@@ -23,7 +23,7 @@
  */
 package org.traffichunter.titan.core.channel;
 
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 /**
  * Event loop that owns an {@link IOSelector}.

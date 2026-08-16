@@ -21,43 +21,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.selector;
-
-import org.jspecify.annotations.NullUnmarked;
-
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicInteger;
+package org.traffichunter.titan.core.util.concurrent;
 
 /**
- * Round-robin selector that keeps only cursor state.
+ * Runtime exception used for promise state and composition failures.
  *
- * <p>Candidates are supplied by the caller on each selection so the selector can be reused
- * with dynamic registries without owning their storage.</p>
- *
- * @author yun
+ * @author yungwang-o
  */
-@NullUnmarked
-public class RoundRobinSelector<E> implements Selector<E> {
+public class PromiseException extends RuntimeException {
 
-    private final AtomicInteger counter = new AtomicInteger();
-
-    @Override
-    public E next(List<E> candidates) {
-        if (candidates.isEmpty()) {
-            throw new NoSuchElementException("No more elements");
-        }
-
-        int index = adjustSignedArrayIndex(counter.getAndIncrement(), candidates.size());
-        E candidate = candidates.get(index);
-        if (candidate == null) {
-            throw new NoSuchElementException("No more elements");
-        }
-
-        return candidate;
+    public PromiseException() {
+        super();
     }
 
-    private static int adjustSignedArrayIndex(final int idx, final int size) {
-        return (idx & Integer.MAX_VALUE) % size;
+    public PromiseException(final String message) {
+        super(message);
+    }
+
+    public PromiseException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public PromiseException(final Throwable cause) {
+        super(cause);
+    }
+
+    protected PromiseException(final String message, final Throwable cause, final boolean enableSuppression,
+                               final boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
     }
 }

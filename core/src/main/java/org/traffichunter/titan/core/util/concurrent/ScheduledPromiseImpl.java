@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.util.concurrent;
 
 import io.netty.util.internal.DefaultPriorityQueue;
 import java.util.concurrent.Callable;

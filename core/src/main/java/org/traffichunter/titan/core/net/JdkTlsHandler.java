@@ -28,8 +28,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.buffer.Buffers;
 

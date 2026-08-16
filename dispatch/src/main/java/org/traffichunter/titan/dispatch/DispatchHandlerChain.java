@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.util.channel.chain.AbstractLinkedHandlerChain;
-import org.traffichunter.titan.core.util.channel.chain.LinkedNode;
+import org.traffichunter.titan.core.channel.AbstractLinkedHandlerChain;
+import org.traffichunter.titan.core.channel.LinkedNode;
 
 /**
  * Asynchronous linked handler chain for message dispatch work.

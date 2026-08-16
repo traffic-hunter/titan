@@ -30,9 +30,9 @@ import org.traffichunter.titan.core.channel.ChannelDuplexHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
-import org.traffichunter.titan.core.concurrent.ChannelPromise;
-import org.traffichunter.titan.core.concurrent.Promise;
-import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import javax.net.ssl.SSLEngine;

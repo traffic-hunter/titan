@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.channel.websocket;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameException;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrames;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**

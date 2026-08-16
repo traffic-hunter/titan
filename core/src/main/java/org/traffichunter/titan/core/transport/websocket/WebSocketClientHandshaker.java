@@ -26,7 +26,7 @@ package org.traffichunter.titan.core.transport.websocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.net.HttpRequest;
 import org.traffichunter.titan.core.util.IdGenerator;

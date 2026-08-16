@@ -31,8 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.concurrent.AdvancedThreadPoolExecutor;
-import org.traffichunter.titan.core.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 
 /**
  * Base event-loop implementation backed by a single-thread executor.

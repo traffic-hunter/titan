@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.concurrent;
+package org.traffichunter.titan.core.util.concurrent;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
@@ -34,8 +34,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.util.concurrent.EventExecutor;
-
 /**
  * Event-loop-backed asynchronous result.
  *
