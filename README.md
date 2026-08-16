@@ -8,27 +8,80 @@
 [![Maven Central](https://img.shields.io/maven-central/v/org.traffichunter.titan/titan-stomp)](https://central.sonatype.com/artifact/org.traffichunter.titan/titan-stomp)
 [![CI](https://github.com/traffic-hunter/titan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/traffic-hunter/titan/actions/workflows/ci.yml)
 
-Titan is a lightweight message dispatch platform focused on STOMP over TCP and
-WebSocket.
-It provides a custom NIO transport, destination routing, fanout delivery, and
-Spring Boot client integration.
+Titan is a lightweight message dispatch platform for real-time STOMP messaging
+over TCP, WebSocket, and TLS. It provides an in-memory destination queue,
+fanout delivery, reconnecting Java clients, Spring Boot integration, and local
+runtime monitoring in a standalone JVM process.
 
-## Highlights
+Use Titan for notifications, chat-style messaging, telemetry fanout, and live
+interaction backends where messages can be handled in memory. Titan is not an
+in-process event bus or a durable broker replacement.
 
-- STOMP over TCP server and client.
-- STOMP over WebSocket for native, Vert.x, and Spring clients.
-- Transport-neutral `TitanClient` facade with reconnect and subscription recovery.
-- TLS transport support through PKCS12 or JKS key stores.
-- Exact destination matching with one FIFO dispatcher queue per destination.
-- Fanout delivery for publish-subscribe scenarios.
-- Pluggable runtime through SPI.
-- Local HTTP monitoring API with a terminal-first CLI.
-- Spring Boot integration with `TitanTemplate` and `@TitanListener`.
+## Why Titan?
 
-Titan is best suited for real-time, in-memory dispatch scenarios such as
-notifications, chat-style messaging, telemetry fanout, and live interaction
-backends. It is not an in-process event bus and is not currently positioned as a
-durable queue/broker replacement.
+- **STOMP without a large broker stack.** Run a standalone JAR and connect using
+  TCP or WebSocket.
+- **One client API.** `TitanClient` hides the native and Vert.x implementations
+  behind the same messaging contract.
+- **Connection recovery.** The client reconnects after an unexpected disconnect
+  and restores active subscriptions.
+- **Spring-native usage.** Send with `TitanTemplate` and receive with
+  `@TitanListener`.
+- **Built-in visibility.** Inspect JVM and destination queue state through the
+  local monitor API or terminal CLI.
+
+Choose Titan when lightweight, in-memory STOMP dispatch is the goal. Choose a
+durable broker such as Kafka or RabbitMQ when persistence, replicated logs,
+clustering, or guaranteed recovery across server restarts is required.
+
+## Quick Start
+
+### 1. Download the server
+
+Titan requires JDK 21 or newer. Download the standalone JAR from
+[GitHub Releases](https://github.com/traffic-hunter/titan/releases), or use:
+
+```bash
+curl -LO https://github.com/traffic-hunter/titan/releases/download/0.8.0/titan-server-0.8.0.jar
+```
+
+### 2. Create `titan-env.yml`
+
+```yaml
+titan:
+  monitor:
+    enabled: true
+    host: 127.0.0.1
+    port: 7777
+  servers:
+    - name: stomp-dispatch
+      protocol: stomp
+      host: 0.0.0.0
+      port: 61613
+      protocol-options:
+        supported-versions: "1.2"
+        fanout-mode: "virtual"
+```
+
+### 3. Start Titan
+
+```bash
+java -Dtitan.environment.path=./titan-env.yml \
+  -jar titan-server-0.8.0.jar
+```
+
+The STOMP server now listens on `localhost:61613`. Verify the node through the
+monitor endpoint:
+
+```bash
+curl http://localhost:7777/titan/monitor/health
+curl http://localhost:7777/titan/monitor/snapshot
+```
+
+Continue with the [Java client](./docs/examples/client.md) or
+[Spring Boot client](./docs/examples/spring-client.md) to subscribe and send a
+message. The complete walkthrough is available in the
+[Quickstart guide](./docs/quickstart.md).
 
 ## Installation
 
@@ -40,54 +93,89 @@ repositories {
 }
 ```
 
-Spring client:
+For a Spring Boot application:
 
 ```kotlin
 implementation("org.traffichunter.titan:titan-spring-client:0.8.0")
 ```
 
-Standalone Java client:
+For a standalone Java client:
 
 ```kotlin
 implementation("org.traffichunter.titan:titan-client:0.8.0")
 ```
 
-STOMP server and low-level transport APIs:
+Low-level server and extension artifacts:
 
-```kotlin
-implementation("org.traffichunter.titan:titan-stomp:0.8.0")
+| Artifact | Purpose |
+| --- | --- |
+| `titan-stomp` | STOMP server and low-level transport APIs |
+| `titan-dispatch` | Destination routing and fanout delivery |
+| `titan-monitor` | Local HTTP monitoring server |
+| `titan-bootstrap` | Standalone runtime bootstrap |
+| `titan-core` | Core transport and runtime primitives |
+
+Use the same `0.8.0` version for each artifact. The native client is selected
+by default; call `implementation(TitanClient.Implementation.VERTX)` on the
+client builder to select Vert.x without changing the messaging API.
+
+## Basic Commands
+
+```bash
+# Start the standalone server
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.8.0.jar
+
+# Check health and inspect a snapshot
+curl http://localhost:7777/titan/monitor/health
+curl http://localhost:7777/titan/monitor/snapshot
+
+# Build and test from source
+./gradlew build
+./gradlew test
+
+# Build the standalone server JAR from source
+./gradlew :bootstrap:shadowJar
 ```
 
-Fanout support:
+Prebuilt releases also contain the terminal monitor CLI:
 
-```kotlin
-implementation("org.traffichunter.titan:titan-dispatch:0.8.0")
+```bash
+tar -xzf titan-cli-0.8.0-linux-amd64.tar.gz
+./titan --addr http://localhost:7777
+./titan --addr http://localhost:7777 --view queues
+./titan --addr http://localhost:7777 queue list
 ```
 
-Monitoring support:
+See [Monitoring and CLI](./docs/operate/monitoring.md) for queue management,
+authentication, and platform-specific archives.
 
-```kotlin
-implementation("org.traffichunter.titan:titan-monitor:0.8.0")
-```
+## Documentation
 
-Bootstrap/runtime support:
+- [Quickstart](./docs/quickstart.md)
+- [How Titan works](./docs/concepts/how-titan-works.md)
+- [Java client](./docs/examples/client.md)
+- [Spring Boot client](./docs/examples/spring-client.md)
+- [Server embedding](./docs/examples/server.md)
+- [Configuration, WebSocket, and TLS](./docs/reference/configuration.md)
+- [Monitoring and CLI](./docs/operate/monitoring.md)
 
-```kotlin
-implementation("org.traffichunter.titan:titan-bootstrap:0.8.0")
-implementation("org.traffichunter.titan:titan-core:0.8.0")
-```
+## Support
 
-The native implementation is selected by default. Use
-`implementation(TitanClient.Implementation.VERTX)` to select Vert.x without
-changing the messaging API. After an unexpected connection loss, the client
-uses its configured reconnect policy and restores active subscriptions before
-reporting itself as connected again.
+- Report bugs and request features through
+  [GitHub Issues](https://github.com/traffic-hunter/titan/issues).
+- Use an issue to discuss a proposed contribution before starting a large
+  change.
+- Check existing issues and documentation before opening a new report. Include
+  the Titan version, JDK version, transport, configuration, and relevant logs
+  when reporting a runtime problem.
 
-## Examples
+## Project Scope
 
-- [Spring client usage](./docs/examples/spring-client.md)
-- [Java client usage](./docs/examples/client.md)
-- [Server usage](./docs/examples/server.md)
+- STOMP over TCP and WebSocket is the primary protocol surface.
+- Dispatch and fanout state is currently held in memory.
+- Monitoring focuses on local JVM, channel, and destination queue visibility.
+- Durable storage, clustering, and replicated delivery are not current runtime
+  guarantees.
 
 ## Development
 
@@ -97,31 +185,13 @@ Requirements:
 - Gradle wrapper (`./gradlew`)
 - Go 1.22+ for `titan-cli`
 
-Run tests:
-
-```bash
-./gradlew test
-```
-
-Run smoke tests:
+Run the smoke suites separately when changing transport or Spring lifecycle
+behavior:
 
 ```bash
 ./gradlew :smoke-test:smoke-spring:test
 ./gradlew :smoke-test:smoke-titan:test
 ```
-
-Build the standalone server jar:
-
-```bash
-./gradlew :bootstrap:shadowJar
-```
-
-## Scope
-
-- Primary production focus is STOMP over TCP and WebSocket.
-- Titan is a networked dispatch/fanout runtime, not an in-process event bus.
-- Reliability strategies such as nack/retry/error-policy in Spring listener container are still evolving.
-- Monitoring currently focuses on local JVM and dispatcher queue visibility.
 
 ## Contributors
 
