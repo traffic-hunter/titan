@@ -54,8 +54,8 @@ One compact runtime for live messages, fanout, and operational visibility.
 {% column width="60%" %}
 ### Build
 
-Run from `titan-env.yml`, embed the STOMP server, or connect with the native
-Java and Spring Boot clients.
+Run from `titan-env.yml`, embed the STOMP server, or connect through the
+transport-neutral `TitanClient` facade and Spring Boot integration.
 
 ### Route
 

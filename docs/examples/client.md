@@ -59,9 +59,54 @@ public class TitanClientExample {
 }
 ```
 
-The builder is the public configuration surface for both Titan's native client and the Vert.x
-implementation. Keep the client for its full lifecycle and shut it down when it is no longer
-needed.
+The builder is the public configuration surface for both Titan's native client
+and the Vert.x implementation. Keep one client for its full application
+lifecycle and shut it down when it is no longer needed.
+
+## Select An Implementation
+
+The native implementation is selected by default. Applications can select the
+Vert.x driver without exposing a different client type:
+
+```java
+TitanClient client = TitanClient.builder()
+        .implementation(TitanClient.Implementation.VERTX)
+        .host("127.0.0.1")
+        .port(61613)
+        .build();
+```
+
+All send, subscribe, acknowledgement, and lifecycle operations remain on
+`TitanClient`. Titan's `TlsContext` is currently supported only by the native
+implementation.
+
+## Configure Reconnection
+
+The facade keeps logical subscription metadata so active subscriptions can be
+restored after an unexpected connection loss. Configure the retry timing on the
+builder:
+
+```java
+import java.time.Duration;
+import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
+
+TitanClient client = TitanClient.builder()
+        .host("127.0.0.1")
+        .port(61613)
+        .connectTimeout(Duration.ofSeconds(5))
+        .reconnect(RetryPolicy.exponentialWithJitter(
+                RetryPolicy.UNLIMITED_ATTEMPTS,
+                Duration.ofSeconds(1),
+                Duration.ofSeconds(30),
+                2
+        ))
+        .build();
+```
+
+Use `connectionDroppedHandler`, `errorHandler`, and `exceptionHandler` when the
+application needs lifecycle or failure notifications. A graceful
+`disconnect()` does not trigger unexpected-loss recovery; `shutdown(...)`
+stops reconnect work and releases the client runtime.
 
 ## Asynchronous Send
 

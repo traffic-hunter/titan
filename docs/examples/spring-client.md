@@ -49,22 +49,17 @@ spring:
     connect-timeout-millis: 30000
     heartbeat-x: 1000
     heartbeat-y: 1000
-    retry:
-      enabled: false
-      type: exp # fix or exp
-      max-attempts: 3
-      delay: 1s
-      max-delay: 30s
-      multiplier: 2
-    reconnect:
-      enabled: true
 ```
+
+`spring.titan.endpoint` is the preferred connection setting. It accepts
+`tcp://host:port`, `ws://host:port/path`, and `wss://host:port/path` and takes
+precedence over the legacy host, port, transport, and WebSocket path properties.
 
 ## Send Messages
 
 ```java
 import org.springframework.stereotype.Service;
-import org.traffichunter.titan.springframework.stomp.TitanTemplate;
+import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 
 @Service
 public class NotificationPublisher {
@@ -84,10 +79,11 @@ public class NotificationPublisher {
 ## Send Messages Asynchronously
 
 ```java
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.stereotype.Service;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.springframework.stomp.TitanTemplate;
+import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 
 @Service
 public class AsyncNotificationPublisher {
@@ -98,8 +94,8 @@ public class AsyncNotificationPublisher {
         this.titanTemplate = titanTemplate;
     }
 
-    public Future<StompFrames> publish(String payload) throws Exception {
-        return titanTemplate.async().send("/notifications", payload);
+    public CompletableFuture<StompFrames> publish(String payload) {
+        return titanTemplate.send("/notifications", Buffer.heap().alloc(payload));
     }
 }
 ```
@@ -120,9 +116,10 @@ public class NotificationListener {
 }
 ```
 
-Use `TitanTemplate` for imperative send/subscribe operations and
-`TitanTemplate.async()` when the caller wants a `Future`. Use `@TitanListener`
-for annotation-driven message handling.
+`TitanTemplate` implements the asynchronous `StompOperations` contract directly.
+Operations accepting a Titan `Buffer` return `CompletableFuture`; the String,
+byte-array, and `ByteBuffer` send overloads are blocking conveniences. Use
+`@TitanListener` for annotation-driven message handling.
 
 ## Lifecycle And Acknowledgement
 
@@ -139,14 +136,10 @@ and connects the client before resolving operations.
 successfully. If listener invocation fails, the configured error handler is
 called and the frame is negatively acknowledged when a `message-id` header is
 available.
+When the endpoint property is absent,
 `spring.titan.transport=websocket` upgrades the selected client connection at
-`spring.titan.websocket-path`. The host and port continue to come from
+`spring.titan.websocket-path`. The host and port then come from
 `spring.titan.host` and `spring.titan.port`.
-
-`spring.titan.endpoint` is the preferred connection setting and accepts
-`tcp://host:port`, `ws://host:port/path`, or `wss://host:port/path`. When present, it takes precedence
-over the separate host, port, transport, and WebSocket path properties. The
-legacy properties remain available for compatibility.
 
 ## TLS With PKCS12
 

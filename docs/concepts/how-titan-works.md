@@ -18,10 +18,18 @@ Transport → Channel pipeline → Destination routing → Subscriber
 2. `TitanApplication` discovers protocol and transport engines with
    `ServiceLoader`.
 3. Each configured server binds its network transport.
-4. Optional launchers attach fanout and monitoring behavior.
+4. Optional launchers attach dispatch and monitoring behavior.
 
 This separation lets the bootstrap layer assemble a runtime without coupling
 the core event loop and channel primitives to a single protocol.
+
+## Client facade
+
+Applications connect through `TitanClient`. The facade owns lifecycle,
+connection recovery, and logical subscriptions while a hidden driver performs
+native Titan or Vert.x transport work. This keeps application code independent
+from the selected networking implementation and allows active subscriptions to
+be restored after an unexpected disconnect.
 
 ## Message path
 

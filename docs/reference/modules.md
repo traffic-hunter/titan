@@ -6,8 +6,9 @@ runtime layers they actually use.
 | Artifact | Responsibility |
 | --- | --- |
 | `titan-bootstrap` | Environment loading and runtime startup |
-| `titan-core` | Event loops, channels, TCP/WebSocket/TLS transport, dispatch, and concurrency primitives |
-| `titan-stomp` | STOMP codec, TCP/WebSocket server, clients, and engine integration |
+| `titan-core` | Event loops, channels, TCP/WebSocket/TLS transport, and concurrency primitives |
+| `titan-stomp` | STOMP codec, TCP/WebSocket server, and low-level client drivers |
+| `titan-client` | Transport-neutral `TitanClient` facade for native and Vert.x clients |
 | `titan-dispatch` | Routing, queue management, and one-to-many dispatch gateways and exporters |
 | `titan-monitor` | JVM and dispatcher monitoring snapshots and HTTP endpoints |
 | `titan-spring-client` | Spring Boot auto-configuration, `TitanTemplate`, and `@TitanListener` |
@@ -20,10 +21,11 @@ repositories {
 }
 
 dependencies {
-    implementation("org.traffichunter.titan:titan-stomp:0.8.0")
+    implementation("org.traffichunter.titan:titan-client:0.8.0")
 }
 ```
 
-Replace the artifact name with the module required by your application. A
-standalone distribution typically combines bootstrap, core, STOMP, and the
-optional fanout and monitoring modules.
+Applications should normally depend on `titan-client` or
+`titan-spring-client`. Use `titan-stomp` when embedding a server or working with
+the low-level protocol surface. The standalone distribution combines bootstrap,
+core, STOMP, dispatch, and monitoring modules.
