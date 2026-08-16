@@ -426,7 +426,7 @@ public class StompClientTcpChannel implements StompClientChannel {
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
         if (!eventLoop().inEventLoop()) {
-            eventLoop().register(() -> send(frame, receiptPromise));
+            eventLoop().execute(() -> send(frame, receiptPromise));
             return;
         }
 

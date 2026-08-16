@@ -347,7 +347,7 @@ class PromiseTest {
         assertThat(result.get()).isNull();
 
         ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
-        verify(eventLoop).register(callback.capture());
+        verify(eventLoop).execute(callback.capture());
 
         given(eventLoop.inEventLoop()).willReturn(true);
         callback.getValue().run();

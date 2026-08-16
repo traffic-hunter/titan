@@ -33,14 +33,14 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Assert;
+import org.traffichunter.titan.core.util.concurrent.EventExecutor;
 
 /**
  * Default {@link Promise} implementation.
  *
  * <p>The implementation is synchronized around completion state and waiters, but listener
- * execution is always redirected to the owning {@link EventLoop}. This keeps callbacks in
+ * execution is always redirected to the owning {@link EventExecutor}. This keeps callbacks in
  * the same thread-affinity model as channel I/O and avoids running transport callbacks on
  * arbitrary caller threads.</p>
  *
@@ -50,7 +50,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     private static final Logger log = LoggerFactory.getLogger(PromiseImpl.class);
 
-    protected final EventLoop eventLoop;
+    protected final EventExecutor executor;
 
     private boolean isCompleted;
     private @Nullable C result;
@@ -61,19 +61,19 @@ public class PromiseImpl<C> implements Promise<C> {
     private int waiter;
     private boolean isCancelled;
 
-    protected PromiseImpl(EventLoop eventLoop, @Nullable Runnable task) {
-        this(eventLoop, Executors.callable(Objects.requireNonNull(task), null));
+    protected PromiseImpl(EventExecutor executor, @Nullable Runnable task) {
+        this(executor, Executors.callable(Objects.requireNonNull(task), null));
     }
 
-    protected PromiseImpl(EventLoop eventLoop, @Nullable Callable<C> task) {
-        this.eventLoop = eventLoop;
+    protected PromiseImpl(EventExecutor executor, @Nullable Callable<C> task) {
+        this.executor = executor;
         this.listeners = new ArrayList<>();
         this.task = task;
     }
 
     @Override
     public void run() {
-        if(!eventLoop.inEventLoop()) {
+        if(!executor.inEventLoop()) {
             return;
         }
 
@@ -111,7 +111,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public <R> Promise<R> map(Function<? super C, ? extends R> mapper) {
-        Promise<R> next = Promise.newPromise(eventLoop);
+        Promise<R> next = Promise.newPromise(executor);
         addListener(promise -> {
             if (!promise.isSuccess()) {
                 Throwable failure = promise.error();
@@ -136,7 +136,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     @Override
     public <R> Promise<R> thenCompose(Function<? super C, ? extends Promise<R>> mapper) {
-        Promise<R> next = Promise.newPromise(eventLoop);
+        Promise<R> next = Promise.newPromise(executor);
 
         addListener(promise -> {
             if (!promise.isSuccess()) {
@@ -365,8 +365,8 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     private void notifyListeners() {
-        if(!eventLoop.inEventLoop()) {
-            eventLoop.register(this::notifyListeners);
+        if(!executor.inEventLoop()) {
+            executor.execute(this::notifyListeners);
             return;
         }
 

@@ -76,12 +76,11 @@ public final class WorkerEventLoopGroup implements EventLoopGroup<TaskEventLoop>
     }
 
     @Override
-    public void register(Runnable task) {
-        next().register(task);
+    public void execute(Runnable task) {
+        next().execute(task);
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Promise<Void> submit(Runnable task) {
         return next().submit(task);
     }

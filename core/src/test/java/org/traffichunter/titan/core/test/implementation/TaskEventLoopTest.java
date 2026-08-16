@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.awaitility.Awaitility;
@@ -43,13 +44,13 @@ class TaskEventLoopTest {
             AtomicInteger count = new AtomicInteger();
 
             RunnableTask runnableTask1 = new RunnableTask(count);
-            eventLoop.register(runnableTask1);
+            eventLoop.execute(runnableTask1);
 
             RunnableTask runnableTask2 = new RunnableTask(count);
-            eventLoop.register(runnableTask2);
+            eventLoop.execute(runnableTask2);
 
             RunnableTask runnableTask3 = new RunnableTask(count);
-            eventLoop.register(runnableTask3);
+            eventLoop.execute(runnableTask3);
 
             Awaitility.await().atMost(5, TimeUnit.SECONDS)
                     .until(() -> runnableTask1.isDone && runnableTask2.isDone && runnableTask3.isDone);
@@ -57,6 +58,19 @@ class TaskEventLoopTest {
             assertThat(runnableTask1.value).isEqualTo(1);
             assertThat(runnableTask2.value).isEqualTo(2);
             assertThat(runnableTask3.value).isEqualTo(3);
+        }
+
+        @Test
+        void execute_task_through_jdk_executor_contract() throws InterruptedException {
+            Executor executor = eventLoop;
+            CountDownLatch executed = new CountDownLatch(1);
+
+            executor.execute(() -> {
+                assertThat(eventLoop.inEventLoop()).isTrue();
+                executed.countDown();
+            });
+
+            assertThat(executed.await(3, TimeUnit.SECONDS)).isTrue();
         }
 
         @Test
@@ -211,10 +225,10 @@ class TaskEventLoopTest {
             eventLoop.start();
 
             DelayRunnableTask task1 = new DelayRunnableTask(100);
-            eventLoop.register(task1);
+            eventLoop.execute(task1);
 
             DelayRunnableTask task2 = new DelayRunnableTask(200);
-            eventLoop.register(task2);
+            eventLoop.execute(task2);
 
             eventLoop.gracefullyShutdown(300, TimeUnit.MILLISECONDS);
 

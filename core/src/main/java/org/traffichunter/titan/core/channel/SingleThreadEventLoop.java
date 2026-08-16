@@ -76,7 +76,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             return;
         }
 
-        execute(() -> {
+        executeEventLoop(() -> {
             thread = Thread.currentThread();
 
             try {
@@ -217,19 +217,15 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         shutdownTimeoutNanos = unit.toNanos(timeout);
     }
 
-    @Override
-    public void register(final Runnable task) {
-        addTask(task);
-    }
-
     public void removeScheduledTask(final ScheduledPromise<?> scheduledTask) {
         if(inEventLoop()) {
             scheduleQueue.removeTyped(scheduledTask);
         } else {
-            register(() -> scheduleQueue.removeTyped(scheduledTask));
+            execute(() -> scheduleQueue.removeTyped(scheduledTask));
         }
     }
 
+    @Override
     protected void addTask(final Runnable task) {
         if(isShuttingDown()) {
             throw new RejectedExecutionException("Event loop is shutdown!!");
@@ -318,7 +314,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         final long taskId = this.taskId.incrementAndGet();
 
         if(!inEventLoop()) {
-            register(scheduledTask);
+            execute(scheduledTask);
             return scheduledTask;
         }
 

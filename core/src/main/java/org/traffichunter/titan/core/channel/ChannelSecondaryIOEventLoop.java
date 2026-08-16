@@ -54,11 +54,6 @@ public class ChannelSecondaryIOEventLoop extends SingleThreadIOEventLoop {
     }
 
     @Override
-    public void register(final Runnable runnable) {
-        addTask(runnable);
-    }
-
-    @Override
     protected void processIO(final Set<SelectionKey> keySet) {
         Iterator<SelectionKey> iter = keySet.iterator();
         while (iter.hasNext()) {

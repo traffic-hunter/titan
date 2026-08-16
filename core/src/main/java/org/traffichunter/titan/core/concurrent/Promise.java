@@ -34,34 +34,34 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.channel.EventLoop;
+import org.traffichunter.titan.core.util.concurrent.EventExecutor;
 
 /**
  * Event-loop-backed asynchronous result.
  *
  * <p>A promise is both a {@link RunnableFuture} and a {@link Completable}. Event loops submit
  * promises as runnable tasks, while transport code can also complete them manually when an I/O
- * event happens later. Listener notification is serialized through the owning {@link EventLoop}.
+ * event happens later. Listener notification is serialized through the owning {@link EventExecutor}.
  * Promise callbacks should not run blocking code.</p>
  *
  * @author yungwang-o
  */
 public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
-    static <C> Promise<C> newPromise(EventLoop eventLoop) {
-        return new PromiseImpl<>(eventLoop, () -> {});
+    static <C> Promise<C> newPromise(EventExecutor executor) {
+        return new PromiseImpl<>(executor, () -> {});
     }
 
-    static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Runnable task) {
-        return new PromiseImpl<>(eventLoop, task);
+    static <C> Promise<C> newPromise(EventExecutor executor, @Nullable Runnable task) {
+        return new PromiseImpl<>(executor, task);
     }
 
-    static <C> Promise<C> newPromise(EventLoop eventLoop, @Nullable Callable<C> task) {
-        return new PromiseImpl<>(eventLoop, task);
+    static <C> Promise<C> newPromise(EventExecutor executor, @Nullable Callable<C> task) {
+        return new PromiseImpl<>(executor, task);
     }
 
-    static <C> Promise<C> failedPromise(EventLoop eventLoop, Throwable err) {
-        Promise<C> failedPromise = Promise.newPromise(eventLoop, () -> null);
+    static <C> Promise<C> failedPromise(EventExecutor executor, Throwable err) {
+        Promise<C> failedPromise = Promise.newPromise(executor, () -> null);
         failedPromise.fail(err);
         return failedPromise;
     }

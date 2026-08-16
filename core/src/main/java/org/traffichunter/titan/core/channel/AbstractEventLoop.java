@@ -107,18 +107,35 @@ public abstract class AbstractEventLoop extends ThreadPoolExecutor implements Ev
         }
     }
 
+    /**
+     * Routes external executor submissions through the event-loop task queue.
+     */
     @Override
-    @SuppressWarnings("unchecked")
+    public final void execute(Runnable task) {
+        addTask(task);
+    }
+
+    /**
+     * Starts the long-running event-loop body on the backing executor thread.
+     *
+     * <p>This is intentionally separate from {@link #execute(Runnable)} because regular
+     * tasks must be consumed from the event-loop task queue.</p>
+     */
+    protected final void executeEventLoop(Runnable task) {
+        super.execute(task);
+    }
+
+    @Override
     public Promise<Void> submit(final Runnable task) {
         Promise<Void> promise = Promise.newPromise(this, task);
-        register(promise);
+        execute(promise);
         return promise;
     }
 
     @Override
     public <T> Promise<T> submit(final Callable<T> task) {
         Promise<T> promise = Promise.newPromise(this, task);
-        register(promise);
+        execute(promise);
         return promise;
     }
 
@@ -127,10 +144,7 @@ public abstract class AbstractEventLoop extends ThreadPoolExecutor implements Ev
         super.close();
     }
 
-    @Override
-    public void register(final Runnable task) {
-        throw new UnsupportedOperationException();
-    }
+    protected abstract void addTask(Runnable task);
 
     @Override
     public boolean isNotStarted() {

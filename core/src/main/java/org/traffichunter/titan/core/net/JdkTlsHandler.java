@@ -177,7 +177,7 @@ class JdkTlsHandler extends TlsHandler {
             ChannelPromise result,
             @Nullable Throwable taskFailure
     ) {
-        channel.eventLoop().register(() -> {
+        channel.eventLoop().execute(() -> {
             delegatedTaskRunning = false;
 
             if (taskFailure != null) {

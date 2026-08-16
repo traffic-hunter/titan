@@ -284,7 +284,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             }
 
             ChannelPrimaryIOEventLoop eventLoop = groups().primaryGroup().next();
-            eventLoop.register(() -> {
+            eventLoop.execute(() -> {
                 try {
                     eventLoop.ioSelector().registerAccept(channel);
                     log.info("InetServer listen ready. session={}, address={}", channel.session(), address);
@@ -363,7 +363,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
 
             // Accepted sockets must move to a secondary loop before reads are registered.
             ChannelSecondaryIOEventLoop loop = secondaryGroup.next();
-            loop.register(() -> {
+            loop.execute(() -> {
                 try {
                     loop.ioSelector().registerRead(netChannel);
                     loop.register(netChannel);

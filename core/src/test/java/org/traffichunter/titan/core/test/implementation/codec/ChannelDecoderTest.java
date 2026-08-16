@@ -88,7 +88,7 @@ class ChannelDecoderTest {
         doAnswer(invocation -> {
             cleanup.set(invocation.getArgument(0));
             return null;
-        }).when(eventLoop).register(any(Runnable.class));
+        }).when(eventLoop).execute(any(Runnable.class));
 
         InMemoryNetChannel channel = new InMemoryNetChannel();
         channel.register(eventLoop, mock(ChannelPromise.class));

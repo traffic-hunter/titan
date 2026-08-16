@@ -40,6 +40,6 @@ public final class TlsTaskEventLoopExecutor implements TlsTaskExecutor {
 
     @Override
     public void execute(Runnable command) {
-        workerGroup.register(command);
+        workerGroup.execute(command);
     }
 }

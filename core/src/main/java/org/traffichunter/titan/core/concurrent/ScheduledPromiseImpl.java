@@ -37,13 +37,14 @@ import org.traffichunter.titan.core.util.Time;
  * Default scheduled promise implementation.
  *
  * <p>A one-shot scheduled promise completes through {@link PromiseImpl#run()}. A periodic
- * scheduled promise executes its task, computes the next deadline, and re-registers itself
+ * scheduled promise executes its task, computes the next deadline, and re-enqueues itself
  * with the owning event loop until it is cancelled or the event loop shuts down.</p>
  *
  * @author yungwang-o
  */
 public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements ScheduledPromise<C> {
 
+    private final EventLoop eventLoop;
     private long id;
     private long deadlineNanos;
     private int queueIndex = INDEX_NOT_IN_QUEUE;
@@ -54,6 +55,7 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
                                 final long deadlineNanos,
                                 final long period) {
         super(eventLoop, task);
+        this.eventLoop = eventLoop;
         Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
         this.deadlineNanos = deadlineNanos;
         this.periodNanos = period;
@@ -61,6 +63,7 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
 
     public ScheduledPromiseImpl(final EventLoop eventLoop, final Runnable task, long deadlineNanos) {
         super(eventLoop, task);
+        this.eventLoop = eventLoop;
         Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
         this.deadlineNanos = deadlineNanos;
         this.periodNanos = 0;
@@ -68,6 +71,7 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
 
     public ScheduledPromiseImpl(final EventLoop eventLoop, final Callable<C> task, long deadlineNanos) {
         super(eventLoop, task);
+        this.eventLoop = eventLoop;
         Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
         this.deadlineNanos = deadlineNanos;
         this.periodNanos = 0;
@@ -107,7 +111,7 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
             deadlineNanos = ScheduledPromise.calculateDeadlineNanos(-periodNanos);
         }
 
-        eventLoop.register(this);
+        eventLoop.execute(this);
     }
 
     @Override

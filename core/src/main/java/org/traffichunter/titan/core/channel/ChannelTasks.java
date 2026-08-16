@@ -80,7 +80,7 @@ final class ChannelTasks {
         if (eventLoop.inEventLoop()) {
             acceptTask.run();
         } else {
-            eventLoop.register(acceptTask);
+            eventLoop.execute(acceptTask);
         }
         return result;
     }
@@ -116,7 +116,7 @@ final class ChannelTasks {
             operation.run();
         } else {
             try {
-                eventLoop.register(operation);
+                eventLoop.execute(operation);
             } catch (Throwable error) {
                 result.fail(error);
             }

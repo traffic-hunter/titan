@@ -26,8 +26,8 @@ package org.traffichunter.titan.core.channel;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import org.traffichunter.titan.core.concurrent.Promise;
 import org.traffichunter.titan.core.concurrent.ScheduledPromise;
+import org.traffichunter.titan.core.util.concurrent.EventExecutor;
 import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
@@ -43,33 +43,12 @@ import org.traffichunter.titan.core.util.event.EventLoopConstants;
  *
  * @author yungwang-o
  */
-public interface EventLoop extends EventLoopLifeCycle {
+public interface EventLoop extends EventLoopLifeCycle, EventExecutor {
 
     /**
      * Starts the event-loop thread.
      */
     void start();
-
-    /**
-     * Enqueues a task without wrapping it in a new promise.
-     *
-     * <p>Do not run blocking code in the submitted task.</p>
-     */
-    void register(Runnable task);
-
-    /**
-     * Enqueues a task and returns a promise completed by that task.
-     *
-     * <p>Do not run blocking code in the submitted task.</p>
-     */
-    <V> Promise<V> submit(Runnable task);
-
-    /**
-     * Enqueues a callable task and returns a promise completed with its result.
-     *
-     * <p>Do not run blocking code in the submitted task.</p>
-     */
-    <V> Promise<V> submit(Callable<V> task);
 
     /**
      * Schedules a task to run once after the given delay.
@@ -98,23 +77,6 @@ public interface EventLoop extends EventLoopLifeCycle {
      * <p>Do not run blocking code in the scheduled task.</p>
      */
     <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit);
-
-    default <V> Promise<V> newPromise(Runnable task) {
-        return Promise.newPromise(this, task);
-    }
-
-    default <V> Promise<V> newPromise(Callable<V> task) {
-        return Promise.newPromise(this, task);
-    }
-
-    /**
-     * Returns whether the current thread is this event loop's owner thread.
-     */
-    default boolean inEventLoop() {
-        return inEventLoop(Thread.currentThread());
-    }
-
-    boolean inEventLoop(Thread thread);
 
     /**
      * Shuts down the event loop using the default timeout.

@@ -119,7 +119,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             connectTask.run();
         } else {
             try {
-                eventLoop().register(connectTask);
+                eventLoop().execute(connectTask);
             } catch (Throwable error) {
                 result.fail(new ChannelException("Failed to schedule connection to " + remote, error));
             }
@@ -190,7 +190,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             IOEventLoop owner = eventLoop();
             if (!owner.inEventLoop()) {
                 try {
-                    owner.register(this::close);
+                    owner.execute(this::close);
                     return;
                 } catch (RejectedExecutionException ignored) {
                     // The event loop can no longer mutate this channel, so direct cleanup is safe.
@@ -208,7 +208,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     void completeConnect() {
         if(!eventLoop().inEventLoop()) {
-            eventLoop().register(this::completeConnect);
+            eventLoop().execute(this::completeConnect);
             return;
         }
 
@@ -221,7 +221,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     void failConnect(Throwable error) {
         if(!eventLoop().inEventLoop()) {
-            eventLoop().register(() -> failConnect(error));
+            eventLoop().execute(() -> failConnect(error));
             return;
         }
 
@@ -273,7 +273,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             boolean connect = channel().connect(remote);
             if(!connect) {
                 IOEventLoop eventLoop = eventLoop();
-                eventLoop.register(() -> {
+                eventLoop.execute(() -> {
                     try {
                         eventLoop.ioSelector().registerConnect(this);
                     } catch (IOException e) {
@@ -408,7 +408,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             }
 
             try {
-                ioEventLoop.register(updateWritability);
+                ioEventLoop.execute(updateWritability);
             } catch (RejectedExecutionException e) {
                 if (!isClosed() && !ioEventLoop.isShuttingDown()) {
                     throw e;

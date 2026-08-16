@@ -168,7 +168,7 @@ public final class InMemoryNetChannel implements NetChannel {
         }
 
         try {
-            owner.register(chain::close);
+            owner.execute(chain::close);
         } catch (RejectedExecutionException e) {
             chain.close();
         }

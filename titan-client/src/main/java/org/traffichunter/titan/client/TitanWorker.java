@@ -48,7 +48,7 @@ final class TitanWorker implements Worker {
 
     @Override
     public void execute(@NonNull Runnable task) {
-        worker.register(task);
+        worker.execute(task);
     }
 
     @Override

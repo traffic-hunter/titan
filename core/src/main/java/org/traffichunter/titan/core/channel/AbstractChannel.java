@@ -120,7 +120,7 @@ public abstract class AbstractChannel implements Channel {
             registered = true;
             promise.success();
         } else {
-            eventLoop.register(() -> {
+            eventLoop.execute(() -> {
                 registered = true;
                 promise.success();
             });
@@ -205,7 +205,7 @@ public abstract class AbstractChannel implements Channel {
         }
 
         try {
-            owner.register(chain::close);
+            owner.execute(chain::close);
         } catch (RejectedExecutionException e) {
             // The owner no longer executes channel work, so direct cleanup cannot race decoding.
             chain.close();

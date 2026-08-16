@@ -97,7 +97,7 @@ public final class WebSocketChannel implements NetChannel {
         if (!eventLoop.inEventLoop()) {
             ChannelPromise result = ChannelPromise.newPromise(eventLoop, delegate);
             try {
-                eventLoop.register(() -> completeWrite(result, encoded));
+                eventLoop.execute(() -> completeWrite(result, encoded));
             } catch (Throwable error) {
                 encoded.release();
                 result.fail(error);

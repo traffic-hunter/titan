@@ -84,8 +84,8 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
-    public void register(Runnable task) {
-        selector.next(group).register(task);
+    public void execute(Runnable task) {
+        selector.next(group).execute(task);
     }
 
     @Override
@@ -93,7 +93,6 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
         return selector.next(group).ioSelector();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public Promise<Void> submit(Runnable task) {
         return selector.next(group).submit(task);
