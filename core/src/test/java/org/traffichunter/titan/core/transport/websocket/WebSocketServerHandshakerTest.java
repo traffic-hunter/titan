@@ -52,7 +52,7 @@ class WebSocketServerHandshakerTest {
             new ChannelSecondaryIOEventLoop("websocket-server-handshaker-test");
     private static final String KEY = "dGhlIHNhbXBsZSBub25jZQ==";
     private static final String ACCEPT = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=";
-    private static final String REQUEST = "GET /titan HTTP/1.1\r\n"
+    private static final String REQUEST = "GET / HTTP/1.1\r\n"
             + "Host: localhost:8080\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: keep-alive, Upgrade\r\n"
@@ -75,15 +75,15 @@ class WebSocketServerHandshakerTest {
     void parse_request_extracts_websocket_upgrade_headers() {
         HttpRequest request = new WebSocketServerHandshaker().parseRequest(REQUEST);
 
-        assertThat(request.uri()).isEqualTo("/titan");
+        assertThat(request.uri()).isEqualTo("/");
         assertThat(request.header("Sec-WebSocket-Key")).isEqualTo(KEY);
         assertThat(request.header("Sec-WebSocket-Protocol")).isEqualTo("v12.stomp");
     }
 
     @Test
     void parse_request_accepts_configured_path() {
-        HttpRequest request = new WebSocketServerHandshaker("/stomp")
-                .parseRequest(REQUEST.replace("GET /titan", "GET /stomp"));
+        HttpRequest request = new WebSocketServerHandshaker("stomp")
+                .parseRequest(REQUEST.replace("GET / ", "GET /stomp "));
 
         assertThat(request.uri()).isEqualTo("/stomp");
     }
@@ -138,7 +138,7 @@ class WebSocketServerHandshakerTest {
     void upgrade_handler_completes_when_request_arrives_fragmented() {
         UpgradeHarness harness = new UpgradeHarness();
 
-        harness.read("GET /titan HTTP/1.1\r\nHost: localhost:8080\r\n");
+        harness.read("GET / HTTP/1.1\r\nHost: localhost:8080\r\n");
         assertThat(harness.promise.isDone()).isFalse();
 
         harness.read("Upgrade: websocket\r\nConnection: keep-alive, Upgrade\r\n");

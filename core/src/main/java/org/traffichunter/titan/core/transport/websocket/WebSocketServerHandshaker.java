@@ -55,20 +55,15 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
     private static final String UPGRADE_CONNECTION = "Upgrade";
     private static final String VERSION = "13";
     private static final String STOMP_SUB_PROTOCOL = "v12.stomp";
-    private static final String DEFAULT_PATH = "/titan";
-
     private final String path;
 
     public WebSocketServerHandshaker() {
-        this(DEFAULT_PATH);
+        this(WebSocketPaths.ROOT);
     }
 
     public WebSocketServerHandshaker(String path) {
         super(STOMP_SUB_PROTOCOL, VERSION);
-        if (path.isBlank() || !path.startsWith("/")) {
-            throw new IllegalArgumentException("WebSocket path must start with '/'");
-        }
-        this.path = path;
+        this.path = WebSocketPaths.normalize(path);
     }
 
     @Override

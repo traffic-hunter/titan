@@ -19,7 +19,7 @@ class TitanPropertiesTest {
         assertEquals(TitanProperties.Client.TITAN, properties.getClient());
         assertNull(properties.getEndpoint());
         assertEquals(TitanProperties.Transport.TCP, properties.getTransport());
-        assertEquals("/stomp", properties.getWebsocketPath());
+        assertEquals("/", properties.getWebsocketPath());
         assertNull(properties.getSsl().getBundle());
         assertTrue(properties.getSsl().isVerifyHostname());
         assertEquals("127.0.0.1", properties.getHost());
@@ -48,6 +48,17 @@ class TitanPropertiesTest {
         properties.setWorker(4);
 
         assertEquals(4, properties.getWorker());
+    }
+
+    @Test
+    void normalize_websocket_path() {
+        TitanProperties properties = new TitanProperties();
+
+        properties.setWebsocketPath("stomp");
+        assertEquals("/stomp", properties.getWebsocketPath());
+
+        properties.setWebsocketPath("");
+        assertEquals("/", properties.getWebsocketPath());
     }
 
     @Test

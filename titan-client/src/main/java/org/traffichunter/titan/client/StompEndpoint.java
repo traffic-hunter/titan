@@ -67,7 +67,7 @@ public record StompEndpoint(
             if (path.isBlank()) {
                 path = "/";
             } else if (!path.startsWith("/")) {
-                throw new IllegalArgumentException("WebSocket endpoint path must start with '/'");
+                path = "/" + path;
             }
         } else if (!path.isEmpty()) {
             throw new IllegalArgumentException("TCP endpoint cannot have a path");
@@ -119,7 +119,7 @@ public record StompEndpoint(
      *
      * @param host remote host
      * @param port remote port
-     * @param path HTTP upgrade path
+     * @param path HTTP upgrade path; a leading slash is optional
      * @return WebSocket endpoint
      */
     public static StompEndpoint webSocket(String host, int port, String path) {

@@ -54,6 +54,9 @@ path:
         path: "/stomp"
 ```
 
+The path is optional and defaults to `/`. A leading slash is also optional for
+an explicitly configured path.
+
 See [Configuration](../reference/configuration.md) for TLS key-store settings.
 Custom WebSocket clients must request the `v12.stomp` subprotocol.
 

@@ -119,7 +119,7 @@ public class InetClient extends AbstractTransport<NetChannel> {
      * client connects.</p>
      *
      * @param subProtocol application protocol advertised by the WebSocket handshake
-     * @param path HTTP request path, beginning with {@code /}
+     * @param path HTTP request path; a leading slash is optional
      * @return a WebSocket transport backed by this client
      */
     @CanIgnoreReturnValue

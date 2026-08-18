@@ -93,9 +93,16 @@ public record ClientConfiguration(
         if (connectTimeout.toMillis() > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("connectTimeout must not exceed Integer.MAX_VALUE milliseconds");
         }
-        if (webSocketPath != null && (webSocketPath.isBlank() || !webSocketPath.startsWith("/"))) {
-            throw new IllegalArgumentException("WebSocket path must start with '/'");
+        if (webSocketPath != null) {
+            webSocketPath = normalizeWebSocketPath(webSocketPath);
         }
+    }
+
+    private static String normalizeWebSocketPath(String path) {
+        if (path.isBlank()) {
+            return "/";
+        }
+        return path.startsWith("/") ? path : "/" + path;
     }
 
     /** Returns the optional CONNECT login from the session settings. */

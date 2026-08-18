@@ -122,7 +122,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
     }
 
     /**
-     * Enables WebSocket upgrade handling at the default {@code /titan} path.
+     * Enables WebSocket upgrade handling at the default root path.
      *
      * <p>This setting must be applied before {@link #start()}.</p>
      */
@@ -132,7 +132,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             throw new IllegalStateException("Cannot configure WebSocket upgrade after server start");
         }
 
-        return upgradeWebSocket("/titan");
+        return upgradeWebSocket("/");
     }
 
     /**
@@ -141,7 +141,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
      * <p>The server still listens on its normal TCP socket. Each accepted connection must finish
      * the WebSocket handshake before the configured child channel handler is invoked.</p>
      *
-     * @param path HTTP request path accepted by the WebSocket handshaker
+     * @param path HTTP request path accepted by the WebSocket handshaker; a leading slash is optional
      * @return this server
      */
     @CanIgnoreReturnValue

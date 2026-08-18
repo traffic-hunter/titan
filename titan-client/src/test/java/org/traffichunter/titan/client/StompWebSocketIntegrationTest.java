@@ -44,14 +44,14 @@ class StompWebSocketIntegrationTest {
 
     @Test
     @Timeout(10)
-    void connect_stomp_client_over_websocket() throws Exception {
+    void connect_stomp_client_over_default_websocket_path() throws Exception {
         StompServer server = StompServer.open(
                 EventLoopGroups.group(1, 1),
                 StompServerOption.builder().build()
-        ).webSocket("/stomp");
+        ).webSocket("");
         TitanStompClientDriver client = new TitanStompClientDriver(
                 EventLoopGroups.group(1, 1),
-                ClientConfiguration.builder().webSocket("/stomp").build()
+                ClientConfiguration.builder().webSocket("").build()
         );
 
         try {
@@ -160,17 +160,4 @@ class StompWebSocketIntegrationTest {
         }
     }
 
-    @Test
-    void reject_invalid_websocket_paths() {
-        StompServer server = StompServer.open(
-                EventLoopGroups.group(1, 1),
-                StompServerOption.builder().build()
-        );
-        assertThatThrownBy(() -> server.webSocket("stomp"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("start with '/'");
-        assertThatThrownBy(() -> ClientConfiguration.builder().webSocket("").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("start with '/'");
-    }
 }

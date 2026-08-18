@@ -27,7 +27,7 @@ public final class TitanProperties {
 
     private Transport transport = Transport.TCP;
 
-    private String websocketPath = "/stomp";
+    private String websocketPath = "/";
 
     private final Ssl ssl = new Ssl();
 
@@ -228,7 +228,11 @@ public final class TitanProperties {
     }
 
     public void setWebsocketPath(String websocketPath) {
-        this.websocketPath = websocketPath;
+        if (websocketPath.isBlank()) {
+            this.websocketPath = "/";
+            return;
+        }
+        this.websocketPath = websocketPath.startsWith("/") ? websocketPath : "/" + websocketPath;
     }
 
     public Ssl getSsl() {

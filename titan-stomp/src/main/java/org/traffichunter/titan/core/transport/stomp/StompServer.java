@@ -94,7 +94,7 @@ public final class StompServer {
      * HTTP Upgrade handling during {@link #start()}, and the STOMP decoder receives bytes only
      * after the WebSocket handshake succeeds.</p>
      *
-     * @param path HTTP upgrade path, beginning with {@code /}
+     * @param path HTTP upgrade path; blank selects {@code /} and a leading slash is optional
      * @return this server
      */
     @CanIgnoreReturnValue
@@ -102,10 +102,7 @@ public final class StompServer {
         if (inetServer.isStarted()) {
             throw new IllegalStateException("Cannot change STOMP server transport after start");
         }
-        if (path.isBlank() || !path.startsWith("/")) {
-            throw new IllegalArgumentException("WebSocket path must start with '/'");
-        }
-        this.webSocketPath = path;
+        this.webSocketPath = path.isBlank() ? "/" : path.startsWith("/") ? path : "/" + path;
         return this;
     }
 
