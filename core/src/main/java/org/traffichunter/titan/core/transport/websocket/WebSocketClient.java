@@ -52,16 +52,13 @@ public final class WebSocketClient {
     private final ChannelRegistry<WebSocketChannel> channels = new ChannelRegistry<>();
 
     public WebSocketClient(InetClient inetClient, Protocol subProtocol) {
-        this(inetClient, subProtocol, "/titan");
+        this(inetClient, subProtocol, WebSocketPaths.ROOT);
     }
 
     public WebSocketClient(InetClient inetClient, Protocol subProtocol, String path) {
         this.inetClient = inetClient;
         this.subProtocol = subProtocol;
-        if (path.isBlank() || !path.startsWith("/")) {
-            throw new IllegalArgumentException("WebSocket path must start with '/'");
-        }
-        this.path = path;
+        this.path = WebSocketPaths.normalize(path);
     }
 
     public void start() {

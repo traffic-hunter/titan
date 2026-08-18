@@ -356,7 +356,7 @@ public interface TitanClient {
         /**
          * Selects WebSocket transport and records the HTTP upgrade path.
          *
-         * @param path absolute WebSocket endpoint path
+         * @param path WebSocket endpoint path; blank selects {@code /} and a leading slash is optional
          * @return this builder
          */
         @CanIgnoreReturnValue

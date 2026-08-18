@@ -66,6 +66,13 @@ class StompEndpointTest {
     }
 
     @Test
+    void normalize_websocket_path_without_leading_slash() {
+        StompEndpoint endpoint = StompEndpoint.webSocket("localhost", 8080, "stomp");
+
+        assertThat(endpoint.path()).isEqualTo("/stomp");
+    }
+
+    @Test
     void reject_tcp_endpoint_path() {
         assertThatThrownBy(() -> StompEndpoint.parse("tcp://localhost:61613/stomp"))
                 .isInstanceOf(IllegalArgumentException.class)

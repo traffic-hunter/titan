@@ -129,7 +129,12 @@ public class VertxStompServerEngineProvider implements NetworkServerEngineProvid
         long heartbeatX = longOption(protocolOptions, "heartbeat-x", options.getHeartbeat().getLong("x"));
         long heartbeatY = longOption(protocolOptions, "heartbeat-y", options.getHeartbeat().getLong("y"));
         List<String> supportedVersions = stringListOption(protocolOptions, options.getSupportedVersions());
-        String websocketPath = stringOption(protocolOptions, "websocket-path", options.getWebsocketPath());
+        String websocketPath = stringOption(
+                transportOptions,
+                "path",
+                stringOption(protocolOptions, "websocket-path", "/")
+        );
+        websocketPath = websocketPath.startsWith("/") ? websocketPath : "/" + websocketPath;
 
         options.setMaxHeaderLength(maxHeaderLength);
         options.setMaxHeaders(maxHeaders);

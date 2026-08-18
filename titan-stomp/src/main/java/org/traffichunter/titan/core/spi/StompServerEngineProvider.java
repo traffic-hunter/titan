@@ -81,7 +81,7 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
         InetServerOption inetOption = buildInetOption(settings.resolvedTransportOptions());
         StompServerOption stompServerOption = buildOption(settings.resolvedProtocolOptions(), inetOption);
 
-        String path = settings.resolvedTransportOptions().getOrDefault("path", "/stomp");
+        String path = settings.resolvedTransportOptions().getOrDefault("path", "/");
         InetServer inetServer = InetServer.open(groups);
         if (settings.tls().enabled()) {
             inetServer.tls(TlsContextFactory.create(settings.tls()));

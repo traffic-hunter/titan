@@ -66,6 +66,9 @@ Native and Vert.x clients use the same STOMP behavior after the WebSocket
 upgrade. Spring clients can connect with
 `spring.titan.endpoint=ws://localhost:8080/stomp`.
 Custom WebSocket clients must negotiate the `v12.stomp` subprotocol.
+When `transport-options.path` is omitted or blank, Titan uses `/`. A configured
+path may be written as either `stomp` or `/stomp`; Titan normalizes both to
+`/stomp` before the HTTP upgrade.
 
 ## TLS
 

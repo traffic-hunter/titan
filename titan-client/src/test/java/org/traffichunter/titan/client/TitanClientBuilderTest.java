@@ -134,9 +134,18 @@ class TitanClientBuilderTest {
     }
 
     @Test
-    void rejects_invalid_websocket_path_when_building_client() {
-        assertThatThrownBy(() -> TitanClient.builder().webSocket("stomp").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("WebSocket path must start with '/'");
+    void normalizes_websocket_path_when_building_client() {
+        TitanClient relativePathClient = TitanClient.builder().webSocket("stomp").build();
+        TitanClient rootPathClient = TitanClient.builder().webSocket("").build();
+
+        try {
+            assertThat(((DefaultTitanClient) relativePathClient).configuration().webSocketPath())
+                    .isEqualTo("/stomp");
+            assertThat(((DefaultTitanClient) rootPathClient).configuration().webSocketPath())
+                    .isEqualTo("/");
+        } finally {
+            relativePathClient.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
+            rootPathClient.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
+        }
     }
 }
