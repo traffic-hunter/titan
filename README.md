@@ -107,25 +107,39 @@ Released container images are available from GitHub Container Registry:
 
 ```bash
 docker pull ghcr.io/traffic-hunter/titan:latest
-docker run --rm \
+docker run --rm --name titan \
+  -p 61613:61613 \
+  -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+```
+
+The image includes a container-ready default configuration. Override it when
+you need custom server or monitor settings:
+
+```bash
+docker run --rm --name titan \
   -p 61613:61613 \
   -p 127.0.0.1:7777:7777 \
   -v "$PWD/titan-env.yml:/etc/titan/titan-env.yml:ro" \
   ghcr.io/traffic-hunter/titan:latest
 ```
 
-The terminal monitor is published as a separate image. Attach it to the
-server's Docker network and pass the monitor address:
-
-```bash
-docker run --rm -it --network titan_default \
-  ghcr.io/traffic-hunter/titan-cli:latest \
-  --addr http://titan:7777
-```
-
 The mounted configuration must bind Titan servers and the monitor endpoint to
 `0.0.0.0` so Docker can publish their ports. Pin a release tag instead of
 `latest` for production deployments.
+
+The terminal monitor is published as a separate image. Run both images on one
+Docker network when using the CLI without Compose:
+
+```bash
+docker network create titan
+docker run --detach --name titan --network titan \
+  -p 61613:61613 -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+docker run --rm -it --network titan \
+  ghcr.io/traffic-hunter/titan-cli:latest \
+  --addr http://titan:7777
+```
 
 ```kotlin
 repositories {

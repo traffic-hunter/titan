@@ -99,13 +99,17 @@ jobs:
 
           docker network create titan-ci
 
+          cleanup() {
+            docker logs titan-ci || true
+            docker rm --force titan-ci || true
+            docker network rm titan-ci || true
+          }
+          trap cleanup EXIT
+
           docker run --detach --name titan-ci --network titan-ci \
             --publish 61613:61613 \
             --publish 7777:7777 \
-            --volume "${PWD}/docker/titan-env.yml:/etc/titan/titan-env.yml:ro" \
             titan:ci
-
-          trap 'docker logs titan-ci; docker rm --force titan-ci; docker network rm titan-ci' EXIT
 
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:7777/titan/monitor/health; then

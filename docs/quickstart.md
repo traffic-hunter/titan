@@ -52,10 +52,20 @@ start Titan with:
 docker compose up --build
 ```
 
-To run a released image with your own configuration:
+To run a released image as a standalone container with its default
+configuration:
 
 ```bash
-docker run --rm \
+docker run --rm --name titan \
+  -p 61613:61613 \
+  -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+```
+
+Mount your own configuration when the defaults are not sufficient:
+
+```bash
+docker run --rm --name titan \
   -p 61613:61613 \
   -p 127.0.0.1:7777:7777 \
   -v "$PWD/titan-env.yml:/etc/titan/titan-env.yml:ro" \
@@ -69,6 +79,18 @@ Run the containerized terminal dashboard against the Compose server:
 
 ```bash
 docker compose --profile tools run --rm titan-cli
+```
+
+Without Compose, attach the server and CLI containers to the same network:
+
+```bash
+docker network create titan
+docker run --detach --name titan --network titan \
+  -p 61613:61613 -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+docker run --rm -it --network titan \
+  ghcr.io/traffic-hunter/titan-cli:latest \
+  --addr http://titan:7777
 ```
 
 ## 3. Verify the node

@@ -24,10 +24,14 @@ RUN groupadd --gid 10001 titan \
 WORKDIR /opt/titan
 
 COPY --from=builder --chown=titan:titan /workspace/titan-server.jar ./titan-server.jar
+COPY --chown=titan:titan docker/titan-env.yml /etc/titan/titan-env.yml
 
 USER titan
 
 EXPOSE 61613 7777
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+    CMD bash -c "exec 3<>/dev/tcp/127.0.0.1/7777 && printf 'GET /titan/monitor/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '200 OK' <&3"
 
 STOPSIGNAL SIGTERM
 

@@ -46,6 +46,19 @@ with:
 docker compose --profile tools run --rm titan-cli
 ```
 
+For standalone containers, place the server and CLI on the same Docker network
+and address the server by its container name:
+
+```bash
+docker network create titan
+docker run --detach --name titan --network titan \
+  -p 61613:61613 -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+docker run --rm -it --network titan \
+  ghcr.io/traffic-hunter/titan-cli:latest \
+  --addr http://titan:7777
+```
+
 Select a view or produce automation-friendly output:
 
 ```bash
