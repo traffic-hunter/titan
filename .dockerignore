@@ -1,0 +1,12 @@
+.git
+.github
+.gradle
+.idea
+.run
+.vscode
+**/build
+**/.gradle
+titan-cli/dist
+*.iml
+*.log
+.DS_Store

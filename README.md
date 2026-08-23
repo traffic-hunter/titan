@@ -78,6 +78,16 @@ curl http://localhost:7777/titan/monitor/health
 curl http://localhost:7777/titan/monitor/snapshot
 ```
 
+Alternatively, start the standalone server with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The Compose configuration exposes STOMP on `61613` and binds the monitor API
+to `127.0.0.1:7777`. Edit `docker/titan-env.yml` to change the server transport
+or runtime settings.
+
 Continue with the [Java client](./docs/examples/client.md) or
 [Spring Boot client](./docs/examples/spring-client.md) to subscribe and send a
 message. The complete walkthrough is available in the
@@ -86,6 +96,21 @@ message. The complete walkthrough is available in the
 ## Installation
 
 Titan artifacts are published to Maven Central.
+
+Released container images are available from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/traffic-hunter/titan:latest
+docker run --rm \
+  -p 61613:61613 \
+  -p 127.0.0.1:7777:7777 \
+  -v "$PWD/titan-env.yml:/etc/titan/titan-env.yml:ro" \
+  ghcr.io/traffic-hunter/titan:latest
+```
+
+The mounted configuration must bind Titan servers and the monitor endpoint to
+`0.0.0.0` so Docker can publish their ports. Pin a release tag instead of
+`latest` for production deployments.
 
 ```kotlin
 repositories {

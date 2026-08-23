@@ -43,6 +43,28 @@ java -Dtitan.environment.path=./titan-env.yml \
 Titan now accepts STOMP connections on `61613` and exposes its local monitor on
 `127.0.0.1:7777`.
 
+### Docker
+
+The repository includes a container-ready configuration. Build the image and
+start Titan with:
+
+```bash
+docker compose up --build
+```
+
+To run a released image with your own configuration:
+
+```bash
+docker run --rm \
+  -p 61613:61613 \
+  -p 127.0.0.1:7777:7777 \
+  -v "$PWD/titan-env.yml:/etc/titan/titan-env.yml:ro" \
+  ghcr.io/traffic-hunter/titan:latest
+```
+
+Server and monitor bind addresses in the mounted configuration must use
+`0.0.0.0` when their ports need to be published by Docker.
+
 ## 3. Verify the node
 
 ```bash

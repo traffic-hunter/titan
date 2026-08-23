@@ -1,0 +1,27 @@
+services:
+  titan:
+    image: titan:local
+    build:
+      context: .
+      args:
+        VERSION: local
+    ports:
+      - "61613:61613"
+      - "127.0.0.1:7777:7777"
+    volumes:
+      - ./docker/titan-env.yml:/etc/titan/titan-env.yml:ro
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/7777 &&
+          printf 'GET /titan/monitor/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '200 OK' <&3
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    stop_grace_period: 30s
+    restart: unless-stopped
