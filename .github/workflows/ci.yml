@@ -57,3 +57,48 @@ jobs:
           path: |
             **/build/reports/tests/test/
             **/build/test-results/test/
+
+  container:
+    name: Build and run container
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build container image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          push: false
+          build-args: VERSION=ci
+          tags: titan:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify container startup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run --detach --name titan-ci \
+            --publish 61613:61613 \
+            --publish 7777:7777 \
+            --volume "${PWD}/docker/titan-env.yml:/etc/titan/titan-env.yml:ro" \
+            titan:ci
+
+          trap 'docker logs titan-ci; docker rm --force titan-ci' EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:7777/titan/monitor/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          exit 1
