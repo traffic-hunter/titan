@@ -4,6 +4,10 @@ FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk-jammy AS builder
 
 ARG VERSION=1.0-SNAPSHOT
 
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /workspace
 
 COPY . .
