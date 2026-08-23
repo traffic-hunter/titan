@@ -78,6 +78,22 @@ curl http://localhost:7777/titan/monitor/health
 curl http://localhost:7777/titan/monitor/snapshot
 ```
 
+Alternatively, start the standalone server with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The Compose configuration exposes STOMP on `61613` and binds the monitor API
+to `127.0.0.1:7777`. Edit `docker/titan-env.yml` to change the server transport
+or runtime settings.
+
+Open the terminal dashboard in a second terminal:
+
+```bash
+docker compose --profile tools run --rm titan-cli
+```
+
 Continue with the [Java client](./docs/examples/client.md) or
 [Spring Boot client](./docs/examples/spring-client.md) to subscribe and send a
 message. The complete walkthrough is available in the
@@ -86,6 +102,44 @@ message. The complete walkthrough is available in the
 ## Installation
 
 Titan artifacts are published to Maven Central.
+
+Released container images are available from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/traffic-hunter/titan:latest
+docker run --rm --name titan \
+  -p 61613:61613 \
+  -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+```
+
+The image includes a container-ready default configuration. Override it when
+you need custom server or monitor settings:
+
+```bash
+docker run --rm --name titan \
+  -p 61613:61613 \
+  -p 127.0.0.1:7777:7777 \
+  -v "$PWD/titan-env.yml:/etc/titan/titan-env.yml:ro" \
+  ghcr.io/traffic-hunter/titan:latest
+```
+
+The mounted configuration must bind Titan servers and the monitor endpoint to
+`0.0.0.0` so Docker can publish their ports. Pin a release tag instead of
+`latest` for production deployments.
+
+The terminal monitor is published as a separate image. Run both images on one
+Docker network when using the CLI without Compose:
+
+```bash
+docker network create titan
+docker run --detach --name titan --network titan \
+  -p 61613:61613 -p 127.0.0.1:7777:7777 \
+  ghcr.io/traffic-hunter/titan:latest
+docker run --rm -it --network titan \
+  ghcr.io/traffic-hunter/titan-cli:latest \
+  --addr http://titan:7777
+```
 
 ```kotlin
 repositories {
@@ -145,6 +199,9 @@ tar -xzf titan-cli-0.8.0-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777 --view queues
 ./titan --addr http://localhost:7777 queue list
 ```
+
+The same CLI is available as `ghcr.io/traffic-hunter/titan-cli` for Linux
+`amd64` and `arm64` containers.
 
 See [Monitoring and CLI](./docs/operate/monitoring.md) for queue management,
 authentication, and platform-specific archives.

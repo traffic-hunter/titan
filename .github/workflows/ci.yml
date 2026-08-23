@@ -57,3 +57,67 @@ jobs:
           path: |
             **/build/reports/tests/test/
             **/build/test-results/test/
+
+  container:
+    name: Build and run container
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build container image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          push: false
+          build-args: VERSION=ci
+          tags: titan:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build CLI container image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./titan-cli
+          load: true
+          push: false
+          build-args: VERSION=ci
+          tags: titan-cli:ci
+          cache-from: type=gha,scope=titan-cli
+          cache-to: type=gha,mode=max,scope=titan-cli
+
+      - name: Verify container startup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker network create titan-ci
+
+          cleanup() {
+            docker logs titan-ci || true
+            docker rm --force titan-ci || true
+            docker network rm titan-ci || true
+          }
+          trap cleanup EXIT
+
+          docker run --detach --name titan-ci --network titan-ci \
+            --publish 61613:61613 \
+            --publish 7777:7777 \
+            titan:ci
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:7777/titan/monitor/health; then
+              docker run --rm --network titan-ci titan-cli:ci \
+                --addr http://titan-ci:7777 --once --no-clear --no-color
+              exit 0
+            fi
+            sleep 1
+          done
+
+          exit 1

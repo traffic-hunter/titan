@@ -1,0 +1,4 @@
+dist
+titan
+*.log
+.DS_Store
