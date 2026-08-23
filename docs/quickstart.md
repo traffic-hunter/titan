@@ -65,6 +65,12 @@ docker run --rm \
 Server and monitor bind addresses in the mounted configuration must use
 `0.0.0.0` when their ports need to be published by Docker.
 
+Run the containerized terminal dashboard against the Compose server:
+
+```bash
+docker compose --profile tools run --rm titan-cli
+```
+
 ## 3. Verify the node
 
 ```bash

@@ -123,6 +123,16 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
+      - name: Generate CLI container metadata
+        id: cli_container_meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-cli
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
       - name: Build and publish container image
         uses: docker/build-push-action@v7
         with:
@@ -134,6 +144,18 @@ jobs:
           labels: ${{ steps.container_meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build and publish CLI container image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./titan-cli
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ github.ref_name }}
+          tags: ${{ steps.cli_container_meta.outputs.tags }}
+          labels: ${{ steps.cli_container_meta.outputs.labels }}
+          cache-from: type=gha,scope=titan-cli
+          cache-to: type=gha,mode=max,scope=titan-cli
 
       - name: Create GitHub release
         env:

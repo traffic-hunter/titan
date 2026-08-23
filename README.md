@@ -88,6 +88,12 @@ The Compose configuration exposes STOMP on `61613` and binds the monitor API
 to `127.0.0.1:7777`. Edit `docker/titan-env.yml` to change the server transport
 or runtime settings.
 
+Open the terminal dashboard in a second terminal:
+
+```bash
+docker compose --profile tools run --rm titan-cli
+```
+
 Continue with the [Java client](./docs/examples/client.md) or
 [Spring Boot client](./docs/examples/spring-client.md) to subscribe and send a
 message. The complete walkthrough is available in the
@@ -106,6 +112,15 @@ docker run --rm \
   -p 127.0.0.1:7777:7777 \
   -v "$PWD/titan-env.yml:/etc/titan/titan-env.yml:ro" \
   ghcr.io/traffic-hunter/titan:latest
+```
+
+The terminal monitor is published as a separate image. Attach it to the
+server's Docker network and pass the monitor address:
+
+```bash
+docker run --rm -it --network titan_default \
+  ghcr.io/traffic-hunter/titan-cli:latest \
+  --addr http://titan:7777
 ```
 
 The mounted configuration must bind Titan servers and the monitor endpoint to
@@ -170,6 +185,9 @@ tar -xzf titan-cli-0.8.0-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777 --view queues
 ./titan --addr http://localhost:7777 queue list
 ```
+
+The same CLI is available as `ghcr.io/traffic-hunter/titan-cli` for Linux
+`amd64` and `arm64` containers.
 
 See [Monitoring and CLI](./docs/operate/monitoring.md) for queue management,
 authentication, and platform-specific archives.

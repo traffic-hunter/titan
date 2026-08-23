@@ -38,6 +38,14 @@ tar -xzf titan-cli-0.8.0-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 ```
 
+The CLI is also published as `ghcr.io/traffic-hunter/titan-cli`. When Titan is
+running through this repository's Compose configuration, start the dashboard
+with:
+
+```bash
+docker compose --profile tools run --rm titan-cli
+```
+
 Select a view or produce automation-friendly output:
 
 ```bash

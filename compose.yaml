@@ -25,3 +25,20 @@ services:
       retries: 3
     stop_grace_period: 30s
     restart: unless-stopped
+
+  titan-cli:
+    image: titan-cli:local
+    build:
+      context: ./titan-cli
+      args:
+        VERSION: local
+    profiles:
+      - tools
+    depends_on:
+      titan:
+        condition: service_healthy
+    command:
+      - --addr
+      - http://titan:7777
+    stdin_open: true
+    tty: true
