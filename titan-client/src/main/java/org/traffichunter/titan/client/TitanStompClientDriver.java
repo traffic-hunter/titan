@@ -240,7 +240,7 @@ public final class TitanStompClientDriver implements StompClientDriver {
             long timeoutMillis
     ) {
         Promise<StompClientChannel> result = Promise.newPromise(connection.channel().eventLoop());
-        ScheduledPromise<Object> timeout = connection.channel().eventLoop().schedule(() -> {
+        ScheduledPromise<?> timeout = connection.channel().eventLoop().schedule(() -> {
             if (result.tryFail(new StompNetChannelException(
                     "Timed out waiting for CONNECTED from " + remoteAddress
             ))) {

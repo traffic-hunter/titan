@@ -25,7 +25,7 @@ package org.traffichunter.titan.core.util.concurrent;
 
 import io.netty.util.internal.PriorityQueueNode;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Delayed;
+import java.util.concurrent.ScheduledFuture;
 
 import org.traffichunter.titan.core.channel.EventLoop;
 import org.traffichunter.titan.core.util.Time;
@@ -39,7 +39,7 @@ import org.traffichunter.titan.core.util.Time;
  *
  * @author yungwang-o
  */
-public interface ScheduledPromise<C> extends Promise<C>, Delayed, PriorityQueueNode {
+public interface ScheduledPromise<C> extends Promise<C>, ScheduledFuture<C>, PriorityQueueNode {
 
     static <C> ScheduledPromise<C> newPromise(EventLoop eventLoop, Runnable task, long deadlineNanos) {
         return new ScheduledPromiseImpl<>(eventLoop, task, deadlineNanos);

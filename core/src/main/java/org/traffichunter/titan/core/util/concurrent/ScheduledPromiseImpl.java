@@ -55,24 +55,24 @@ public class ScheduledPromiseImpl<C> extends PromiseImpl<C> implements Scheduled
                                 final long deadlineNanos,
                                 final long period) {
         super(eventLoop, task);
-        this.eventLoop = eventLoop;
         Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
+        this.eventLoop = eventLoop;
         this.deadlineNanos = deadlineNanos;
         this.periodNanos = period;
     }
 
     public ScheduledPromiseImpl(final EventLoop eventLoop, final Runnable task, long deadlineNanos) {
         super(eventLoop, task);
-        this.eventLoop = eventLoop;
         Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
+        this.eventLoop = eventLoop;
         this.deadlineNanos = deadlineNanos;
         this.periodNanos = 0;
     }
 
     public ScheduledPromiseImpl(final EventLoop eventLoop, final Callable<C> task, long deadlineNanos) {
         super(eventLoop, task);
-        this.eventLoop = eventLoop;
         Assert.checkArgument(deadlineNanos >= 0, "deadlineNanos cannot be negative");
+        this.eventLoop = eventLoop;
         this.deadlineNanos = deadlineNanos;
         this.periodNanos = 0;
     }

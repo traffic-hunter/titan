@@ -1,14 +1,20 @@
 package org.traffichunter.titan.core.test.implementation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,6 +77,47 @@ class TaskEventLoopTest {
             });
 
             assertThat(executed.await(3, TimeUnit.SECONDS)).isTrue();
+        }
+
+        @Test
+        void submit_and_schedule_through_jdk_executor_service_contract() throws Exception {
+            ScheduledExecutorService executor = eventLoop;
+            CountDownLatch scheduledTask = new CountDownLatch(1);
+
+            Future<String> submitted = executor.submit(() -> { }, "completed");
+            ScheduledFuture<?> scheduled = executor.schedule(
+                    scheduledTask::countDown,
+                    10,
+                    TimeUnit.MILLISECONDS
+            );
+
+            assertThat(submitted.get(3, TimeUnit.SECONDS)).isEqualTo("completed");
+            assertThat(scheduled.get(3, TimeUnit.SECONDS)).isNull();
+            assertThat(scheduledTask.getCount()).isZero();
+        }
+
+        @Test
+        void invoke_tasks_from_outside_event_loop() throws Exception {
+            List<Future<Integer>> results = eventLoop.invokeAll(List.of(
+                    () -> 1,
+                    () -> 2
+            ));
+
+            assertThat(results).hasSize(2);
+            assertThat(results.get(0).get()).isEqualTo(1);
+            assertThat(results.get(1).get()).isEqualTo(2);
+            Integer first = eventLoop.invokeAny(List.of(() -> 3, () -> 4));
+            assertThat(first).isIn(3, 4);
+        }
+
+        @Test
+        void reject_bulk_invocation_from_event_loop() throws Exception {
+            Promise<Void> result = eventLoop.submit(() -> {
+                assertThatThrownBy(() -> eventLoop.invokeAll(List.of(() -> 1)))
+                        .isInstanceOf(RejectedExecutionException.class);
+            });
+
+            result.get(3, TimeUnit.SECONDS);
         }
 
         @Test

@@ -113,6 +113,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
                     if (countTask > 0) {
                         log.error("An event loop terminated with " + "non-empty task queue ({})", countTask);
                     }
+                    shutdownExecutor();
                 }
             }
         });
@@ -124,9 +125,8 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     protected abstract void doRun() throws Exception;
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <V> ScheduledPromise<V> schedule(final Runnable task, final long delay, final TimeUnit unit) {
-        return (ScheduledPromise<V>) schedule(Executors.callable(task), delay, unit);
+    public ScheduledPromise<?> schedule(final Runnable task, final long delay, final TimeUnit unit) {
+        return schedule(Executors.callable(task), delay, unit);
     }
 
     @Override
@@ -139,13 +139,13 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     @Override
-    public <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
+    public ScheduledPromise<?> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
         Assert.checkArgument(initialDelay >= 0L, "initial delay must be >= 0");
         Assert.checkArgument(period >= 0L, "period must be >= 0");
 
         final long calculatedDeadlineNanos = ScheduledPromise.calculateDeadlineNanos(unit.toNanos(initialDelay));
 
-        ScheduledPromise<V> scheduledTask = ScheduledPromise.newPromise(
+        ScheduledPromise<?> scheduledTask = ScheduledPromise.newPromise(
                 this,
                 task,
                 calculatedDeadlineNanos,
@@ -156,13 +156,13 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     @Override
-    public <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
+    public ScheduledPromise<?> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
         Assert.checkArgument(initialDelay >= 0L, "initial delay must be >= 0");
         Assert.checkArgument(period >= 0L, "period must be >= 0");
 
         final long calculatedDeadlineNanos = ScheduledPromise.calculateDeadlineNanos(unit.toNanos(initialDelay));
 
-        ScheduledPromise<V> scheduledTask = ScheduledPromise.newPromise(
+        ScheduledPromise<?> scheduledTask = ScheduledPromise.newPromise(
                 this,
                 task,
                 calculatedDeadlineNanos,
@@ -180,6 +180,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     @Override
     public void gracefullyShutdown(final long timeout, final TimeUnit unit) {
         shutdownStartNanos = Time.currentNanos();
+        shutdownTimeoutNanos = unit.toNanos(timeout);
 
         if(isShuttingDown()) {
             wakeUp();
@@ -200,7 +201,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             long remaining = deadline - System.nanoTime();
             if(remaining <= 0) {
                 log.warn("Graceful shutdown timed out, forcing immediate shutdown");
-                super.shutdownNow();
+                shutdownExecutorNow();
 
                 if(!trySetStatus(oldStatus, EventLoopStatus.SHUTDOWN)) {
                     break;
@@ -214,7 +215,6 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             wakeUp();
             break;
         }
-        shutdownTimeoutNanos = unit.toNanos(timeout);
     }
 
     public void removeScheduledTask(final ScheduledPromise<?> scheduledTask) {
