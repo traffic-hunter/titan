@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.util.Assert;
  * Default {@link Promise} implementation.
  *
  * <p>The implementation is synchronized around completion state and waiters, but listener
- * execution is always redirected to the owning {@link EventExecutor}. This keeps callbacks in
+ * execution is always redirected to the owning {@link EventExecutorService}. This keeps callbacks in
  * the same thread-affinity model as channel I/O and avoids running transport callbacks on
  * arbitrary caller threads.</p>
  *
@@ -48,7 +48,7 @@ public class PromiseImpl<C> implements Promise<C> {
 
     private static final Logger log = LoggerFactory.getLogger(PromiseImpl.class);
 
-    protected final EventExecutor executor;
+    protected final EventExecutorService executor;
 
     private boolean isCompleted;
     private @Nullable C result;
@@ -59,11 +59,11 @@ public class PromiseImpl<C> implements Promise<C> {
     private int waiter;
     private boolean isCancelled;
 
-    protected PromiseImpl(EventExecutor executor, @Nullable Runnable task) {
+    protected PromiseImpl(EventExecutorService executor, @Nullable Runnable task) {
         this(executor, Executors.callable(Objects.requireNonNull(task), null));
     }
 
-    protected PromiseImpl(EventExecutor executor, @Nullable Callable<C> task) {
+    protected PromiseImpl(EventExecutorService executor, @Nullable Callable<C> task) {
         this.executor = executor;
         this.listeners = new ArrayList<>();
         this.task = task;

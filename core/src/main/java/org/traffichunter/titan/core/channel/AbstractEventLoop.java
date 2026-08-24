@@ -24,14 +24,14 @@
 package org.traffichunter.titan.core.channel;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collection;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.bootstrap.Configurations;
-import org.traffichunter.titan.core.util.concurrent.AdvancedThreadPoolExecutor;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 
 /**
@@ -140,8 +140,85 @@ public abstract class AbstractEventLoop extends ThreadPoolExecutor implements Ev
     }
 
     @Override
+    public <T> Promise<T> submit(final Runnable task, final T result) {
+        return submit(Executors.callable(task, result));
+    }
+
+    @Override
+    public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
+            throws InterruptedException {
+        rejectBulkInvocationFromEventLoop("invokeAll");
+        return super.invokeAll(tasks);
+    }
+
+    @Override
+    public <T> List<Future<T>> invokeAll(
+            Collection<? extends Callable<T>> tasks,
+            long timeout,
+            TimeUnit unit
+    ) throws InterruptedException {
+        rejectBulkInvocationFromEventLoop("invokeAll");
+        return super.invokeAll(tasks, timeout, unit);
+    }
+
+    @Override
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks)
+            throws InterruptedException, ExecutionException {
+        rejectBulkInvocationFromEventLoop("invokeAny");
+        return super.invokeAny(tasks);
+    }
+
+    @Override
+    public <T> T invokeAny(
+            Collection<? extends Callable<T>> tasks,
+            long timeout,
+            TimeUnit unit
+    ) throws InterruptedException, ExecutionException, TimeoutException {
+        rejectBulkInvocationFromEventLoop("invokeAny");
+        return super.invokeAny(tasks, timeout, unit);
+    }
+
+    @Override
+    public void shutdown() {
+        gracefullyShutdown();
+    }
+
+    @Override
+    public List<Runnable> shutdownNow() {
+        gracefullyShutdown(0, TimeUnit.NANOSECONDS);
+        return List.of();
+    }
+
+    @Override
+    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+        return super.awaitTermination(timeout, unit);
+    }
+
+    @Override
     public void close() {
-        super.close();
+        shutdown();
+    }
+
+    protected final void shutdownExecutor() {
+        super.shutdown();
+    }
+
+    protected final List<Runnable> shutdownExecutorNow() {
+        return super.shutdownNow();
+    }
+
+    private void rejectBulkInvocationFromEventLoop(String operation) {
+        if (inEventLoop()) {
+            throw new RejectedExecutionException(
+                    "Calling " + operation + " from within the event loop is not allowed"
+            );
+        }
+    }
+
+    @Override
+    protected void terminated() {
+        setStatus(EventLoopStatus.TERMINATED);
+        super.terminated();
     }
 
     protected abstract void addTask(Runnable task);

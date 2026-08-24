@@ -103,7 +103,7 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
-    public <V> ScheduledPromise<V> schedule(Runnable task, long delay, TimeUnit unit) {
+    public ScheduledPromise<?> schedule(Runnable task, long delay, TimeUnit unit) {
         return selector.next(group).schedule(task, delay, unit);
     }
 
@@ -113,18 +113,18 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
-    public <V> ScheduledPromise<V> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
+    public ScheduledPromise<?> scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit) {
         return selector.next(group).scheduleAtFixedRate(task, initialDelay, period, unit);
     }
 
     @Override
-    public <V> ScheduledPromise<V> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
+    public ScheduledPromise<?> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit) {
         return selector.next(group).scheduleWithFixedDelay(task, initialDelay, period, unit);
     }
 
     @Override
     public boolean inEventLoop(Thread thread) {
-        return selector.next(group).inEventLoop(thread);
+        return group.stream().anyMatch(eventLoop -> eventLoop.inEventLoop(thread));
     }
 
     @Override

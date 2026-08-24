@@ -24,19 +24,18 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.util.concurrent;
 
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
-import org.jspecify.annotations.NonNull;
 /**
  * Execution contract for components backed by a Titan-managed execution context.
  *
- * <p>This interface can be supplied to JDK asynchronous APIs that accept an
- * {@link Executor} without exposing the lifecycle or scheduling capabilities of the
- * underlying execution context.</p>
+ * <p>This interface preserves Titan's {@link Promise} return types while exposing the
+ * standard JDK scheduling and lifecycle contract.</p>
  *
  * @author yun
  */
-public interface EventExecutor extends Executor {
+public interface EventExecutorService extends ScheduledExecutorService {
 
     /**
      * Submits a task to the managed execution context.
@@ -44,7 +43,7 @@ public interface EventExecutor extends Executor {
      * @param task task to execute
      */
     @Override
-    void execute(@NonNull Runnable task);
+    void execute(Runnable task);
 
     /**
      * Submits a task and returns its asynchronous completion.
@@ -62,6 +61,11 @@ public interface EventExecutor extends Executor {
      * @return promise completed with the task result
      */
     <V> Promise<V> submit(Callable<V> task);
+
+    @Override
+    default <V> Promise<V> submit(Runnable task, V result) {
+        return submit(Executors.callable(task, result));
+    }
 
     /**
      * Creates an incomplete promise whose listeners execute in this execution context.

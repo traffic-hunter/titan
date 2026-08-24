@@ -39,26 +39,26 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>A promise is both a {@link RunnableFuture} and a {@link Completable}. Event loops submit
  * promises as runnable tasks, while transport code can also complete them manually when an I/O
- * event happens later. Listener notification is serialized through the owning {@link EventExecutor}.
+ * event happens later. Listener notification is serialized through the owning {@link EventExecutorService}.
  * Promise callbacks should not run blocking code.</p>
  *
  * @author yungwang-o
  */
 public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
 
-    static <C> Promise<C> newPromise(EventExecutor executor) {
+    static <C> Promise<C> newPromise(EventExecutorService executor) {
         return new PromiseImpl<>(executor, () -> {});
     }
 
-    static <C> Promise<C> newPromise(EventExecutor executor, @Nullable Runnable task) {
+    static <C> Promise<C> newPromise(EventExecutorService executor, @Nullable Runnable task) {
         return new PromiseImpl<>(executor, task);
     }
 
-    static <C> Promise<C> newPromise(EventExecutor executor, @Nullable Callable<C> task) {
+    static <C> Promise<C> newPromise(EventExecutorService executor, @Nullable Callable<C> task) {
         return new PromiseImpl<>(executor, task);
     }
 
-    static <C> Promise<C> failedPromise(EventExecutor executor, Throwable err) {
+    static <C> Promise<C> failedPromise(EventExecutorService executor, Throwable err) {
         Promise<C> failedPromise = Promise.newPromise(executor, () -> null);
         failedPromise.fail(err);
         return failedPromise;
