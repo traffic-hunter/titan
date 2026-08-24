@@ -34,7 +34,7 @@ capacity or pressure.
 Prebuilt releases include `titan-cli-<version>-<os>-<arch>.tar.gz` archives.
 
 ```bash
-tar -xzf titan-cli-0.8.0-linux-amd64.tar.gz
+tar -xzf titan-cli-0.8.1-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 ```
 

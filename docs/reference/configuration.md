@@ -4,7 +4,7 @@ Titan reads its standalone runtime configuration from `titan-env.yml`. Pass the
 path with the `titan.environment.path` system property.
 
 ```bash
-java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.8.0.jar
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.8.1.jar
 ```
 
 ## Server
