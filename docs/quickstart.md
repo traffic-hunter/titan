@@ -5,7 +5,7 @@ Run a Titan server and verify it from the monitoring API.
 ## Requirements
 
 * JDK 21 or newer
-* A Titan `0.8.0` standalone server JAR from GitHub Releases
+* A Titan `0.8.1` standalone server JAR from GitHub Releases
 
 ## 1. Create the environment
 
@@ -37,7 +37,7 @@ titan:
 
 ```bash
 java -Dtitan.environment.path=./titan-env.yml \
-  -jar titan-server-0.8.0.jar
+  -jar titan-server-0.8.1.jar
 ```
 
 Titan now accepts STOMP connections on `61613` and exposes its local monitor on
