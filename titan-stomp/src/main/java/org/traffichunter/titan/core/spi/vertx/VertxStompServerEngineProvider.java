@@ -42,8 +42,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Provides the legacy Vert.x STOMP server transport.
+ *
+ * @deprecated use Titan's native STOMP server transport; this provider is retained only for
+ * migration compatibility
+ *
  * @author yun
  */
+@Deprecated(since = "0.9.0")
 public class VertxStompServerEngineProvider implements NetworkServerEngineProvider {
 
     private static final Logger log = LoggerFactory.getLogger(VertxStompServerEngineProvider.class);

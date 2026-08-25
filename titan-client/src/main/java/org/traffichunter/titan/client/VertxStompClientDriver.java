@@ -60,8 +60,12 @@ import java.util.concurrent.TimeoutException;
  * <p>The no-argument-runtime constructor creates and owns a Vert.x instance. Constructors and
  * factories receiving an existing Vert.x object preserve the caller-owned runtime on close.</p>
  *
+ * @deprecated use Titan's native client through {@link TitanClient#builder()}; this driver is
+ * retained only for migration compatibility
+ *
  * @author yun
  */
+@Deprecated(since = "0.9.0")
 public final class VertxStompClientDriver implements StompClientDriver {
 
     private final ClientConfiguration configuration;

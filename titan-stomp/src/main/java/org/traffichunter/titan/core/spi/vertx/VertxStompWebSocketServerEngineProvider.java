@@ -32,8 +32,14 @@ import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.spi.ManagedServer;
 
 /**
+ * Provides the legacy Vert.x WebSocket STOMP server transport.
+ *
+ * @deprecated use Titan's native WebSocket STOMP server transport; this provider is retained only
+ * for migration compatibility
+ *
  * @author yun
  */
+@Deprecated(since = "0.9.0")
 public final class VertxStompWebSocketServerEngineProvider extends VertxStompServerEngineProvider {
 
     @Override
