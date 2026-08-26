@@ -259,7 +259,12 @@ public interface TitanClient {
     enum Implementation {
         /** Titan's native channel and event-loop implementation. */
         TITAN,
-        /** Vert.x STOMP client adapter. */
+        /**
+         * Vert.x STOMP client adapter.
+         *
+         * @deprecated use {@link #TITAN}; Vert.x compatibility is retained only for migration
+         */
+        @Deprecated(since = "0.9.0")
         VERTX
     }
 

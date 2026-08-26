@@ -267,6 +267,10 @@ public final class TitanProperties {
 
     public enum Client {
         TITAN("titan"),
+        /**
+         * @deprecated use {@link #TITAN}; Vert.x compatibility is retained only for migration
+         */
+        @Deprecated(since = "0.9.0")
         VERTX("vertx"),
         ;
 
