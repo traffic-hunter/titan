@@ -313,6 +313,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 return read;
             } catch (IOException e) {
                 log.warn("Failed to read from socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                close();
                 return -1;
             }
         }
