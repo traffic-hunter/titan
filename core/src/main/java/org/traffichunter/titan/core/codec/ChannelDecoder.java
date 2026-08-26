@@ -96,6 +96,14 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoClose
                 chain.sparkChannelRead(channel, decode);
             }
 
+            // decode(), or a handler it triggers, may close the channel (for example a
+            // DISCONNECT frame). Closing releases and clears the retained buffer through
+            // close(), leaving `pending` as a dangling reference. Stop here instead of
+            // reading its reader index or releasing it a second time.
+            if (mergeBuffer != pending) {
+                return;
+            }
+
             int afterReaderIndex = pending.byteBuf().readerIndex();
             if (afterReaderIndex == beforeReaderIndex) {
                 break;

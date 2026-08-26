@@ -81,6 +81,54 @@ class ChannelDecoderTest {
     }
 
     @Test
+    void does_not_re_release_pending_buffer_when_decode_closes_channel() {
+        Buffer input = Buffer.heap().alloc("DISCONNECT");
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        CollectingChain chain = new CollectingChain();
+
+        ChannelDecoder decoder = new ChannelDecoder() {
+            @Override
+            protected Buffer decode(@NonNull NetChannel ch, @NonNull Buffer buffer) {
+                buffer.skipBytes(buffer.length());
+                ch.close();
+                return null;
+            }
+        };
+        channel.chain().add(decoder);
+
+        assertThatCode(() -> decoder.sparkChannelRead(channel, input, chain))
+                .doesNotThrowAnyException();
+
+        assertThat(input.byteBuf().refCnt()).isZero();
+        assertThat(chain.frames).isEmpty();
+    }
+
+    @Test
+    void forwards_final_frame_and_releases_once_when_decode_closes_channel() {
+        Buffer input = Buffer.heap().alloc("DISCONNECT");
+        Buffer decoded = Buffer.heap().alloc("frame");
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        CollectingChain chain = new CollectingChain();
+
+        ChannelDecoder decoder = new ChannelDecoder() {
+            @Override
+            protected Buffer decode(@NonNull NetChannel ch, @NonNull Buffer buffer) {
+                buffer.skipBytes(buffer.length());
+                ch.close();
+                return decoded;
+            }
+        };
+        channel.chain().add(decoder);
+
+        assertThatCode(() -> decoder.sparkChannelRead(channel, input, chain))
+                .doesNotThrowAnyException();
+
+        assertThat(input.byteBuf().refCnt()).isZero();
+        assertThat(chain.frames).containsExactly(decoded);
+        decoded.release();
+    }
+
+    @Test
     void schedule_decoder_cleanup_on_channel_event_loop() {
         AtomicReference<Runnable> cleanup = new AtomicReference<>();
         IOEventLoop eventLoop = mock(IOEventLoop.class);
