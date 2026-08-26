@@ -59,10 +59,6 @@ public final class Transaction {
         return txId;
     }
 
-    public int getDEFAULT_TX_SIZE() {
-        return DEFAULT_TX_SIZE;
-    }
-
     public synchronized void addFrame(final StompFrame frame) {
         if(frames.size() > DEFAULT_TX_SIZE) {
             return;
