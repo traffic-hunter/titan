@@ -8,6 +8,7 @@ import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
+import org.traffichunter.titan.core.codec.ChannelDecoderException;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -125,6 +126,31 @@ class ChannelDecoderTest {
 
         assertThat(input.byteBuf().refCnt()).isZero();
         assertThat(chain.frames).containsExactly(decoded);
+        decoded.release();
+    }
+
+    @Test
+    void throws_when_decode_produces_frame_without_consuming_bytes() {
+        Buffer input = Buffer.heap().alloc("frame");
+        Buffer decoded = Buffer.heap().alloc("frame");
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        CollectingChain chain = new CollectingChain();
+
+        ChannelDecoder decoder = new ChannelDecoder() {
+            @Override
+            protected Buffer decode(@NonNull NetChannel ch, @NonNull Buffer buffer) {
+                // Returns a frame but never advances the reader index: a contract violation
+                // that would otherwise re-emit the same frame on every subsequent read.
+                return decoded;
+            }
+        };
+        channel.chain().add(decoder);
+
+        assertThatThrownBy(() -> decoder.sparkChannelRead(channel, input, chain))
+                .isInstanceOf(ChannelDecoderException.class)
+                .hasMessageContaining("without consuming any bytes");
+
+        input.release();
         decoded.release();
     }
 
