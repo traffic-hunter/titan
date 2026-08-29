@@ -91,9 +91,9 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoClose
         while (pending.isReadable()) {
             int beforeReaderIndex = pending.byteBuf().readerIndex();
 
-            Buffer decode = decode(channel, pending);
-            if (decode != null) {
-                chain.sparkChannelRead(channel, decode);
+            Buffer frame = decode(channel, pending);
+            if (frame != null) {
+                chain.sparkChannelRead(channel, frame);
             }
 
             // decode(), or a handler it triggers, may close the channel (for example a
@@ -106,6 +106,14 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoClose
 
             int afterReaderIndex = pending.byteBuf().readerIndex();
             if (afterReaderIndex == beforeReaderIndex) {
+                // No bytes were consumed this iteration. When a frame was still produced the
+                // decoder violated its contract: the same bytes would be decoded again on the
+                // next read, emitting duplicate frames forever. Fail fast instead of looping.
+                if (frame != null) {
+                    throw new ChannelDecoderException(
+                            getClass().getSimpleName()
+                                    + ".decode() produced a frame without consuming any bytes");
+                }
                 break;
             }
         }
