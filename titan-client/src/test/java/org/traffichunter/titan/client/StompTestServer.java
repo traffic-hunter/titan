@@ -91,7 +91,7 @@ public final class StompTestServer implements AutoCloseable {
                 .childReuseAddress(true)
                 .build();
         StompServerOption serverOption = StompServerOption.builder()
-                .maxBodyLength(configuration.maxFrameLength())
+                .maxFrameLength(configuration.maxFrameLength())
                 .inetServerOption(inetOption)
                 .build();
         StompServer startedServer = StompServer.open(groups, serverOption);

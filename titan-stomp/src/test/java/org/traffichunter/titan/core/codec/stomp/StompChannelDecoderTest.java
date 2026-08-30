@@ -3,12 +3,14 @@ package org.traffichunter.titan.core.codec.stomp;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.traffichunter.titan.core.codec.TooLongFrameException;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.IdGenerator;
@@ -18,6 +20,7 @@ import org.mockito.Mockito;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.DisplayNameGenerator.*;
@@ -174,6 +177,166 @@ class StompChannelDecoderTest {
         }
     }
 
+    @Test
+    @Timeout(5)
+    void reject_oversized_frame_without_nul_before_handling_frame() {
+        List<StompFrame> handled = new ArrayList<>();
+        CollectingChain chain = new CollectingChain();
+        Buffer input = Buffer.direct().alloc("SEND\ndestination:/queue/a\n\n" + "A".repeat(65));
+
+        // Issue #125: no CONNECT or NUL is needed to reach the accumulation path.
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
+                (frame, connection) -> handled.add(frame))) {
+            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
+                    .isInstanceOf(TooLongFrameException.class);
+            assertThat(handled).isEmpty();
+            assertThat(chain.frames).isEmpty();
+        } finally {
+            chain.releaseAll();
+        }
+        assertThat(input.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    @Timeout(5)
+    void reject_oversized_frame_accumulated_across_reads_without_nul() {
+        List<StompFrame> handled = new ArrayList<>();
+        CollectingChain chain = new CollectingChain();
+        NetChannel channel = new InMemoryNetChannel();
+
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
+                (frame, connection) -> handled.add(frame))) {
+            decoder.sparkChannelRead(channel,
+                    Buffer.direct().alloc("SEND\ndestination:/queue/a\n\n"), chain);
+
+            // Bound the reproduction instead of exhausting the JVM heap.
+            assertThatThrownBy(() -> {
+                for (int i = 0; i < 8; i++) {
+                    decoder.sparkChannelRead(channel, Buffer.direct().alloc("A".repeat(16)), chain);
+                }
+            }).isInstanceOf(TooLongFrameException.class);
+            assertThat(handled).isEmpty();
+            assertThat(chain.frames).isEmpty();
+        } finally {
+            chain.releaseAll();
+        }
+    }
+
+    @Test
+    @Timeout(5)
+    void reject_oversized_completed_frame() {
+        List<StompFrame> handled = new ArrayList<>();
+        CollectingChain chain = new CollectingChain();
+        Buffer input = Buffer.direct().alloc("SEND\n\n" + "A".repeat(59) + "\0");
+
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
+                (frame, connection) -> handled.add(frame))) {
+            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
+                    .isInstanceOf(TooLongFrameException.class)
+                    .hasMessageContaining("STOMP frame exceeds 64: 65");
+            assertThat(handled).isEmpty();
+            assertThat(chain.frames).isEmpty();
+        } finally {
+            chain.releaseAll();
+        }
+        assertThat(input.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    @Timeout(5)
+    void enforce_frame_limit_by_encoded_byte_length() {
+        List<StompFrame> handled = new ArrayList<>();
+        CollectingChain chain = new CollectingChain();
+        String payload = "한".repeat(20);
+        Buffer input = Buffer.direct().alloc("SEND\n\n" + payload);
+
+        assertThat(payload.length()).isLessThan(64);
+        assertThat(input.length()).isGreaterThan(64);
+
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
+                (frame, connection) -> handled.add(frame))) {
+            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
+                    .isInstanceOf(TooLongFrameException.class);
+            assertThat(handled).isEmpty();
+            assertThat(chain.frames).isEmpty();
+        } finally {
+            chain.releaseAll();
+        }
+        assertThat(input.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    @Timeout(5)
+    void decode_fragmented_frame_at_limit_only_after_nul_arrives() {
+        List<StompFrame> handled = new ArrayList<>();
+        CollectingChain chain = new CollectingChain();
+        NetChannel channel = new InMemoryNetChannel();
+        String head = "SEND\ndestination:/queue/a\ncontent-length:64\n\n";
+        String body = "A".repeat(64);
+        int maxFrameLength = head.length() + body.length();
+
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(maxFrameLength,
+                (frame, connection) -> handled.add(frame))) {
+            decoder.sparkChannelRead(channel, Buffer.direct().alloc(head), chain);
+            for (int i = 0; i < 4; i++) {
+                decoder.sparkChannelRead(channel, Buffer.direct().alloc("A".repeat(16)), chain);
+                assertThat(handled).isEmpty();
+                assertThat(chain.frames).isEmpty();
+            }
+
+            decoder.sparkChannelRead(channel, Buffer.direct().alloc(new byte[]{0}), chain);
+
+            assertThat(handled).singleElement().satisfies(frame -> {
+                assertThat(frame.command()).isEqualTo(StompCommand.SEND);
+                assertThat(frame.body()).isEqualTo(body.getBytes(StandardCharsets.US_ASCII));
+            });
+            assertThat(chain.frames).hasSize(1);
+        } finally {
+            chain.releaseAll();
+        }
+    }
+
+    @Test
+    @Timeout(5)
+    void decode_multiple_valid_frames_when_combined_read_exceeds_limit() {
+        List<StompFrame> handled = new ArrayList<>();
+        CollectingChain chain = new CollectingChain();
+        String frameText = "SEND\ndestination:/queue/a\ncontent-length:16\n\n" + "A".repeat(16) + "\0";
+        Buffer input = Buffer.direct().alloc(frameText.repeat(8));
+
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
+                (frame, connection) -> handled.add(frame))) {
+            assertThat(input.length()).isGreaterThan(64);
+            decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain);
+
+            assertThat(handled).hasSize(8).allSatisfy(frame -> {
+                assertThat(frame.command()).isEqualTo(StompCommand.SEND);
+                assertThat(frame.body()).isEqualTo("A".repeat(16).getBytes(StandardCharsets.US_ASCII));
+            });
+            assertThat(chain.frames).hasSize(8);
+            assertThat(input.byteBuf().refCnt()).isZero();
+        } finally {
+            chain.releaseAll();
+        }
+    }
+
+    @Test
+    @Timeout(5)
+    void release_incomplete_frame_when_decoder_closes() {
+        CollectingChain chain = new CollectingChain();
+        Buffer input = Buffer.direct().alloc("SEND\ndestination:/queue/a\n\npartial");
+
+        try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (frame, connection) -> {})) {
+            decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain);
+            assertThat(chain.frames).isEmpty();
+            assertThat(input.byteBuf().refCnt()).isOne();
+        } finally {
+            chain.releaseAll();
+        }
+
+        assertThat(input.byteBuf().refCnt()).isZero();
+    }
+
     // ── refCnt leak regression tests ──────────────────────────────────────────
 
     @Test
@@ -207,7 +370,7 @@ class StompChannelDecoderTest {
         // Leak 3 regression: stompFrame and frames list inside StompParser.parse()
         // must be released even when ERR_STOMP_FRAME is returned early.
         StompHeaders headers = StompHeaders.create();
-        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "999");
+        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "10");
         StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
