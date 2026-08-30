@@ -23,7 +23,9 @@ titan:
         child-receive-buffer-size: "65536"
         child-reuse-address: "true"
       protocol-options:
-        max-frame-length: "1048576"
+        max-header-length: "10240"
+        max-headers: "1000"
+        max-body-length: "1048576"
         max-frame-in-transaction: "1000"
         supported-versions: "1.2"
         send-error-on-no-subscriptions: "false"

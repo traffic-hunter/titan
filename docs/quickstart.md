@@ -27,7 +27,7 @@ titan:
         child-tcp-no-delay: "true"
       protocol-options:
         supported-versions: "1.2"
-        max-frame-length: "1048576"
+        max-body-length: "1048576"
         heartbeat-x: "1000"
         heartbeat-y: "1000"
         fanout-mode: "virtual"

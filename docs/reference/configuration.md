@@ -35,7 +35,7 @@ format.
 | Key | Purpose | Example |
 | --- | --- | --- |
 | `supported-versions` | Accepted STOMP versions | `"1.2"` |
-| `max-frame-length` | Maximum STOMP frame size in bytes | `"1048576"` |
+| `max-body-length` | Maximum frame body size in bytes | `"1048576"` |
 | `heartbeat-x` | Outgoing heartbeat interval in milliseconds | `"1000"` |
 | `heartbeat-y` | Expected incoming heartbeat interval in milliseconds | `"1000"` |
 | `fanout-mode` | Optional fanout implementation | `"virtual"` |

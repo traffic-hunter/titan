@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.channel;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -35,55 +36,63 @@ import java.util.Queue;
  */
 public final class ChannelWriteBuffer {
 
+    /**
+     * default upperPoint and lowerPoint
+     */
     private static final int DEFAULT_HIGH_WATERMARK = 64 * 1024;
     private static final int DEFAULT_LOW_WATERMARK = 32 * 1024;
-    private static final int DEFAULT_MAX_PENDING_BYTES = Integer.MAX_VALUE;
 
     private final Queue<Buffer> writeBuffer;
     private @Nullable AggregateChannelWriteBufferMetrics metrics;
 
     private int pendingBytes;
 
-    private final int maxPendingBytes;
-    private final int highWatermarkBytes;
-    private final int lowWatermarkBytes;
+    private final int highWatermark;
+    private final int lowWatermark;
 
     private boolean isWritable = true;
     private boolean isClosed;
 
     public ChannelWriteBuffer() {
-        this(DEFAULT_MAX_PENDING_BYTES, DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK);
+        this(DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK);
     }
 
-    public ChannelWriteBuffer(int highWatermarkBytes, int lowWatermarkBytes) {
-        this(DEFAULT_MAX_PENDING_BYTES, highWatermarkBytes, lowWatermarkBytes);
-    }
-
-    public ChannelWriteBuffer(int maxPendingBytes, int highWatermarkBytes, int lowWatermarkBytes) {
-        Assert.checkArgument(highWatermarkBytes > lowWatermarkBytes, "highWatermark must be greater than lowerPoint");
-        Assert.checkArgument(highWatermarkBytes > 0, "highWatermark must be greater than 0");
-        Assert.checkArgument(lowWatermarkBytes > 0, "lowWatermark must be greater than 0");
-        Assert.checkArgument(maxPendingBytes > 0, "maxPendingBytes must be greater than 0");
+    public ChannelWriteBuffer(int highWatermark, int lowWatermark) {
+        Assert.checkArgument(highWatermark > lowWatermark, "highWatermark must be greater than lowerPoint");
+        Assert.checkArgument(highWatermark > 0, "highWatermark must be greater than 0");
+        Assert.checkArgument(lowWatermark > 0, "lowWatermark must be greater than 0");
 
         this.writeBuffer = new ArrayDeque<>();
-        this.maxPendingBytes = maxPendingBytes;
-        this.highWatermarkBytes = highWatermarkBytes;
-        this.lowWatermarkBytes = lowWatermarkBytes;
+        this.highWatermark = highWatermark;
+        this.lowWatermark = lowWatermark;
     }
 
     ChannelWriteBuffer(
-            int maxPendingBytes,
-            int highWatermarkBytes,
-            int lowWatermarkBytes,
+            int highWatermark,
+            int lowWatermark,
             AggregateChannelWriteBufferMetrics metrics
     ) {
-        this(maxPendingBytes, highWatermarkBytes, lowWatermarkBytes);
+        this(highWatermark, lowWatermark);
         attachMetrics(metrics);
     }
 
-    public void append(Buffer buffer) {
+    void attachMetrics(AggregateChannelWriteBufferMetrics metrics) {
         if (isClosed) {
-            buffer.release();
+            throw new ChannelException("Cannot attach metrics to a closed channel write buffer");
+        }
+        if (this.metrics == metrics) {
+            return;
+        }
+        if (this.metrics != null) {
+            throw new ChannelException("Channel write buffer metrics are already attached");
+        }
+
+        this.metrics = metrics;
+        metrics.open(pendingBytes, isWritable);
+    }
+
+    public void add(Buffer buffer) {
+        if (isClosed) {
             throw new ChannelException("Channel write buffer is closed");
         }
         if(!buffer.hasRemaining()) {
@@ -91,81 +100,52 @@ public final class ChannelWriteBuffer {
             return;
         }
 
-        int contentLength = buffer.length();
-        if (contentLength > maxPendingBytes - pendingBytes) {
-            buffer.release();
-            throw new ChannelException("Channel write buffer is full");
-        }
-
-        pendingBytes += contentLength;
         writeBuffer.add(buffer);
 
+        pendingBytes += buffer.length();
         AggregateChannelWriteBufferMetrics currentMetrics = metrics;
         if (currentMetrics != null) {
             currentMetrics.addPendingBytes(buffer.length());
         }
-        if(isWritable && pendingBytes > highWatermarkBytes) {
+        if(isWritable && pendingBytes > highWatermark) {
             isWritable = false;
             if (currentMetrics != null) {
                 currentMetrics.becameNonWritable();
             }
         }
+
     }
 
     public boolean isEmpty() {
         return writeBuffer.isEmpty();
     }
 
-    /**
-     * Returns the current buffer as a borrowed reference for socket I/O.
-     * Call {@link #consume(int)} to advance it; callers must not release or advance it themselves.
-     */
     public @Nullable Buffer current() {
         return writeBuffer.peek();
     }
 
-    /**
-     * Consumes bytes successfully written from the current buffer.
-     *
-     * <p>Advances its reader index, updates pending-byte metrics and writability, and releases
-     * the buffer once fully consumed. The count must not exceed the current buffer's readable
-     * bytes. Zero leaves the queue unchanged. Call only from the owning channel event loop.</p>
-     *
-     * @param bytes number of bytes written to the socket
-     * @throws IllegalArgumentException if the count is negative or exceeds the current buffer
-     * @throws ChannelException if the write buffer is closed
-     */
-    public void consume(int bytes) {
-        if (isClosed) {
-            throw new ChannelException("Channel write buffer is closed");
+    @CanIgnoreReturnValue
+    public @Nullable Buffer poll() {
+        if(writeBuffer.isEmpty()) {
+            return null;
         }
-        Assert.checkArgument(bytes >= 0, "bytes must not be negative");
-        if (bytes == 0) {
-            return;
-        }
-        Buffer buffer = current();
-        if (buffer == null) {
-            throw new IllegalArgumentException("bytes must not exceed current buffer readable bytes");
-        }
-        Assert.checkArgument(bytes <= buffer.length(), "bytes must not exceed current buffer readable bytes");
 
-        buffer.skipBytes(bytes);
-        pendingBytes -= bytes;
+        Buffer buffer = writeBuffer.poll();
+
+        int remainingBytes = buffer.length();
+        pendingBytes -= remainingBytes;
         AggregateChannelWriteBufferMetrics currentMetrics = metrics;
         if (currentMetrics != null) {
-            currentMetrics.removePendingBytes(bytes);
+            currentMetrics.removePendingBytes(remainingBytes);
         }
-        if(!isWritable && pendingBytes < lowWatermarkBytes) {
+        if(!isWritable && pendingBytes < lowWatermark) {
             isWritable = true;
             if (currentMetrics != null) {
                 currentMetrics.becameWritable();
             }
         }
 
-        if (!buffer.isReadable()) {
-            writeBuffer.remove();
-            buffer.release();
-        }
+        return buffer;
     }
 
     public boolean isWritable() {
@@ -177,11 +157,27 @@ public final class ChannelWriteBuffer {
     }
 
     public int highWatermark() {
-        return highWatermarkBytes;
+        return highWatermark;
     }
 
     public int lowWatermark() {
-        return lowWatermarkBytes;
+        return lowWatermark;
+    }
+
+    void progress(int bytes) {
+        Assert.checkArgument(bytes >= 0, "bytes must not be negative");
+        Assert.checkArgument(bytes <= pendingBytes, "bytes must not exceed pending bytes");
+        pendingBytes -= bytes;
+        AggregateChannelWriteBufferMetrics currentMetrics = metrics;
+        if (currentMetrics != null) {
+            currentMetrics.removePendingBytes(bytes);
+        }
+        if (!isWritable && pendingBytes < lowWatermark) {
+            isWritable = true;
+            if (currentMetrics != null) {
+                currentMetrics.becameWritable();
+            }
+        }
     }
 
     public void close() {
@@ -203,20 +199,5 @@ public final class ChannelWriteBuffer {
             metrics = null;
         }
         isWritable = false;
-    }
-
-    void attachMetrics(AggregateChannelWriteBufferMetrics metrics) {
-        if (isClosed) {
-            throw new ChannelException("Cannot attach metrics to a closed channel write buffer");
-        }
-        if (this.metrics == metrics) {
-            return;
-        }
-        if (this.metrics != null) {
-            throw new ChannelException("Channel write buffer metrics are already attached");
-        }
-
-        this.metrics = metrics;
-        metrics.open(pendingBytes, isWritable);
     }
 }

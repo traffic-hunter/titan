@@ -324,7 +324,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 throw new ChannelException("Already channel is closed");
             }
 
-            channelWriteBuffer.append(buffer);
+            channelWriteBuffer.add(buffer);
         }
 
         @Override
@@ -363,7 +363,15 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                     break;
                 }
 
-                channelWriteBuffer.consume(written);
+                byteBuf.readerIndex(byteBuf.readerIndex() + written);
+                channelWriteBuffer.progress(written);
+
+                if(!byteBuf.isReadable()) {
+                    Buffer consumed = channelWriteBuffer.poll();
+                    if (consumed != null) {
+                        consumed.release();
+                    }
+                }
             }
 
             if(channelWriteBuffer.isEmpty()) {

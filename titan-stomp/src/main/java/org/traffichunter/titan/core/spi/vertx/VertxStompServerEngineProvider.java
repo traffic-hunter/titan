@@ -100,7 +100,9 @@ public class VertxStompServerEngineProvider implements NetworkServerEngineProvid
     protected static StompServerOptions buildOption(Map<String, String> protocolOptions, Map<String, String> transportOptions) {
         StompServerOptions options = new StompServerOptions();
 
-        int maxFrameLength = intOption(protocolOptions, "max-frame-length", options.getMaxBodyLength());
+        int maxHeaderLength = intOption(protocolOptions, "max-header-length", options.getMaxHeaderLength());
+        int maxHeaders = intOption(protocolOptions, "max-headers", options.getMaxHeaders());
+        int maxBodyLength = intOption(protocolOptions, "max-body-length", options.getMaxBodyLength());
         int maxFrameInTransaction = intOption(
                 protocolOptions,
                 "max-frame-in-transaction",
@@ -140,7 +142,9 @@ public class VertxStompServerEngineProvider implements NetworkServerEngineProvid
         );
         websocketPath = websocketPath.startsWith("/") ? websocketPath : "/" + websocketPath;
 
-        options.setMaxBodyLength(maxFrameLength);
+        options.setMaxHeaderLength(maxHeaderLength);
+        options.setMaxHeaders(maxHeaders);
+        options.setMaxBodyLength(maxBodyLength);
         options.setMaxFrameInTransaction(maxFrameInTransaction);
         options.setSupportedVersions(supportedVersions);
         options.setTimeFactor(timeFactor);
