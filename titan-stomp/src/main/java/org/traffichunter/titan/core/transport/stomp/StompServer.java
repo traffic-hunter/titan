@@ -168,8 +168,8 @@ public final class StompServer {
                     }
                     serverConnection.register(stompConnection);
 
-                    netChannel.chain()
-                            .add(new StompChannelDecoder(option.maxBodyLength(), stompConnection, stompServerHandler));
+                    netChannel.chain().add(new StompChannelDecoder(
+                            option.maxFrameLength(), stompConnection, stompServerHandler));
 
                     channelHandler.handle(stompConnection.channel());
                 });
@@ -261,7 +261,7 @@ public final class StompServer {
                 .autoComputeContentLength(childOption.autoComputeContentLength())
                 .heartbeatX(option.heartbeatX())
                 .heartbeatY(option.heartbeatY())
-                .maxFrameLength(option.maxBodyLength())
+                .maxFrameLength(option.maxFrameLength())
                 .build();
     }
 }

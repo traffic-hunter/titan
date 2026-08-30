@@ -114,9 +114,7 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
 
     private static StompServerOption buildOption(final Map<String, String> options, final InetServerOption inetOption) {
         return StompServerOption.builder()
-                .maxHeaderLength(intOption(options, "max-header-length"))
-                .maxHeaders(intOption(options, "max-headers"))
-                .maxBodyLength(intOption(options, "max-body-length"))
+                .maxFrameLength(intOption(options, "max-frame-length"))
                 .maxFrameInTransaction(intOption(options, "max-frame-in-transaction"))
                 .supportedVersions(stringOption(options, "supported-versions"))
                 .heartbeatX(longOption(options, "heartbeat-x"))

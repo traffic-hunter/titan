@@ -27,9 +27,7 @@ import org.traffichunter.titan.core.codec.stomp.StompVersion;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 
 public record StompServerOption(
-        int maxHeaderLength,
-        int maxHeaders,
-        int maxBodyLength,
+        int maxFrameLength,
         int maxFrameInTransaction,
         String supportedVersions,
         boolean secured,
@@ -44,9 +42,7 @@ public record StompServerOption(
         InetServerOption inetServerOption
 ) {
 
-    public static final int DEFAULT_MAX_HEADER_LENGTH = 1024 * 10;
-    public static final int DEFAULT_MAX_HEADERS = 1000;
-    public static final int DEFAULT_MAX_BODY_LENGTH = 1024 * 1024 * 100;
+    public static final int DEFAULT_MAX_FRAME_LENGTH = 1024 * 1024 * 100;
     public static final int DEFAULT_MAX_FRAME_IN_TRANSACTION = 1000;
     public static final int DEFAULT_TRANSACTION_CHUNK_SIZE = 1000;
     public static final int DEFAULT_MAX_SUBSCRIPTIONS_BY_CLIENT = 1000;
@@ -54,8 +50,8 @@ public record StompServerOption(
     public static final String SUPPORTED_VERSION = "1.2";
 
     public StompServerOption {
-        if (maxHeaderLength <= 0 || maxHeaders <= 0 || maxBodyLength <= 0) {
-            throw new IllegalArgumentException("Frame/header limits must be greater than zero");
+        if (maxFrameLength <= 0) {
+            throw new IllegalArgumentException("maxFrameLength must be greater than zero");
         }
         if (maxFrameInTransaction <= 0 || transactionChunkSize <= 0 || maxSubscriptionsByClient <= 0) {
             throw new IllegalArgumentException("Transaction/subscription limits must be greater than zero");
@@ -72,9 +68,7 @@ public record StompServerOption(
     }
 
     public static StompServerOption of(
-            Integer maxHeaderLength,
-            Integer maxHeaders,
-            Integer maxBodyLength,
+            Integer maxFrameLength,
             Integer maxFrameInTransaction,
             String supportedVersions,
             Boolean secured,
@@ -88,9 +82,7 @@ public record StompServerOption(
             InetServerOption inetServerOption
     ) {
         return new StompServerOption(
-                maxHeaderLength == null ? DEFAULT_MAX_HEADER_LENGTH : maxHeaderLength,
-                maxHeaders == null ? DEFAULT_MAX_HEADERS : maxHeaders,
-                maxBodyLength == null ? DEFAULT_MAX_BODY_LENGTH : maxBodyLength,
+                maxFrameLength == null ? DEFAULT_MAX_FRAME_LENGTH : maxFrameLength,
                 maxFrameInTransaction == null ? DEFAULT_MAX_FRAME_IN_TRANSACTION : maxFrameInTransaction,
                 supportedVersions == null ? SUPPORTED_VERSION : supportedVersions,
                 secured != null && secured,
@@ -112,9 +104,7 @@ public record StompServerOption(
 
     public static final class StompServerOptionBuilder {
 
-        private Integer maxHeaderLength;
-        private Integer maxHeaders;
-        private Integer maxBodyLength;
+        private Integer maxFrameLength;
         private Integer maxFrameInTransaction;
         private String supportedVersions;
         private Boolean secured;
@@ -130,18 +120,8 @@ public record StompServerOption(
         private StompServerOptionBuilder() {
         }
 
-        public StompServerOptionBuilder maxHeaderLength(Integer value) {
-            this.maxHeaderLength = value;
-            return this;
-        }
-
-        public StompServerOptionBuilder maxHeaders(Integer value) {
-            this.maxHeaders = value;
-            return this;
-        }
-
-        public StompServerOptionBuilder maxBodyLength(Integer value) {
-            this.maxBodyLength = value;
+        public StompServerOptionBuilder maxFrameLength(Integer value) {
+            this.maxFrameLength = value;
             return this;
         }
 
@@ -202,9 +182,7 @@ public record StompServerOption(
 
         public StompServerOption build() {
             return StompServerOption.of(
-                    maxHeaderLength,
-                    maxHeaders,
-                    maxBodyLength,
+                    maxFrameLength,
                     maxFrameInTransaction,
                     supportedVersions,
                     secured,
