@@ -31,6 +31,7 @@ import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
+import org.traffichunter.titan.core.codec.TooLongFrameException;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.LinkedList;
@@ -59,8 +60,11 @@ public class StompChannelDecoder extends ChannelDecoder {
         this(DEFAULT_MAX_LENGTH, stompChannel, handler);
     }
 
-    public StompChannelDecoder(int maxLength, StompClientChannel stompChannel, StompHandler handler) {
-        this.stompParser = new StompParser(maxLength);
+    public StompChannelDecoder(int maxFrameLength, StompClientChannel stompChannel, StompHandler handler) {
+        if (maxFrameLength <= 0) {
+            throw new IllegalArgumentException("STOMP decoder limit must be greater than zero");
+        }
+        this.stompParser = new StompParser(maxFrameLength);
         this.stompChannel = stompChannel;
         this.handler = handler;
     }
@@ -81,13 +85,14 @@ public class StompChannelDecoder extends ChannelDecoder {
 
         private static final String NULL = StompDelimiter.NUL.getString();
         private static final String COLON = StompDelimiter.COLON.getString();
-
         private static final String CONTENT_LENGTH = "content-length";
 
         private final LineFrameChannelDecoderWrapper lineFrameDecoder;
+        private final int maxFrameLength;
 
-        private StompParser(int maxLength) {
-            this.lineFrameDecoder = new LineFrameChannelDecoderWrapper(maxLength);
+        private StompParser(int maxFrameLength) {
+            this.lineFrameDecoder = new LineFrameChannelDecoderWrapper(maxFrameLength);
+            this.maxFrameLength = maxFrameLength;
         }
 
         private @Nullable StompFrame parse(NetChannel channel, Buffer buffer) {
@@ -102,20 +107,15 @@ public class StompChannelDecoder extends ChannelDecoder {
                 return StompFrame.PING;
             }
 
-            final int eol = findEol(buffer);
-            if(eol == -1) {
+            int frameEnd = findFrameEnd(buffer);
+            if (frameEnd == -1) {
+                validateFrameLength(buffer.length());
                 return null;
             }
 
-            readerIndex = buffer.byteBuf().readerIndex();
-            int length = eol - readerIndex;
-            if (length < 0) {
-                return null;
-            }
-
+            int length = frameEnd - readerIndex;
+            validateFrameLength(length);
             Buffer sliceBuffer = buffer.readSlice(length);
-
-            // Skip stomp last delimiter (null)
             buffer.skipBytes(1);
 
             Buffer stompFrame = Buffer.heap().alloc(sliceBuffer.length() + 1);
@@ -162,19 +162,18 @@ public class StompChannelDecoder extends ChannelDecoder {
             }
         }
 
-        private int findEol(Buffer buffer) {
-            final int totalLength = buffer.length();
-            final int readIdx = buffer.byteBuf().readerIndex();
-
-            int idx = buffer.indexOf(readIdx, readIdx + totalLength, NULL.charAt(0));
-            if(idx >= 0) {
-                if(idx > 0 && buffer.getByte(idx - 1) == (byte) NULL.charAt(0)) {
-                    return idx - 1;
-                }
-                return idx;
+        private void validateFrameLength(int frameLength) {
+            if (frameLength > maxFrameLength) {
+                throw new TooLongFrameException(
+                        "STOMP frame exceeds " + maxFrameLength + ": " + frameLength
+                );
             }
+        }
 
-            return idx;
+        private int findFrameEnd(Buffer buffer) {
+            int totalLength = buffer.length();
+            int readIdx = buffer.byteBuf().readerIndex();
+            return buffer.indexOf(readIdx, readIdx + totalLength, NULL.charAt(0));
         }
     }
 
