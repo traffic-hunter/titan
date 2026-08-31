@@ -78,6 +78,10 @@ public final class ChannelWriteBuffer {
         this.lowWatermarkBytes = lowWatermarkBytes;
     }
 
+    ChannelWriteBuffer(AggregateChannelWriteBufferMetrics metrics) {
+        this(DEFAULT_MAX_PENDING_BYTES, DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK, metrics);
+    }
+
     ChannelWriteBuffer(
             int maxPendingBytes,
             int highWatermarkBytes,

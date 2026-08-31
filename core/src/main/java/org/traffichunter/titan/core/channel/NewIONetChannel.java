@@ -65,11 +65,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     NewIONetChannel(SocketChannel channel, ChannelHandShakeEventListener initializer) {
         super(channel, initializer);
-        this.channelWriteBuffer = new ChannelWriteBuffer();
-    }
-
-    void attachWriteBufferMetrics(AggregateChannelWriteBufferMetrics metrics) {
-        channelWriteBuffer.attachMetrics(metrics);
+        this.channelWriteBuffer = new ChannelWriteBuffer(AggregateChannelWriteBufferMetrics.processWide());
     }
 
     @Override
