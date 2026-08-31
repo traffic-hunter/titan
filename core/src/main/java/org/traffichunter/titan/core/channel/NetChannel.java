@@ -84,6 +84,8 @@ public interface NetChannel extends Channel {
 
     boolean isConnected();
 
+    boolean isWritable();
+
     /**
      * Raw transport operations that bypass the inbound and outbound channel pipelines.
      *

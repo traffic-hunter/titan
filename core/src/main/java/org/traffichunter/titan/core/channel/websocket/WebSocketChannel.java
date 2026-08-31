@@ -138,6 +138,11 @@ public final class WebSocketChannel implements NetChannel {
     }
 
     @Override
+    public boolean isWritable() {
+        return delegate.isWritable();
+    }
+
+    @Override
     public ChannelHandlerChain chain() {
         return delegate.chain();
     }
