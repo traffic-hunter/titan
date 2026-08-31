@@ -98,6 +98,10 @@ func Status(w io.Writer, snapshot monitor.Snapshot, options Options) {
 		snapshot.ChannelWrites.ActiveBuffers,
 		snapshot.ChannelWrites.NonWritableBuffers,
 	)
+	fmt.Fprintf(w, "  %s %d messages\n",
+		label("slow skips", 11, options),
+		snapshot.ChannelWrites.SkippedMessages,
+	)
 	fmt.Fprintf(w, "  %s %d destinations\n", label("queues", 11, options), len(snapshot.Queues))
 }
 

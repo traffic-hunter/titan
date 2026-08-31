@@ -4,11 +4,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import org.traffichunter.titan.monitor.jmx.channel.JmxChannelWriteBufferCollector;
+import org.traffichunter.titan.monitor.jmx.channel.JmxSlowConsumerCollector;
 import org.traffichunter.titan.monitor.jmx.cpu.JmxCpuMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.heap.JmxHeapMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.queue.JmxDispatcherQueueCollector;
 import org.traffichunter.titan.monitor.jmx.thread.JmxThreadMbeanCollector;
 import org.traffichunter.titan.monitor.model.JvmSnapshot;
+import org.traffichunter.titan.monitor.model.ChannelWriteSnapshot;
 import org.traffichunter.titan.monitor.model.MonitoringSnapshot;
 import org.traffichunter.titan.monitor.model.ServerSnapshot;
 
@@ -21,6 +23,7 @@ public final class MonitoringSnapshotService {
     private final JmxHeapMbeanCollector heapCollector;
     private final JmxThreadMbeanCollector threadCollector;
     private final JmxChannelWriteBufferCollector channelWriteCollector;
+    private final JmxSlowConsumerCollector slowConsumerCollector;
     private final JmxDispatcherQueueCollector queueCollector;
 
     public MonitoringSnapshotService(String version) {
@@ -32,6 +35,7 @@ public final class MonitoringSnapshotService {
                 new JmxHeapMbeanCollector(),
                 new JmxThreadMbeanCollector(),
                 new JmxChannelWriteBufferCollector(),
+                new JmxSlowConsumerCollector(),
                 new JmxDispatcherQueueCollector()
         );
     }
@@ -53,6 +57,7 @@ public final class MonitoringSnapshotService {
                 heapCollector,
                 threadCollector,
                 new JmxChannelWriteBufferCollector(),
+                new JmxSlowConsumerCollector(),
                 queueCollector
         );
     }
@@ -67,6 +72,30 @@ public final class MonitoringSnapshotService {
             JmxChannelWriteBufferCollector channelWriteCollector,
             JmxDispatcherQueueCollector queueCollector
     ) {
+        this(
+                clock,
+                startedAt,
+                version,
+                cpuCollector,
+                heapCollector,
+                threadCollector,
+                channelWriteCollector,
+                new JmxSlowConsumerCollector(),
+                queueCollector
+        );
+    }
+
+    public MonitoringSnapshotService(
+            Clock clock,
+            Instant startedAt,
+            String version,
+            JmxCpuMbeanCollector cpuCollector,
+            JmxHeapMbeanCollector heapCollector,
+            JmxThreadMbeanCollector threadCollector,
+            JmxChannelWriteBufferCollector channelWriteCollector,
+            JmxSlowConsumerCollector slowConsumerCollector,
+            JmxDispatcherQueueCollector queueCollector
+    ) {
         this.clock = clock;
         this.startedAt = startedAt;
         this.version = version;
@@ -74,11 +103,13 @@ public final class MonitoringSnapshotService {
         this.heapCollector = heapCollector;
         this.threadCollector = threadCollector;
         this.channelWriteCollector = channelWriteCollector;
+        this.slowConsumerCollector = slowConsumerCollector;
         this.queueCollector = queueCollector;
     }
 
     public MonitoringSnapshot snapshot() {
         Instant timestamp = clock.instant();
+        ChannelWriteSnapshot channelWrites = channelWriteCollector.collect();
         return new MonitoringSnapshot(
                 new ServerSnapshot(
                         version,
@@ -91,7 +122,12 @@ public final class MonitoringSnapshotService {
                         heapCollector.collect(),
                         threadCollector.collect()
                 ),
-                channelWriteCollector.collect(),
+                new ChannelWriteSnapshot(
+                        channelWrites.activeBuffers(),
+                        channelWrites.pendingBytes(),
+                        channelWrites.nonWritableBuffers(),
+                        slowConsumerCollector.collect()
+                ),
                 queueCollector.collect()
         );
     }

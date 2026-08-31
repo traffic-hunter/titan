@@ -8,6 +8,7 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.codec.json.Json;
 import org.traffichunter.titan.monitor.jmx.channel.JmxChannelWriteBufferCollector;
+import org.traffichunter.titan.monitor.jmx.channel.JmxSlowConsumerCollector;
 import org.traffichunter.titan.monitor.jmx.cpu.JmxCpuMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.heap.JmxHeapMbeanCollector;
 import org.traffichunter.titan.monitor.jmx.queue.JmxDispatcherQueueCollector;
@@ -27,6 +28,7 @@ class MonitoringSnapshotServiceTest {
                 new JmxHeapMbeanCollector(),
                 new JmxThreadMbeanCollector(),
                 new JmxChannelWriteBufferCollector(() -> new org.traffichunter.titan.core.util.management.ChannelWriteBufferResource(2, 128, 1)),
+                new JmxSlowConsumerCollector(() -> 3),
                 new JmxDispatcherQueueCollector()
         );
 
@@ -37,7 +39,8 @@ class MonitoringSnapshotServiceTest {
         assertThat(snapshot.server().uptimeMillis()).isEqualTo(5000);
         assertThat(snapshot.jvm()).isNotNull();
         assertThat(snapshot.channelWrites().pendingBytes()).isEqualTo(128);
+        assertThat(snapshot.channelWrites().skippedMessages()).isEqualTo(3);
         assertThat(snapshot.queues()).isNotNull();
-        assertThat(json).contains("\"server\"", "\"jvm\"", "\"channelWrites\"", "\"queues\"");
+        assertThat(json).contains("\"server\"", "\"jvm\"", "\"channelWrites\"", "\"skippedMessages\":3", "\"queues\"");
     }
 }

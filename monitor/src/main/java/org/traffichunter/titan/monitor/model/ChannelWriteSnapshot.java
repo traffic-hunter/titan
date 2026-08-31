@@ -6,11 +6,17 @@ package org.traffichunter.titan.monitor.model;
  * @param activeBuffers number of open channel write buffers
  * @param pendingBytes bytes not yet written to network sockets
  * @param nonWritableBuffers buffers currently held above their high watermark
+ * @param skippedMessages messages skipped because their target channel was not writable
  * @author yun
  */
 public record ChannelWriteSnapshot(
         int activeBuffers,
         long pendingBytes,
-        int nonWritableBuffers
+        int nonWritableBuffers,
+        long skippedMessages
 ) {
+
+    public ChannelWriteSnapshot(int activeBuffers, long pendingBytes, int nonWritableBuffers) {
+        this(activeBuffers, pendingBytes, nonWritableBuffers, 0);
+    }
 }
