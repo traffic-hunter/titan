@@ -60,6 +60,7 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelRegistry;
 import org.traffichunter.titan.dispatch.AggregationResult;
+import org.traffichunter.titan.dispatch.SlowConsumerMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class DispatchExporterTest {
@@ -198,13 +199,15 @@ class DispatchExporterTest {
                 .connection(connection)
                 .build());
 
-        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        SlowConsumerMetrics metrics = new SlowConsumerMetrics();
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection, metrics);
         AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
 
         verify(connection, never()).send(any(StompFrame.class));
         assertThat(result.isDone()).isTrue();
         assertThat(result.succeeded()).isZero();
         assertThat(result.failed()).isOne();
+        assertThat(metrics.getSkippedMessages()).isOne();
     }
 
     @Test

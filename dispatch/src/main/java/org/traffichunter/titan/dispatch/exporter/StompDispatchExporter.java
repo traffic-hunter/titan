@@ -34,6 +34,7 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.AggregationResult;
+import org.traffichunter.titan.dispatch.SlowConsumerMetrics;
 
 import java.util.List;
 
@@ -53,9 +54,15 @@ import java.util.List;
 public class StompDispatchExporter implements DispatchExporter {
 
     private final StompServerChannel serverConnection;
+    private final SlowConsumerMetrics slowConsumerMetrics;
 
     public StompDispatchExporter(StompServerChannel serverConnection) {
+        this(serverConnection, SlowConsumerMetrics.global());
+    }
+
+    StompDispatchExporter(StompServerChannel serverConnection, SlowConsumerMetrics slowConsumerMetrics) {
         this.serverConnection = serverConnection;
+        this.slowConsumerMetrics = slowConsumerMetrics;
     }
 
     @Override
@@ -76,6 +83,7 @@ public class StompDispatchExporter implements DispatchExporter {
         subscriptions.forEach(subscription -> {
             StompClientChannel clientChannel = subscription.getConnection();
             if (!clientChannel.channel().isWritable()) {
+                slowConsumerMetrics.recordSkippedMessage();
                 result.fail();
                 return;
             }
