@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.dispatch.exporter;
 
+import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
@@ -73,12 +74,18 @@ public class StompDispatchExporter implements DispatchExporter {
         );
 
         subscriptions.forEach(subscription -> {
+            StompClientChannel clientChannel = subscription.getConnection();
+            if (!clientChannel.channel().isWritable()) {
+                result.fail();
+                return;
+            }
+
             StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, message.getBytes());
             frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
             frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
             frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
 
-            Promise<StompFrame> sendPromise = subscription.getConnection().send(frame);
+            Promise<StompFrame> sendPromise = clientChannel.send(frame);
             sendPromise.addListener(sendFuture -> {
                 if (sendFuture.isSuccess()) {
                     result.success();
