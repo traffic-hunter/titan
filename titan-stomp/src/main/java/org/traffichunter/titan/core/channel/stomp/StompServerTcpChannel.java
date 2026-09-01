@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -205,7 +204,7 @@ public class StompServerTcpChannel implements StompServerChannel {
         }
 
         try {
-            Collection<StompClientChannel> activeConnections = connections.values();
+            List<StompClientChannel> activeConnections = List.copyOf(connections.values());
             activeConnections.forEach(this::cleanUp);
             activeConnections.forEach(StompClientChannel::close);
             connections.clear();

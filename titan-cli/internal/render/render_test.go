@@ -14,7 +14,7 @@ func TestStatusRendersCoreFields(t *testing.T) {
 	Status(&out, fixture(), NoColor)
 
 	text := out.String()
-	for _, expected := range []string{"version     0.6.1", "cpu", "heap", "channel I/O 2.0KiB pending   3 active   1 non-writable", "queues      1 destinations"} {
+	for _, expected := range []string{"version     0.6.1", "cpu", "heap", "channel I/O 2.0KiB pending   3 active   1 non-writable", "slow skips  2 messages", "queues      1 destinations"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("expected %q in output:\n%s", expected, text)
 		}
@@ -59,6 +59,7 @@ func fixture() monitor.Snapshot {
 			ActiveBuffers:      3,
 			PendingBytes:       2048,
 			NonWritableBuffers: 1,
+			SkippedMessages:    2,
 		},
 		Queues: []monitor.QueueSnapshot{
 			{Destination: "/queue/orders", Size: 5, PendingBytes: 20, MaxPendingBytes: 40, Paused: true},

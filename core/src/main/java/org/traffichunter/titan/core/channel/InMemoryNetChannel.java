@@ -215,6 +215,11 @@ public final class InMemoryNetChannel implements NetChannel {
         return connected;
     }
 
+    @Override
+    public boolean isWritable() {
+        return !closed;
+    }
+
     public void enqueueInbound(Buffer buffer) {
         inbound.add(buffer.retain());
     }

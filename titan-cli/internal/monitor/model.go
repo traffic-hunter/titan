@@ -11,6 +11,7 @@ type ChannelWriteSnapshot struct {
 	ActiveBuffers      int   `json:"activeBuffers"`
 	PendingBytes       int64 `json:"pendingBytes"`
 	NonWritableBuffers int   `json:"nonWritableBuffers"`
+	SkippedMessages    int64 `json:"skippedMessages"`
 }
 
 type ServerSnapshot struct {

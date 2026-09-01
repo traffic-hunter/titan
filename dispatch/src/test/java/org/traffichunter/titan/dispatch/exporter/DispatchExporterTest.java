@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +60,7 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelRegistry;
 import org.traffichunter.titan.dispatch.AggregationResult;
+import org.traffichunter.titan.dispatch.SlowConsumerMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class DispatchExporterTest {
@@ -139,13 +141,19 @@ class DispatchExporterTest {
         Destination destination = Destination.create("/topic/orders");
 
         StompClientChannel successConn = mock(StompClientChannel.class);
+        NetChannel successChannel = mock(NetChannel.class);
         when(successConn.session()).thenReturn("session-1");
+        when(successConn.channel()).thenReturn(successChannel);
+        when(successChannel.isWritable()).thenReturn(true);
         Promise<StompFrame> successPromise = Promise.newPromise(loop);
         successPromise.success(StompFrame.PING);
         when(successConn.send(any(StompFrame.class))).thenReturn(successPromise);
 
         StompClientChannel failedConn = mock(StompClientChannel.class);
+        NetChannel failedChannel = mock(NetChannel.class);
         when(failedConn.session()).thenReturn("session-2");
+        when(failedConn.channel()).thenReturn(failedChannel);
+        when(failedChannel.isWritable()).thenReturn(true);
         Promise<StompFrame> failedPromise = Promise.newPromise(loop);
         failedPromise.fail(new IllegalStateException("send failed"));
         when(failedConn.send(any(StompFrame.class))).thenReturn(failedPromise);
@@ -170,6 +178,36 @@ class DispatchExporterTest {
         assertThat(result.done()).isEqualTo(2);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);
+    }
+
+    @Test
+    void stompFanoutExporter_skips_non_writable_subscriber() {
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+
+        Destination destination = Destination.create("/topic/orders");
+        StompClientChannel connection = mock(StompClientChannel.class);
+        NetChannel channel = mock(NetChannel.class);
+        when(connection.session()).thenReturn("session-1");
+        when(connection.channel()).thenReturn(channel);
+        when(channel.isWritable()).thenReturn(false);
+
+        subscriptions.register(StompServerSubscription.builder()
+                .destination(destination)
+                .id("sub-1")
+                .ackMode(StompFrame.AckMode.AUTO)
+                .connection(connection)
+                .build());
+
+        SlowConsumerMetrics metrics = new SlowConsumerMetrics();
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection, metrics);
+        AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
+
+        verify(connection, never()).send(any(StompFrame.class));
+        assertThat(result.isDone()).isTrue();
+        assertThat(result.succeeded()).isZero();
+        assertThat(result.failed()).isOne();
+        assertThat(metrics.getSkippedMessages()).isOne();
     }
 
     @Test
