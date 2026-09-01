@@ -114,4 +114,4 @@ before using Titan for reliability-sensitive workloads.
 </tr>
 </tbody></table>
 
-<sub>Documentation examples target Titan `0.8.1` and JDK 21 or newer.</sub>
+<sub>Documentation examples target Titan `0.8.2` and JDK 21 or newer.</sub>
