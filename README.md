@@ -42,7 +42,7 @@ Titan requires JDK 21 or newer. Download the standalone JAR from
 [GitHub Releases](https://github.com/traffic-hunter/titan/releases), or use:
 
 ```bash
-curl -LO https://github.com/traffic-hunter/titan/releases/download/0.8.1/titan-server-0.8.1.jar
+curl -LO https://github.com/traffic-hunter/titan/releases/download/0.8.2/titan-server-0.8.2.jar
 ```
 
 ### 2. Create `titan-env.yml`
@@ -67,7 +67,7 @@ titan:
 
 ```bash
 java -Dtitan.environment.path=./titan-env.yml \
-  -jar titan-server-0.8.1.jar
+  -jar titan-server-0.8.2.jar
 ```
 
 The STOMP server now listens on `localhost:61613`. Verify the node through the
@@ -150,13 +150,13 @@ repositories {
 For a Spring Boot application:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.8.1")
+implementation("org.traffichunter.titan:titan-spring-client:0.8.2")
 ```
 
 For a standalone Java client:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-client:0.8.1")
+implementation("org.traffichunter.titan:titan-client:0.8.2")
 ```
 
 Low-level server and extension artifacts:
@@ -177,7 +177,7 @@ client builder to select Vert.x without changing the messaging API.
 
 ```bash
 # Start the standalone server
-java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.8.1.jar
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.8.2.jar
 
 # Check health and inspect a snapshot
 curl http://localhost:7777/titan/monitor/health
@@ -194,7 +194,7 @@ curl http://localhost:7777/titan/monitor/snapshot
 Prebuilt releases also contain the terminal monitor CLI:
 
 ```bash
-tar -xzf titan-cli-0.8.1-linux-amd64.tar.gz
+tar -xzf titan-cli-0.8.2-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 ./titan --addr http://localhost:7777 --view queues
 ./titan --addr http://localhost:7777 queue list
