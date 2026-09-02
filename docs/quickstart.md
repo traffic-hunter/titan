@@ -25,6 +25,9 @@ titan:
       transport-options:
         reuse-address: "true"
         child-tcp-no-delay: "true"
+        max-pending-bytes: "131072"
+        high-watermark-bytes: "65536"
+        low-watermark-bytes: "32768"
       protocol-options:
         supported-versions: "1.2"
         max-frame-length: "1048576"

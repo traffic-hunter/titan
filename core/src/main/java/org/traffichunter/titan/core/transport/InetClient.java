@@ -24,7 +24,6 @@
 package org.traffichunter.titan.core.transport;
 
 import java.net.InetSocketAddress;
-import java.net.SocketOption;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -269,11 +268,8 @@ public class InetClient extends AbstractTransport<NetChannel> {
         return state.get() == State.SHUTDOWN && groups().isShuttingDown();
     }
 
-    @SuppressWarnings("unchecked")
     private void applyClientOption(NetChannel channel, InetClientOption option) {
-        option.socketOptions().forEach((k, v) -> {
-            channel.setOption((SocketOption<Object>) k, v);
-        });
+        option.applyTo(channel);
     }
 
     private @Nullable Promise<NetChannel> validateConnection() {
@@ -289,8 +285,8 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     private NetChannel createChannel() {
         NetChannel channel = newChannel(new ClientChannelConnector());
-        channelHandler.handle(channel);
         applyClientOption(channel, option);
+        channelHandler.handle(channel);
         groups().register(channel);
         return channel;
     }

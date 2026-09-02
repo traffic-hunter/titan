@@ -51,6 +51,15 @@ public interface NetChannel extends Channel {
     @Override
     <T> NetChannel setOption(SocketOption<T> option, T value);
 
+    /**
+     * Configures outbound buffering before the channel begins network I/O.
+     *
+     * @param option pending-byte limit and writability watermarks
+     * @return this channel
+     */
+    @CanIgnoreReturnValue
+    NetChannel writeBufferOption(ChannelWriteBufferOption option);
+
     ChannelPromise connect(String host, int port, long timeOut, TimeUnit timeUnit);
 
     /**

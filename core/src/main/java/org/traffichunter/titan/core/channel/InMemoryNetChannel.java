@@ -99,6 +99,11 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     @Override
+    public NetChannel writeBufferOption(ChannelWriteBufferOption option) {
+        return this;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public @Nullable <T> T getOption(SocketOption<T> option) {
         return (T) options.get(option);

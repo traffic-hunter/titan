@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.core.channel.ChannelWriteBufferOption;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -37,6 +37,7 @@ import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.net.TlsContextFactory;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
+import org.traffichunter.titan.core.util.OptionValues;
 
 /**
  * Built-in provider for plain TCP line-frame servers.
@@ -114,15 +115,24 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
     }
 
     private static InetServerOption buildOption(final Map<String, String> options) {
+        OptionValues values = OptionValues.of(options);
         InetServerOption.Builder builder = InetServerOption.builder()
-                .reuseAddress(booleanOption(options, "reuse-address", true))
-                .childTcpNoDelay(booleanOption(options, "child-tcp-no-delay", true))
-                .childKeepAlive(booleanOption(options, "child-keep-alive", false))
-                .childReuseAddress(booleanOption(options, "child-reuse-address", true));
+                .reuseAddress(values.getOrDefault("reuse-address", Boolean.class, true))
+                .childTcpNoDelay(values.getOrDefault("child-tcp-no-delay", Boolean.class, true))
+                .childKeepAlive(values.getOrDefault("child-keep-alive", Boolean.class, false))
+                .childReuseAddress(values.getOrDefault("child-reuse-address", Boolean.class, true))
+                .childWriteBuffer(
+                        values.getOrDefault("max-pending-bytes", Integer.class,
+                                ChannelWriteBufferOption.DEFAULT_MAX_PENDING_BYTES),
+                        values.getOrDefault("high-watermark-bytes", Integer.class,
+                                ChannelWriteBufferOption.DEFAULT_HIGH_WATERMARK_BYTES),
+                        values.getOrDefault("low-watermark-bytes", Integer.class,
+                                ChannelWriteBufferOption.DEFAULT_LOW_WATERMARK_BYTES)
+                );
 
-        Integer receiveBufferSize = intOption(options, "receive-buffer-size");
-        Integer childSendBufferSize = intOption(options, "child-send-buffer-size");
-        Integer childReceiveBufferSize = intOption(options, "child-receive-buffer-size");
+        Integer receiveBufferSize = values.get("receive-buffer-size", Integer.class);
+        Integer childSendBufferSize = values.get("child-send-buffer-size", Integer.class);
+        Integer childReceiveBufferSize = values.get("child-receive-buffer-size", Integer.class);
 
         if (receiveBufferSize != null) {
             builder.receiveBufferSize(receiveBufferSize);
@@ -133,17 +143,6 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
         if (childReceiveBufferSize != null) {
             builder.childReceiveBufferSize(childReceiveBufferSize);
         }
-
         return builder.build();
-    }
-
-    private static @Nullable Integer intOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Integer.parseInt(value);
-    }
-
-    private static boolean booleanOption(final Map<String, String> options, final String key, final boolean defaultValue) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? defaultValue : Boolean.parseBoolean(value);
     }
 }

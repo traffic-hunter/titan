@@ -54,7 +54,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     private static final Logger log = LoggerFactory.getLogger(NewIONetChannel.class);
 
-    private final ChannelWriteBuffer channelWriteBuffer;
+    private ChannelWriteBuffer channelWriteBuffer;
     private final Internal internal = new NewIOInternal();
 
     private @Nullable volatile ChannelPromise connectPromise;
@@ -145,6 +145,20 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         } catch (IOException e) {
             throw new ChannelException("Failed to set socket option = " + option.name() + " value = " + value, e);
         }
+        return this;
+    }
+
+    @Override
+    public NetChannel writeBufferOption(ChannelWriteBufferOption option) {
+        if (option.equals(ChannelWriteBufferOption.DEFAULT)) {
+            return this;
+        }
+        if (isRegistered() || channelWriteBuffer.pendingBytes() != 0) {
+            throw new ChannelException("Cannot configure the channel write buffer after channel registration");
+        }
+
+        channelWriteBuffer.close();
+        channelWriteBuffer = new ChannelWriteBuffer(option, AggregateChannelWriteBufferMetrics.processWide());
         return this;
     }
 

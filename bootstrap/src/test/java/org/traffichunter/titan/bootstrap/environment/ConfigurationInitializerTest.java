@@ -200,6 +200,9 @@ class ConfigurationInitializerTest {
                         reuse-address: "true"
                       transport-options:
                         receive-buffer-size: "65536"
+                        max-pending-bytes: "262144"
+                        high-watermark-bytes: "131072"
+                        low-watermark-bytes: "65536"
                       tls:
                         side: server
                         client-auth: need
@@ -223,6 +226,9 @@ class ConfigurationInitializerTest {
         assertThat(server.resolvedTransportOptions())
                 .containsEntry("reuse-address", "true")
                 .containsEntry("receive-buffer-size", "65536")
+                .containsEntry("max-pending-bytes", "262144")
+                .containsEntry("high-watermark-bytes", "131072")
+                .containsEntry("low-watermark-bytes", "65536")
                 .doesNotContainKeys("tls-side", "tls-path", "tls-type");
         assertThat(server.tls().enabled()).isTrue();
         assertThat(server.tls().side()).isEqualTo("server");

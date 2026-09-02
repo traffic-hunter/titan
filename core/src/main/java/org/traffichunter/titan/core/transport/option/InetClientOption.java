@@ -27,6 +27,9 @@ import java.net.SocketOption;
 import java.net.StandardSocketOptions;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.ChannelWriteBufferOption;
+import org.traffichunter.titan.core.channel.NetChannel;
 
 /**
  * @author yun
@@ -35,8 +38,29 @@ public class InetClientOption extends InetOption {
 
     public static final InetClientOption DEFAULT_INET_CLIENT_OPTION = InetClientOption.builder().build();
 
-    private InetClientOption(Map<SocketOption<?>, Object> socketOptions) {
+    private final @Nullable ChannelWriteBufferOption writeBufferOption;
+
+    private InetClientOption(
+            Map<SocketOption<?>, Object> socketOptions,
+            @Nullable ChannelWriteBufferOption writeBufferOption
+    ) {
         super(socketOptions);
+        this.writeBufferOption = writeBufferOption;
+    }
+
+    public @Nullable ChannelWriteBufferOption writeBufferOption() {
+        return writeBufferOption;
+    }
+
+    /** Applies every explicitly configured option to the channel. */
+    @SuppressWarnings("unchecked")
+    public void applyTo(NetChannel channel) {
+        socketOptions().forEach((option, value) ->
+                channel.setOption((SocketOption<Object>) option, value)
+        );
+        if (writeBufferOption != null) {
+            channel.writeBufferOption(writeBufferOption);
+        }
     }
 
     public static Builder builder() {
@@ -46,6 +70,7 @@ public class InetClientOption extends InetOption {
     public static final class Builder {
 
         private final Map<SocketOption<?>, Object> options = new HashMap<>();
+        private @Nullable ChannelWriteBufferOption writeBufferOption;
 
         public <T> Builder option(SocketOption<T> option, T value) {
             options.put(option, value);
@@ -76,8 +101,17 @@ public class InetClientOption extends InetOption {
             return option(StandardSocketOptions.SO_LINGER, seconds);
         }
 
+        public Builder writeBuffer(int maxPendingBytes, int highWatermarkBytes, int lowWatermarkBytes) {
+            this.writeBufferOption = new ChannelWriteBufferOption(
+                    maxPendingBytes,
+                    highWatermarkBytes,
+                    lowWatermarkBytes
+            );
+            return this;
+        }
+
         public InetClientOption build() {
-            return new InetClientOption(options);
+            return new InetClientOption(options, writeBufferOption);
         }
     }
 }

@@ -28,16 +28,17 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
+import org.traffichunter.titan.core.channel.ChannelWriteBufferOption;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.net.TlsContextFactory;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
+import org.traffichunter.titan.core.util.OptionValues;
 
 /**
  * Service provider for STOMP-over-TCP server engines.
@@ -113,32 +114,42 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
     }
 
     private static StompServerOption buildOption(final Map<String, String> options, final InetServerOption inetOption) {
+        OptionValues values = OptionValues.of(options);
         return StompServerOption.builder()
-                .maxFrameLength(intOption(options, "max-frame-length"))
-                .maxFrameInTransaction(intOption(options, "max-frame-in-transaction"))
-                .supportedVersions(stringOption(options, "supported-versions"))
-                .heartbeatX(longOption(options, "heartbeat-x"))
-                .heartbeatY(longOption(options, "heartbeat-y"))
-                .secured(booleanOption(options, "secured"))
-                .sendErrorOnNoSubscriptions(booleanOption(options, "send-error-on-no-subscriptions"))
-                .ackTimeoutMillis(longOption(options, "ack-timeout-millis"))
-                .timeFactor(intOption(options, "time-factor"))
-                .transactionChunkSize(intOption(options, "transaction-chunk-size"))
-                .maxSubscriptionsByClient(intOption(options, "max-subscriptions-by-client"))
+                .maxFrameLength(values.get("max-frame-length", Integer.class))
+                .maxFrameInTransaction(values.get("max-frame-in-transaction", Integer.class))
+                .supportedVersions(values.get("supported-versions", String.class))
+                .heartbeatX(values.get("heartbeat-x", Long.class))
+                .heartbeatY(values.get("heartbeat-y", Long.class))
+                .secured(values.get("secured", Boolean.class))
+                .sendErrorOnNoSubscriptions(values.get("send-error-on-no-subscriptions", Boolean.class))
+                .ackTimeoutMillis(values.get("ack-timeout-millis", Long.class))
+                .timeFactor(values.get("time-factor", Integer.class))
+                .transactionChunkSize(values.get("transaction-chunk-size", Integer.class))
+                .maxSubscriptionsByClient(values.get("max-subscriptions-by-client", Integer.class))
                 .inetServerOption(inetOption)
                 .build();
     }
 
     private static InetServerOption buildInetOption(final Map<String, String> options) {
+        OptionValues values = OptionValues.of(options);
         InetServerOption.Builder builder = InetServerOption.builder()
-                .reuseAddress(booleanOption(options, "reuse-address", true))
-                .childTcpNoDelay(booleanOption(options, "child-tcp-no-delay", true))
-                .childKeepAlive(booleanOption(options, "child-keep-alive", false))
-                .childReuseAddress(booleanOption(options, "child-reuse-address", true));
+                .reuseAddress(values.getOrDefault("reuse-address", Boolean.class, true))
+                .childTcpNoDelay(values.getOrDefault("child-tcp-no-delay", Boolean.class, true))
+                .childKeepAlive(values.getOrDefault("child-keep-alive", Boolean.class, false))
+                .childReuseAddress(values.getOrDefault("child-reuse-address", Boolean.class, true))
+                .childWriteBuffer(
+                        values.getOrDefault("max-pending-bytes", Integer.class,
+                                ChannelWriteBufferOption.DEFAULT_MAX_PENDING_BYTES),
+                        values.getOrDefault("high-watermark-bytes", Integer.class,
+                                ChannelWriteBufferOption.DEFAULT_HIGH_WATERMARK_BYTES),
+                        values.getOrDefault("low-watermark-bytes", Integer.class,
+                                ChannelWriteBufferOption.DEFAULT_LOW_WATERMARK_BYTES)
+                );
 
-        Integer receiveBufferSize = intOption(options, "receive-buffer-size");
-        Integer childSendBufferSize = intOption(options, "child-send-buffer-size");
-        Integer childReceiveBufferSize = intOption(options, "child-receive-buffer-size");
+        Integer receiveBufferSize = values.get("receive-buffer-size", Integer.class);
+        Integer childSendBufferSize = values.get("child-send-buffer-size", Integer.class);
+        Integer childReceiveBufferSize = values.get("child-receive-buffer-size", Integer.class);
 
         if (receiveBufferSize != null) {
             builder.receiveBufferSize(receiveBufferSize);
@@ -149,32 +160,6 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
         if (childReceiveBufferSize != null) {
             builder.childReceiveBufferSize(childReceiveBufferSize);
         }
-
         return builder.build();
-    }
-
-    private static @Nullable Integer intOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Integer.parseInt(value);
-    }
-
-    private static @Nullable Long longOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Long.parseLong(value);
-    }
-
-    private static @Nullable Boolean booleanOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Boolean.parseBoolean(value);
-    }
-
-    private static boolean booleanOption(final Map<String, String> options, final String key, final boolean defaultValue) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? defaultValue : Boolean.parseBoolean(value);
-    }
-
-    private static @Nullable String stringOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : value;
     }
 }

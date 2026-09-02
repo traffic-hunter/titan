@@ -27,6 +27,7 @@ import java.net.SocketOption;
 import java.net.StandardSocketOptions;
 import java.util.HashMap;
 import java.util.Map;
+import org.traffichunter.titan.core.channel.ChannelWriteBufferOption;
 
 /**
  * @author yun
@@ -35,22 +36,22 @@ public class InetServerOption extends InetOption {
 
     public static final InetServerOption DEFAULT_INET_SERVER_OPTION = InetServerOption.builder().build();
 
-    private final Map<SocketOption<?>, Object> childSocketOptions;
+    private final InetClientOption childOption;
 
     private InetServerOption(
             Map<SocketOption<?>, Object> serverSocketOptions,
-            Map<SocketOption<?>, Object> childSocketOptions
+            InetClientOption childOption
     ) {
         super(serverSocketOptions);
-        this.childSocketOptions = Map.copyOf(childSocketOptions);
+        this.childOption = childOption;
     }
 
     public Map<SocketOption<?>, Object> serverSocketOptions() {
         return socketOptions();
     }
 
-    public Map<SocketOption<?>, Object> childSocketOptions() {
-        return childSocketOptions;
+    public InetClientOption childOption() {
+        return childOption;
     }
 
     public static Builder builder() {
@@ -60,7 +61,10 @@ public class InetServerOption extends InetOption {
     public static final class Builder {
 
         private final Map<SocketOption<?>, Object> serverOptions = new HashMap<>();
-        private final Map<SocketOption<?>, Object> childOptions = new HashMap<>();
+        private final InetClientOption.Builder childOption = InetClientOption.builder();
+        private int childMaxPendingBytes = ChannelWriteBufferOption.DEFAULT_MAX_PENDING_BYTES;
+        private int childHighWatermarkBytes = ChannelWriteBufferOption.DEFAULT_HIGH_WATERMARK_BYTES;
+        private int childLowWatermarkBytes = ChannelWriteBufferOption.DEFAULT_LOW_WATERMARK_BYTES;
 
         public <T> Builder option(SocketOption<T> option, T value) {
             serverOptions.put(option, value);
@@ -68,7 +72,7 @@ public class InetServerOption extends InetOption {
         }
 
         public <T> Builder childOption(SocketOption<T> option, T value) {
-            childOptions.put(option, value);
+            childOption.option(option, value);
             return this;
         }
 
@@ -100,8 +104,37 @@ public class InetServerOption extends InetOption {
             return childOption(StandardSocketOptions.SO_REUSEADDR, enabled);
         }
 
+        public Builder childWriteBuffer(int maxPendingBytes, int highWatermarkBytes, int lowWatermarkBytes) {
+            this.childMaxPendingBytes = maxPendingBytes;
+            this.childHighWatermarkBytes = highWatermarkBytes;
+            this.childLowWatermarkBytes = lowWatermarkBytes;
+            return this;
+        }
+
+        public Builder childMaxPendingBytes(int maxPendingBytes) {
+            this.childMaxPendingBytes = maxPendingBytes;
+            return this;
+        }
+
+        public Builder childHighWatermarkBytes(int highWatermarkBytes) {
+            this.childHighWatermarkBytes = highWatermarkBytes;
+            return this;
+        }
+
+        public Builder childLowWatermarkBytes(int lowWatermarkBytes) {
+            this.childLowWatermarkBytes = lowWatermarkBytes;
+            return this;
+        }
+
         public InetServerOption build() {
-            return new InetServerOption(serverOptions, childOptions);
+            return new InetServerOption(
+                    serverOptions,
+                    childOption.writeBuffer(
+                            childMaxPendingBytes,
+                            childHighWatermarkBytes,
+                            childLowWatermarkBytes
+                    ).build()
+            );
         }
     }
 }

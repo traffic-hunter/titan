@@ -99,6 +99,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
     @CanIgnoreReturnValue
     public InetServer option(InetServerOption option) {
         this.option = option;
+        this.acceptor.setServerOption(option);
         return this;
     }
 
@@ -179,7 +180,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     "Started InetServer. session={}, serverOptions={}, childOptions={}",
                     channel.session(),
                     option.serverSocketOptions(),
-                    option.childSocketOptions()
+                    option.childOption().socketOptions()
             );
         } catch (RuntimeException e) {
             state.compareAndSet(State.STARTED, State.INIT);
@@ -320,6 +321,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         private final ChannelRegistry<NetChannel> channelRegistry;
 
         private volatile InetClientOption childOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
+        private volatile InetServerOption serverOption = InetServerOption.DEFAULT_INET_SERVER_OPTION;
         private volatile Handler<Channel> childHandler = ch -> {};
         private volatile boolean webSocketUpgrade;
         private volatile WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
@@ -337,6 +339,10 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             this.childOption = childOption;
         }
 
+        void setServerOption(InetServerOption serverOption) {
+            this.serverOption = serverOption;
+        }
+
         void setChildHandler(Handler<Channel> childHandler) {
             this.childHandler = childHandler;
         }
@@ -350,16 +356,14 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             this.tlsContext = tlsContext;
         }
 
-        @SuppressWarnings("unchecked")
         @Override
         public void accept(Channel channel) {
             if (!(channel instanceof NetChannel netChannel)) {
                 throw new IllegalArgumentException("Unsupported channel: " + channel);
             }
 
-            childOption.socketOptions().forEach((k, v) ->
-                    netChannel.setOption((SocketOption<Object>) k, v)
-            );
+            serverOption.childOption().applyTo(netChannel);
+            childOption.applyTo(netChannel);
 
             // Accepted sockets must move to a secondary loop before reads are registered.
             ChannelSecondaryIOEventLoop loop = secondaryGroup.next();

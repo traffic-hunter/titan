@@ -40,10 +40,6 @@ import java.util.Queue;
  */
 public final class ChannelWriteBuffer {
 
-    private static final int DEFAULT_HIGH_WATERMARK = 64 * 1024;
-    private static final int DEFAULT_LOW_WATERMARK = 32 * 1024;
-    private static final int DEFAULT_MAX_PENDING_BYTES = DEFAULT_HIGH_WATERMARK * 2;
-
     private final Queue<Buffer> writeBuffer;
     private @Nullable AggregateChannelWriteBufferMetrics metrics;
 
@@ -57,7 +53,7 @@ public final class ChannelWriteBuffer {
     private boolean isClosed;
 
     public ChannelWriteBuffer() {
-        this(DEFAULT_MAX_PENDING_BYTES, DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK);
+        this(ChannelWriteBufferOption.DEFAULT);
     }
 
     public ChannelWriteBuffer(int highWatermarkBytes, int lowWatermarkBytes) {
@@ -65,21 +61,18 @@ public final class ChannelWriteBuffer {
     }
 
     public ChannelWriteBuffer(int maxPendingBytes, int highWatermarkBytes, int lowWatermarkBytes) {
-        Assert.checkArgument(highWatermarkBytes > lowWatermarkBytes, "highWatermark must be greater than lowerPoint");
-        Assert.checkArgument(highWatermarkBytes > 0, "highWatermark must be greater than 0");
-        Assert.checkArgument(lowWatermarkBytes > 0, "lowWatermark must be greater than 0");
-        Assert.checkArgument(maxPendingBytes > 0, "maxPendingBytes must be greater than 0");
-        Assert.checkArgument(maxPendingBytes >= highWatermarkBytes,
-                "maxPendingBytes must be greater than or equal to highWatermark");
+        this(new ChannelWriteBufferOption(maxPendingBytes, highWatermarkBytes, lowWatermarkBytes));
+    }
 
+    public ChannelWriteBuffer(ChannelWriteBufferOption option) {
         this.writeBuffer = new ArrayDeque<>();
-        this.maxPendingBytes = maxPendingBytes;
-        this.highWatermarkBytes = highWatermarkBytes;
-        this.lowWatermarkBytes = lowWatermarkBytes;
+        this.maxPendingBytes = option.maxPendingBytes();
+        this.highWatermarkBytes = option.highWatermarkBytes();
+        this.lowWatermarkBytes = option.lowWatermarkBytes();
     }
 
     ChannelWriteBuffer(AggregateChannelWriteBufferMetrics metrics) {
-        this(DEFAULT_MAX_PENDING_BYTES, DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK, metrics);
+        this(ChannelWriteBufferOption.DEFAULT, metrics);
     }
 
     ChannelWriteBuffer(
@@ -88,7 +81,11 @@ public final class ChannelWriteBuffer {
             int lowWatermarkBytes,
             AggregateChannelWriteBufferMetrics metrics
     ) {
-        this(maxPendingBytes, highWatermarkBytes, lowWatermarkBytes);
+        this(new ChannelWriteBufferOption(maxPendingBytes, highWatermarkBytes, lowWatermarkBytes), metrics);
+    }
+
+    ChannelWriteBuffer(ChannelWriteBufferOption option, AggregateChannelWriteBufferMetrics metrics) {
+        this(option);
         attachMetrics(metrics);
     }
 

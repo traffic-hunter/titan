@@ -25,6 +25,9 @@ java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.8.2.jar
 | --- | --- |
 | `reuse-address` | Allow address reuse on the server socket |
 | `child-tcp-no-delay` | Disable Nagle's algorithm on accepted connections |
+| `max-pending-bytes` | Hard limit for pending outbound bytes per connection | `"131072"` |
+| `high-watermark-bytes` | Marks a connection non-writable above this amount | `"65536"` |
+| `low-watermark-bytes` | Marks a connection writable again below this amount | `"32768"` |
 | `path` | WebSocket HTTP upgrade path | `/stomp` |
 
 Configuration option values are represented as strings in the current YAML
