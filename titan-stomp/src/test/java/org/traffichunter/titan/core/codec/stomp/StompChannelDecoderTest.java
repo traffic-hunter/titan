@@ -10,17 +10,19 @@ import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
-import org.traffichunter.titan.core.codec.TooLongFrameException;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.DisplayNameGenerator.*;
@@ -187,9 +189,42 @@ class StompChannelDecoderTest {
         // Issue #125: no CONNECT or NUL is needed to reach the accumulation path.
         try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
                 (frame, connection) -> handled.add(frame))) {
-            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
-                    .isInstanceOf(TooLongFrameException.class);
+            assertThatCode(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
+                    .doesNotThrowAnyException();
             assertThat(handled).isEmpty();
+            assertThat(chain.frames).isEmpty();
+        } finally {
+            chain.releaseAll();
+        }
+        assertThat(input.byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    @Timeout(5)
+    void send_error_frame_and_close_connection_when_frame_limit_is_exceeded() {
+        StompClientChannel stompChannel = Mockito.mock(StompClientChannel.class);
+        @SuppressWarnings("unchecked")
+        Promise<StompFrame> writeResult = Mockito.mock(Promise.class);
+        Mockito.when(stompChannel.session()).thenReturn("oversized-frame-test");
+        Mockito.when(stompChannel.send(Mockito.any(StompFrame.class))).thenReturn(writeResult);
+        Mockito.when(writeResult.onSuccess(Mockito.any())).thenAnswer(invocation -> {
+            Consumer<StompFrame> success = invocation.getArgument(0);
+            success.accept(Mockito.mock(StompFrame.class));
+            return writeResult;
+        });
+        Mockito.when(writeResult.onFailure(Mockito.any())).thenReturn(writeResult);
+
+        Buffer input = Buffer.direct().alloc("SEND\ndestination:/queue/a\n\n" + "A".repeat(65));
+        CollectingChain chain = new CollectingChain();
+        try (StompChannelDecoder decoder = new StompChannelDecoder(64, stompChannel, (frame, connection) -> {})) {
+            decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain);
+
+            ArgumentCaptor<StompFrame> errorFrame = ArgumentCaptor.forClass(StompFrame.class);
+            Mockito.verify(stompChannel).send(errorFrame.capture());
+            assertThat(errorFrame.getValue().command()).isEqualTo(StompCommand.ERROR);
+            assertThat(errorFrame.getValue().getHeader(StompHeaders.Elements.MESSAGE))
+                    .isEqualTo("Frame size limit exceeded.");
+            Mockito.verify(stompChannel).close();
             assertThat(chain.frames).isEmpty();
         } finally {
             chain.releaseAll();
@@ -210,11 +245,11 @@ class StompChannelDecoderTest {
                     Buffer.direct().alloc("SEND\ndestination:/queue/a\n\n"), chain);
 
             // Bound the reproduction instead of exhausting the JVM heap.
-            assertThatThrownBy(() -> {
+            assertThatCode(() -> {
                 for (int i = 0; i < 8; i++) {
                     decoder.sparkChannelRead(channel, Buffer.direct().alloc("A".repeat(16)), chain);
                 }
-            }).isInstanceOf(TooLongFrameException.class);
+            }).doesNotThrowAnyException();
             assertThat(handled).isEmpty();
             assertThat(chain.frames).isEmpty();
         } finally {
@@ -231,9 +266,8 @@ class StompChannelDecoderTest {
 
         try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
                 (frame, connection) -> handled.add(frame))) {
-            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
-                    .isInstanceOf(TooLongFrameException.class)
-                    .hasMessageContaining("STOMP frame exceeds 64: 65");
+            assertThatCode(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
+                    .doesNotThrowAnyException();
             assertThat(handled).isEmpty();
             assertThat(chain.frames).isEmpty();
         } finally {
@@ -255,8 +289,8 @@ class StompChannelDecoderTest {
 
         try (TestStompChannelDecoder decoder = new TestStompChannelDecoder(64,
                 (frame, connection) -> handled.add(frame))) {
-            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
-                    .isInstanceOf(TooLongFrameException.class);
+            assertThatCode(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, chain))
+                    .doesNotThrowAnyException();
             assertThat(handled).isEmpty();
             assertThat(chain.frames).isEmpty();
         } finally {

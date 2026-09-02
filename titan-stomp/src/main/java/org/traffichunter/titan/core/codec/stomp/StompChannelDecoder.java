@@ -23,12 +23,13 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.core.codec.stomp;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
-import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.codec.TooLongFrameException;
@@ -38,6 +39,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
+import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 
 /**
  * @author yun, gkdbssla97
@@ -67,6 +69,30 @@ public class StompChannelDecoder extends ChannelDecoder {
         this.stompParser = new StompParser(maxFrameLength);
         this.stompChannel = stompChannel;
         this.handler = handler;
+    }
+
+    @Override
+    public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
+        try {
+            super.sparkChannelRead(channel, buffer, chain);
+        } catch (TooLongFrameException error) {
+            String reason = error.getMessage() == null ? "STOMP frame size limit exceeded" : error.getMessage();
+            log.warn("Rejected oversized STOMP frame. session={}, reason={}",
+                    stompChannel.session(), reason);
+            try {
+                stompChannel.send(errorFrame("Frame size limit exceeded.", reason))
+                        .onSuccess(ignored -> stompChannel.close())
+                        .onFailure(sendError -> {
+                            log.warn("Failed to send STOMP ERROR frame before closing. session={}",
+                                    stompChannel.session(), sendError);
+                            stompChannel.close();
+                        });
+            } catch (RuntimeException sendError) {
+                log.warn("Failed to send STOMP ERROR frame before closing. session={}",
+                        stompChannel.session(), sendError);
+                stompChannel.close();
+            }
+        }
     }
 
     @Override
