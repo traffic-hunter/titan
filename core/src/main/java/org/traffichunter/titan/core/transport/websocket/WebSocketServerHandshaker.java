@@ -69,7 +69,11 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
     @Override
     public Promise<NetChannel> handshake(NetChannel channel) {
         Promise<NetChannel> upgradeResult = Promise.newPromise(channel.eventLoop());
-        channel.chain().add(new WebSocketUpgradeHandler(this, upgradeResult));
+        try {
+            channel.chain().add(new WebSocketUpgradeHandler(this, upgradeResult));
+        } catch (RuntimeException error) {
+            upgradeResult.fail(error);
+        }
         return upgradeResult;
     }
 
