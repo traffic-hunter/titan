@@ -3,15 +3,15 @@ package org.traffichunter.titan.core.channel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Handler for channel events flowing from transport I/O toward protocol/application code.
+ * Handles channel events from transport I/O before they reach protocol or application code.
  *
  * <p>Implementations receive a chain context and may call the matching {@code spark*} method
- * to pass the event to the next inbound handler. Not forwarding an event is a valid
- * short-circuiting operation, but a handler that keeps a read buffer must retain and eventually
+ * to pass the event to the next inbound handler. A handler may stop forwarding an event,
+ * but one that keeps a read buffer must retain and eventually
  * release it according to the buffer ownership policy.</p>
  *
- * <p>Callbacks run under the channel event-loop execution model. Implementations must avoid
- * blocking work and should preserve event ordering when asynchronous work is unavoidable.</p>
+ * <p>Callbacks run on the channel event loop and must not block. Asynchronous work should
+ * preserve event order.</p>
  *
  * @author yun
  */

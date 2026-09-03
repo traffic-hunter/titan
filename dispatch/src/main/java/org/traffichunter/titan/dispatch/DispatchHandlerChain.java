@@ -35,18 +35,17 @@ import org.traffichunter.titan.core.channel.LinkedNode;
 /**
  * Asynchronous linked handler chain for message dispatch work.
  *
- * <p>The gateway normally assembles routing first, optional user handlers in the middle, and
- * fanout activation last. This permits cross-cutting stages such as validation, persistence, or
- * metrics to participate without coupling them directly to the gateway. Handler order is
- * significant because each stage observes mutations made by all preceding stages.</p>
+ * <p>The gateway normally places routing first, custom handlers in the middle, and fanout
+ * activation last. Custom handlers can validate, persist, or measure messages without changes
+ * to the gateway. Each handler sees the context changes made by earlier handlers.</p>
  *
  * <p>Starting the chain schedules the complete traversal on the configured {@link Executor}.
  * Each handler decides whether to continue by invoking its supplied {@link DispatchChain}. The
  * future returned to the caller completes when traversal finishes or a handler throws.</p>
  *
- * <p>A no-op sentinel head is excluded from iteration. The chain only manages structure and
- * propagation; lifecycle ownership remains with the component that creates a handler. Structural
- * mutation is unsynchronized and should finish before dispatch begins.</p>
+ * <p>Iteration skips the no-op sentinel head. The chain manages links and calls between handlers;
+ * the component that creates a handler manages its lifecycle. Changes to the links are
+ * unsynchronized and should finish before dispatch begins.</p>
  *
  * @author yun
  */

@@ -3,13 +3,12 @@ package org.traffichunter.titan.dispatch;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
- * Management boundary for dispatcher queues owned by a running transport or
+ * Creates and deletes dispatcher queues owned by a running transport or
  * fanout component.
  *
- * <p>This interface is intentionally narrower than {@link Dispatcher}. It is
- * used by operational surfaces, such as the monitor HTTP API, when they need to
- * create or remove queues without depending on the concrete fanout
- * implementation.</p>
+ * <p>This interface provides a smaller set of operations than {@link Dispatcher}.
+ * Management tools such as the monitor HTTP API use it to create or remove queues
+ * without depending on a specific fanout implementation.</p>
  *
  * @author yungwang-o
  */

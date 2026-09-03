@@ -34,12 +34,12 @@ import java.util.function.Consumer;
  * Linked outbound chain owned by a {@link ChannelHandlerChain}.
  *
  * <p>Writes enter through a no-op sentinel head and visit handlers in chain order. Each node is the
- * continuation for the handler stored immediately after it, which ensures that forwarding resumes
- * from the current position instead of reapplying earlier encoders.</p>
+ * continuation for the handler stored immediately after it. Forwarding resumes from the current
+ * position without running earlier encoders again.</p>
  *
  * <p>At the terminal node, the resulting buffer is written through {@link NetChannel.Internal}.
- * This raw write is intentional: entering the public channel write API would recurse through the
- * same outbound handlers. If the raw write fails synchronously before ownership is transferred,
+ * Calling the public channel write API here would run the same outbound handlers again.
+ * If the raw write fails synchronously before ownership is transferred,
  * the terminal node releases the buffer and rethrows the failure.</p>
  *
  * <p>This implementation is not synchronized. Registration and removal must happen before

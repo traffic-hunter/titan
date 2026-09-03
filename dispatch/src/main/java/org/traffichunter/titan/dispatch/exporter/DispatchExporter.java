@@ -31,7 +31,7 @@ import org.traffichunter.titan.core.util.inet.Frame;
 import org.traffichunter.titan.dispatch.AggregationResult;
 
 /**
- * Protocol boundary for writing a fanout payload to subscribed clients.
+ * Writes a fanout payload to subscribed clients using their protocol.
  *
  * <p>The gateway calls exporters after a message has been routed to a
  * destination queue. Implementations should find the currently eligible

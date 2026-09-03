@@ -29,10 +29,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Immutable runtime settings resolved from the bootstrap environment.
  *
- * <p>The record separates server definitions from process-wide facilities such
- * as monitoring, backup, and flow control. Server definitions are defensively
- * copied, and every optional section is normalized to a non-null disabled or
- * default value before settings reach runtime components.</p>
+ * <p>Server definitions are separate from process-wide monitoring, backup, and
+ * flow control settings. The constructor copies server definitions and replaces
+ * omitted sections with non-null disabled or default values.</p>
  */
 public record Settings(
         List<ServerSettings> servers,

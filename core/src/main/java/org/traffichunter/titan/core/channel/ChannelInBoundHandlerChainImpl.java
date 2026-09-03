@@ -33,15 +33,13 @@ import java.util.function.Consumer;
 /**
  * Linked inbound chain owned by a {@link ChannelHandlerChain}.
  *
- * <p>The chain uses a no-op sentinel head so insertion and removal do not require special handling
- * for the first user handler. Each node serves both as the holder of a
- * {@link ChannelInBoundHandler} and as the continuation passed to that handler. Consequently, a
- * handler invoking a {@code spark*} method advances exactly one position and cannot accidentally
- * restart the full channel pipeline.</p>
+ * <p>A no-op sentinel head removes special cases when inserting or removing the first handler.
+ * Each node holds a {@link ChannelInBoundHandler} and provides the continuation passed to it.
+ * Calling a {@code spark*} method advances to the next handler without restarting the pipeline.</p>
  *
  * <p>Connection, read, and exception events preserve handler order. When a read reaches the
- * terminal node without being consumed, the chain releases the buffer because no downstream owner
- * exists. A handler that terminates propagation earlier is responsible for any buffer it retains
+ * terminal node without being consumed, the chain releases the buffer. A handler that stops
+ * propagation earlier is responsible for any buffer it retains
  * or consumes.</p>
  *
  * <p>This implementation is not synchronized. Registration and removal must happen before

@@ -32,15 +32,14 @@ import java.util.Map;
 /**
  * Normalized configuration for one managed server.
  *
- * <p>The YAML layer is permissive and mostly mirrors user input. This record is
- * the stricter runtime shape: it applies defaults, validates required values,
+ * <p>The YAML layer largely preserves user input. This record applies defaults,
+ * validates required values,
  * and separates shared options from transport- and protocol-specific overrides.</p>
  *
  * <p>Option resolution is shallow and deterministic. Values in
  * {@code transportOptions} override {@code options} for transport providers,
  * and values in {@code protocolOptions} override {@code options} for protocol
- * providers. This lets common settings be declared once while preserving a
- * precise override point for each provider layer.</p>
+ * providers. Common settings can be declared once and overridden for each provider.</p>
  */
 @NullUnmarked
 public record ServerSettings(

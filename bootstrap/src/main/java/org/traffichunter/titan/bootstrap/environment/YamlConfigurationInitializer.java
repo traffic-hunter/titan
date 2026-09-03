@@ -49,8 +49,8 @@ import org.yaml.snakeyaml.constructor.Constructor;
  *
  * <p>The loader binds YAML into {@link RootYamlProperty} using
  * {@link RelaxedBindingUtils}, then maps server and process-wide configuration
- * into {@link Settings}. Keeping the mapping step explicit makes it clear where
- * defaults and validation move from parser DTOs into runtime records.</p>
+ * into {@link Settings}. Runtime records apply defaults and validation during
+ * this mapping step.</p>
  *
  * <pre>{@code
  * titan-env.yml

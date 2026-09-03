@@ -32,8 +32,8 @@ import org.traffichunter.titan.core.util.Clearable;
 /**
  * Reference-counted byte buffer used inside Titan codecs and transports.
  *
- * <p>{@code Buffer} wraps Netty's {@link ByteBuf} while keeping the rest of the codebase
- * independent from direct Netty APIs. It preserves the familiar reader/writer index model:
+ * <p>{@code Buffer} wraps Netty's {@link ByteBuf}, so other Titan code can use buffers without
+ * calling Netty APIs directly. It uses separate reader and writer indexes:
  * read operations consume or inspect readable bytes, and {@code accumulate*} operations append
  * bytes at the writer index.</p>
  *

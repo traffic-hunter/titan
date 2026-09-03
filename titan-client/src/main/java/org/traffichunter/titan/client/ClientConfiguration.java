@@ -34,12 +34,11 @@ import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
 /**
- * Immutable configuration shared by a {@link TitanClient} facade and its client driver.
+ * Immutable configuration shared by a {@link TitanClient} and its driver.
  *
- * <p>The public {@link TitanClient.Builder} is the preferred configuration entry point. This
- * record is also exposed for driver implementations and integrations that need to assemble a
- * client explicitly. The compact constructor supplies defaults for omitted optional values and
- * validates values that would make a connection attempt invalid.</p>
+ * <p>Use {@link TitanClient.Builder} to configure a client. Drivers and integrations can also
+ * construct this record directly. Its compact constructor supplies defaults for omitted
+ * optional values and checks that the configuration is valid for a connection attempt.</p>
  *
  * @param host remote server host used by the transport
  * @param port remote server port

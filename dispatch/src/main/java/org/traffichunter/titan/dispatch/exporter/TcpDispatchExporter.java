@@ -36,10 +36,9 @@ import java.util.List;
  * Dispatch exporter that writes raw payload buffers to every active TCP child
  * channel owned by an {@link InetServer}.
  *
- * <p>This exporter is intentionally transport-level. It does not inspect
- * protocol subscriptions; all active child channels are considered eligible
- * consumers. Use protocol-aware exporters, such as {@link StompDispatchExporter},
- * when delivery must be scoped by session subscription state.</p>
+ * <p>Every active child channel receives the payload, regardless of protocol subscriptions.
+ * Use a protocol-aware exporter such as {@link StompDispatchExporter} to send only to
+ * channels with matching subscriptions.</p>
  */
 public class TcpDispatchExporter implements DispatchExporter {
 

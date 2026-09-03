@@ -26,14 +26,12 @@ package org.traffichunter.titan.core.channel;
 /**
  * Handles both inbound and outbound events for a channel.
  *
- * <p>A duplex handler represents one logical position in the channel pipeline. Inbound events
+ * <p>A duplex handler occupies one logical position in the channel pipeline. Inbound events
  * flow from the transport toward the application, while outbound events flow from the
- * application toward the transport. Implementations may therefore share state across both
- * directions, as required by protocols such as TLS.</p>
+ * application toward the transport. Both directions can share state, as TLS requires.</p>
  *
- * <p>This interface describes bidirectional handler capability. It does not itself provide
- * thread safety or guarantee concurrent execution; handlers follow the channel event-loop
- * execution model.</p>
+ * <p>Handlers run on the channel event loop. Implementing both directions does not make a handler
+ * thread-safe or make its callbacks run concurrently.</p>
  *
  * @author yun
  */

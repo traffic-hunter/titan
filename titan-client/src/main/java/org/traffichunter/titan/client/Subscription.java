@@ -31,9 +31,9 @@ import org.traffichunter.titan.core.util.Handler;
 /**
  * Logical subscription retained independently of one physical STOMP connection.
  *
- * <p>The client stores this metadata after a SUBSCRIBE operation succeeds. When a replacement
- * connection is established, the destination, headers, and frame handler are reused to restore
- * the subscription before the client returns to the connected state.</p>
+ * <p>The client stores this metadata after SUBSCRIBE succeeds. On a replacement connection,
+ * it reuses the destination, headers, and frame handler to restore the subscription before
+ * returning to the connected state.</p>
  *
  * @param id stable subscription identifier used for unsubscribe and reconnect
  * @param destination logical destination to restore

@@ -40,12 +40,12 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Transport-neutral public facade for Titan messaging clients.
+ * Public messaging API shared by Titan client implementations.
  *
- * <p>The nested builder is the preferred configuration surface and hides the selected networking
- * implementation from application code. Advanced integrations may provide a
- * {@link StompClientDriver} directly to {@link DefaultTitanClient}, while normal users interact
- * only with this interface and transport-neutral {@link StompFrames} values.</p>
+ * <p>Use the nested builder to configure a client without depending on its networking
+ * implementation. Integrations that supply their own {@link StompClientDriver} can pass it
+ * directly to {@link DefaultTitanClient}. Application code normally uses this interface and
+ * transport-neutral {@link StompFrames} values.</p>
  *
  * @author yun
  */
@@ -73,7 +73,7 @@ public interface TitanClient {
     /**
      * Opens the configured STOMP connection.
      *
-     * @return a future completed with this facade after STOMP negotiation succeeds
+     * @return a future completed with this client after STOMP negotiation succeeds
      */
     CompletableFuture<TitanClient> connect();
 
@@ -227,7 +227,7 @@ public interface TitanClient {
     TitanClient exceptionHandler(Handler<Throwable> handler);
 
     /**
-     * Returns whether the facade currently owns an active STOMP connection.
+     * Returns whether this client currently owns an active STOMP connection.
      *
      * @return {@code true} when messaging operations can be issued
      */
@@ -378,7 +378,7 @@ public interface TitanClient {
         Builder tls(TlsContext context);
 
         /**
-         * Builds a new client facade without starting its runtime.
+         * Builds a new client without starting its runtime.
          *
          * @return configured Titan client
          */

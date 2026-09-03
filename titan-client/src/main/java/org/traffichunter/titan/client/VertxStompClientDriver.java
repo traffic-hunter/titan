@@ -57,8 +57,8 @@ import java.util.concurrent.TimeoutException;
  * {@link VertxStompConnection}; lifecycle state and reconnect scheduling remain in
  * {@link DefaultTitanClient}.</p>
  *
- * <p>The no-argument-runtime constructor creates and owns a Vert.x instance. Constructors and
- * factories receiving an existing Vert.x object preserve the caller-owned runtime on close.</p>
+ * <p>A constructor that receives no Vert.x runtime creates and owns one. Constructors and
+ * factories that receive an existing runtime leave it open when the driver closes.</p>
  *
  * @deprecated use Titan's native client through {@link TitanClient#builder()}; this driver is
  * retained only for migration compatibility

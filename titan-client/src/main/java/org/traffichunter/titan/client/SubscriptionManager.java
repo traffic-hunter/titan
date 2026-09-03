@@ -30,11 +30,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Thread-safe registry of logical subscriptions owned by one client facade.
+ * Thread-safe registry of logical subscriptions for one client.
  *
- * <p>The registry is separate from transport-native subscription registries because those belong
- * to one physical connection and disappear when that connection is replaced. Snapshot reads are
- * shallow and never expose the mutable registry itself.</p>
+ * <p>Transport subscription registries belong to one physical connection and disappear when
+ * that connection is replaced. This registry stores logical subscriptions separately.
+ * Snapshots are shallow copies; callers do not receive the mutable registry itself.</p>
  *
  * @author yun
  */

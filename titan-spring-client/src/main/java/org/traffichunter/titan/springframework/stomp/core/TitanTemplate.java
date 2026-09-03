@@ -16,9 +16,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * Delegates every operation to the active {@link TitanClient} resolved through
  * {@link TitanClientManager}, connecting on demand when no connection exists yet.
  *
- * <p>The {@link StompOperations} contract is asynchronous and returns {@link CompletableFuture}
- * results. Blocking convenience overloads are provided for the common send and
- * subscribe calls and wait up to {@link TitanClientManager#connectTimeoutMillis()}.
+ * <p>{@link StompOperations} methods return {@link CompletableFuture} results.
+ * The blocking send and subscribe overloads wait up to
+ * {@link TitanClientManager#connectTimeoutMillis()}.
  *
  * @author yun
  */

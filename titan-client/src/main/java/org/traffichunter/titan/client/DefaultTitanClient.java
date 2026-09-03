@@ -45,12 +45,12 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Default stateful implementation of the transport-neutral {@link TitanClient} facade.
+ * Default {@link TitanClient} implementation, responsible for client state.
  *
- * <p>This class owns the logical client lifecycle, delegates each connection attempt to a
- * {@link StompClientDriver}, and exposes the resulting physical connection through one stable
- * public API. It also installs user callbacks on every new connection and starts the configured
- * retry policy after an unexpected close or connection drop.</p>
+ * <p>It manages the client lifecycle and delegates connection attempts to a
+ * {@link StompClientDriver}. The public API stays the same when the physical connection changes.
+ * Each new connection receives the user callbacks. An unexpected close or connection drop
+ * starts retries according to the configured policy.</p>
  *
  * <p>An explicit {@link #disconnect()} changes the lifecycle state before closing the physical
  * connection, so it does not trigger reconnect. {@link #shutdown(long, TimeUnit)} additionally
@@ -78,7 +78,7 @@ public final class DefaultTitanClient implements TitanClient {
     private volatile Handler<Throwable> exceptionHandler = ignored -> {};
 
     /**
-     * Creates a client facade for the supplied transport driver.
+     * Creates a client for the supplied transport driver.
      *
      * <p>The driver is not started by this constructor. Call {@link #start()} before
      * {@link #connect()}.</p>
@@ -97,7 +97,7 @@ public final class DefaultTitanClient implements TitanClient {
     }
 
     /**
-     * Creates a client facade using the worker supplied by the driver.
+     * Creates a client using the worker supplied by the driver.
      *
      * @param driver driver responsible for runtime, worker, and physical connections
      */
@@ -455,8 +455,8 @@ public final class DefaultTitanClient implements TitanClient {
     /**
      * Moves an active client back to connecting and starts one retry sequence.
      *
-     * <p>Both close and connection-drop callbacks may describe the same transport failure. The
-     * status transition ensures only the first callback creates reconnect work.</p>
+     * <p>Close and connection-drop callbacks may report the same failure. Only the first callback
+     * that changes the status starts a reconnect attempt.</p>
      */
     private void handleConnectionLoss() {
         if (!status.compareAndSet(Status.CONNECTED, Status.CONNECTING)) {
@@ -477,10 +477,10 @@ public final class DefaultTitanClient implements TitanClient {
     /**
      * Performs one reconnect attempt on the retry executor.
      *
-     * <p>The replacement connection is bound first, then a snapshot of logical subscriptions is
-     * restored within one shared timeout. The client becomes connected only after every restore
-     * succeeds and the replacement connection is still active. Throwing keeps the retry sequence
-     * alive; a normal return ends the current sequence.</p>
+     * <p>Binds the replacement connection, then restores a snapshot of logical subscriptions
+     * within one shared timeout. The client becomes connected only after every subscription is
+     * restored and the replacement connection is still active. An exception triggers another
+     * retry; a normal return ends the current retry sequence.</p>
      */
     private void reconnect() {
         if (status.get() != Status.CONNECTING) {

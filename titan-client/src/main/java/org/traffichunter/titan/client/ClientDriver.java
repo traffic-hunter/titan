@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * Common lifecycle contract for a client runtime implementation.
  *
- * <p>A driver owns transport-specific resources and supplies the serial {@link Worker} used by
- * the facade to coordinate mutable client state. Protocol-specific drivers extend this contract
- * with their connection operation while keeping native runtime types out of {@link TitanClient}.</p>
+ * <p>A driver owns transport-specific resources and supplies a {@link Worker} that processes
+ * client state changes serially. Protocol-specific drivers add connection operations without
+ * adding native runtime types to {@link TitanClient}.</p>
  *
  * <p>Implementations must only close resources they created. A runtime supplied by the caller
  * remains caller-owned unless the concrete driver explicitly documents otherwise.</p>
@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 public interface ClientDriver {
 
     /**
-     * Returns the stable implementation name exposed by the client facade.
+     * Returns the stable implementation name reported by the client.
      *
      * @return implementation name
      */
@@ -57,7 +57,7 @@ public interface ClientDriver {
     void start();
 
     /**
-     * Returns the serial execution context used to coordinate facade state and callbacks.
+     * Returns the worker that processes client state changes and callbacks serially.
      *
      * @return driver-owned worker
      */

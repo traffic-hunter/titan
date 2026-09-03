@@ -26,15 +26,14 @@ package org.traffichunter.titan.core.channel;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Structural contract for a node in a singly linked handler chain.
+ * Node in a singly linked handler chain.
  *
- * <p>The self-referential type keeps links strongly typed for each concrete chain and avoids
- * exposing handler-specific state to the common linked-list implementation. A {@code null} next
- * node marks the end of the chain.</p>
+ * <p>Each link uses the chain's concrete node type. The shared linked-list implementation does
+ * not need access to handler-specific state. A {@code null} next node marks the end of the chain.</p>
  *
- * <p>Implementations are mutable because insertion and removal reconnect adjacent nodes. They are
- * not required to be thread-safe; a chain should be assembled before it becomes concurrently
- * visible, or mutations must be confined to its owning event loop.</p>
+ * <p>Insertion and removal change links between adjacent nodes. Implementations need not be
+ * thread-safe. Assemble a chain before sharing it across threads, or change it only on its
+ * owning event loop.</p>
  *
  * @param <NODE> concrete node type
  *

@@ -32,8 +32,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * {@link Worker} backed by one Titan {@link EventLoop}.
  *
- * <p>The selected event loop serializes client state callbacks with native scheduled tasks while
- * adapting Titan promises to {@link CompletableFuture} for the facade.</p>
+ * <p>Client state callbacks and native scheduled tasks run on the selected event loop.
+ * This adapter converts Titan promises to {@link CompletableFuture} for the client.</p>
  *
  * @author yun
  */
