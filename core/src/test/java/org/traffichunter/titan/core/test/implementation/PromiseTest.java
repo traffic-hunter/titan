@@ -6,13 +6,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.mockito.ArgumentCaptor;
 import org.traffichunter.titan.core.channel.EventLoop;
+import org.traffichunter.titan.core.channel.TaskEventLoop;
 import org.traffichunter.titan.core.util.concurrent.AsyncListener;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.concurrent.PromiseException;
 import org.traffichunter.titan.core.util.concurrent.PromiseImpl;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -356,6 +359,59 @@ class PromiseTest {
     }
 
     @Test
+    void rejected_notification_should_preserve_failure_without_running_listener() {
+        given(eventLoop.inEventLoop()).willReturn(false);
+        willThrow(new RejectedExecutionException("executor stopped"))
+                .given(eventLoop).execute(any(Runnable.class));
+        Promise<String> promise = Promise.newPromise(eventLoop);
+        IllegalStateException failure = new IllegalStateException("send failed");
+        AtomicBoolean invoked = new AtomicBoolean();
+        promise.onFailure(error -> invoked.set(true));
+
+        assertTrue(promise.tryFail(failure));
+
+        assertThat(promise.isFailed()).isTrue();
+        assertThat(promise.error()).isSameAs(failure);
+        assertThatThrownBy(promise::get).isInstanceOf(ExecutionException.class).hasCause(failure);
+        assertThat(invoked).isFalse();
+        verify(eventLoop).execute(any(Runnable.class));
+    }
+
+    @Test
+    void late_success_listener_should_not_run_when_notification_is_rejected() throws Exception {
+        given(eventLoop.inEventLoop()).willReturn(false);
+        willThrow(new RejectedExecutionException("executor stopped"))
+                .given(eventLoop).execute(any(Runnable.class));
+        Promise<String> promise = Promise.newPromise(eventLoop);
+        AtomicBoolean invoked = new AtomicBoolean();
+        promise.success("completed");
+        verify(eventLoop, never()).execute(any(Runnable.class));
+
+        promise.onSuccess(value -> invoked.set(true));
+
+        assertThat(promise.get()).isEqualTo("completed");
+        assertThat(invoked).isFalse();
+        verify(eventLoop).execute(any(Runnable.class));
+    }
+
+    @Test
+    void late_failure_listener_should_not_run_when_notification_is_rejected() {
+        given(eventLoop.inEventLoop()).willReturn(false);
+        willThrow(new RejectedExecutionException("executor stopped"))
+                .given(eventLoop).execute(any(Runnable.class));
+        IllegalStateException failure = new IllegalStateException("send failed");
+        Promise<String> promise = Promise.failedPromise(eventLoop, failure);
+        AtomicBoolean invoked = new AtomicBoolean();
+
+        promise.onFailure(error -> invoked.set(true));
+
+        assertThat(promise.isFailed()).isTrue();
+        assertThat(promise.error()).isSameAs(failure);
+        assertThat(invoked).isFalse();
+        verify(eventLoop).execute(any(Runnable.class));
+    }
+
+    @Test
     void trySuccess_should_report_completion_state_test() {
         Promise<String> promise = new TestPromiseImpl<>(eventLoop, NOOP);
 
@@ -373,6 +429,57 @@ class PromiseTest {
         assertThat(promise.tryFail(new IllegalArgumentException())).isFalse();
         assertThat(promise.isFailed()).isTrue();
         assertThat(promise.error()).isSameAs(failure);
+    }
+
+    @Test
+    @Timeout(10)
+    void notify_early_and_late_listeners_on_the_real_event_loop() throws Exception {
+        TaskEventLoop loop = new TaskEventLoop();
+        loop.start();
+        try {
+            Thread owner = loop.submit(Thread::currentThread).get(3, TimeUnit.SECONDS);
+            Promise<String> promise = Promise.newPromise(loop);
+            CompletableFuture<Thread> early = new CompletableFuture<>();
+            CompletableFuture<Thread> late = new CompletableFuture<>();
+            promise.onSuccess(value -> early.complete(Thread.currentThread()));
+
+            promise.success("completed");
+            assertThat(early.get(3, TimeUnit.SECONDS)).isSameAs(owner).isNotSameAs(Thread.currentThread());
+            promise.onSuccess(value -> late.complete(Thread.currentThread()));
+            assertThat(late.get(3, TimeUnit.SECONDS)).isSameAs(owner);
+        } finally {
+            loop.gracefullyShutdown(1, TimeUnit.SECONDS);
+            assertThat(loop.awaitTermination(3, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void preserve_failure_without_caller_thread_callbacks_after_executor_termination() throws Exception {
+        TaskEventLoop loop = new TaskEventLoop();
+        loop.start();
+        try {
+            loop.submit(() -> { }).get(3, TimeUnit.SECONDS);
+            Promise<String> promise = Promise.newPromise(loop);
+            AtomicBoolean early = new AtomicBoolean();
+            AtomicBoolean late = new AtomicBoolean();
+            promise.onFailure(error -> early.set(true));
+            loop.gracefullyShutdown(1, TimeUnit.SECONDS);
+            assertThat(loop.awaitTermination(3, TimeUnit.SECONDS)).isTrue();
+
+            IllegalStateException failure = new IllegalStateException("send failed");
+            assertThat(promise.tryFail(failure)).isTrue();
+            promise.onFailure(error -> late.set(true));
+
+            assertThat(promise.error()).isSameAs(failure);
+            assertThatThrownBy(() -> promise.get(1, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class).hasCause(failure);
+            assertThat(early).isFalse();
+            assertThat(late).isFalse();
+        } finally {
+            loop.shutdownNow();
+            assertThat(loop.awaitTermination(3, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     private static final class TestPromiseImpl<V> extends PromiseImpl<V> {

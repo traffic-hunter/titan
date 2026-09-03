@@ -38,9 +38,9 @@ import org.traffichunter.titan.core.util.Assert;
  * Default {@link Promise} implementation.
  *
  * <p>The implementation is synchronized around completion state and waiters, but listener
- * execution is always redirected to the owning {@link EventExecutorService}. This keeps callbacks in
- * the same thread-affinity model as channel I/O and avoids running transport callbacks on
- * arbitrary caller threads.</p>
+ * execution stays on the owning {@link EventExecutorService}. Rejected notifications are logged
+ * without running callbacks on the caller thread or changing the completed result. Owners must
+ * complete pending promises and drain their notifications before shutting down the executor.</p>
  *
  * @author yungwang-o
  */
@@ -363,8 +363,18 @@ public class PromiseImpl<C> implements Promise<C> {
     }
 
     private void notifyListeners() {
+        synchronized (this) {
+            if (listeners.isEmpty()) {
+                return;
+            }
+        }
+
         if(!executor.inEventLoop()) {
-            executor.execute(this::notifyListeners);
+            try {
+                executor.execute(this::notifyListeners);
+            } catch (RejectedExecutionException error) {
+                log.warn("Promise listener notification rejected by executor", error);
+            }
             return;
         }
 

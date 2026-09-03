@@ -87,6 +87,10 @@ public interface Promise<C> extends RunnableFuture<C>, Completable<C> {
      * Registers a listener that will be notified on the owning event loop.
      *
      * <p>Do not run blocking code in the listener.</p>
+     *
+     * <p>If the executor rejects notification, the rejection is logged and the listener is not
+     * invoked on the caller thread. The completed result remains available through this promise;
+     * callback delivery after executor shutdown is not guaranteed.</p>
      */
     @CanIgnoreReturnValue
     Promise<C> addListener(AsyncListener<C> listener);
