@@ -30,12 +30,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * Transport-neutral serial execution context for client state transitions.
+ * Executes client state changes serially, regardless of the transport implementation.
  *
- * <p>Tasks submitted to one worker execute in order on the same logical context. Native Titan
- * workers delegate to an {@code EventLoop}; Vert.x workers delegate to one fixed
- * {@code Context}. This lets reconnect and subscription state use one concurrency model without
- * exposing either runtime through the public client API.</p>
+ * <p>A worker runs submitted tasks in order on the same execution context: an {@code EventLoop}
+ * for Titan or a fixed {@code Context} for Vert.x. Reconnect and subscription state use this
+ * shared execution contract; neither runtime appears in the public client API.</p>
  *
  * <p>Closing a worker prevents further submissions. Ownership of the underlying runtime remains
  * with the driver that supplied the worker.</p>
@@ -53,7 +52,7 @@ public interface Worker extends Executor, AutoCloseable {
     void execute(@NonNull Runnable task);
 
     /**
-     * Schedules a value-producing task and exposes its result as a JDK future.
+     * Schedules a task and returns its result as a JDK future.
      *
      * @param task task to execute
      * @param <T> result type
@@ -64,8 +63,8 @@ public interface Worker extends Executor, AutoCloseable {
     /**
      * Schedules an asynchronous operation and flattens its nested future.
      *
-     * <p>The callable itself executes on this worker. Completion of the returned operation follows
-     * the executor semantics of the future returned by the callable.</p>
+     * <p>The callable runs on this worker. The future it returns determines where the
+     * asynchronous operation completes.</p>
      *
      * @param task asynchronous operation supplier
      * @param <T> result type

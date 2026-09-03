@@ -24,15 +24,13 @@ THE SOFTWARE.
 package org.traffichunter.titan.dispatch;
 
 /**
- * Handles one ordered step in the message dispatch lifecycle.
+ * Handles one step in message dispatch.
  *
- * <p>The handler receives the mutable {@link DispatchContext} and a continuation
- * representing the remaining chain. It must invoke
- * {@link DispatchChain#next(DispatchContext)} to propagate the operation. Not
- * invoking the continuation is an intentional short circuit.</p>
+ * <p>The handler receives a mutable {@link DispatchContext} and the remaining chain.
+ * Call {@link DispatchChain#next(DispatchContext)} to continue dispatch, or return
+ * the supplied chain without calling it to stop.</p>
  *
- * <p>Handlers run sequentially on the dispatch executor selected by the gateway. A handler may
- * stop propagation by returning the supplied continuation without invoking it.</p>
+ * <p>Handlers run sequentially on the dispatch executor selected by the gateway.</p>
  *
  * @author yun
  */

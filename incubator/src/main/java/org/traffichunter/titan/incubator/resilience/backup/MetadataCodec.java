@@ -31,7 +31,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 /**
  * Codec for Titan AOF metadata records.
  *
- * <p>The v1 layout is big-endian and intentionally self-delimiting:</p>
+ * <p>The v1 format uses big-endian byte order. Its length fields delimit each record:</p>
  *
  * <pre>
  * int    magic

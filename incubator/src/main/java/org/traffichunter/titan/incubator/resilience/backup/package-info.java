@@ -1,9 +1,9 @@
 /**
  * Append-only backup support for Titan durability.
  *
- * <p>The package contains the first backup log foundation: binary record metadata, record codec,
- * append/replay file access, fsync policy, and truncated-tail recovery policy. Queue restore,
- * rewrite, manifest, and snapshot integration are intentionally left to later layers.</p>
+ * <p>Contains binary record metadata, a record codec, file append and replay operations,
+ * fsync policies, and truncated-tail recovery policies. Other layers are responsible for
+ * queue restore, rewrite, manifest, and snapshot integration.</p>
  *
  * @author yun
  */

@@ -28,9 +28,9 @@ import org.traffichunter.titan.core.codec.stomp.StompVersion;
 /**
  * Configures STOMP framing and session negotiation independently of a client runtime.
  *
- * <p>The same option can be consumed by outbound client channels and accepted server child
- * channels. It intentionally excludes remote ports, socket options, connection timeouts, and
- * reconnect policies because those values belong to the transport runtime.</p>
+ * <p>Outbound client channels and accepted server child channels can use the same settings.
+ * The transport runtime configures remote ports, socket options, connection timeouts, and
+ * reconnect policies separately.</p>
  *
  * @param login optional CONNECT login header
  * @param passcode optional CONNECT passcode header

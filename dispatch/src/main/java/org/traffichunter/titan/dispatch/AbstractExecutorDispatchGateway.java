@@ -38,15 +38,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Executor-backed {@link DispatchGateway} facade shared by platform and virtual-thread variants.
+ * Base {@link DispatchGateway} for platform and virtual-thread executors.
  *
- * <p>The gateway owns the executor and the public lifecycle, while concrete dispatch work belongs
- * to the handlers. {@link RouteDispatchChainHandler} admits messages to destination queues and
- * {@link FanoutDispatchChainHandler} owns destination consumers and fanout lifecycle. Optional
- * handlers run between those two boundaries.</p>
+ * <p>The gateway owns the executor and manages startup and shutdown. Its handlers do the dispatch
+ * work: {@link RouteDispatchChainHandler} admits messages to destination queues, and
+ * {@link FanoutDispatchChainHandler} manages destination consumers and fanout. Custom handlers
+ * run between them.</p>
  *
- * <p>Queue deletion delegates to the terminal fanout handler so consumer state remains within its
- * owner. Queue creation remains a direct dispatcher registry operation.</p>
+ * <p>The fanout handler deletes queues and manages their consumers. Queue creation uses the
+ * dispatcher registry directly.</p>
  *
  * <pre>{@code
  * sparkDispatch(message)

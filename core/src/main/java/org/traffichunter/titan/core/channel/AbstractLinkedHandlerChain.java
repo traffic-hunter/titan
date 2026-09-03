@@ -32,13 +32,12 @@ import java.util.function.Predicate;
 /**
  * Base implementation for handler chains backed by a singly linked list.
  *
- * <p>The supplied head is a sentinel node and is never exposed by iteration. Keeping a sentinel
- * makes first insertion and removal uniform, while the cached tail keeps append operations
- * constant-time. Subclasses remain responsible for wrapping domain handlers in nodes and for
- * defining how execution enters and advances through those nodes.</p>
+ * <p>Iteration skips the supplied sentinel head. The sentinel removes special cases when
+ * inserting or removing the first handler; the cached tail makes appends constant-time.
+ * Subclasses wrap handlers in nodes and define how execution starts and moves between nodes.</p>
  *
- * <p>Structural operations are intentionally unsynchronized. Channel chains are expected to be
- * configured before use or mutated only by their owning event loop. Dispatch chains follow the
+ * <p>Changes to the links are unsynchronized. Channel chains should be configured before use
+ * or changed only by their owning event loop. Dispatch chains follow the
  * same rule unless an external synchronization policy is provided.</p>
  *
  * <p>{@link #clear()} detaches all user nodes and restores the sentinel as the tail. It only

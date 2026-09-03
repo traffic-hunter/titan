@@ -34,10 +34,9 @@ import org.traffichunter.titan.core.util.Assert;
 /**
  * Internal {@link Buffer} wrapper backed by a Netty {@link ByteBuf}.
  *
- * <p>This class does not choose an initial allocation policy. {@link BufferAllocator}
- * implementations create the underlying storage and this wrapper delegates primitive access,
- * reader/writer indexes, slicing, copying and reference counting to it. Internal growth preserves
- * the current buffer's heap or direct memory type.</p>
+ * <p>{@link BufferAllocator} implementations choose and allocate the underlying storage.
+ * This wrapper delegates primitive access, reader/writer indexes, slicing, copying, and reference
+ * counting to that storage. Growing a buffer preserves its heap or direct memory type.</p>
  *
  * <p>The class is package-private so callers cannot bypass {@link Buffer#heap()} and
  * {@link Buffer#direct()} when creating buffers.</p>

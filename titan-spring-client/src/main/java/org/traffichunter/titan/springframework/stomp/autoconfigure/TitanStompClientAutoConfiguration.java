@@ -28,10 +28,9 @@ import org.traffichunter.titan.springframework.stomp.core.TitanTemplate;
 /**
  * Autoconfiguration for Titan's Spring STOMP client integration.
  *
- * <p>Spring properties are translated directly into the transport-neutral
- * {@link TitanClient.Builder}; no low-level STOMP option bean is exposed. Native clients create
- * the configured number of I/O workers, while Vert.x clients keep event-loop ownership
- * inside Vert.x. A user-defined {@link TitanClient} bean replaces this default completely.</p>
+ * <p>Maps Spring properties to {@link TitanClient.Builder} without exposing a low-level STOMP
+ * option bean. Native clients create the configured number of I/O workers; Vert.x manages
+ * its own event loops. A user-defined {@link TitanClient} bean replaces the default client.</p>
  *
  * @author yun
  */

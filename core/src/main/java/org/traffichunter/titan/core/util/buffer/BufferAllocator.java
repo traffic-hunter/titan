@@ -32,8 +32,8 @@ import java.nio.charset.Charset;
  * direct implementations use pooled Netty storage, so every returned buffer must be released or
  * transferred to another owner.</p>
  *
- * <p>Heap buffers are intended for short-lived codec and protocol work. Direct buffers are
- * intended for native transport boundaries such as socket reads and TLS processing. Long-lived
+ * <p>Use heap buffers for short-lived codec and protocol work, and direct buffers for socket
+ * reads and TLS processing. Long-lived
  * message and queue data should use byte arrays instead of this API.</p>
  *
  * @author yun

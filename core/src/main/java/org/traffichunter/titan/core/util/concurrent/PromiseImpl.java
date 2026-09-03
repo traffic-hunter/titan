@@ -37,9 +37,9 @@ import org.traffichunter.titan.core.util.Assert;
 /**
  * Default {@link Promise} implementation.
  *
- * <p>The implementation is synchronized around completion state and waiters, but listener
- * execution stays on the owning {@link EventExecutorService}. Rejected notifications are logged
- * without running callbacks on the caller thread or changing the completed result. Owners must
+ * <p>Synchronization protects completion state and waiters. Listeners run on the owning
+ * {@link EventExecutorService}. If it rejects a notification, the promise logs the rejection,
+ * leaves the completed result unchanged, and does not run callbacks on the caller thread. Owners must
  * complete pending promises and drain their notifications before shutting down the executor.</p>
  *
  * @author yungwang-o

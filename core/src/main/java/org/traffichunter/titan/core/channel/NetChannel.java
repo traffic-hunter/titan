@@ -54,13 +54,12 @@ public interface NetChannel extends Channel {
     ChannelPromise connect(String host, int port, long timeOut, TimeUnit timeUnit);
 
     /**
-     * Returns raw transport operations intended for Titan's internal channel machinery.
+     * Returns raw transport operations for use inside Titan.
      *
      * <p>Internal operations bypass the channel pipeline. They are used by I/O event loops,
      * pipeline terminals, and protocol handlers that already hold transport-ready bytes, such
-     * as an encoded WebSocket frame or encrypted TLS record. This distinction is independent
-     * of scheduling: an internal operation is not the synchronous counterpart of a public
-     * channel operation.</p>
+     * as an encoded WebSocket frame or encrypted TLS record. Bypassing the pipeline does not
+     * imply synchronous execution; scheduling is a separate concern.</p>
      */
     Internal internal();
 

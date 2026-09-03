@@ -44,11 +44,9 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 /**
  * Converts inbound STOMP {@code SEND} frames into fanout messages.
  *
- * <p>This handler is deliberately narrow. It validates the required STOMP
- * destination header, maps the frame body into Titan's internal {@link Message}
- * type, and delegates routing to {@link DispatchGateway}. It does not write
- * directly to subscribers; the exporter layer owns that protocol-specific
- * delivery step.</p>
+ * <p>Validates the required destination header, converts the frame body to a
+ * Titan {@link Message}, and passes it to {@link DispatchGateway} for routing.
+ * Exporters handle protocol-specific writes to subscribers.</p>
  */
 public final class StompSendToFanoutHandler implements StompServerCommandHandler {
 

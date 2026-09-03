@@ -14,9 +14,9 @@ import java.util.concurrent.TimeUnit;
  * Starts and stops the underlying client with the application context and
  * resolves active STOMP connections for template and listener use.
  *
- * <p>Lifecycle state is owned entirely by the underlying {@link TitanClient}
+ * <p>The underlying {@link TitanClient} owns lifecycle state
  * ({@link TitanClient#isStarted()} / {@link TitanClient#isShutdown()}); this
- * adapter keeps no parallel status to avoid two sources of truth that can drift.
+ * adapter does not maintain a separate copy of that state.
  *
  * @author yun
  */

@@ -10,8 +10,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * position, preventing earlier encoders from running again. A handler that intentionally stops a
  * write or replaces its input must follow the channel buffer ownership policy.</p>
  *
- * <p>Callbacks run under the channel event-loop execution model and must not perform blocking
- * work.</p>
+ * <p>Callbacks run on the channel event loop and must not block.</p>
  *
  * @author yun
  */

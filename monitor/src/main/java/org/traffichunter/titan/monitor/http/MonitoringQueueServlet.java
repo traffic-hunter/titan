@@ -19,11 +19,9 @@ import org.traffichunter.titan.monitor.model.QueueSnapshot;
 /**
  * HTTP endpoint for dispatcher queue inspection and management.
  *
- * <p>Read operations follow the monitor authorization policy. Mutating
- * operations are stricter: they require a configured monitor token and a valid
- * bearer token on the request. This prevents queue deletion from being exposed
- * accidentally when the monitor server is started without authentication for
- * local development.</p>
+ * <p>Read operations follow the monitor authorization policy. Changes require both
+ * a configured monitor token and a valid bearer token in the request. Queue deletion
+ * is therefore unavailable when a local development server runs without authentication.</p>
  *
  * @author yungwang-o
  */

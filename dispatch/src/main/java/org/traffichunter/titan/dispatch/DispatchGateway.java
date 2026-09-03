@@ -33,11 +33,10 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
- * Asynchronous ingress and routing facade for fanout delivery.
+ * Starts asynchronous message dispatch for fanout delivery.
  *
- * <p>The gateway is the public entry point for one message dispatch lifecycle. Dispatching starts
- * the configured handler chain; routing and fanout remain internal handler responsibilities. The
- * returned future represents completion of that chain, not remote protocol acknowledgement from
+ * <p>Each dispatch starts the configured handler chain. Its handlers perform routing and fanout.
+ * The returned future completes when the chain finishes, not when acknowledgements arrive from
  * every subscribed client.</p>
  *
  * @author yungwang-o
