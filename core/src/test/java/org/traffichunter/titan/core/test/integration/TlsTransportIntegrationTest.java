@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.test.integration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -33,6 +34,7 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.net.JdkTlsContext;
 import org.traffichunter.titan.core.net.TlsClientAuth;
+import org.traffichunter.titan.core.net.TlsContext;
 import org.traffichunter.titan.core.net.TlsOptions;
 import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.net.TlsVersion;
@@ -41,15 +43,19 @@ import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.websocket.WebSocketClient;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * @author yun
@@ -75,6 +81,32 @@ class TlsTransportIntegrationTest {
                 .tls(context(TlsSide.CLIENT, keyStore)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("server-side");
+    }
+
+    @Test
+    @Timeout(10)
+    void remove_created_channel_when_tls_handler_creation_fails() throws Exception {
+        EventLoopGroups groups = EventLoopGroups.group(1);
+        TlsContext tls = mock(TlsContext.class);
+        IllegalStateException failure = new IllegalStateException("TLS handler creation failed");
+        when(tls.side()).thenReturn(TlsSide.CLIENT);
+        when(tls.newHandler("localhost", 1)).thenThrow(failure);
+        client = InetClient.open(groups).tls(tls);
+        AtomicReference<Channel> created = new AtomicReference<>();
+        client.onChannel(created::set);
+        client.start();
+
+        Promise<NetChannel> result = client.connect("localhost", 1, 1, TimeUnit.SECONDS);
+
+        assertThat(result.isFailed()).isTrue();
+        assertThat(result.error()).isSameAs(failure);
+        // Drain previously submitted cleanup before inspecting the registry.
+        groups.secondaryGroup().submit(() -> { }).get(3, TimeUnit.SECONDS);
+        assertThat(client.channels()).isEmpty();
+        assertThat(created.get()).isNotNull().satisfies(channel -> {
+            assertThat(channel.isClosed()).isTrue();
+            assertThat(channel.isOpen()).isFalse();
+        });
     }
 
     @AfterEach

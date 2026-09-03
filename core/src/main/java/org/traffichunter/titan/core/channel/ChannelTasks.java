@@ -69,33 +69,46 @@ final class ChannelTasks {
     static Promise<NetChannel> accept(NetServerChannel channel) {
         IOEventLoop eventLoop = channel.eventLoop();
         Promise<NetChannel> result = Promise.newPromise(eventLoop);
-        Runnable acceptTask = () -> {
+        try {
+            Runnable acceptTask = () -> {
+                try {
+                    result.success(channel.internal().accept());
+                } catch (Throwable error) {
+                    result.fail(error);
+                }
+            };
+
+            if (eventLoop.inEventLoop()) {
+                acceptTask.run();
+            } else {
+                eventLoop.execute(acceptTask);
+            }
+        } catch (RuntimeException e) {
+            result.fail(e);
+        }
+
+        return result;
+    }
+
+    static Promise<Void> execute(IOEventLoop eventLoop, Runnable task) {
+        Promise<Void> result = Promise.newPromise(eventLoop);
+        Runnable operation = () -> {
             try {
-                result.success(channel.internal().accept());
+                task.run();
+                result.success();
             } catch (Throwable error) {
                 result.fail(error);
             }
         };
 
         if (eventLoop.inEventLoop()) {
-            acceptTask.run();
+            operation.run();
         } else {
-            eventLoop.execute(acceptTask);
-        }
-        return result;
-    }
-
-    static Promise<Void> execute(IOEventLoop eventLoop, Runnable task) {
-        if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(task);
-        }
-
-        Promise<Void> result = Promise.newPromise(eventLoop);
-        try {
-            task.run();
-            result.success();
-        } catch (Throwable error) {
-            result.fail(error);
+            try {
+                eventLoop.execute(operation);
+            } catch (RuntimeException error) {
+                result.fail(error);
+            }
         }
         return result;
     }
@@ -125,15 +138,23 @@ final class ChannelTasks {
     }
 
     static <T> Promise<T> execute(IOEventLoop eventLoop, Callable<T> task) {
-        if (!eventLoop.inEventLoop()) {
-            return eventLoop.submit(task);
-        }
-
         Promise<T> result = Promise.newPromise(eventLoop);
-        try {
-            result.success(task.call());
-        } catch (Throwable error) {
-            result.fail(error);
+        Runnable operation = () -> {
+            try {
+                result.success(task.call());
+            } catch (Throwable error) {
+                result.fail(error);
+            }
+        };
+
+        if (eventLoop.inEventLoop()) {
+            operation.run();
+        } else {
+            try {
+                eventLoop.execute(operation);
+            } catch (RuntimeException error) {
+                result.fail(error);
+            }
         }
         return result;
     }

@@ -148,11 +148,15 @@ public class StompClientTcpChannel implements StompClientChannel {
         if (netChannel.isActive()) {
             send(frame, framePromise);
             framePromise.addListener(f -> close());
-            eventLoop().schedule(() -> {
-                if (framePromise.trySuccess(frame)) {
-                    close();
-                }
-            }, 100, TimeUnit.MILLISECONDS);
+            try {
+                eventLoop().schedule(() -> {
+                    if (framePromise.trySuccess(frame)) {
+                        close();
+                    }
+                }, 100, TimeUnit.MILLISECONDS);
+            } catch (RuntimeException error) {
+                framePromise.tryFail(error);
+            }
         } else {
             return framePromise.fail(new IllegalStateException("Channel is not active"));
         }
@@ -425,57 +429,65 @@ public class StompClientTcpChannel implements StompClientChannel {
     }
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {
-        if (!eventLoop().inEventLoop()) {
-            eventLoop().execute(() -> send(frame, receiptPromise));
-            return;
-        }
-
-        if (!netChannel.isActive() || !netChannel.isConnected()) {
-            close();
-            receiptPromise.fail(new StompNetChannelException("Channel is closed"));
-            return;
-        }
-
-        byte[] body = frame.body();
-        if (body.length > 0 && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
-            frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length));
-        }
-
-        String receiptId = frame.getHeader(Elements.RECEIPT);
-        if (receiptId != null && !receiptId.isBlank()) {
-            Promise<Void> resultPromise = Promise.newPromise(eventLoop());
-            resultPromise.addListener(future -> {
-                if (future.isSuccess()) {
-                    receiptPromise.success(frame);
-                } else {
-                    receiptPromise.fail(new StompNetChannelException("Failed to receive receipt"));
-                }
-            });
-            receiptMap.put(receiptId, resultPromise);
-        }
-
         try {
+            IOEventLoop eventLoop = eventLoop();
+            if (!eventLoop.inEventLoop()) {
+                eventLoop.execute(() -> send(frame, receiptPromise));
+                return;
+            }
+
+            if (!netChannel.isActive() || !netChannel.isConnected()) {
+                receiptPromise.fail(new StompNetChannelException("Channel is closed"));
+                close();
+                return;
+            }
+
+            byte[] body = frame.body();
+            if (body.length > 0 && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
+                frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length));
+            }
+
+            String receiptId = frame.getHeader(Elements.RECEIPT);
+            if (receiptId != null && !receiptId.isBlank()) {
+                Promise<Void> resultPromise = Promise.newPromise(eventLoop);
+                resultPromise.addListener(future -> {
+                    if (future.isSuccess()) {
+                        receiptPromise.success(frame);
+                    } else {
+                        receiptPromise.fail(new StompNetChannelException("Failed to receive receipt"));
+                    }
+                });
+                receiptMap.put(receiptId, resultPromise);
+            }
+
             Promise<Void> write = netChannel.writeAndFlush(frame.toBuffer());
             write.onFailure(error -> {
                 if (receiptId != null && !receiptId.isBlank()) {
                     receiptMap.remove(receiptId);
                 }
+                receiptPromise.tryFail(new StompNetChannelException("Failed to write STOMP frame", error));
                 log.error("Failed to write STOMP frame. session={}, command={}", sessionId, frame.getCommand(), error);
-                exceptionHandler.handle(error);
-                close();
-                receiptPromise.fail(new StompNetChannelException("Failed to write STOMP frame", error));
+                try {
+                    exceptionHandler.handle(error);
+                } finally {
+                    close();
+                }
             });
             if (receiptId == null || receiptId.isBlank()) {
                 write.onSuccess(ignored -> receiptPromise.success(frame));
             }
-        } catch (Exception e) {
-            if (receiptId != null && !receiptId.isBlank()) {
-                receiptMap.remove(receiptId);
+        } catch (RuntimeException e) {
+            String failedReceiptId = frame.getHeader(Elements.RECEIPT);
+            if (failedReceiptId != null && !failedReceiptId.isBlank()) {
+                receiptMap.remove(failedReceiptId);
             }
+            receiptPromise.tryFail(new StompNetChannelException("Failed to write STOMP frame", e));
             log.error("Failed to write STOMP frame. session={}, command={}", sessionId, frame.getCommand(), e);
-            exceptionHandler.handle(e);
-            close();
-            receiptPromise.fail(new StompNetChannelException("Failed to write STOMP frame", e));
+            try {
+                exceptionHandler.handle(e);
+            } finally {
+                close();
+            }
         }
     }
 

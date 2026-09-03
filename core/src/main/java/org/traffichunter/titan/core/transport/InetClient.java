@@ -35,7 +35,6 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.NewIONetChannel;
 import org.traffichunter.titan.core.util.concurrent.Promise;
@@ -168,35 +167,43 @@ public class InetClient extends AbstractTransport<NetChannel> {
             return validate;
         }
 
-        NetChannel channel = createChannel();
-        IOEventLoop loop = channel.eventLoop();
-
-        TlsContext tlsCtx = tlsContext;
-        TlsHandler tlsHandler = null;
-        if (tlsCtx != null) {
-            tlsHandler = tlsCtx.newHandler(remoteAddress.getHostString(), remoteAddress.getPort());
-            channel.chain().addFirst(tlsHandler);
+        NetChannel channel;
+        try {
+            channel = createChannel();
+        } catch (RuntimeException error) {
+            return Promise.failedPromise(groups().secondaryGroup(), error);
         }
 
-        Promise<NetChannel> connectResult = Promise.newPromise(loop);
+        Promise<NetChannel> connectResult = Promise.newPromise(channel.eventLoop());
         connectResult.addListener(done -> {
             if (!done.isSuccess()) {
                 destroyChannel(channel);
             }
         });
 
-        TlsHandler configuredTlsHandler = tlsHandler;
-        channel.connect(remoteAddress, timeOut, timeUnit)
-                .onSuccess(promise -> {
-                    if (configuredTlsHandler == null) {
-                        connectResult.success(channel);
-                        return;
-                    }
+        try {
+            TlsContext tlsCtx = tlsContext;
+            TlsHandler tlsHandler = null;
+            if (tlsCtx != null) {
+                tlsHandler = tlsCtx.newHandler(remoteAddress.getHostString(), remoteAddress.getPort());
+                channel.chain().addFirst(tlsHandler);
+            }
 
-                    configuredTlsHandler.handshake(channel)
-                            .onSuccess(ignored -> connectResult.success(channel))
-                            .onFailure(connectResult::fail);
-                }).onFailure(connectResult::fail);
+            TlsHandler configuredTlsHandler = tlsHandler;
+            channel.connect(remoteAddress, timeOut, timeUnit)
+                    .onSuccess(promise -> {
+                        if (configuredTlsHandler == null) {
+                            connectResult.success(channel);
+                            return;
+                        }
+
+                        configuredTlsHandler.handshake(channel)
+                                .onSuccess(ignored -> connectResult.success(channel))
+                                .onFailure(connectResult::fail);
+                    }).onFailure(connectResult::fail);
+        } catch (RuntimeException error) {
+            connectResult.fail(error);
+        }
 
         return connectResult;
     }
@@ -289,10 +296,23 @@ public class InetClient extends AbstractTransport<NetChannel> {
 
     private NetChannel createChannel() {
         NetChannel channel = newChannel(new ClientChannelConnector());
-        channelHandler.handle(channel);
-        applyClientOption(channel, option);
-        groups().register(channel);
-        return channel;
+        try {
+            channelHandler.handle(channel);
+            applyClientOption(channel, option);
+            groups().register(channel);
+            return channel;
+        } catch (RuntimeException error) {
+            try {
+                destroyChannel(channel);
+            } catch (RuntimeException closeError) {
+                if (closeError != error) {
+                    error.addSuppressed(closeError);
+                }
+            } finally {
+                channelRegistry.removeChannel(channel);
+            }
+            throw error;
+        }
     }
 
     @Noop

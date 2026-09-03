@@ -76,27 +76,36 @@ public final class WebSocketClientHandshaker extends AbstractWebSocketHandshaker
 
     @Override
     public Promise<NetChannel> handshake(NetChannel channel) {
-        String key = generateKey();
-        HttpRequest request = new HttpRequest()
-                .uri(path)
-                .header(HOST, host)
-                .header(UPGRADE, WEBSOCKET)
-                .header(CONNECTION, UPGRADE)
-                .header(SEC_WEBSOCKET_KEY, key)
-                .header(SEC_WEBSOCKET_PROTOCOL, subProtocol())
-                .header(SEC_WEBSOCKET_VERSION, version());
-
         Promise<NetChannel> upgradeResult = Promise.newPromise(channel.eventLoop());
-        channel.chain().add(new WebSocketUpgradeHandler(this, key, upgradeResult));
+        try {
+            String key = generateKey();
+            HttpRequest request = new HttpRequest()
+                    .uri(path)
+                    .header(HOST, host)
+                    .header(UPGRADE, WEBSOCKET)
+                    .header(CONNECTION, UPGRADE)
+                    .header(SEC_WEBSOCKET_KEY, key)
+                    .header(SEC_WEBSOCKET_PROTOCOL, subProtocol())
+                    .header(SEC_WEBSOCKET_VERSION, version());
 
-        channel.writeAndFlush(Buffer.heap().alloc(request.toString())).addListener(result -> {
-            if (result.isFailed() && !upgradeResult.isDone()) {
-                Throwable error = result.error();
-                upgradeResult.fail(error == null
-                        ? new WebSocketHandshakeException("Failed to write WebSocket upgrade request")
-                        : error);
+            channel.chain().add(new WebSocketUpgradeHandler(this, key, upgradeResult));
+            Buffer requestBuffer = Buffer.heap().alloc(request.toString());
+            try {
+                channel.writeAndFlush(requestBuffer).addListener(result -> {
+                    if (result.isFailed() && !upgradeResult.isDone()) {
+                        Throwable error = result.error();
+                        upgradeResult.fail(error == null
+                                ? new WebSocketHandshakeException("Failed to write WebSocket upgrade request")
+                                : error);
+                    }
+                });
+            } catch (RuntimeException error) {
+                requestBuffer.release();
+                throw error;
             }
-        });
+        } catch (RuntimeException error) {
+            upgradeResult.fail(error);
+        }
 
         return upgradeResult;
     }

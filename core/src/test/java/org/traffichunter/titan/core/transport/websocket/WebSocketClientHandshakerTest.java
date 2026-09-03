@@ -25,7 +25,10 @@ package org.traffichunter.titan.core.transport.websocket;
 
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
+import org.traffichunter.titan.core.channel.ChannelException;
+import org.traffichunter.titan.core.channel.ChannelHandlerChain;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
+import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.TaskEventLoop;
 import org.traffichunter.titan.core.util.concurrent.Promise;
@@ -38,6 +41,9 @@ import java.util.List;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * @author yun
@@ -85,6 +91,23 @@ class WebSocketClientHandshakerTest {
                 .validateResponse(response, KEY))
                 .isInstanceOf(WebSocketHandshakeException.class)
                 .hasMessageContaining("Invalid Sec-WebSocket-Protocol");
+    }
+
+    @Test
+    void return_failed_promise_when_upgrade_write_throws() {
+        NetChannel channel = mock(NetChannel.class);
+        IOEventLoop eventLoop = mock(IOEventLoop.class);
+        when(channel.eventLoop()).thenReturn(eventLoop);
+        when(channel.chain()).thenReturn(new ChannelHandlerChain());
+        when(channel.writeAndFlush(any(Buffer.class))).thenThrow(new ChannelException("write rejected"));
+
+        Promise<NetChannel> result = new WebSocketClientHandshaker("localhost", Protocol.STOMP)
+                .handshake(channel);
+
+        assertThat(result.isFailed()).isTrue();
+        assertThat(result.error())
+                .isInstanceOf(ChannelException.class)
+                .hasMessage("write rejected");
     }
 
     @Test
