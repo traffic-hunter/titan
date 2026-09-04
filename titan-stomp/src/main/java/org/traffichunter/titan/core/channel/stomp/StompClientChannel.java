@@ -60,6 +60,10 @@ public interface StompClientChannel extends StompChannel {
             NetChannel netChannel,
             StompSessionOption option
     ) {
+        if (netChannel instanceof WebSocketChannel webSocketChannel) {
+            return wrap(webSocketChannel, option, handler -> {});
+        }
+
         return wrap(netChannel, option, handler -> {});
     }
 
@@ -68,22 +72,10 @@ public interface StompClientChannel extends StompChannel {
             StompSessionOption option,
             Handler<StompClientHandler> clientHandlerConfigurer
     ) {
+        if (netChannel instanceof WebSocketChannel webSocketChannel) {
+            return new StompClientWebSocketChannel(webSocketChannel, option, clientHandlerConfigurer);
+        }
         return new StompClientTcpChannel(netChannel, option, clientHandlerConfigurer);
-    }
-
-    static StompClientChannel wrap(
-            WebSocketChannel webSocketChannel,
-            StompSessionOption option
-    ) {
-        return wrap(webSocketChannel, option, handler -> { });
-    }
-
-    static StompClientChannel wrap(
-            WebSocketChannel webSocketChannel,
-            StompSessionOption option,
-            Handler<StompClientHandler> clientHandlerConfigurer
-    ) {
-        return new StompClientWebSocketChannel(webSocketChannel, option, clientHandlerConfigurer);
     }
 
     @Override

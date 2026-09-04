@@ -274,7 +274,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
         cancel();
         runAllTasks();
-        if(Time.currentNanos() - shutdownStartNanos > shutdownTimeoutNanos) {
+        if(taskQueue.isEmpty() || Time.currentNanos() - shutdownStartNanos > shutdownTimeoutNanos) {
             return true;
         }
 

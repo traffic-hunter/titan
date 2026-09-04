@@ -1,0 +1,22 @@
+titan:
+  flow-control:
+    enabled: false
+  servers:
+    - name: smoke-stomp
+      transport: ${transport}
+      protocol: stomp
+      host: ${host}
+      port: ${port}
+      primary-threads: 1
+      secondary-threads: 1
+      transport-options:
+        reuse-address: "true"
+        child-tcp-no-delay: "true"
+        child-send-buffer-size: "1024"
+        path: "/"
+      protocol-options:
+        max-frame-length: "${maxFrameLength}"
+        heartbeat-x: "0"
+        heartbeat-y: "0"
+        supported-versions: "1.2"
+        secured: "false"

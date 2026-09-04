@@ -75,7 +75,7 @@ class StompChannelDecoderTest {
     @Test
     void when_content_length_mismatch_then_err() {
         StompHeaders headers = StompHeaders.create();
-        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "10");
+        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "4");
 
         StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
@@ -106,6 +106,29 @@ class StompChannelDecoderTest {
             assertThat(result).isEqualTo(frame.toBuffer());
         } finally {
             buf.release();
+        }
+    }
+
+    @Test
+    void content_length_preserves_line_breaks_and_embedded_nul() {
+        byte[] body = "first\nsecond\0third".getBytes(StandardCharsets.UTF_8);
+        StompHeaders headers = StompHeaders.create();
+        headers.put(StompHeaders.Elements.CONTENT_LENGTH, Integer.toString(body.length));
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, body);
+        Buffer input = frame.toBuffer();
+        List<StompFrame> handled = new ArrayList<>();
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), input);
+
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.body()).isEqualTo(body));
+            assertThat(result).isNotNull();
+            result.release();
+        } finally {
+            input.release();
         }
     }
 
@@ -370,7 +393,7 @@ class StompChannelDecoderTest {
         // Leak 3 regression: stompFrame and frames list inside StompParser.parse()
         // must be released even when ERR_STOMP_FRAME is returned early.
         StompHeaders headers = StompHeaders.create();
-        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "10");
+        headers.put(StompHeaders.Elements.CONTENT_LENGTH, "4");
         StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
