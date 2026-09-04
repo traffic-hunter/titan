@@ -4,7 +4,7 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 plugins {
     id("java")
     id("com.vanniktech.maven.publish") version "0.36.0" apply false
-    id("com.gradleup.shadow") version "9.4.1" apply false
+    id("com.gradleup.shadow") version "9.4.2" apply false
 }
 
 group = "org.traffichunter.titan"
