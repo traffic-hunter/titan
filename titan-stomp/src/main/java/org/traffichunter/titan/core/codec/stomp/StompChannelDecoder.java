@@ -26,18 +26,19 @@ package org.traffichunter.titan.core.codec.stomp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.traffichunter.titan.core.channel.stomp.StompServerHandler;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
-import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.codec.TooLongFrameException;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
+import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 
 /**
  * @author yun, gkdbssla97
@@ -70,8 +71,27 @@ public class StompChannelDecoder extends ChannelDecoder {
     }
 
     @Override
+    public void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
+        try {
+            super.sparkChannelRead(channel, buffer, chain);
+        } catch (TooLongFrameException error) {
+            if (!(handler instanceof StompServerHandler)) {
+                throw error;
+            }
+            String reason = error.getMessage() == null ? "STOMP frame size limit exceeded" : error.getMessage();
+            log.warn("Rejected oversized STOMP frame. session={}, reason={}", stompChannel.session(), reason);
+            stompChannel.send(errorFrame("Frame size limit exceeded.", reason))
+                    .onSuccess(ignored -> stompChannel.close())
+                    .onFailure(sendError -> {
+                        log.warn("Failed to send STOMP ERROR frame before closing. session={}", stompChannel.session(), sendError);
+                        stompChannel.close();
+                    });
+        }
+    }
+
+    @Override
     protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
-        StompFrame frame = stompParser.parse(channel, buffer);
+        StompFrame frame = stompParser.parse(buffer);
         if (frame == null) {
             return null;
         }
@@ -83,19 +103,16 @@ public class StompChannelDecoder extends ChannelDecoder {
 
     static class StompParser {
 
-        private static final String NULL = StompDelimiter.NUL.getString();
         private static final String COLON = StompDelimiter.COLON.getString();
         private static final String CONTENT_LENGTH = "content-length";
 
-        private final LineFrameChannelDecoderWrapper lineFrameDecoder;
         private final int maxFrameLength;
 
         private StompParser(int maxFrameLength) {
-            this.lineFrameDecoder = new LineFrameChannelDecoderWrapper(maxFrameLength);
             this.maxFrameLength = maxFrameLength;
         }
 
-        private @Nullable StompFrame parse(NetChannel channel, Buffer buffer) {
+        private @Nullable StompFrame parse(Buffer buffer) {
             if (!buffer.isReadable()) {
                 return null;
             }
@@ -107,59 +124,78 @@ public class StompChannelDecoder extends ChannelDecoder {
                 return StompFrame.PING;
             }
 
-            int frameEnd = findFrameEnd(buffer);
-            if (frameEnd == -1) {
+            int bodyStart = findBodyStart(buffer, readerIndex);
+            if (bodyStart == -1) {
                 validateFrameLength(buffer.length());
                 return null;
             }
 
-            int length = frameEnd - readerIndex;
-            validateFrameLength(length);
-            Buffer sliceBuffer = buffer.readSlice(length);
-            buffer.skipBytes(1);
+            int headerEnd = headerEnd(buffer, bodyStart);
+            String head = new String(
+                    buffer.getBytes(readerIndex, headerEnd - readerIndex),
+                    StandardCharsets.UTF_8
+            );
+            String[] lines = head.split("\\r?\\n");
+            if (lines.length == 0 || lines[0].isBlank()) {
+                return StompFrame.ERR_STOMP_FRAME;
+            }
 
-            Buffer stompFrame = Buffer.heap().alloc(sliceBuffer.length() + 1);
-            List<Buffer> frames = List.of();
-            try {
-                stompFrame.accumulateBuffer(sliceBuffer)
-                        .accumulateByte(StompDelimiter.LF.getHex());
-                frames = lineFrameDecoder.decodes(channel, stompFrame);
-
-                StompCommand stompCommand = StompCommand.valueOf(frames.getFirst().toString());
-
-                int bodyLength = -1;
-                StompHeaders headers = new StompHeaders(StompVersion.STOMP_1_2);
-                for(int i = 1; i < frames.size(); i++) {
-                    String header = frames.get(i).toString();
-                    if(header.isBlank()) {
-                        break;
-                    } else {
-                        String[] keyValue = header.split(COLON, 2);
-                        if (keyValue.length != 2) {
-                            return StompFrame.ERR_STOMP_FRAME;
-                        }
-
-                        String key = keyValue[0].trim();
-                        String value = keyValue[1].trim();
-                        if(key.equals(CONTENT_LENGTH)) {
-                            bodyLength = Integer.parseInt(value);
-                        }
-
-                        headers.put(Elements.convertToElements(key), value);
-                    }
-                }
-
-                Buffer bodyBuffer = frames.getLast();
-                byte[] body = bodyBuffer.getBytes();
-                if(bodyLength > -1 && bodyLength != body.length) {
+            StompCommand stompCommand = StompCommand.valueOf(lines[0].toUpperCase());
+            int contentLength = -1;
+            StompHeaders headers = new StompHeaders(StompVersion.STOMP_1_2);
+            for (int i = 1; i < lines.length; i++) {
+                String[] keyValue = lines[i].split(COLON, 2);
+                if (keyValue.length != 2) {
                     return StompFrame.ERR_STOMP_FRAME;
                 }
 
-                return StompFrame.create(headers, stompCommand, body);
-            } finally {
-                stompFrame.release();
-                frames.forEach(Buffer::release);
+                String key = keyValue[0].trim();
+                String value = keyValue[1].trim();
+                if (key.equals(CONTENT_LENGTH)) {
+                    contentLength = Integer.parseInt(value);
+                    if (contentLength < 0) {
+                        return StompFrame.ERR_STOMP_FRAME;
+                    }
+                }
+                headers.put(Elements.convertToElements(key), value);
             }
+
+            int frameEnd;
+            int bodyLength;
+            if (contentLength >= 0) {
+                long declaredFrameLength = (long) bodyStart - readerIndex + contentLength;
+                if (declaredFrameLength > maxFrameLength) {
+                    throw new TooLongFrameException(
+                            "STOMP frame exceeds " + maxFrameLength + ": " + declaredFrameLength
+                    );
+                }
+                frameEnd = Math.toIntExact((long) bodyStart + contentLength);
+                if (buffer.byteBuf().writerIndex() <= frameEnd) {
+                    return null;
+                }
+                if (buffer.getByte(frameEnd) != StompDelimiter.NUL.getHex()) {
+                    int terminator = findNul(buffer, bodyStart);
+                    if (terminator >= 0) {
+                        buffer.skipBytes(terminator - readerIndex + 1);
+                    }
+                    return StompFrame.ERR_STOMP_FRAME;
+                }
+                bodyLength = contentLength;
+            } else {
+                frameEnd = findNul(buffer, bodyStart);
+                if (frameEnd == -1) {
+                    validateFrameLength(buffer.length());
+                    return null;
+                }
+                validateFrameLength(frameEnd - readerIndex);
+                bodyLength = frameEnd - bodyStart;
+            }
+
+            byte[] body = bodyLength == 0
+                    ? new byte[0]
+                    : buffer.getBytes(bodyStart, bodyLength);
+            buffer.skipBytes(frameEnd - readerIndex + 1);
+            return StompFrame.create(headers, stompCommand, body);
         }
 
         private void validateFrameLength(int frameLength) {
@@ -170,38 +206,36 @@ public class StompChannelDecoder extends ChannelDecoder {
             }
         }
 
-        private int findFrameEnd(Buffer buffer) {
-            int totalLength = buffer.length();
-            int readIdx = buffer.byteBuf().readerIndex();
-            return buffer.indexOf(readIdx, readIdx + totalLength, NULL.charAt(0));
-        }
-    }
-
-    static class LineFrameChannelDecoderWrapper extends LineFrameChannelDecoder {
-
-        private LineFrameChannelDecoderWrapper(int maxLength) {
-            super(maxLength);
-        }
-
-        List<Buffer> decodes(NetChannel channel, Buffer buffer) {
-            List<Buffer> buffers = new LinkedList<>();
-            try {
-                while (buffer.isReadable()) {
-                    Buffer decode = decode(channel, buffer);
-                    if (decode != null) {
-                        buffers.add(decode);
-                    }
+        private static int findBodyStart(Buffer buffer, int readerIndex) {
+            int writerIndex = buffer.byteBuf().writerIndex();
+            for (int index = readerIndex; index < writerIndex - 1; index++) {
+                if (buffer.getByte(index) == StompDelimiter.LF.getHex()
+                        && buffer.getByte(index + 1) == StompDelimiter.LF.getHex()) {
+                    return index + 2;
                 }
-                return buffers;
-            } catch (RuntimeException e) {
-                buffers.forEach(Buffer::release);
-                throw e;
+                if (index < writerIndex - 3
+                        && buffer.getByte(index) == StompDelimiter.CR.getHex()
+                        && buffer.getByte(index + 1) == StompDelimiter.LF.getHex()
+                        && buffer.getByte(index + 2) == StompDelimiter.CR.getHex()
+                        && buffer.getByte(index + 3) == StompDelimiter.LF.getHex()) {
+                    return index + 4;
+                }
             }
+            return -1;
         }
 
-        @Override
-        protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
-            return super.decode(channel, buffer);
+        private static int headerEnd(Buffer buffer, int bodyStart) {
+            return buffer.getByte(bodyStart - 2) == StompDelimiter.LF.getHex()
+                    ? bodyStart - 2
+                    : bodyStart - 4;
+        }
+
+        private static int findNul(Buffer buffer, int fromIndex) {
+            return buffer.indexOf(
+                    fromIndex,
+                    buffer.byteBuf().writerIndex(),
+                    StompDelimiter.NUL.getHex()
+            );
         }
     }
 }

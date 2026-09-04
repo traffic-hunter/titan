@@ -257,14 +257,14 @@ class TaskEventLoopTest {
         }
 
         @Test
-        void shouldNotShutdownBeforeGracefulTimeoutTest() {
+        void shutdownWithoutQueuedTasksDoesNotWaitForTimeoutTest() {
             eventLoop.start();
 
             eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
 
             Awaitility.await()
                     .atMost(500, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> assertFalse(eventLoop.isShutdown()));
+                    .untilAsserted(() -> assertTrue(eventLoop.isShutdown()));
         }
 
         @Test

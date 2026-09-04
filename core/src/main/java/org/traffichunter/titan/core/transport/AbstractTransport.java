@@ -101,10 +101,7 @@ public abstract class AbstractTransport<C extends Channel> {
 
     public void close(long timeout, TimeUnit unit) {
         channelRegistry.forEach(Channel::close);
-
-        if (channelRegistry.isClosed()) {
-            eventLoopGroups.gracefullyShutdown(timeout, unit);
-        }
+        eventLoopGroups.gracefullyShutdown(timeout, unit);
     }
 
     public boolean isClosed() {

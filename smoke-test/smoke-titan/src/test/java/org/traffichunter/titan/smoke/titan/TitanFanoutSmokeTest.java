@@ -23,130 +23,51 @@ THE SOFTWARE.
 */
 package org.traffichunter.titan.smoke.titan;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
-
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.client.TitanClient;
-import org.traffichunter.titan.core.transport.stomp.StompServer;
-import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
-import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
-import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.dispatch.DispatchGateway;
-import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
-import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
+
+/**
+ * Verifies that the packaged dispatch runtime fans one message out to every subscriber.
+ *
+ * @author yun
+ */
+@TitanSmokeTest
+@Timeout(value = 30, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class TitanFanoutSmokeTest {
 
-    private static final String HOST = "127.0.0.1";
-    private static final String PAYLOAD = "smoke-message";
-    private static final String FANOUT_DESTINATION = "/topic/smoke-titan/fanout";
-    private static final long TIMEOUT_MILLIS = 10_000L;
-
     @Test
-    void producer_send_should_be_received_by_subscribed_consumers() throws Exception {
-        String payload = PAYLOAD + "-fanout";
+    void producer_send_is_received_by_subscribed_consumers(TitanRuntime runtime) throws Exception {
+        runtime.start(TitanSmokeTransport.TCP);
+        String destination = "/topic/smoke-titan/" + UUID.randomUUID();
         CountDownLatch received = new CountDownLatch(2);
         AtomicReference<String> firstPayload = new AtomicReference<>();
         AtomicReference<String> secondPayload = new AtomicReference<>();
 
-        EventLoopGroups serverGroups = EventLoopGroups.group(1, 2);
-        StompServer server = StompServer.open(serverGroups, stompServerOption());
-        DispatchGateway dispatchGateway = DispatchGateway.ofVirtual(new StompDispatchExporter(server.connection()));
-        server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(dispatchGateway)));
+        TitanClient firstConsumer = runtime.client();
+        TitanClient secondConsumer = runtime.client();
+        firstConsumer.subscribe(destination, Map.of(ID, "smoke-fanout-first"), frame -> {
+            firstPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
+            received.countDown();
+        }).get(10, TimeUnit.SECONDS);
+        secondConsumer.subscribe(destination, Map.of(ID, "smoke-fanout-second"), frame -> {
+            secondPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
+            received.countDown();
+        }).get(10, TimeUnit.SECONDS);
 
-        TitanClient producer = null;
-        TitanClient firstConsumer = null;
-        TitanClient secondConsumer = null;
+        runtime.client().send(destination, "smoke-message").get(10, TimeUnit.SECONDS);
 
-        try {
-            server.start();
-            server.listen(HOST, 0).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-            int port = boundPort(server);
-
-            producer = newStompClient(2, port);
-            firstConsumer = newStompClient(2, port);
-            secondConsumer = newStompClient(2, port);
-
-            producer.start();
-            firstConsumer.start();
-            secondConsumer.start();
-
-            TitanClient producerConnection = connect(producer);
-            TitanClient firstConsumerConnection = connect(firstConsumer);
-            TitanClient secondConsumerConnection = connect(secondConsumer);
-
-            firstConsumerConnection.subscribe(FANOUT_DESTINATION, Map.of(ID, "smoke-fanout-first"), frame -> {
-                firstPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
-                received.countDown();
-            }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-
-            secondConsumerConnection.subscribe(FANOUT_DESTINATION, Map.of(ID, "smoke-fanout-second"), frame -> {
-                secondPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
-                received.countDown();
-            }).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-
-            producerConnection.send(FANOUT_DESTINATION, Buffer.heap().alloc(payload))
-                    .get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-
-            assertThat(received.await(10, TimeUnit.SECONDS)).isTrue();
-            assertThat(firstPayload.get()).isEqualTo(payload);
-            assertThat(secondPayload.get()).isEqualTo(payload);
-        } finally {
-            shutdown(secondConsumer);
-            shutdown(firstConsumer);
-            shutdown(producer);
-            dispatchGateway.close();
-            if (server.isStart()) {
-                server.shutdown(10, TimeUnit.SECONDS);
-            }
-        }
-    }
-
-    private static StompServerOption stompServerOption() {
-        return StompServerOption.builder()
-                .heartbeatX(0L)
-                .heartbeatY(0L)
-                .build();
-    }
-
-    private static TitanClient newStompClient(int workers, int port) {
-        return TitanClient.builder()
-                .worker(workers)
-                .host(HOST)
-                .port(port)
-                .session(StompSessionOption.builder()
-                        .heartbeatX(0L)
-                        .heartbeatY(0L)
-                        .build())
-                .build();
-    }
-
-    private static TitanClient connect(TitanClient client) throws Exception {
-        return client.connect()
-                .get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-    }
-
-    private static int boundPort(StompServer server) {
-        SocketAddress localAddress = server.connection().channel().localAddress();
-        assertThat(localAddress).isInstanceOf(InetSocketAddress.class);
-        Assertions.assertNotNull(localAddress);
-        return ((InetSocketAddress) localAddress).getPort();
-    }
-
-    private static void shutdown(TitanClient client) {
-        if (client != null && client.isStarted()) {
-            client.shutdown(10, TimeUnit.SECONDS);
-        }
+        assertThat(received.await(10, TimeUnit.SECONDS)).isTrue();
+        assertThat(firstPayload.get()).isEqualTo("smoke-message");
+        assertThat(secondPayload.get()).isEqualTo("smoke-message");
     }
 }

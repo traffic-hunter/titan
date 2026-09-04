@@ -136,11 +136,9 @@ public final class TitanStompClientDriver implements StompClientDriver {
 
         long timeout = configuration.connectTimeout().toMillis();
         StompFrame connectFrame = createConnectFrame(remoteAddress.getHostString());
-        return connectTransport(remoteAddress, timeout)
+        return connect0(remoteAddress, timeout)
                 .map(channel -> {
-                    StompClientChannel connection = channel instanceof WebSocketChannel webSocketChannel
-                            ? StompClientChannel.wrap(webSocketChannel, configuration.session())
-                            : StompClientChannel.wrap(channel, configuration.session());
+                    StompClientChannel connection = StompClientChannel.wrap(channel, configuration.session());
                     stompClientHandler.handle(connection.handler());
                     channel.chain().add(new StompChannelDecoder(
                             configuration.maxFrameLength(),
@@ -201,7 +199,7 @@ public final class TitanStompClientDriver implements StompClientDriver {
         return connection;
     }
 
-    private Promise<? extends NetChannel> connectTransport(InetSocketAddress remoteAddress, long timeoutMillis) {
+    private Promise<? extends NetChannel> connect0(InetSocketAddress remoteAddress, long timeoutMillis) {
         String webSocketPath = configuration.webSocketPath();
         if (webSocketPath == null) {
             return inetClient.connect(remoteAddress, timeoutMillis, TimeUnit.MILLISECONDS);
