@@ -31,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.buffer.Buffers;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * I/O event loop responsible for connection connect/read/write readiness.

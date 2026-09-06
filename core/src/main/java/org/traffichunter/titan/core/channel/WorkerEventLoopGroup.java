@@ -26,7 +26,6 @@ package org.traffichunter.titan.core.channel;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.Assert;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 import java.util.ArrayList;
 import java.util.List;

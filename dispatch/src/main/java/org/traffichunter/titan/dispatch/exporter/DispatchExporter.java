@@ -27,7 +27,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.inet.Frame;
+import org.traffichunter.titan.core.util.Frame;
 import org.traffichunter.titan.dispatch.AggregationResult;
 
 /**

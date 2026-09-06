@@ -38,7 +38,7 @@ import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.MediaType;
 import org.traffichunter.titan.core.util.Pair;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.core.util.inet.Frame;
+import org.traffichunter.titan.core.util.Frame;
 
 /**
  * @author yungwang-o

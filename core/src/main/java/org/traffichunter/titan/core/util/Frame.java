@@ -21,20 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.traffichunter.titan.core.util.event;
+package org.traffichunter.titan.core.util;
+
+import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * @author yungwang-o
  */
-public interface EventLoopConstants {
+public interface Frame<K, V> {
 
-    long DEFAULT_SHUTDOWN_TIME_OUT = 15;
+    void addHeader(K key, V value);
 
-    String TASK_EVENT_LOOP_THREAD_NAME = "TaskEventLoop";
+    @Nullable V getHeader(K key);
 
-    String WORKER_EVENT_LOOP_THREAD_NAME = "WorkerEventLoopThread";
-
-    String PRIMARY_EVENT_LOOP_THREAD_NAME = "PrimaryEventLoopThread";
-
-    String SECONDARY_EVENT_LOOP_THREAD_NAME = "SecondaryEventLoopThread";
+    Buffer toBuffer();
 }

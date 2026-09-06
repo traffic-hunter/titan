@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.concurrent.EventExecutorService;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * Single execution lane for asynchronous work.

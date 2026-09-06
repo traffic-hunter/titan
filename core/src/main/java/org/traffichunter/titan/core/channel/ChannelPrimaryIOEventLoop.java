@@ -29,7 +29,6 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * I/O event loop responsible for server accept readiness.
