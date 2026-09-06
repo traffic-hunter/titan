@@ -22,6 +22,9 @@ fun resolveVersion(): String = providers.gradleProperty("versionName")
     .orElse(providers.gradleProperty("VERSION_NAME"))
     .orElse(providers.environmentVariable("GITHUB_REF_NAME"))
     .map { refName -> refName.removePrefix("refs/tags/") }
+    // Pull request builds expose refs like "136/merge"; a slash would turn artifact
+    // names into nested paths and collide inside distribution archives.
+    .map { refName -> refName.replace('/', '-') }
     .getOrElse(resolveGitTagVersion() ?: "1.0-SNAPSHOT")
 
 allprojects {

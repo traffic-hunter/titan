@@ -6,10 +6,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"github.com/traffic-hunter/titan/titan-cli/internal/monitor"
+	"github.com/traffic-hunter/titan/titan-cli/internal/perf"
 	"github.com/traffic-hunter/titan/titan-cli/internal/render"
 )
 
@@ -44,8 +51,47 @@ type queueOptions struct {
 	force           bool
 }
 
+type perfOptions struct {
+	host              string
+	port              int
+	destination       string
+	warmupMessages    int
+	messages          int
+	producers         int
+	payloadBytes      int
+	connectTimeout    time.Duration
+	completionTimeout time.Duration
+	runnerPath        string
+}
+
 func Run(args []string, stdout io.Writer, stderr io.Writer, version string) int {
-	command := newRootCommand(stdout, stderr, version)
+	return RunWithInput(args, os.Stdin, stdout, stderr, version)
+}
+
+func RunWithInput(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, version string) int {
+	if len(args) == 0 && interactive(stdin, stdout) {
+		selected, err := selectTool(stdin, stdout, version)
+		if errors.Is(err, huh.ErrUserAborted) {
+			return 0
+		}
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+		args = []string{selected}
+		if selected == "perf-test" {
+			args, err = selectPerfSettings(stdin, stdout)
+			if errors.Is(err, huh.ErrUserAborted) {
+				return 0
+			}
+			if err != nil {
+				fmt.Fprintln(stderr, err)
+				return 2
+			}
+		}
+	}
+
+	command := newRootCommand(stdin, stdout, stderr, version)
 	command.SetArgs(args)
 	if err := command.Execute(); err != nil {
 		var exit exitError
@@ -59,11 +105,11 @@ func Run(args []string, stdout io.Writer, stderr io.Writer, version string) int 
 	return 0
 }
 
-func newRootCommand(stdout io.Writer, stderr io.Writer, version string) *cobra.Command {
+func newRootCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer, version string) *cobra.Command {
 	options := &viewOptions{}
 	command := &cobra.Command{
 		Use:           "titan",
-		Short:         "Titan terminal monitor",
+		Short:         "Titan command-line tools",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		CompletionOptions: cobra.CompletionOptions{
@@ -83,9 +129,271 @@ func newRootCommand(stdout io.Writer, stderr io.Writer, version string) *cobra.C
 	command.Flags().StringVar(&options.view, "view", "overview", "Initial view: overview, queues, or jvm")
 	command.Flags().BoolVar(&options.noClear, "no-clear", false, "Render without clearing the terminal")
 	command.Flags().BoolVar(&options.once, "once", false, "Render one frame and exit")
+	command.AddCommand(monitorCommand(stdout, options))
 	command.AddCommand(queueCommand(stdout, options))
+	command.AddCommand(perfCommand(stdout))
+	command.AddCommand(microBenchmarkCommand(stdin, stdout, stderr))
 	command.AddCommand(versionCommand(stdout, version))
 	return command
+}
+
+func monitorCommand(stdout io.Writer, options *viewOptions) *cobra.Command {
+	command := &cobra.Command{
+		Use:           "monitor",
+		Short:         "Open the live Titan monitor",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runView(cmd.Context(), stdout, options)
+		},
+	}
+	command.Flags().DurationVar(&options.interval, "interval", time.Second, "Polling interval")
+	command.Flags().StringVar(&options.view, "view", "overview", "Initial view: overview, queues, or jvm")
+	command.Flags().BoolVar(&options.noClear, "no-clear", false, "Render without clearing the terminal")
+	command.Flags().BoolVar(&options.once, "once", false, "Render one frame and exit")
+	return command
+}
+
+func perfCommand(stdout io.Writer) *cobra.Command {
+	options := &perfOptions{}
+	command := &cobra.Command{
+		Use:           "perf-test",
+		Aliases:       []string{"perf"},
+		Short:         "Run an end-to-end Titan performance test",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			report, err := perf.Run(cmd.Context(), perf.Config{
+				Host:              options.host,
+				Port:              options.port,
+				Destination:       options.destination,
+				WarmupMessages:    options.warmupMessages,
+				Messages:          options.messages,
+				Producers:         options.producers,
+				PayloadBytes:      options.payloadBytes,
+				ConnectTimeout:    options.connectTimeout,
+				CompletionTimeout: options.completionTimeout,
+				RunnerPath:        options.runnerPath,
+			})
+			if err != nil {
+				return exitError{code: 1, err: err}
+			}
+			printPerfReport(stdout, report)
+			if !report.Successful() {
+				return exitError{code: 1, err: fmt.Errorf("performance test did not deliver every message")}
+			}
+			return nil
+		},
+	}
+	command.Flags().StringVar(&options.host, "host", "127.0.0.1", "Titan STOMP host")
+	command.Flags().IntVar(&options.port, "port", 7777, "Titan STOMP port")
+	command.Flags().StringVar(&options.destination, "destination", "/queue/perf-test", "STOMP destination")
+	command.Flags().IntVar(&options.warmupMessages, "warmup-messages", 1_000, "Number of warm-up messages")
+	command.Flags().IntVar(&options.messages, "messages", 10_000, "Number of messages")
+	command.Flags().IntVar(&options.producers, "producers", 1, "Concurrent producer connections")
+	command.Flags().IntVar(&options.payloadBytes, "payload-bytes", 1_024, "Payload size in bytes")
+	command.Flags().DurationVar(&options.connectTimeout, "connect-timeout", 5*time.Second, "Connection timeout")
+	command.Flags().DurationVar(&options.completionTimeout, "completion-timeout", 30*time.Second, "Overall test timeout")
+	command.Flags().StringVar(&options.runnerPath, "runner", "", "Path to the Titan Java performance runner")
+	return command
+}
+
+func printPerfReport(output io.Writer, report perf.Report) {
+	fmt.Fprintln(output, "Titan performance test")
+	fmt.Fprintf(output, "  requested  : %d\n", report.Requested)
+	fmt.Fprintf(output, "  sent       : %d\n", report.Sent)
+	fmt.Fprintf(output, "  received   : %d\n", report.Received)
+	fmt.Fprintf(output, "  failed     : %d\n", report.Failed)
+	fmt.Fprintf(output, "  elapsed    : %.3f s\n", report.Elapsed.Seconds())
+	fmt.Fprintf(output, "  throughput : %.2f msg/s\n", report.Throughput)
+	if report.Received > 0 {
+		fmt.Fprintf(output, "  latency p50: %.3f ms\n", float64(report.P50.Microseconds())/1_000)
+		fmt.Fprintf(output, "  latency p95: %.3f ms\n", float64(report.P95.Microseconds())/1_000)
+		fmt.Fprintf(output, "  latency p99: %.3f ms\n", float64(report.P99.Microseconds())/1_000)
+	}
+}
+
+func microBenchmarkCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:           "micro-bench",
+		Short:         "Run the JMH microbenchmarks",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			root, err := titanProjectRoot()
+			if err != nil {
+				return exitError{code: 1, err: err}
+			}
+			wrapper := "gradlew"
+			if runtime.GOOS == "windows" {
+				wrapper = "gradlew.bat"
+			}
+			benchmark := exec.CommandContext(cmd.Context(), filepath.Join(root, wrapper), ":benchmark:jmh:jmh")
+			benchmark.Dir = root
+			benchmark.Stdin = stdin
+			benchmark.Stdout = stdout
+			benchmark.Stderr = stderr
+			if err := benchmark.Run(); err != nil {
+				return exitError{code: 1, err: fmt.Errorf("run JMH benchmarks: %w", err)}
+			}
+			return nil
+		},
+	}
+}
+
+func titanProjectRoot() (string, error) {
+	directory, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		wrapper := filepath.Join(directory, "gradlew")
+		benchmark := filepath.Join(directory, "benchmark", "jmh", "build.gradle.kts")
+		if _, wrapperError := os.Stat(wrapper); wrapperError == nil {
+			if _, benchmarkError := os.Stat(benchmark); benchmarkError == nil {
+				return directory, nil
+			}
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return "", fmt.Errorf("micro-bench requires a Titan source checkout")
+		}
+		directory = parent
+	}
+}
+
+func interactive(stdin io.Reader, stdout io.Writer) bool {
+	input, inputOK := stdin.(*os.File)
+	output, outputOK := stdout.(*os.File)
+	if !inputOK || !outputOK {
+		return false
+	}
+	inputInfo, inputError := input.Stat()
+	outputInfo, outputError := output.Stat()
+	return inputError == nil && outputError == nil &&
+		inputInfo.Mode()&os.ModeCharDevice != 0 && outputInfo.Mode()&os.ModeCharDevice != 0
+}
+
+func selectTool(stdin io.Reader, stdout io.Writer, version string) (string, error) {
+	render.Banner(stdout, version, render.Options{Color: true})
+	selected := "monitor"
+	theme := huh.ThemeCharm()
+	theme.Focused.SelectSelector = theme.Focused.SelectSelector.SetString("● ")
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Choose a Titan tool").
+			Description("Use arrow keys to move and Enter to select.").
+			Options(
+				huh.NewOption("Monitor", "monitor"),
+				huh.NewOption("Performance test", "perf-test"),
+				huh.NewOption("Micro benchmark", "micro-bench"),
+			).
+			Value(&selected),
+	)).WithInput(stdin).WithOutput(stdout).WithTheme(theme)
+	return selected, form.Run()
+}
+
+func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
+	host := "127.0.0.1"
+	port := "7777"
+	destination := "/queue/perf-test"
+	warmupMessages := "1000"
+	messages := "10000"
+	producers := "1"
+	payloadBytes := "1024"
+	connectTimeout := "5s"
+	completionTimeout := "30s"
+
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title("Host").Value(&host).Validate(notBlank("host")),
+		huh.NewInput().Title("Port").Value(&port).Validate(positiveNumber("port", false)),
+		huh.NewInput().Title("Destination").Value(&destination).Validate(notBlank("destination")),
+		huh.NewInput().Title("Warm-up messages").Value(&warmupMessages).Validate(positiveNumber("warm-up messages", true)),
+		huh.NewInput().Title("Messages").Value(&messages).Validate(positiveNumber("messages", false)),
+		huh.NewInput().Title("Producer connections").Value(&producers).Validate(positiveNumber("producers", false)),
+		huh.NewInput().Title("Payload bytes").Value(&payloadBytes).Validate(minimumNumber("payload bytes", 20)),
+		huh.NewInput().Title("Connect timeout").Value(&connectTimeout).Validate(durationValue),
+		huh.NewInput().Title("Completion timeout").Value(&completionTimeout).Validate(durationValue),
+	)).WithInput(stdin).WithOutput(stdout).WithTheme(huh.ThemeCharm())
+	if err := form.Run(); err != nil {
+		return nil, err
+	}
+	return perfSettingsArguments(
+		host,
+		port,
+		destination,
+		warmupMessages,
+		messages,
+		producers,
+		payloadBytes,
+		connectTimeout,
+		completionTimeout,
+	), nil
+}
+
+func perfSettingsArguments(
+	host string,
+	port string,
+	destination string,
+	warmupMessages string,
+	messages string,
+	producers string,
+	payloadBytes string,
+	connectTimeout string,
+	completionTimeout string,
+) []string {
+	return []string{
+		"perf-test",
+		"--host", host,
+		"--port", port,
+		"--destination", destination,
+		"--warmup-messages", warmupMessages,
+		"--messages", messages,
+		"--producers", producers,
+		"--payload-bytes", payloadBytes,
+		"--connect-timeout", connectTimeout,
+		"--completion-timeout", completionTimeout,
+	}
+}
+
+func notBlank(name string) func(string) error {
+	return func(value string) error {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("%s must not be blank", name)
+		}
+		return nil
+	}
+}
+
+func positiveNumber(name string, allowZero bool) func(string) error {
+	return func(value string) error {
+		number, err := strconv.Atoi(value)
+		if err != nil || number < 0 || (!allowZero && number == 0) {
+			if allowZero {
+				return fmt.Errorf("%s must be zero or greater", name)
+			}
+			return fmt.Errorf("%s must be greater than zero", name)
+		}
+		return nil
+	}
+}
+
+func durationValue(value string) error {
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return fmt.Errorf("duration must be greater than zero, for example 5s")
+	}
+	return nil
+}
+
+func minimumNumber(name string, minimum int) func(string) error {
+	return func(value string) error {
+		number, err := strconv.Atoi(value)
+		if err != nil || number < minimum {
+			return fmt.Errorf("%s must be at least %d", name, minimum)
+		}
+		return nil
+	}
 }
 
 func queueCommand(stdout io.Writer, rootOptions *viewOptions) *cobra.Command {

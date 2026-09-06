@@ -8,6 +8,18 @@ import (
 	"github.com/traffic-hunter/titan/titan-cli/internal/monitor"
 )
 
+func TestBannerIncludesCliNameAndVersion(t *testing.T) {
+	var output bytes.Buffer
+
+	Banner(&output, "0.9.0", NoColor)
+
+	for _, expected := range []string{"████████╗", "Titan CLI 0.9.0"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("expected %q in banner:\n%s", expected, output.String())
+		}
+	}
+}
+
 func TestStatusRendersCoreFields(t *testing.T) {
 	var out bytes.Buffer
 
