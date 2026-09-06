@@ -26,13 +26,14 @@ package org.traffichunter.titan.core.channel;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.netty.util.internal.DefaultPriorityQueue;
 import io.netty.util.internal.PriorityQueue;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.Configurations;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
@@ -58,6 +59,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     private final AtomicLong taskId = new AtomicLong();
 
     private final PriorityQueue<ScheduledPromise<?>> scheduleQueue;
+    private boolean shutdownTimeoutEnabled;
 
     public SingleThreadEventLoop(final String eventLoopName) {
         this(eventLoopName, new ArrayBlockingQueue<>(Math.max(INITIAL_TASK_QUEUE_CAPACITY, Configurations.taskPendingCapacity())));
@@ -84,37 +86,14 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             } catch (Exception e) {
                 log.error("An event loop terminated with unexpected exception. Exception:", e);
             } finally {
-                // shutting down
                 while (true) {
                     if(getStatus().compareTo(EventLoopStatus.SHUTTING_DOWN) >= 0
                             || trySetStatus(getStatus(), EventLoopStatus.SHUTTING_DOWN)) {
                         break;
                     }
                 }
-                try {
-                    // process remaining task
-                    while (true) {
-                        if(checkShutdown()) {
-                            break;
-                        }
-                    }
 
-                    // shutdown
-                    while (true) {
-                        if (getStatus().compareTo(EventLoopStatus.SHUTDOWN) >= 0
-                                || trySetStatus(getStatus(), EventLoopStatus.SHUTDOWN)) {
-                            break;
-                        }
-                    }
-                } finally {
-                    cleanUp();
-
-                    int countTask = runAllTasks();
-                    if (countTask > 0) {
-                        log.error("An event loop terminated with " + "non-empty task queue ({})", countTask);
-                    }
-                    shutdownExecutor();
-                }
+                finishShutdown();
             }
         });
     }
@@ -178,46 +157,52 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     @Override
-    public void gracefullyShutdown(final long timeout, final TimeUnit unit) {
-        shutdownStartNanos = Time.currentNanos();
-        shutdownTimeoutNanos = unit.toNanos(timeout);
+    public synchronized void gracefullyShutdown(final long timeout, final TimeUnit unit) {
+        Assert.checkArgument(timeout >= 0, "shutdown timeout must be >= 0");
 
-        if(isShuttingDown()) {
-            wakeUp();
-            return;
-        }
-        final EventLoopStatus oldStatus = getStatus();
-
-        long deadline = System.nanoTime() + unit.toNanos(timeout);
-
-        while (true) {
-            if(isShuttingDown()) {
-                break;
-            }
-            if(!taskQueue.isEmpty()) {
-                continue;
-            }
-
-            long remaining = deadline - System.nanoTime();
-            if(remaining <= 0) {
-                log.warn("Graceful shutdown timed out, forcing immediate shutdown");
-                shutdownExecutorNow();
-
-                if(!trySetStatus(oldStatus, EventLoopStatus.SHUTDOWN)) {
-                    break;
-                }
-            }
-
-            if(!trySetStatus(oldStatus, EventLoopStatus.SHUTTING_DOWN)) {
-                break;
-            }
-
-            wakeUp();
-            break;
-        }
+        beginShutdown(true, unit.toNanos(timeout));
     }
 
-    public void removeScheduledTask(final ScheduledPromise<?> scheduledTask) {
+    @Override
+    public synchronized void shutdown() {
+        beginShutdown(false, 0);
+    }
+
+    @Override
+    public synchronized List<Runnable> shutdownNow() {
+        boolean neverStarted;
+        while (true) {
+            EventLoopStatus current = getStatus();
+            if (current.compareTo(EventLoopStatus.SHUTDOWN) >= 0) {
+                return List.of();
+            }
+            if (trySetStatus(current, EventLoopStatus.SHUTDOWN)) {
+                neverStarted = current == EventLoopStatus.NOT_STARTED;
+                break;
+            }
+        }
+
+        List<Runnable> pendingTasks = new ArrayList<>();
+        Runnable task;
+        while ((task = taskQueue.poll()) != null) {
+            pendingTasks.add(task);
+            if (task instanceof Future<?> future) {
+                future.cancel(false);
+            }
+        }
+        if (neverStarted) {
+            cancelScheduleTasks();
+            cleanUp();
+            pendingTasks.addAll(shutdownExecutorNow());
+            return pendingTasks;
+        }
+
+        pendingTasks.addAll(shutdownExecutorNow());
+        wakeUp();
+        return pendingTasks;
+    }
+
+    public final void removeScheduledTask(final ScheduledPromise<?> scheduledTask) {
         if(inEventLoop()) {
             scheduleQueue.removeTyped(scheduledTask);
         } else {
@@ -227,7 +212,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
     @Override
     protected void addTask(final Runnable task) {
-        if(isShuttingDown()) {
+        if(getStatus().compareTo(EventLoopStatus.SHUTTING_DOWN) >= 0) {
             throw new RejectedExecutionException("Event loop is shutdown!!");
         }
 
@@ -241,7 +226,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
     }
 
     @CanIgnoreReturnValue
-    int runAllTasks() {
+    final int runAllTasks() {
         if(!inEventLoop()) {
             return 0;
         }
@@ -264,21 +249,14 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         return count;
     }
 
-    protected boolean checkShutdown() {
+    protected final boolean checkShutdown() {
         if(!isShuttingDown()) {
             return false;
         }
         if(!inEventLoop()) {
             throw new IllegalStateException("Must be invoke as an event loop");
         }
-
-        cancel();
-        runAllTasks();
-        if(taskQueue.isEmpty() || Time.currentNanos() - shutdownStartNanos > shutdownTimeoutNanos) {
-            return true;
-        }
-
-        return isShutdown();
+        return true;
     }
 
     /**
@@ -286,16 +264,20 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
      */
     protected abstract void cleanUp();
 
-    protected long delayNanosUntilNextScheduledTask() {
+    protected final long delayNanosUntilNextScheduledTask() {
         ScheduledPromise<?> scheduleTask = scheduleQueue.peek();
-        if (scheduleTask == null) {
-            return -1L;
+        long scheduledDelay = scheduleTask == null
+                ? -1L
+                : scheduleTask.getDeadlineNanos() - Time.currentNanos();
+        if (!isShuttingDown() || isShutdown()) {
+            return scheduledDelay;
         }
 
-        return scheduleTask.getDeadlineNanos() - Time.currentNanos();
+        long shutdownDelay = Math.max(0L, shutdownTimeoutNanos - (Time.currentNanos() - shutdownStartNanos));
+        return scheduledDelay < 0 ? shutdownDelay : Math.min(scheduledDelay, shutdownDelay);
     }
 
-    protected @Nullable Runnable takeTask() {
+    protected final @Nullable Runnable takeTask() {
         if(!inEventLoop()) {
             return null;
         }
@@ -356,8 +338,77 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         return scheduleTask;
     }
 
-    private void cancel() {
-        scheduleQueue.clear();
+    private void cancelScheduleTasks() {
+        ScheduledPromise<?> scheduledTask;
+        while ((scheduledTask = scheduleQueue.poll()) != null) {
+            scheduledTask.cancel(false);
+        }
+    }
+
+    private int cancelRemainingTasks() {
+        int cancelledTasks = 0;
+        Runnable task;
+        while ((task = taskQueue.poll()) != null) {
+            if (task instanceof Future<?> future) {
+                future.cancel(false);
+            }
+            cancelledTasks++;
+        }
+        return cancelledTasks;
+    }
+
+    private boolean timeoutExceeded() {
+        return shutdownTimeoutEnabled
+                && Time.currentNanos() - shutdownStartNanos >= shutdownTimeoutNanos;
+    }
+
+    private void finishShutdown() {
+        try {
+            cancelScheduleTasks();
+            if (!isShutdown()) {
+                while (!timeoutExceeded()) {
+                    Runnable task = takeTask();
+                    if (task == null) {
+                        break;
+                    }
+                    try {
+                        task.run();
+                    } catch (Exception error) {
+                        log.error("Failed to run task during shutdown", error);
+                    }
+                }
+            }
+        } finally {
+            setStatus(EventLoopStatus.SHUTDOWN);
+            try {
+                cleanUp();
+            } finally {
+                cancelRemainingTasks();
+                shutdownExecutor();
+            }
+        }
+    }
+
+    private void beginShutdown(boolean timeoutEnabled, long timeoutNanos) {
+        if (isShuttingDown()) {
+            wakeUp();
+            return;
+        }
+
+        if (isNotStarted()) {
+            start();
+        }
+
+        shutdownStartNanos = Time.currentNanos();
+        shutdownTimeoutEnabled = timeoutEnabled;
+        shutdownTimeoutNanos = timeoutNanos;
+        while (true) {
+            EventLoopStatus current = getStatus();
+            if (isShuttingDown() || trySetStatus(current, EventLoopStatus.SHUTTING_DOWN)) {
+                break;
+            }
+        }
+        wakeUp();
     }
 
     @Deprecated(forRemoval = true)

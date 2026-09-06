@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -14,7 +15,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.List;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -260,11 +260,114 @@ class TaskEventLoopTest {
         void shutdownWithoutQueuedTasksDoesNotWaitForTimeoutTest() {
             eventLoop.start();
 
+            long startedAt = System.nanoTime();
             eventLoop.gracefullyShutdown(1, TimeUnit.SECONDS);
 
             Awaitility.await()
                     .atMost(500, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> assertTrue(eventLoop.isShutdown()));
+            assertThat(System.nanoTime() - startedAt).isLessThan(TimeUnit.SECONDS.toNanos(1));
+        }
+
+        @Test
+        void shutdownBeforeStartTerminatesEventLoopTest() throws Exception {
+            eventLoop.shutdown();
+
+            assertThat(eventLoop.awaitTermination(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(eventLoop.isTerminated()).isTrue();
+        }
+
+        @Test
+        void rejectNewTasksAfterShutdownBeginsTest() throws Exception {
+            CountDownLatch taskStarted = new CountDownLatch(1);
+            CountDownLatch releaseTask = new CountDownLatch(1);
+
+            eventLoop.start();
+            try {
+                eventLoop.execute(() -> {
+                    taskStarted.countDown();
+                    try {
+                        releaseTask.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                assertTrue(taskStarted.await(5, TimeUnit.SECONDS));
+                eventLoop.shutdown();
+
+                assertThatThrownBy(() -> eventLoop.execute(() -> { }))
+                        .isInstanceOf(RejectedExecutionException.class);
+                releaseTask.countDown();
+                Awaitility.await().atMost(5, TimeUnit.SECONDS).until(eventLoop::isTerminated);
+            } finally {
+                releaseTask.countDown();
+                eventLoop.shutdownNow();
+            }
+        }
+
+        @Test
+        void shutdownNowReturnsTasksThatNeverStartedTest() throws Exception {
+            CountDownLatch taskStarted = new CountDownLatch(1);
+            CountDownLatch releaseTask = new CountDownLatch(1);
+            Runnable pendingTask = () -> { };
+
+            eventLoop.start();
+            try {
+                eventLoop.execute(() -> {
+                    taskStarted.countDown();
+                    try {
+                        releaseTask.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                assertTrue(taskStarted.await(5, TimeUnit.SECONDS));
+
+                eventLoop.execute(pendingTask);
+                List<Runnable> pendingTasks = eventLoop.shutdownNow();
+
+                assertThat(pendingTasks).contains(pendingTask);
+                assertThatThrownBy(() -> eventLoop.execute(() -> { }))
+                        .isInstanceOf(RejectedExecutionException.class);
+            } finally {
+                releaseTask.countDown();
+                eventLoop.shutdownNow();
+                Awaitility.await().atMost(5, TimeUnit.SECONDS).until(eventLoop::isTerminated);
+            }
+        }
+
+        @Test
+        void cancelQueuedTaskAfterGracefulShutdownTimeoutTest() throws Exception {
+            CountDownLatch taskStarted = new CountDownLatch(1);
+            CountDownLatch releaseTask = new CountDownLatch(1);
+            AtomicInteger executions = new AtomicInteger();
+
+            eventLoop.start();
+            try {
+                eventLoop.execute(() -> {
+                    taskStarted.countDown();
+                    try {
+                        releaseTask.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                assertTrue(taskStarted.await(5, TimeUnit.SECONDS));
+
+                Promise<Integer> queuedTask = eventLoop.submit(executions::incrementAndGet);
+                eventLoop.gracefullyShutdown(100, TimeUnit.MILLISECONDS);
+                Thread.sleep(150);
+                releaseTask.countDown();
+
+                Awaitility.await()
+                        .atMost(5, TimeUnit.SECONDS)
+                        .until(eventLoop::isTerminated);
+                assertThat(queuedTask.isCancelled()).isTrue();
+                assertThat(executions.get()).isZero();
+            } finally {
+                releaseTask.countDown();
+                eventLoop.shutdownNow();
+            }
         }
 
         @Test
@@ -289,7 +392,7 @@ class TaskEventLoopTest {
         }
 
         @Test
-        void removeQueuedScheduledTasksBeforeShutdownTest() {
+        void cancelScheduledTasksDuringGracefulShutdownTest() {
             eventLoop.start();
 
             AtomicInteger counter = new AtomicInteger(0);
@@ -304,8 +407,9 @@ class TaskEventLoopTest {
             Awaitility.await()
                     .atMost(5, TimeUnit.SECONDS)
                     .untilAsserted(() -> {
-                        assertFalse(scheduleTask1.isDone());
-                        assertFalse(scheduleTask2.isDone());
+                        assertTrue(scheduleTask1.isCancelled());
+                        assertTrue(scheduleTask2.isCancelled());
+                        assertThat(counter.get()).isZero();
                         assertTrue(eventLoop.isShutdown());
                     });
         }

@@ -179,17 +179,6 @@ public abstract class AbstractEventLoop extends ThreadPoolExecutor implements Ev
     }
 
     @Override
-    public void shutdown() {
-        gracefullyShutdown();
-    }
-
-    @Override
-    public List<Runnable> shutdownNow() {
-        gracefullyShutdown(0, TimeUnit.NANOSECONDS);
-        return List.of();
-    }
-
-    @Override
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
         return super.awaitTermination(timeout, unit);
     }

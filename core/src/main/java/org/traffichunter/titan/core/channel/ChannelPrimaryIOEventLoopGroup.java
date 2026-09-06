@@ -133,6 +133,18 @@ public final class ChannelPrimaryIOEventLoopGroup implements ChannelEventLoopGro
     }
 
     @Override
+    public void shutdown() {
+        group.forEach(ChannelPrimaryIOEventLoop::shutdown);
+    }
+
+    @Override
+    public List<Runnable> shutdownNow() {
+        return group.stream()
+                .flatMap(el -> el.shutdownNow().stream())
+                .toList();
+    }
+
+    @Override
     public void close() {
         group.forEach(IOEventLoop::close);
     }

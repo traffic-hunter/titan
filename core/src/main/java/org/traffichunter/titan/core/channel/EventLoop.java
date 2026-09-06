@@ -100,27 +100,28 @@ public interface EventLoop extends EventExecutorService {
     ScheduledPromise<?> scheduleWithFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit);
 
     /**
-     * Shuts down the event loop using the default timeout.
+     * Starts an orderly shutdown using the default timeout.
+     *
+     * <p>Tasks accepted before this call are processed until the timeout expires. New tasks
+     * are rejected as soon as shutdown begins.</p>
      */
     default void gracefullyShutdown() {
         gracefullyShutdown(EventLoopConstants.DEFAULT_SHUTDOWN_TIME_OUT, TimeUnit.SECONDS);
     }
 
     /**
-     * Shuts down the event loop after waiting up to the given timeout.
+     * Starts an orderly shutdown and gives accepted tasks up to the given timeout to finish.
      */
     void gracefullyShutdown(long timeout, TimeUnit unit);
 
+    /**
+     * Starts an orderly shutdown without imposing a Titan shutdown timeout.
+     */
     @Override
-    default void shutdown() {
-        gracefullyShutdown();
-    }
+    void shutdown();
 
     @Override
-    default List<Runnable> shutdownNow() {
-        gracefullyShutdown(0, TimeUnit.NANOSECONDS);
-        return List.of();
-    }
+    List<Runnable> shutdownNow();
 
     @Override
     default boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
