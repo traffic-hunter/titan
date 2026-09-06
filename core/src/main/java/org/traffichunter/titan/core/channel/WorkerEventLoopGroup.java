@@ -125,6 +125,18 @@ public final class WorkerEventLoopGroup implements EventLoopGroup<TaskEventLoop>
     }
 
     @Override
+    public void shutdown() {
+        group.forEach(EventLoop::shutdown);
+    }
+
+    @Override
+    public List<Runnable> shutdownNow() {
+        return group.stream()
+                .flatMap(el -> el.shutdownNow().stream())
+                .toList();
+    }
+
+    @Override
     public void close() {
         group.forEach(TaskEventLoop::close);
     }

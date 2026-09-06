@@ -130,6 +130,18 @@ public final class ChannelSecondaryIOEventLoopGroup implements ChannelEventLoopG
     }
 
     @Override
+    public void shutdown() {
+        group.forEach(ChannelSecondaryIOEventLoop::shutdown);
+    }
+
+    @Override
+    public List<Runnable> shutdownNow() {
+        return group.stream()
+                .flatMap(el -> el.shutdownNow().stream())
+                .toList();
+    }
+
+    @Override
     public void close() {
         group.forEach(IOEventLoop::close);
     }
