@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.channel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.util.event.EventLoopConstants;
 
 /**
  * Factory for core event-loop implementations.

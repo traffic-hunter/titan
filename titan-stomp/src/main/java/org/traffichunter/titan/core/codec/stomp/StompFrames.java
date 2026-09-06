@@ -25,7 +25,6 @@ package org.traffichunter.titan.core.codec.stomp;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.stomp.vertx.VertxStompFrame;
-import org.traffichunter.titan.core.util.inet.Frame;
 
 import java.util.Map;
 
