@@ -29,6 +29,18 @@ type Options struct {
 
 var NoColor = Options{}
 
+const cliBanner = `████████╗ ██╗ ████████╗  █████╗  ███╗   ██╗      ██████╗ ██╗      ██╗
+╚══██╔══╝ ██║ ╚══██╔══╝ ██╔══██╗ ████╗  ██║     ██╔════╝ ██║      ██║
+   ██║    ██║    ██║    ███████║ ██╔██╗ ██║     ██║      ██║      ██║
+   ██║    ██║    ██║    ██╔══██║ ██║╚██╗██║     ██║      ██║      ██║
+   ██║    ██║    ██║    ██║  ██║ ██║ ╚████║     ╚██████╗ ███████╗ ██║
+   ╚═╝    ╚═╝    ╚═╝    ╚═╝  ╚═╝ ╚═╝  ╚═══╝      ╚═════╝ ╚══════╝ ╚═╝`
+
+func Banner(w io.Writer, version string, options Options) {
+	fmt.Fprintln(w, paint(cliBanner, cyan+bold, options))
+	fmt.Fprintf(w, "%s\n\n", paint(fmt.Sprintf(":: Titan CLI %s ::", version), muted, options))
+}
+
 type View string
 
 const (

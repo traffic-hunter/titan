@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -42,8 +43,66 @@ func TestRunPrintsHelp(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
 	}
-	if !strings.Contains(stdout.String(), "Titan terminal monitor") {
+	if !strings.Contains(stdout.String(), "Titan command-line tools") {
 		t.Fatalf("expected root help, got %q", stdout.String())
+	}
+}
+
+func TestRunPrintsPerfHelp(t *testing.T) {
+	var stdout bytes.Buffer
+
+	code := Run([]string{"perf-test", "--help"}, &stdout, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	for _, expected := range []string{"end-to-end Titan performance test", "--messages", "--producers", "--payload-bytes"} {
+		if !strings.Contains(stdout.String(), expected) {
+			t.Fatalf("expected %q in output:\n%s", expected, stdout.String())
+		}
+	}
+}
+
+func TestRunRejectsInvalidPerfPayloadBeforeConnecting(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := Run([]string{"perf-test", "--payload-bytes", "8"}, &bytes.Buffer{}, &stderr, "test")
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "at least 20") {
+		t.Fatalf("expected payload validation message, got %q", stderr.String())
+	}
+}
+
+func TestPerfSettingsArePassedToPerfCommand(t *testing.T) {
+	arguments := perfSettingsArguments(
+		"broker.internal",
+		"61613",
+		"/queue/orders",
+		"250",
+		"5000",
+		"8",
+		"2048",
+		"3s",
+		"45s",
+	)
+
+	expected := []string{
+		"perf-test",
+		"--host", "broker.internal",
+		"--port", "61613",
+		"--destination", "/queue/orders",
+		"--warmup-messages", "250",
+		"--messages", "5000",
+		"--producers", "8",
+		"--payload-bytes", "2048",
+		"--connect-timeout", "3s",
+		"--completion-timeout", "45s",
+	}
+	if !reflect.DeepEqual(arguments, expected) {
+		t.Fatalf("unexpected performance settings: %v", arguments)
 	}
 }
 
