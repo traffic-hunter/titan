@@ -8,6 +8,7 @@ include("titan-client")
 
 include("benchmark")
 include("benchmark:jmh")
+include("benchmark:perf-test")
 include("dispatch")
 include("titan-spring-client")
 include("smoke-test")
