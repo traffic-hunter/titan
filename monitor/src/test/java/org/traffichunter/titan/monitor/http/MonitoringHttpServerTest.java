@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
@@ -272,6 +273,184 @@ class MonitoringHttpServerTest {
         }
     }
 
+    @Test
+    void applies_pause_resume_and_purge_actions() throws Exception {
+        TestQueueManager manager = new TestQueueManager();
+        DispatcherQueue queue = manager.createQueue(Destination.create("/queue/actions"), 1024);
+        queue.enqueue(Message.builder()
+                .destination(Destination.create("/queue/actions"))
+                .createdAt(Instant.now())
+                .producerId("test")
+                .body("test".getBytes(StandardCharsets.UTF_8))
+                .build());
+        DispatcherQueueManagers.register("test", manager);
+        int port = availablePort();
+        MonitoringHttpServer server = MonitoringHttpServer.builder(new MonitoringSnapshotService("test"))
+                .host("127.0.0.1")
+                .port(port)
+                .token("secret")
+                .build();
+        Thread thread = new Thread(server::start, "monitor-http-queue-action-test");
+        thread.setDaemon(true);
+        thread.start();
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                HttpResponse<String> paused = client.send(
+                        actionQueue(port, "/queue/actions", "pause", "secret"),
+                        HttpResponse.BodyHandlers.ofString()
+                );
+                assertThat(paused.statusCode()).isEqualTo(200);
+                assertThat(paused.body()).contains("pause", "/queue/actions");
+            });
+            assertThat(queue.isPaused()).isTrue();
+
+            HttpResponse<String> resumed = client.send(
+                    actionQueue(port, "/queue/actions", "resume", "secret"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertThat(resumed.statusCode()).isEqualTo(200);
+            assertThat(queue.isPaused()).isFalse();
+
+            HttpResponse<String> purged = client.send(
+                    actionQueue(port, "/queue/actions", "purge", "secret"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertThat(purged.statusCode()).isEqualTo(200);
+
+            // Purge keeps the queue itself, so it still reports a snapshot with no messages.
+            assertThat(queue.size()).isZero();
+            assertThat(queue.getPendingBytes()).isZero();
+            HttpResponse<String> queues = client.send(
+                    request(port, MonitoringHttpServer.QUEUES_PATH, "secret"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertThat(queues.statusCode()).isEqualTo(200);
+            assertThat(queues.body()).contains("/queue/actions");
+        } finally {
+            DispatcherQueueManagers.unregister("test");
+            server.close();
+        }
+    }
+
+    @Test
+    void rejects_unsupported_queue_action() throws Exception {
+        DispatcherQueueManagers.register("test", new TestQueueManager());
+        int port = availablePort();
+        MonitoringHttpServer server = MonitoringHttpServer.builder(new MonitoringSnapshotService("test"))
+                .host("127.0.0.1")
+                .port(port)
+                .token("secret")
+                .build();
+        Thread thread = new Thread(server::start, "monitor-http-queue-bad-action-test");
+        thread.setDaemon(true);
+        thread.start();
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                HttpResponse<String> response = client.send(
+                        actionQueue(port, "/queue/bad-action", "explode", "secret"),
+                        HttpResponse.BodyHandlers.ofString()
+                );
+                assertThat(response.statusCode()).isEqualTo(400);
+            });
+        } finally {
+            DispatcherQueueManagers.unregister("test");
+            server.close();
+        }
+    }
+
+    @Test
+    void returns_not_found_for_action_on_unknown_queue() throws Exception {
+        DispatcherQueueManagers.register("test", new TestQueueManager());
+        int port = availablePort();
+        MonitoringHttpServer server = MonitoringHttpServer.builder(new MonitoringSnapshotService("test"))
+                .host("127.0.0.1")
+                .port(port)
+                .token("secret")
+                .build();
+        Thread thread = new Thread(server::start, "monitor-http-queue-action-missing-test");
+        thread.setDaemon(true);
+        thread.start();
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                HttpResponse<String> response = client.send(
+                        actionQueue(port, "/queue/missing-action", "pause", "secret"),
+                        HttpResponse.BodyHandlers.ofString()
+                );
+                assertThat(response.statusCode()).isEqualTo(404);
+            });
+        } finally {
+            DispatcherQueueManagers.unregister("test");
+            server.close();
+        }
+    }
+
+    @Test
+    void rejects_queue_action_when_token_is_not_configured() throws Exception {
+        DispatcherQueueManagers.register("test", new TestQueueManager());
+        int port = availablePort();
+        MonitoringHttpServer server = MonitoringHttpServer.builder(new MonitoringSnapshotService("test"))
+                .host("127.0.0.1")
+                .port(port)
+                .build();
+        Thread thread = new Thread(server::start, "monitor-http-queue-action-no-token-test");
+        thread.setDaemon(true);
+        thread.start();
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                HttpResponse<String> response = client.send(
+                        actionQueue(port, "/queue/action-no-token", "pause", null),
+                        HttpResponse.BodyHandlers.ofString()
+                );
+                assertThat(response.statusCode()).isEqualTo(403);
+            });
+        } finally {
+            DispatcherQueueManagers.unregister("test");
+            server.close();
+        }
+    }
+
+    @Test
+    void rejects_queue_action_with_wrong_token() throws Exception {
+        DispatcherQueueManagers.register("test", new TestQueueManager());
+        int port = availablePort();
+        MonitoringHttpServer server = MonitoringHttpServer.builder(new MonitoringSnapshotService("test"))
+                .host("127.0.0.1")
+                .port(port)
+                .token("secret")
+                .build();
+        Thread thread = new Thread(server::start, "monitor-http-queue-action-bad-token-test");
+        thread.setDaemon(true);
+        thread.start();
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                HttpResponse<String> missing = client.send(
+                        actionQueue(port, "/queue/action-bad-token", "pause", null),
+                        HttpResponse.BodyHandlers.ofString()
+                );
+                assertThat(missing.statusCode()).isEqualTo(401);
+            });
+
+            HttpResponse<String> wrong = client.send(
+                    actionQueue(port, "/queue/action-bad-token", "pause", "nope"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            assertThat(wrong.statusCode()).isEqualTo(401);
+        } finally {
+            DispatcherQueueManagers.unregister("test");
+            server.close();
+        }
+    }
+
     private static HttpRequest request(int port, String path) {
         return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/titan" + path)).GET().build();
     }
@@ -301,6 +480,23 @@ class MonitoringHttpServerTest {
         return builder.build();
     }
 
+    private static HttpRequest actionQueue(int port, String destination, String action, String token) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(actionUri(port, destination, action))
+                .POST(HttpRequest.BodyPublishers.noBody());
+        if (token != null) {
+            builder.header("Authorization", "Bearer " + token);
+        }
+        return builder.build();
+    }
+
+    private static URI actionUri(int port, String destination, String action) {
+        String encoded = URLEncoder.encode(destination, StandardCharsets.UTF_8);
+        return URI.create("http://127.0.0.1:" + port + "/titan"
+                + MonitoringHttpServer.QUEUES_PATH
+                + "?destination=" + encoded
+                + "&action=" + URLEncoder.encode(action, StandardCharsets.UTF_8));
+    }
+
     private static URI queueUri(int port, String destination, boolean force) {
         String encoded = URLEncoder.encode(destination, StandardCharsets.UTF_8);
         return URI.create("http://127.0.0.1:" + port + "/titan"
@@ -324,6 +520,36 @@ class MonitoringHttpServerTest {
         @Override
         public DispatcherQueue createQueue(Destination destination, long maxPendingBytes) {
             return dispatcher.getOrPut(destination, maxPendingBytes);
+        }
+
+        @Override
+        public boolean pauseQueue(Destination destination) {
+            DispatcherQueue queue = dispatcher.get(destination);
+            if (queue == null) {
+                return false;
+            }
+            queue.pause();
+            return true;
+        }
+
+        @Override
+        public boolean resumeQueue(Destination destination) {
+            DispatcherQueue queue = dispatcher.get(destination);
+            if (queue == null) {
+                return false;
+            }
+            queue.resume();
+            return true;
+        }
+
+        @Override
+        public boolean purgeQueue(Destination destination) {
+            DispatcherQueue queue = dispatcher.get(destination);
+            if (queue == null) {
+                return false;
+            }
+            queue.clear();
+            return true;
         }
 
         @Override

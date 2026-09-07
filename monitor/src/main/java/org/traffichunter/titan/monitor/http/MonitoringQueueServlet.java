@@ -67,6 +67,21 @@ public final class MonitoringQueueServlet extends HttpServlet {
         if (destination == null) {
             return;
         }
+
+        String action = request.getParameter("action");
+        if (action == null || action.isBlank()) {
+            createQueue(manager, destination, request, response);
+            return;
+        }
+        applyAction(manager, destination, action, response);
+    }
+
+    private void createQueue(
+            DispatcherQueueManager manager,
+            Destination destination,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
         long maxPendingBytes = maxPendingBytes(request, response);
         if (maxPendingBytes <= 0) {
             return;
@@ -74,6 +89,36 @@ public final class MonitoringQueueServlet extends HttpServlet {
 
         DispatcherQueue queue = manager.createQueue(destination, maxPendingBytes);
         writeJson(response, HttpServletResponse.SC_OK, snapshot(queue));
+    }
+
+    /**
+     * Applies a queue state change and reports whether the queue existed.
+     *
+     * <p>State changes are idempotent, so repeating an action on a queue that is
+     * already in the requested state still reports success.</p>
+     */
+    private void applyAction(
+            DispatcherQueueManager manager,
+            Destination destination,
+            String action,
+            HttpServletResponse response
+    ) throws IOException {
+        boolean found;
+        switch (action) {
+            case "pause" -> found = manager.pauseQueue(destination);
+            case "resume" -> found = manager.resumeQueue(destination);
+            case "purge" -> found = manager.purgeQueue(destination);
+            default -> {
+                writeJson(response, HttpServletResponse.SC_BAD_REQUEST, new ErrorResponse("unsupported action " + action));
+                return;
+            }
+        }
+
+        if (!found) {
+            writeJson(response, HttpServletResponse.SC_NOT_FOUND, new ErrorResponse("queue not found"));
+            return;
+        }
+        writeJson(response, HttpServletResponse.SC_OK, new ActionResponse(action, destination.path()));
     }
 
     /**
@@ -186,6 +231,9 @@ public final class MonitoringQueueServlet extends HttpServlet {
     }
 
     private record DeleteResponse(String status, int size) {
+    }
+
+    private record ActionResponse(String status, String destination) {
     }
 
     private record ErrorResponse(String error) {
