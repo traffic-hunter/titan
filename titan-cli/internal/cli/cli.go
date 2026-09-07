@@ -70,17 +70,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer, version string) int 
 
 func RunWithInput(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, version string) int {
 	if len(args) == 0 && interactive(stdin, stdout) {
-		selected, err := selectTool(stdin, stdout, version)
-		if errors.Is(err, huh.ErrUserAborted) {
-			return 0
-		}
-		if err != nil {
-			fmt.Fprintln(stderr, err)
-			return 2
-		}
-		args = []string{selected}
-		if selected == "perf-test" {
-			args, err = selectPerfSettings(stdin, stdout)
+		for {
+			selected, err := selectTool(stdin, stdout, version)
 			if errors.Is(err, huh.ErrUserAborted) {
 				return 0
 			}
@@ -88,6 +79,29 @@ func RunWithInput(args []string, stdin io.Reader, stdout io.Writer, stderr io.Wr
 				fmt.Fprintln(stderr, err)
 				return 2
 			}
+
+			// Management runs its own submenu and comes back here, so the main
+			// menu is shown again instead of exiting the process.
+			if selected == "management" {
+				if err := runManagement(stdin, stdout, false); err != nil {
+					fmt.Fprintln(stderr, err)
+					return 2
+				}
+				continue
+			}
+
+			args = []string{selected}
+			if selected == "perf-test" {
+				args, err = selectPerfSettings(stdin, stdout)
+				if errors.Is(err, huh.ErrUserAborted) {
+					return 0
+				}
+				if err != nil {
+					fmt.Fprintln(stderr, err)
+					return 2
+				}
+			}
+			break
 		}
 	}
 
@@ -283,14 +297,20 @@ func selectTool(stdin io.Reader, stdout io.Writer, version string) (string, erro
 		huh.NewSelect[string]().
 			Title("Choose a Titan tool").
 			Description("Use arrow keys to move and Enter to select.").
-			Options(
-				huh.NewOption("Monitor", "monitor"),
-				huh.NewOption("Performance test", "perf-test"),
-				huh.NewOption("Micro benchmark", "micro-bench"),
-			).
+			Options(mainMenuOptions()...).
 			Value(&selected),
 	)).WithInput(stdin).WithOutput(stdout).WithTheme(theme)
 	return selected, form.Run()
+}
+
+// mainMenuOptions lists the top level menu entries in display order.
+func mainMenuOptions() []huh.Option[string] {
+	return []huh.Option[string]{
+		huh.NewOption("Monitor", "monitor"),
+		huh.NewOption("Performance test", "perf-test"),
+		huh.NewOption("Micro benchmark", "micro-bench"),
+		huh.NewOption("Management", "management"),
+	}
 }
 
 func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
@@ -413,7 +433,45 @@ func queueCommand(stdout io.Writer, rootOptions *viewOptions) *cobra.Command {
 	command.AddCommand(queueListCommand(stdout, options))
 	command.AddCommand(queueCreateCommand(stdout, options))
 	command.AddCommand(queueDeleteCommand(stdout, options))
+	command.AddCommand(queueActionCommand(stdout, options, "pause", "Pause a dispatcher queue"))
+	command.AddCommand(queueActionCommand(stdout, options, "resume", "Resume a dispatcher queue"))
+	command.AddCommand(queueActionCommand(stdout, options, "purge", "Remove pending messages from a dispatcher queue"))
 	return command
+}
+
+// queueActionCommand builds the pause, resume and purge subcommands, which
+// differ only by the monitor client call they make.
+func queueActionCommand(stdout io.Writer, options *queueOptions, action string, short string) *cobra.Command {
+	return &cobra.Command{
+		Use:           action + " <destination>",
+		Short:         short,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
+			if err := applyQueueAction(cmd.Context(), client, action, args[0]); err != nil {
+				return queueError(err)
+			}
+			fmt.Fprintf(stdout, "%sd %s\n", action, args[0])
+			return nil
+		},
+	}
+}
+
+// applyQueueAction routes an action name to the matching monitor client call so
+// the interactive menu and the cobra commands share one code path.
+func applyQueueAction(ctx context.Context, client monitor.Client, action string, destination string) error {
+	switch action {
+	case "pause":
+		return client.PauseQueue(ctx, destination)
+	case "resume":
+		return client.ResumeQueue(ctx, destination)
+	case "purge":
+		return client.PurgeQueue(ctx, destination)
+	default:
+		return fmt.Errorf("unsupported queue action %q", action)
+	}
 }
 
 func queueListCommand(stdout io.Writer, options *queueOptions) *cobra.Command {
@@ -454,7 +512,7 @@ func queueCreateCommand(stdout io.Writer, options *queueOptions) *cobra.Command 
 			return nil
 		},
 	}
-	command.Flags().Int64Var(&options.maxPendingBytes, "max-pending-bytes", 64*1024*1024, "Maximum queued payload bytes")
+	command.Flags().Int64Var(&options.maxPendingBytes, "max-pending-bytes", defaultMaxPendingBytes, "Maximum queued payload bytes")
 	return command
 }
 

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRunRejectsUnknownCommand(t *testing.T) {
@@ -234,4 +236,105 @@ func queueServer(t *testing.T, status int) *httptest.Server {
 			_, _ = w.Write([]byte(`[{"destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]`))
 		}
 	}))
+}
+
+func TestQueueActionCommandsSendActionAndUseEnvironmentToken(t *testing.T) {
+	for _, action := range []string{"pause", "resume", "purge"} {
+		t.Run(action, func(t *testing.T) {
+			t.Setenv("TITAN_MONITOR_TOKEN", "env-secret")
+			var requests int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				if r.Header.Get("Authorization") != "Bearer env-secret" {
+					t.Fatalf("missing env bearer token")
+				}
+				if r.Method != http.MethodPost {
+					t.Fatalf("expected POST, got %s", r.Method)
+				}
+				if got := r.URL.Query().Get("action"); got != action {
+					t.Fatalf("expected action %q, got %q", action, got)
+				}
+				if got := r.URL.Query().Get("destination"); got != "/queue/orders" {
+					t.Fatalf("unexpected destination %q", got)
+				}
+			}))
+			defer server.Close()
+			var stdout bytes.Buffer
+
+			code := Run([]string{"--addr", server.URL, "queue", action, "/queue/orders"}, &stdout, &bytes.Buffer{}, "test")
+
+			if code != 0 {
+				t.Fatalf("expected exit code 0, got %d", code)
+			}
+			if requests != 1 {
+				t.Fatalf("expected 1 request, got %d", requests)
+			}
+			if !strings.Contains(stdout.String(), action+"d /queue/orders") {
+				t.Fatalf("expected %s output, got %q", action, stdout.String())
+			}
+		})
+	}
+}
+
+func TestQueueActionCommandReportsMissingQueue(t *testing.T) {
+	server := queueServer(t, http.StatusNotFound)
+	defer server.Close()
+	var stderr bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "queue", "pause", "/queue/missing"}, &bytes.Buffer{}, &stderr, "test")
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "404") {
+		t.Fatalf("expected 404 in error, got %q", stderr.String())
+	}
+}
+
+func TestRootCommandKeepsExistingSubcommands(t *testing.T) {
+	command := newRootCommand(&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "test")
+
+	want := map[string]bool{
+		"monitor":     false,
+		"perf-test":   false,
+		"micro-bench": false,
+		"queue":       false,
+		"version":     false,
+	}
+	for _, sub := range command.Commands() {
+		if _, ok := want[sub.Name()]; ok {
+			want[sub.Name()] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Fatalf("expected %q subcommand to stay registered", name)
+		}
+	}
+}
+
+func TestQueueCommandRegistersEveryAction(t *testing.T) {
+	command := newRootCommand(&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "test")
+
+	var queue *cobra.Command
+	for _, sub := range command.Commands() {
+		if sub.Name() == "queue" {
+			queue = sub
+		}
+	}
+	if queue == nil {
+		t.Fatalf("expected queue command")
+	}
+
+	want := map[string]bool{"list": false, "create": false, "delete": false, "pause": false, "resume": false, "purge": false}
+	for _, sub := range queue.Commands() {
+		if _, ok := want[sub.Name()]; ok {
+			want[sub.Name()] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Fatalf("expected queue %q subcommand, got missing", name)
+		}
+	}
 }
