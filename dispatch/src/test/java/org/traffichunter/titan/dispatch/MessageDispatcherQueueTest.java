@@ -204,7 +204,8 @@ class MessageDispatcherQueueTest {
         assertThat(queue.enqueue(message("/queue/manual-pause"))).isNull();
         queue.pause();
 
-        assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(accepted);
+        queue.clear();
+
         assertThat(queue.isPaused()).isTrue();
         assertThat(metadata.isPaused()).isTrue();
 
@@ -212,6 +213,57 @@ class MessageDispatcherQueueTest {
 
         assertThat(queue.isPaused()).isFalse();
         assertThat(metadata.isPaused()).isFalse();
+    }
+
+    @Test
+    void manual_pause_blocks_dispatch_until_queue_is_resumed() throws Exception {
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(
+                Destination.create("/queue/paused-dispatch"),
+                10
+        );
+        Message message = message("/queue/paused-dispatch");
+        AtomicReference<Message> result = new AtomicReference<>();
+        CountDownLatch started = new CountDownLatch(1);
+        queue.enqueue(message);
+        queue.pause();
+
+        Thread consumer = Thread.ofPlatform().start(() -> {
+            started.countDown();
+            try {
+                result.set(queue.dispatch());
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        assertThat(started.await(1, TimeUnit.SECONDS)).isTrue();
+        Thread.sleep(100);
+        assertThat(result.get()).isNull();
+        assertThat(queue.size()).isOne();
+
+        queue.resume();
+        consumer.join(TimeUnit.SECONDS.toMillis(1));
+
+        assertThat(consumer.isAlive()).isFalse();
+        assertThat(result.get()).isSameAs(message);
+        assertThat(queue.size()).isZero();
+    }
+
+    @Test
+    void timed_dispatch_includes_manual_pause_in_timeout() throws Exception {
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(
+                Destination.create("/queue/paused-timed-dispatch"),
+                10
+        );
+        Message message = message("/queue/paused-timed-dispatch");
+        queue.enqueue(message);
+        queue.pause();
+
+        Message result = queue.dispatch(50, TimeUnit.MILLISECONDS);
+
+        assertThat(result).isNull();
+        assertThat(queue.size()).isOne();
+        assertThat(queue.getPendingBytes()).isEqualTo(message.getSize());
     }
 
     @Test

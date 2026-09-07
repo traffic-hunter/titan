@@ -39,8 +39,9 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 /**
  * Queue of messages for one destination.
  *
- * <p>The queue is the handoff point between producers and destination consumers. It supports
- * pausing producers, inspecting queued pressure, and blocking dispatch for consumers.</p>
+ * <p>The queue is the handoff point between producers and destination consumers. A manual pause
+ * stops both sides of that handoff, while an automatic pressure pause stops producers and lets
+ * consumers continue draining queued messages.</p>
  *
  * @author yungwang-o
  */

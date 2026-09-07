@@ -39,4 +39,43 @@ public interface DispatcherQueueManager {
      * @return deletion outcome
      */
     DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force);
+
+    /**
+     * Manually pauses the queue for the destination.
+     *
+     * <p>A manual pause blocks both enqueue and dispatch, so the queue stops
+     * admitting producers and stops delivering its backlog until it is
+     * resumed.</p>
+     *
+     * <p>Pausing is idempotent. An already paused queue stays paused and the
+     * call still reports success. A manual pause is independent of the
+     * automatic pressure pause, so releasing one does not release the other.</p>
+     *
+     * @param destination destination to pause
+     * @return {@code true} when the queue exists
+     */
+    boolean pauseQueue(Destination destination);
+
+    /**
+     * Clears the manual pause for the queue of the destination.
+     *
+     * <p>Resuming is idempotent. A queue that is already running stays running
+     * and the call still reports success. When the queue is still under byte
+     * pressure it keeps rejecting producers through flow control, while
+     * consumers can drain it back below the resume threshold.</p>
+     *
+     * @param destination destination to resume
+     * @return {@code true} when the queue exists
+     */
+    boolean resumeQueue(Destination destination);
+
+    /**
+     * Removes every pending message from the queue of the destination.
+     *
+     * <p>The queue itself is kept and its consumer stays attached.</p>
+     *
+     * @param destination destination to purge
+     * @return {@code true} when the queue exists
+     */
+    boolean purgeQueue(Destination destination);
 }
