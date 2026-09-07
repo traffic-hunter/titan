@@ -134,6 +134,45 @@ func (c Client) DeleteQueue(ctx context.Context, destination string, force bool)
 	return nil
 }
 
+// PauseQueue manually pauses the queue for the destination.
+//
+// Pausing is idempotent: an already paused queue reports success.
+func (c Client) PauseQueue(ctx context.Context, destination string) error {
+	return c.queueAction(ctx, "pause", destination)
+}
+
+// ResumeQueue clears the manual pause for the queue of the destination.
+//
+// A queue that is still under byte pressure stays paused by flow control.
+func (c Client) ResumeQueue(ctx context.Context, destination string) error {
+	return c.queueAction(ctx, "resume", destination)
+}
+
+// PurgeQueue removes every pending message and keeps the queue itself.
+func (c Client) PurgeQueue(ctx context.Context, destination string) error {
+	return c.queueAction(ctx, "purge", destination)
+}
+
+func (c Client) queueAction(ctx context.Context, action string, destination string) error {
+	values := url.Values{}
+	values.Set("action", action)
+	values.Set("destination", destination)
+	request, err := c.request(ctx, http.MethodPost, "/titan/monitor/queues?"+values.Encode())
+	if err != nil {
+		return err
+	}
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return HTTPError{StatusCode: response.StatusCode, Status: response.Status}
+	}
+	return nil
+}
+
 func (c Client) request(ctx context.Context, method string, path string) (*http.Request, error) {
 	request, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, nil)
 	if err != nil {

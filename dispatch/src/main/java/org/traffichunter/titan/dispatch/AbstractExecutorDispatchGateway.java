@@ -141,7 +141,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * Deletes a dispatcher queue and detaches its consumer.
      *
      * <p>Deletion removes the queue from the dispatcher, unregisters its JMX
-     * MBean, and marks the current queue instance as deleted so a running
+     * Mbean, and marks the current queue instance as deleted so a running
      * consumer can exit. Non-empty queues are rejected unless force deletion is
      * requested.</p>
      */
@@ -151,6 +151,55 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             throw new IllegalStateException("DispatchGateway is closed");
         }
         return fanoutHandler.deleteQueue(destination, force);
+    }
+
+    /**
+     * Manually pauses the queue without detaching its consumer.
+     *
+     * <p>A manual pause blocks both enqueue and dispatch, so producers stop
+     * being admitted and queued messages stop being delivered. The consumer
+     * stays attached and waits until the queue is resumed. To discard the
+     * queued messages instead, use {@link #purgeQueue(Destination)}.</p>
+     */
+    @Override
+    public boolean pauseQueue(Destination destination) {
+        DispatcherQueue queue = getQueue(destination);
+        if (queue == null) {
+            return false;
+        }
+        queue.pause();
+        return true;
+    }
+
+    /**
+     * Clears the manual pause so the queue admits and delivers messages again.
+     *
+     * <p>A queue that is still over its byte limit stays paused for producers
+     * by flow control, because the queue re-evaluates its own pause state
+     * rather than trusting the caller. A pressure pause never blocks dispatch,
+     * so consumers can drain the queue back below the resume threshold.</p>
+     */
+    @Override
+    public boolean resumeQueue(Destination destination) {
+        DispatcherQueue queue = getQueue(destination);
+        if (queue == null) {
+            return false;
+        }
+        queue.resume();
+        return true;
+    }
+
+    /**
+     * Drops every pending message while keeping the queue and its consumer.
+     */
+    @Override
+    public boolean purgeQueue(Destination destination) {
+        DispatcherQueue queue = getQueue(destination);
+        if (queue == null) {
+            return false;
+        }
+        queue.clear();
+        return true;
     }
 
     @Override
@@ -171,5 +220,13 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             }
             handlerChain.clear();
         }
+    }
+
+    private @Nullable DispatcherQueue getQueue(Destination destination) {
+        if (closed.get()) {
+            throw new IllegalStateException("DispatchGateway is closed");
+        }
+
+        return dispatcher.get(destination);
     }
 }

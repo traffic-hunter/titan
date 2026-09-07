@@ -40,8 +40,9 @@ import org.traffichunter.titan.core.util.Destination;
 /**
  * FIFO queue implementation for one dispatcher destination.
  *
- * <p>Messages are dispatched in insertion order through {@link LinkedBlockingQueue}. Pausing the
- * queue blocks enqueue attempts while consumers can continue draining already queued data.</p>
+ * <p>Messages are dispatched in insertion order through {@link LinkedBlockingQueue}. A manual
+ * pause blocks both enqueue and dispatch operations. A pressure pause blocks only enqueue
+ * operations so consumers can drain the queue until it reaches the resume threshold.</p>
  *
  * @author yungwang-o
  */
@@ -49,12 +50,19 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     private static final Logger log = LoggerFactory.getLogger(MessageDispatcherQueue.class);
 
+    /**
+     * Waits without a deadline. Not expressed as {@link Long#MAX_VALUE} because
+     * {@code awaitNanos} adds the timeout to {@code nanoTime}, which would overflow.
+     */
+    private static final long NO_TIMEOUT = -1;
+
+
     private final BlockingQueue<Message> queue;
     private final DestinationQueueMetadata metadata;
-    private volatile Destination destination;
-
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
+
+    private volatile Destination destination;
     private volatile boolean manuallyPaused;
     private volatile boolean pressurePaused;
 
@@ -191,6 +199,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public Message dispatch() throws InterruptedException {
+        awaitManualResume(NO_TIMEOUT);
         Message message = queue.take();
         metadata.release(message.getSize());
         resumeAfterPressure();
@@ -199,7 +208,15 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public @Nullable Message dispatch(long timeout, TimeUnit unit) throws InterruptedException {
-        Message message = queue.poll(timeout, unit);
+        long timeoutNanos = Math.max(0, unit.toNanos(timeout));
+        long startedAt = System.nanoTime();
+        if (!awaitManualResume(timeoutNanos)) {
+            return null;
+        }
+
+        long elapsedNanos = System.nanoTime() - startedAt;
+        long remainingNanos = Math.max(0, timeoutNanos - elapsedNanos);
+        Message message = queue.poll(remainingNanos, TimeUnit.NANOSECONDS);
         if (message != null) {
             metadata.release(message.getSize());
             resumeAfterPressure();
@@ -278,6 +295,33 @@ class MessageDispatcherQueue implements DispatcherQueue {
         }
     }
 
+    /**
+     * Waits until the manual pause clears.
+     *
+     * @param timeoutNanos nanoseconds to wait, or {@link #NO_TIMEOUT} to wait without a deadline
+     * @return {@code false} only when a bounded wait ran out while still paused
+     */
+    private boolean awaitManualResume(long timeoutNanos) throws InterruptedException {
+        boolean bounded = timeoutNanos != NO_TIMEOUT;
+        pauseLock.lockInterruptibly();
+        try {
+            long remainingNanos = timeoutNanos;
+            while (manuallyPaused) {
+                if (!bounded) {
+                    pauseCondition.await();
+                    continue;
+                }
+                if (remainingNanos <= 0) {
+                    return false;
+                }
+                remainingNanos = pauseCondition.awaitNanos(remainingNanos);
+            }
+            return true;
+        } finally {
+            pauseLock.unlock();
+        }
+    }
+
     private void pauseForPressure() {
         pauseLock.lock();
         try {
@@ -312,7 +356,10 @@ class MessageDispatcherQueue implements DispatcherQueue {
         metadata.paused(paused);
         if (!paused) {
             log.info("Resuming queue. destination={}", destination.path());
-            pauseCondition.signalAll();
         }
+
+        // Producers and consumers wait on different conditions, so signal both and
+        // let each re-check. Signalling only when fully resumed deadlocks the drain.
+        pauseCondition.signalAll();
     }
 }
