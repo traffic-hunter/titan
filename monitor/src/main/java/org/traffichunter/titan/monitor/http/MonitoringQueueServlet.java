@@ -210,6 +210,7 @@ public final class MonitoringQueueServlet extends HttpServlet {
 
     private static QueueSnapshot snapshot(DispatcherQueue queue) {
         return new QueueSnapshot(
+                queue.getGroup(),
                 queue.getDestination(),
                 queue.size(),
                 queue.getPendingBytes(),
