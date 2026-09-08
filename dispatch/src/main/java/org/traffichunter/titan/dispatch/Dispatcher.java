@@ -35,25 +35,32 @@ import org.traffichunter.titan.core.util.Destination;
  * creating it when necessary, and queue consumers perform the actual dispatch from
  * {@link DispatcherQueue}.</p>
  *
+ * <p>{@link DestinationGroupRegistry} is the default implementation. It keeps queues in
+ * named {@link DestinationGroup}s. Each group is itself a {@code Dispatcher} over the
+ * queues it owns.</p>
+ *
  * @author yungwang-o
  */
 public interface Dispatcher {
 
     /**
      * Returns Titan's default destination registry implementation.
+     *
+     * <p>The default is a {@link DestinationGroupRegistry}. Queues created through
+     * {@link #getOrPut(Destination)} belong to its default group.</p>
      */
     static Dispatcher getDefault() {
-        return new TrieDispatcher();
+        return new DestinationGroupRegistry();
     }
 
     /** Returns the default destination registry with an automatic queue byte limit. */
     static Dispatcher getDefault(long maxPendingBytes) {
-        return new TrieDispatcher(maxPendingBytes);
+        return new DestinationGroupRegistry(maxPendingBytes);
     }
 
     /** Returns the default destination registry with byte pause and resume thresholds. */
     static Dispatcher getDefault(long maxPendingBytes, long resumePendingBytes) {
-        return new TrieDispatcher(maxPendingBytes, resumePendingBytes);
+        return new DestinationGroupRegistry(maxPendingBytes, resumePendingBytes);
     }
 
     /**
