@@ -24,12 +24,11 @@ THE SOFTWARE.
 package org.traffichunter.titan.dispatch;
 
 /**
- * Named subset of a dispatcher's queues.
+ * Named namespace of queues.
  *
- * <p>Every queue belongs to exactly one group. A group is a {@link Dispatcher} over its
- * own queues. Lookups and wildcard searches only see the queues it owns. Creation and
- * removal go through the owning {@link DestinationGroupRegistry}, which keeps one
- * destination from being registered in two groups.</p>
+ * <p>Each group owns its own queues. The same destination may exist in several groups
+ * as separate queues. A group is a {@link Dispatcher} over the queues it owns, and its
+ * lookups and wildcard searches do not see other groups.</p>
  *
  * @author yun
  */

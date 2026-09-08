@@ -2,31 +2,28 @@ package org.traffichunter.titan.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.DisplayNameGenerator.*;
 import static org.traffichunter.titan.dispatch.DestinationGroupRegistry.DEFAULT_GROUP;
 
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-
+import javax.management.MBeanServer;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
-@DisplayNameGeneration(ReplaceUnderscores.class)
 class DestinationGroupRegistryTest {
 
-    private final List<String> created = new ArrayList<>();
+    private final List<DispatcherQueue> created = new ArrayList<>();
 
     @AfterEach
     void unregisterQueueMbeans() {
         // Creating a queue registers a JMX MBean. The registry does not unregister it;
         // the gateway does. Clean up here so no MBeans are left behind.
-        for (String path : created) {
+        for (DispatcherQueue queue : created) {
             try {
-                DispatcherQueueMbeans.unregister(path);
+                DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());
             } catch (RuntimeException ignored) {
                 // already unregistered by the test body
             }
@@ -38,12 +35,13 @@ class DestinationGroupRegistryTest {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Destination destination = destination("ungrouped");
 
-        DispatcherQueue queue = registry.getOrPut(destination);
+        DispatcherQueue queue = track(registry.getOrPut(destination));
 
         DestinationGroup defaultGroup = registry.getGroup(DEFAULT_GROUP);
         assertThat(defaultGroup).isNotNull();
         assertThat(defaultGroup.get(destination)).isSameAs(queue);
         assertThat(registry.get(destination)).isSameAs(queue);
+        assertThat(queue.getGroup()).isEqualTo(DEFAULT_GROUP);
     }
 
     @Test
@@ -69,127 +67,86 @@ class DestinationGroupRegistryTest {
         Destination marketOnly = destination("scope/market");
         Destination defaultOnly = destination("scope/default");
 
-        DispatcherQueue marketQueue = market.getOrPut(marketOnly);
-        registry.getOrPut(defaultOnly);
+        DispatcherQueue marketQueue = track(market.getOrPut(marketOnly));
+        track(registry.getOrPut(defaultOnly));
 
         assertThat(market.get(marketOnly)).isSameAs(marketQueue);
+        assertThat(marketQueue.getGroup()).isEqualTo("market");
         assertThat(market.get(defaultOnly)).isNull();
         assertThat(market.exists(defaultOnly)).isFalse();
-        assertThat(Objects.requireNonNull(registry.getGroup(DEFAULT_GROUP)).get(marketOnly)).isNull();
+        assertThat(registry.getGroup(DEFAULT_GROUP).get(marketOnly)).isNull();
     }
 
     @Test
-    void registry_sees_queues_from_every_group() {
+    void same_destination_can_exist_in_different_groups() {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         DestinationGroup market = registry.getOrPutGroup("market");
         DestinationGroup notification = registry.getOrPutGroup("notification");
-        Destination price = destination("union/price");
-        Destination alerts = destination("union/alerts");
-        Destination plain = destination("union/plain");
-
-        DispatcherQueue priceQueue = market.getOrPut(price);
-        DispatcherQueue alertsQueue = notification.getOrPut(alerts);
-        DispatcherQueue plainQueue = registry.getOrPut(plain);
-
-        assertThat(registry.get(price)).isSameAs(priceQueue);
-        assertThat(registry.get(alerts)).isSameAs(alertsQueue);
-        assertThat(registry.get(plain)).isSameAs(plainQueue);
-        assertThat(registry.exists(price)).isTrue();
-    }
-
-    @Test
-    void destination_cannot_belong_to_two_groups() {
-        DestinationGroupRegistry registry = new DestinationGroupRegistry();
-        DestinationGroup market = registry.getOrPutGroup("market");
-        DestinationGroup notification = registry.getOrPutGroup("notification");
-        Destination destination = destination("owned/price");
-        DispatcherQueue owned = market.getOrPut(destination);
-
-        assertThatThrownBy(() -> notification.getOrPut(destination))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("market")
-                .hasMessageContaining("notification");
-
-        assertThat(registry.get(destination)).isSameAs(owned);
-        assertThat(notification.get(destination)).isNull();
-    }
-
-    @Test
-    void registry_get_or_put_returns_queue_owned_by_another_group() {
-        DestinationGroupRegistry registry = new DestinationGroupRegistry();
-        DestinationGroup market = registry.getOrPutGroup("market");
         Destination destination = destination("shared/price");
-        DispatcherQueue owned = market.getOrPut(destination);
 
-        // Routing and fanout call the registry without a group name. They need the
-        // existing queue. A second queue in the default group would break delivery.
-        assertThat(registry.getOrPut(destination)).isSameAs(owned);
-        assertThat(Objects.requireNonNull(registry.getGroup(DEFAULT_GROUP)).get(destination)).isNull();
+        DispatcherQueue marketQueue = track(market.getOrPut(destination));
+        DispatcherQueue notificationQueue = track(notification.getOrPut(destination));
+
+        assertThat(notificationQueue).isNotSameAs(marketQueue);
+        assertThat(market.get(destination)).isSameAs(marketQueue);
+        assertThat(notification.get(destination)).isSameAs(notificationQueue);
+        assertThat(marketQueue.getGroup()).isEqualTo("market");
+        assertThat(notificationQueue.getGroup()).isEqualTo("notification");
+    }
+
+    @Test
+    void registry_dispatcher_calls_use_the_default_namespace() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        DestinationGroup market = registry.getOrPutGroup("market");
+        Destination destination = destination("namespace/price");
+        DispatcherQueue marketQueue = track(market.getOrPut(destination));
+
+        // Requests without a group never see the market queue. Routing and fanout use
+        // these calls, so a group queue only receives traffic once a group is named.
+        assertThat(registry.get(destination)).isNull();
+        assertThat(registry.exists(destination)).isFalse();
+        assertThat(registry.searchAll(destination)).isEmpty();
+
+        DispatcherQueue defaultQueue = track(registry.getOrPut(destination));
+
+        assertThat(defaultQueue).isNotSameAs(marketQueue);
+        assertThat(defaultQueue.getGroup()).isEqualTo(DEFAULT_GROUP);
+        assertThat(registry.get(destination)).isSameAs(defaultQueue);
+        assertThat(market.get(destination)).isSameAs(marketQueue);
     }
 
     @Test
     void group_wildcard_search_is_scoped_to_group() {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         DestinationGroup market = registry.getOrPutGroup("market");
-        DispatcherQueue first = market.getOrPut(destination("wild/1"));
-        DispatcherQueue second = market.getOrPut(destination("wild/2"));
-        registry.getOrPut(destination("wild/3"));
+        DispatcherQueue first = track(market.getOrPut(destination("wild/1")));
+        DispatcherQueue second = track(market.getOrPut(destination("wild/2")));
+        DispatcherQueue third = track(registry.getOrPut(destination("wild/3")));
 
-        List<DispatcherQueue> found = market.searchAll(Destination.create("/queue/group/wild/*"));
+        Destination pattern = Destination.create("/queue/group/wild/*");
 
-        assertThat(found).containsExactlyInAnyOrder(first, second);
+        assertThat(market.searchAll(pattern)).containsExactlyInAnyOrder(first, second);
+        assertThat(registry.searchAll(pattern)).containsExactly(third);
     }
 
     @Test
-    void registry_wildcard_search_spans_groups() {
-        DestinationGroupRegistry registry = new DestinationGroupRegistry();
-        DestinationGroup market = registry.getOrPutGroup("market");
-        DispatcherQueue first = market.getOrPut(destination("span/1"));
-        DispatcherQueue second = market.getOrPut(destination("span/2"));
-        DispatcherQueue third = registry.getOrPut(destination("span/3"));
-
-        List<DispatcherQueue> found = registry.searchAll(Destination.create("/queue/group/span/*"));
-
-        assertThat(found).containsExactlyInAnyOrder(first, second, third);
-        assertThat(registry.searchAll(Destination.create("/queue/group/span/1"))).containsExactly(first);
-    }
-
-    @Test
-    void remove_clears_group_and_ownership() {
+    void remove_only_affects_own_group() {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         DestinationGroup market = registry.getOrPutGroup("market");
         DestinationGroup notification = registry.getOrPutGroup("notification");
         Destination destination = destination("remove/price");
-        market.getOrPut(destination);
-
-        registry.remove(destination);
-
-        assertThat(registry.get(destination)).isNull();
-        assertThat(market.get(destination)).isNull();
-
-        // After removal another group can claim the destination. Unregister the old
-        // MBean first, as the gateway would, so re-creating does not collide.
-        DispatcherQueueMbeans.unregister(destination.path());
-        DispatcherQueue recreated = notification.getOrPut(destination);
-
-        assertThat(registry.get(destination)).isSameAs(recreated);
-        assertThat(market.get(destination)).isNull();
-    }
-
-    @Test
-    void group_remove_only_removes_queues_it_owns() {
-        DestinationGroupRegistry registry = new DestinationGroupRegistry();
-        DestinationGroup market = registry.getOrPutGroup("market");
-        Destination destination = destination("foreign-remove/price");
-        DispatcherQueue owned = market.getOrPut(destination);
-
-        Objects.requireNonNull(registry.getGroup(DEFAULT_GROUP)).remove(destination);
-
-        assertThat(registry.get(destination)).isSameAs(owned);
+        track(market.getOrPut(destination));
+        DispatcherQueue notificationQueue = track(notification.getOrPut(destination));
 
         market.remove(destination);
 
-        assertThat(registry.get(destination)).isNull();
+        assertThat(market.get(destination)).isNull();
+        assertThat(notification.get(destination)).isSameAs(notificationQueue);
+
+        // The default group never had this destination. Removing it there is a no-op.
+        registry.remove(destination);
+
+        assertThat(notification.get(destination)).isSameAs(notificationQueue);
     }
 
     @Test
@@ -197,15 +154,32 @@ class DestinationGroupRegistryTest {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         DestinationGroup market = registry.getOrPutGroup("market");
         Destination destination = destination("nonempty/price");
-        market.getOrPut(destination);
+        track(market.getOrPut(destination));
 
         assertThat(registry.removeGroup("market")).isFalse();
         assertThat(registry.containsGroup("market")).isTrue();
 
-        registry.remove(destination);
+        market.remove(destination);
 
         assertThat(registry.removeGroup("market")).isTrue();
         assertThat(registry.getGroup("market")).isNull();
+    }
+
+    @Test
+    void removed_group_rejects_new_queues_and_is_replaced_on_next_lookup() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        DestinationGroup stale = registry.getOrPutGroup("stale");
+        Destination destination = destination("stale/price");
+
+        assertThat(registry.removeGroup("stale")).isTrue();
+
+        assertThatThrownBy(() -> stale.getOrPut(destination))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("removed");
+
+        DestinationGroup replacement = registry.getOrPutGroup("stale");
+        assertThat(replacement).isNotSameAs(stale);
+        track(replacement.getOrPut(destination));
     }
 
     @Test
@@ -238,8 +212,8 @@ class DestinationGroupRegistryTest {
         assertThat(dispatcher).isInstanceOf(DestinationGroupRegistry.class);
 
         DestinationGroupRegistry registry = (DestinationGroupRegistry) dispatcher;
-        DispatcherQueue grouped = registry.getOrPutGroup("market").getOrPut(destination("threshold/market"));
-        DispatcherQueue ungrouped = dispatcher.getOrPut(destination("threshold/default"));
+        DispatcherQueue grouped = track(registry.getOrPutGroup("market").getOrPut(destination("threshold/market")));
+        DispatcherQueue ungrouped = track(dispatcher.getOrPut(destination("threshold/default")));
 
         long expectedResume = DestinationQueueMetadata.defaultResumePendingBytes(128);
         assertThat(grouped.getMaxPendingBytes()).isEqualTo(128);
@@ -254,16 +228,34 @@ class DestinationGroupRegistryTest {
         DestinationGroup market = registry.getOrPutGroup("market");
         Destination destination = destination("limit/price");
 
-        DispatcherQueue queue = market.getOrPut(destination, 32);
+        DispatcherQueue queue = track(market.getOrPut(destination, 32));
 
         assertThat(queue.getMaxPendingBytes()).isEqualTo(32);
         assertThat(market.getOrPut(destination, 64)).isSameAs(queue);
         assertThat(queue.getMaxPendingBytes()).isEqualTo(32);
     }
 
+    @Test
+    void same_destination_in_two_groups_registers_two_mbeans() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        Destination destination = destination("mbean/price");
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+
+        track(registry.getOrPutGroup("mbean-a").getOrPut(destination));
+        track(registry.getOrPutGroup("mbean-b").getOrPut(destination));
+
+        // With the group in the name the second queue no longer replaces the first.
+        assertThat(server.isRegistered(DispatcherQueueMbeans.objectName("mbean-a", destination.path()))).isTrue();
+        assertThat(server.isRegistered(DispatcherQueueMbeans.objectName("mbean-b", destination.path()))).isTrue();
+        assertThat(server.isRegistered(DispatcherQueueMbeans.objectName(destination.path()))).isFalse();
+    }
+
     private Destination destination(String suffix) {
-        Destination destination = Destination.create("/queue/group/" + suffix);
-        created.add(destination.path());
-        return destination;
+        return Destination.create("/queue/group/" + suffix);
+    }
+
+    private DispatcherQueue track(DispatcherQueue queue) {
+        created.add(queue);
+        return queue;
     }
 }

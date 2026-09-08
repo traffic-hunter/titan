@@ -28,6 +28,14 @@ package org.traffichunter.titan.core.util.management;
  */
 public interface DispatcherQueueMbean {
 
+    /** Group used for queues created without an explicit group. */
+    String DEFAULT_GROUP = "default";
+
+    /** Group that owns the queue. Queues that predate groups report the default group. */
+    default String getGroup() {
+        return DEFAULT_GROUP;
+    }
+
     String getDestination();
 
     int getSize();

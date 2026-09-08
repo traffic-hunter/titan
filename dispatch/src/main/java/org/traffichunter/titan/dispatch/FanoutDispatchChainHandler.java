@@ -106,7 +106,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             consumer.cancel(true);
         }
         dispatcher.remove(destination);
-        DispatcherQueueMbeans.unregister(queue.getDestination());
+        DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());
         return DispatcherQueueDeleteResult.deleted(size);
     }
 

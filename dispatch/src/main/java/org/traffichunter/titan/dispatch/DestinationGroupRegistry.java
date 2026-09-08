@@ -26,31 +26,27 @@ package org.traffichunter.titan.dispatch;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
 
 /**
  * Top level {@link Dispatcher} composed of named {@link DestinationGroup}s.
  *
- * <p>The registry holds no queues itself. Every queue lives in one group. The registry
- * keeps a destination to group index for lookups across groups and to reject a
- * destination that is already registered elsewhere. Queues created without a group go to
- * {@value #DEFAULT_GROUP}, which always exists and cannot be removed.</p>
- *
- * <p>Lookups take no lock. Registration and removal share one lock so the group
- * dispatcher and the index change together.</p>
+ * <p>Groups are namespaces. The same destination may exist in several groups as
+ * separate queues, and the registry holds no queues itself. As a {@code Dispatcher} the
+ * registry is the {@value #DEFAULT_GROUP} namespace: calls that name no group read and
+ * create queues there. Other groups are reached through {@link #getOrPutGroup(String)}.
+ * The default group always exists and cannot be removed.</p>
  *
  * @author yun
  */
 public final class DestinationGroupRegistry implements Dispatcher {
 
-    public static final String DEFAULT_GROUP = "default";
+    public static final String DEFAULT_GROUP = DispatcherQueueMbean.DEFAULT_GROUP;
 
     private final Map<String, DispatcherDestinationGroup> groups = new ConcurrentHashMap<>();
-    private final Map<Destination, String> owners = new ConcurrentHashMap<>();
-    private final ReentrantLock lock = new ReentrantLock();
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
     private final DispatcherDestinationGroup defaultGroup;
@@ -102,16 +98,17 @@ public final class DestinationGroupRegistry implements Dispatcher {
             return false;
         }
 
-        lock.lock();
-        try {
-            if (!groups.containsKey(name) || owners.containsValue(name)) {
-                return false;
+        boolean[] removed = {false};
+        // computeIfPresent holds the map entry while the group decides, so a concurrent
+        // getOrPutGroup either waits for this outcome or sees the group already gone.
+        groups.computeIfPresent(name, (groupName, group) -> {
+            if (group.tryRemove()) {
+                removed[0] = true;
+                return null;
             }
-            groups.remove(name);
-            return true;
-        } finally {
-            lock.unlock();
-        }
+            return group;
+        });
+        return removed[0];
     }
 
     public List<DestinationGroup> groups() {
@@ -120,150 +117,37 @@ public final class DestinationGroupRegistry implements Dispatcher {
 
     @Override
     public @Nullable DispatcherQueue get(Destination destination) {
-        String owner = owners.get(destination);
-        if (owner == null) {
-            return null;
-        }
-        DispatcherDestinationGroup group = groups.get(owner);
-        return group == null ? null : group.getLocal(destination);
+        return defaultGroup.get(destination);
     }
 
-    /**
-     * Returns the destination's queue from the group that owns it. Creates the queue in
-     * the default group when no group has it.
-     */
     @Override
     public DispatcherQueue getOrPut(Destination destination) {
-        return getOrCreate(destination, null, defaultGroup, false);
+        return defaultGroup.getOrPut(destination);
     }
 
     @Override
     public DispatcherQueue getOrPut(Destination destination, long maxPendingBytes) {
-        return getOrCreate(destination, maxPendingBytes, defaultGroup, false);
+        return defaultGroup.getOrPut(destination, maxPendingBytes);
     }
 
     @Override
     public List<DispatcherQueue> searchAll(Destination destination) {
-        if (!destination.path().endsWith("/*")) {
-            DispatcherQueue queue = get(destination);
-            return queue == null ? List.of() : List.of(queue);
-        }
-        return groups.values().stream()
-                .flatMap(group -> group.searchAllLocal(destination).stream())
-                .toList();
+        return defaultGroup.searchAll(destination);
     }
 
     @Override
     public boolean exists(Destination destination) {
-        return groups.values().stream().anyMatch(group -> group.existsLocal(destination));
+        return defaultGroup.exists(destination);
     }
 
     @Override
     public void remove(Destination destination) {
-        lock.lock();
-        try {
-            // Remove the index entry before the queue. A reader without the lock then
-            // never sees an owner whose dispatcher no longer has the queue.
-            String owner = owners.remove(destination);
-            if (owner == null) {
-                return;
-            }
-            DispatcherDestinationGroup group = groups.get(owner);
-            if (group != null) {
-                group.removeLocal(destination);
-            }
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    /**
-     * Registers a destination for a group. Fails when another group already owns the
-     * destination.
-     */
-    DispatcherQueue register(
-            DispatcherDestinationGroup group,
-            Destination destination,
-            @Nullable Long maxPendingBytes
-    ) {
-        return getOrCreate(destination, maxPendingBytes, group, true);
-    }
-
-    /** Removes a destination only when the calling group owns it. */
-    void removeFrom(DispatcherDestinationGroup group, Destination destination) {
-        lock.lock();
-        try {
-            if (!group.name().equals(owners.get(destination))) {
-                return;
-            }
-            owners.remove(destination);
-            group.removeLocal(destination);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private DispatcherQueue getOrCreate(
-            Destination destination,
-            @Nullable Long maxPendingBytes,
-            DispatcherDestinationGroup target,
-            boolean rejectForeignOwner
-    ) {
-        // Routing calls this for every message. Find an existing queue without taking
-        // the lock.
-        DispatcherQueue existing = existing(destination, target, rejectForeignOwner);
-        if (existing != null) {
-            return existing;
-        }
-
-        lock.lock();
-        try {
-            existing = existing(destination, target, rejectForeignOwner);
-            if (existing != null) {
-                return existing;
-            }
-
-            DispatcherQueue queue = target.getOrPutLocal(destination, maxPendingBytes);
-            owners.put(destination, target.name());
-            return queue;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private @Nullable DispatcherQueue existing(
-            Destination destination,
-            DispatcherDestinationGroup target,
-            boolean rejectForeignOwner
-    ) {
-        String owner = owners.get(destination);
-        if (owner == null) {
-            return null;
-        }
-        DispatcherDestinationGroup group = groups.get(owner);
-        if (group == null) {
-            return null;
-        }
-        DispatcherQueue queue = group.getLocal(destination);
-        if (queue == null) {
-            return null;
-        }
-        if (rejectForeignOwner && group != target) {
-            throw new IllegalStateException(
-                    "Destination " + destination.path() + " already belongs to group " + owner
-                            + " and cannot be registered in group " + target.name()
-            );
-        }
-        return queue;
+        defaultGroup.remove(destination);
     }
 
     private DispatcherDestinationGroup groupOrCreate(String name) {
         Assert.checkArgument(!name.isBlank(), "group name must not be blank");
-        return groups.computeIfAbsent(name, groupName -> new DispatcherDestinationGroup(
-                groupName,
-                this,
-                defaultMaxPendingBytes,
-                defaultResumePendingBytes
-        ));
+        return groups.computeIfAbsent(name, groupName ->
+                new DispatcherDestinationGroup(groupName, defaultMaxPendingBytes, defaultResumePendingBytes));
     }
 }
