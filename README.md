@@ -262,4 +262,4 @@ See the full [GitHub contributors list](https://github.com/traffic-hunter/titan/
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).

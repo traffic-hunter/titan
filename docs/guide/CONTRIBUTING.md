@@ -3,6 +3,10 @@
 Titan is a community project.
 We welcome contributions from everyone.
 
+By submitting a contribution, you confirm that you have the right to provide
+it and agree that it may be distributed under the project's
+[Apache License 2.0](../../LICENSE).
+
 - Environment: Java 21
 
 ## Code Style
