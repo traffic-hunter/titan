@@ -250,6 +250,14 @@ behavior:
 ./gradlew :smoke-test:smoke-titan:test
 ```
 
+Project policies and direction:
+
+- [Contributing](CONTRIBUTING.md)
+- [Roadmap](ROADMAP.md)
+- [Maintainers](MAINTAINERS.md)
+- [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+
 ## Contributors
 
 Thanks to everyone who has contributed to Titan.
@@ -262,4 +270,4 @@ See the full [GitHub contributors list](https://github.com/traffic-hunter/titan/
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
