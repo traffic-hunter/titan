@@ -250,6 +250,14 @@ behavior:
 ./gradlew :smoke-test:smoke-titan:test
 ```
 
+Project policies and direction:
+
+- [Contributing](CONTRIBUTING.md)
+- [Roadmap](ROADMAP.md)
+- [Maintainers](MAINTAINERS.md)
+- [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+
 ## Contributors
 
 Thanks to everyone who has contributed to Titan.
