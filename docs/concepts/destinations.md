@@ -112,9 +112,10 @@ capacity and queue pressure must be monitored.
 
 ## One consumer per destination
 
-`DispatchGateway` keeps a concurrent map of destination to consumer task.
-`computeIfAbsent` guarantees at most one active queue-draining task for each
-destination inside that gateway.
+`DispatchGateway` keeps a concurrent map of group and destination to consumer
+task. `computeIfAbsent` guarantees at most one active queue-draining task for
+each destination within a group inside that gateway. The same destination in
+two groups is two queues and two consumers.
 
 The consumer polls its queue and invokes the configured `DispatchExporter` one
 message at a time. This preserves FIFO processing within one destination while
@@ -146,6 +147,51 @@ subscriptions.
 If there are no exact-match subscriptions, the exporter has no recipients. The
 message has already been removed from the in-memory queue; Titan does not retain
 it for a future subscriber.
+
+## Destination groups
+
+A group is a namespace for destinations. `/orders` in group `market` and
+`/orders` in group `notification` are two independent queues with independent
+subscribers. Traffic that names no group belongs to the `default` group, which
+always exists.
+
+Producers and subscribers pick a group per frame with the `group` header:
+
+```text
+SEND
+destination:/orders
+group:market
+
+{"id":42}^@
+```
+
+```text
+SUBSCRIBE
+destination:/orders
+id:sub-1
+group:market
+
+^@
+```
+
+Rules:
+
+- The header is optional on `SEND` and `SUBSCRIBE`. Without it the frame is in
+  the `default` group. An empty value is treated the same as no header.
+- A group is created the first time a `SEND` names it. Subscribing alone does
+  not create a group or a queue, the same way subscribing does not create a
+  destination queue.
+- Names match `^[a-zA-Z0-9_-]{1,64}$`. A malformed name is answered with an
+  `ERROR` frame and the connection is closed.
+- `MESSAGE` frames carry `group` only when the message came from a group other
+  than `default`. A client that never sends the header never receives it.
+- Subscriptions match on group **and** exact destination. A `market` subscriber
+  of `/orders` never receives a `default` or `notification` message for
+  `/orders`.
+- The deprecated Vert.x STOMP transport does not support groups. A `SEND` with
+  a `group` header on that transport is refused with an `ERROR` frame.
+
+Queue management over HTTP and the CLI still operates on the `default` group.
 
 ## Fanout mode versus the default STOMP handler
 
