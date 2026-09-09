@@ -63,6 +63,7 @@ tasks.register("updateReleaseDocsVersion") {
         val serverJarPattern = Regex("""(titan-server-)\d+\.\d+\.\d+(\.jar)""")
         val cliArchivePattern = Regex("""(titan-cli-)\d+\.\d+\.\d+(-[a-z]+-[a-z0-9]+)\.(tar\.gz|zip)""")
         val documentedVersionPattern = Regex("""(Titan `)\d+\.\d+\.\d+(`)""")
+        val sharedArtifactVersionPattern = Regex("""(Use the same `)\d+\.\d+\.\d+(` version)""")
 
         docs.files.sortedBy { it.path }.forEach { file ->
             val text = file.readText()
@@ -72,6 +73,7 @@ tasks.register("updateReleaseDocsVersion") {
                 .replace(serverJarPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
                 .replace(cliArchivePattern) { match -> match.groupValues[1] + version + match.groupValues[2] + "." + match.groupValues[3] }
                 .replace(documentedVersionPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
+                .replace(sharedArtifactVersionPattern) { match -> match.groupValues[1] + version + match.groupValues[2] }
 
             if (updated != text) {
                 file.writeText(updated)
