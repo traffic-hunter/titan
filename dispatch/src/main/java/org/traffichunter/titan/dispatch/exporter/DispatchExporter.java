@@ -35,28 +35,30 @@ import org.traffichunter.titan.dispatch.AggregationResult;
  *
  * <p>The gateway calls exporters after a message has been routed to a
  * destination queue. Implementations should find the currently eligible
- * consumers for the destination and return a {@link AggregationResult} that
- * reports how many writes were attempted and completed.</p>
+ * consumers for the destination inside the given group and return a
+ * {@link AggregationResult} that reports how many writes were attempted and
+ * completed. Subscribers of the same destination in another group must not
+ * receive the payload.</p>
  */
 public interface DispatchExporter {
 
     String name();
 
     @CanIgnoreReturnValue
-    default AggregationResult export(Destination destination, Frame<?, ?> payload) {
+    default AggregationResult export(String group, Destination destination, Frame<?, ?> payload) {
         Buffer buffer = payload.toBuffer();
         try {
-            return export(destination, buffer);
+            return export(group, destination, buffer);
         } finally {
             buffer.release();
         }
     }
 
     @CanIgnoreReturnValue
-    default AggregationResult export(Destination destination, Message payload) {
+    default AggregationResult export(String group, Destination destination, Message payload) {
         Buffer buffer = Buffer.heap().alloc(payload.getBody());
         try {
-            return export(destination, buffer);
+            return export(group, destination, buffer);
         } finally {
             buffer.release();
         }
@@ -70,5 +72,5 @@ public interface DispatchExporter {
      * delivery completes.</p>
      */
     @CanIgnoreReturnValue
-    AggregationResult export(Destination destination, Buffer payload);
+    AggregationResult export(String group, Destination destination, Buffer payload);
 }

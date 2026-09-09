@@ -35,13 +35,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
  * Owns destination consumer registration, execution, and removal after messages are routed.
  *
- * <p>At most one long-lived consumer is registered per destination. The handler starts that task
+ * <p>At most one long-lived consumer is registered per destination within a group. The same
+ * destination in two groups is two queues and therefore two consumers. The handler starts that task
  * without awaiting its completion because dispatch completion only represents successful
  * queue admission and consumer activation. Queue deletion and handler shutdown cancel registered
  * consumers and let their polling loops observe the corresponding lifecycle state.</p>
@@ -52,7 +54,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
     private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
 
-    private final Map<Destination, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
+    private final Map<ConsumerKey, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
     private final Set<DispatcherQueue> deletedQueues = ConcurrentHashMap.newKeySet();
     private final ExecutorService executor;
     private final DispatchExporter exporter;
@@ -72,15 +74,15 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     @Override
     public DispatchChain handle(DispatchContext context, DispatchChain chain) {
         Message message = context.getMessage();
-        fanout(message.getDestination());
+        fanout(message.getGroup(), message.getDestination());
         return chain.next(context);
     }
 
-    CompletableFuture<@Nullable Void> fanout(Destination destination) {
+    CompletableFuture<@Nullable Void> fanout(String group, Destination destination) {
         if (closed.get()) {
             throw new IllegalStateException("Fanout dispatch handler is closed");
         }
-        return consumers.computeIfAbsent(destination, this::consume);
+        return consumers.computeIfAbsent(new ConsumerKey(group, destination), this::consume);
     }
 
     DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
@@ -101,7 +103,8 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         }
 
         deletedQueues.add(queue);
-        CompletableFuture<@Nullable Void> consumer = consumers.remove(destination);
+        CompletableFuture<@Nullable Void> consumer =
+                consumers.remove(new ConsumerKey(DestinationGroups.DEFAULT, destination));
         if (consumer != null) {
             consumer.cancel(true);
         }
@@ -117,9 +120,9 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         }
     }
 
-    private CompletableFuture<@Nullable Void> consume(Destination destination) {
-        DispatcherQueue queue = dispatcher.getOrPut(destination);
-        log.info("Starting fanout consumer for destination={}", destination.path());
+    private CompletableFuture<@Nullable Void> consume(ConsumerKey key) {
+        DispatcherQueue queue = dispatcher.getOrPut(key.group(), key.destination());
+        log.info("Starting fanout consumer for group={} destination={}", key.group(), key.destination().path());
 
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
         executor.execute(() -> {
@@ -132,7 +135,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
                         if (message == null) {
                             continue;
                         }
-                        exporter.export(destination, message);
+                        exporter.export(key.group(), key.destination(), message);
                     } catch (InterruptedException e) {
                         log.error("Interrupted while waiting for message to be delivered", e);
                         Thread.currentThread().interrupt();
@@ -149,9 +152,13 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
                 result.completeExceptionally(e);
             } finally {
                 deletedQueues.remove(queue);
-                consumers.remove(destination, result);
+                consumers.remove(key, result);
             }
         });
         return result;
+    }
+
+    /** Queue identity as seen by fanout: a destination inside one group. */
+    private record ConsumerKey(String group, Destination destination) {
     }
 }

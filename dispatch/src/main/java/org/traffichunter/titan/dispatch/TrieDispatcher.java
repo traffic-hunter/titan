@@ -91,6 +91,18 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     @Override
+    public @Nullable DispatcherQueue get(String group, Destination destination) {
+        requireOwnGroup(group);
+        return get(destination);
+    }
+
+    @Override
+    public DispatcherQueue getOrPut(String group, Destination destination) {
+        requireOwnGroup(group);
+        return getOrPut(destination);
+    }
+
+    @Override
     public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
         return trie.computeIfAbsent(destination.path(), path -> {
             DispatcherQueue queue = DispatcherQueue.create(
@@ -131,5 +143,12 @@ public class TrieDispatcher implements Dispatcher {
     /** {@code true} when this dispatcher holds no queues. */
     public boolean isEmpty() {
         return trie.isEmpty();
+    }
+
+    private void requireOwnGroup(String group) {
+        if (!this.group.equals(group)) {
+            throw new UnsupportedOperationException(
+                    "TrieDispatcher for group " + this.group + " cannot serve group " + group);
+        }
     }
 }

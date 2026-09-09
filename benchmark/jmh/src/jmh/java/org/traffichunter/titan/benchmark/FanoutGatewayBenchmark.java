@@ -122,13 +122,13 @@ public class FanoutGatewayBenchmark {
         }
 
         @Override
-        public @Nullable AggregationResult export(Destination destination, Buffer payload) {
+        public @Nullable AggregationResult export(String group, Destination destination, Buffer payload) {
             count.increment();
             return null;
         }
 
         @Override
-        public @Nullable AggregationResult export(Destination destination, Message payload) {
+        public @Nullable AggregationResult export(String group, Destination destination, Message payload) {
             count.increment();
             return null;
         }

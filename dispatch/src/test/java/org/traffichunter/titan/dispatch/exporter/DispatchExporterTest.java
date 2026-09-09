@@ -50,13 +50,16 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.NetServerChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
+import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscriptions;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelRegistry;
 import org.traffichunter.titan.dispatch.AggregationResult;
@@ -119,14 +122,14 @@ class DispatchExporterTest {
             }
 
             @Override
-            public AggregationResult export(Destination destination, Buffer payload) {
+            public AggregationResult export(String group, Destination destination, Buffer payload) {
                 assertThat(payload.byteBuf().refCnt()).isOne();
                 exported.set(payload);
                 return AggregationResult.completed(List.of(destination), 0, 0, 0);
             }
         };
 
-        exporter.export(message.getDestination(), message);
+        exporter.export(message.getGroup(), message.getDestination(), message);
 
         assertThat(exported.get().byteBuf().refCnt()).isZero();
     }
@@ -172,7 +175,7 @@ class DispatchExporterTest {
                 .build());
 
         StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
-        AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
+        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isEqualTo(2);
         assertThat(result.done()).isEqualTo(2);
@@ -201,7 +204,7 @@ class DispatchExporterTest {
 
         SlowConsumerMetrics metrics = new SlowConsumerMetrics();
         StompDispatchExporter exporter = new StompDispatchExporter(serverConnection, metrics);
-        AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
+        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
 
         verify(connection, never()).send(any(StompFrame.class));
         assertThat(result.isDone()).isTrue();
@@ -221,7 +224,7 @@ class DispatchExporterTest {
         when(vertxDestination.numberOfSubscriptions()).thenReturn(1);
 
         VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        AggregationResult result = exporter.export(destination, payload);
+        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, payload);
 
         ArgumentCaptor<Frame> frameCaptor = ArgumentCaptor.forClass(Frame.class);
         verify(vertxDestination).dispatch(isNull(), frameCaptor.capture());
@@ -247,7 +250,7 @@ class DispatchExporterTest {
         when(vertxServerHandler.getDestination(destination.path())).thenReturn(null);
 
         VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        AggregationResult result = exporter.export(destination, Buffer.heap().alloc("hello".getBytes()));
+        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
 
         assertThat(result.totalAttempted()).isZero();
         assertThat(result.succeeded()).isZero();
@@ -275,7 +278,7 @@ class DispatchExporterTest {
         when(inetServer.childChannel()).thenReturn(registry.getChannels());
 
         TcpDispatchExporter exporter = new TcpDispatchExporter(inetServer);
-        AggregationResult result = exporter.export(Destination.create("/topic/a"), Buffer.heap().alloc("p".getBytes()));
+        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, Destination.create("/topic/a"), Buffer.heap().alloc("p".getBytes()));
 
         assertThat(result.isDone()).isTrue();
         assertThat(result.totalAttempted()).isEqualTo(2);
@@ -288,5 +291,79 @@ class DispatchExporterTest {
         lenient().when(loop.inEventLoop(any(Thread.class))).thenReturn(true);
         lenient().when(loop.inEventLoop()).thenReturn(true);
         return loop;
+    }
+
+    @Test
+    void stomp_exporter_delivers_only_to_matching_group_and_echoes_group_header() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/price");
+
+        StompClientChannel defaultConn = writableConnection(loop, "session-default");
+        StompClientChannel marketConn = writableConnection(loop, "session-market");
+        subscriptions.register(subscription(null, destination, "sub-default", defaultConn));
+        subscriptions.register(subscription("market", destination, "sub-market", marketConn));
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        AggregationResult result = exporter.export("market", destination, Buffer.heap().alloc("hello".getBytes()));
+
+        ArgumentCaptor<StompFrame> sent = ArgumentCaptor.forClass(StompFrame.class);
+        verify(marketConn).send(sent.capture());
+        verify(defaultConn, never()).send(any(StompFrame.class));
+        assertThat(sent.getValue().getCommand()).isEqualTo(StompCommand.MESSAGE);
+        assertThat(sent.getValue().getHeader(Elements.GROUP)).isEqualTo("market");
+        assertThat(sent.getValue().getHeader(Elements.SUBSCRIPTION)).isEqualTo("sub-market");
+        assertThat(result.totalAttempted()).isOne();
+    }
+
+    @Test
+    void stomp_exporter_omits_group_header_for_default_group() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/price");
+
+        StompClientChannel defaultConn = writableConnection(loop, "session-default");
+        StompClientChannel marketConn = writableConnection(loop, "session-market");
+        subscriptions.register(subscription(null, destination, "sub-default", defaultConn));
+        subscriptions.register(subscription("market", destination, "sub-market", marketConn));
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
+
+        ArgumentCaptor<StompFrame> sent = ArgumentCaptor.forClass(StompFrame.class);
+        verify(defaultConn).send(sent.capture());
+        verify(marketConn, never()).send(any(StompFrame.class));
+        // Clients that never send the header must never receive it, or their decoder rejects the frame.
+        assertThat(sent.getValue().getHeader(Elements.GROUP)).isNull();
+    }
+
+    private static StompClientChannel writableConnection(IOEventLoop loop, String session) {
+        StompClientChannel connection = mock(StompClientChannel.class);
+        NetChannel channel = mock(NetChannel.class);
+        when(connection.session()).thenReturn(session);
+        // The connection in the other group is filtered out before any of these are touched.
+        lenient().when(connection.channel()).thenReturn(channel);
+        lenient().when(channel.isWritable()).thenReturn(true);
+        Promise<StompFrame> promise = Promise.newPromise(loop);
+        promise.success(StompFrame.PING);
+        lenient().when(connection.send(any(StompFrame.class))).thenReturn(promise);
+        return connection;
+    }
+
+    private static StompServerSubscription subscription(
+            String group,
+            Destination destination,
+            String id,
+            StompClientChannel connection
+    ) {
+        return StompServerSubscription.builder()
+                .group(group)
+                .destination(destination)
+                .id(id)
+                .ackMode(StompFrame.AckMode.AUTO)
+                .connection(connection)
+                .build();
     }
 }

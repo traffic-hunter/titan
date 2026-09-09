@@ -44,9 +44,10 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 /**
  * Converts inbound STOMP {@code SEND} frames into fanout messages.
  *
- * <p>Validates the required destination header, converts the frame body to a
- * Titan {@link Message}, and passes it to {@link DispatchGateway} for routing.
- * Exporters handle protocol-specific writes to subscribers.</p>
+ * <p>Validates the required destination header, reads the optional group header,
+ * converts the frame body to a Titan {@link Message}, and passes it to
+ * {@link DispatchGateway} for routing. Exporters handle protocol-specific writes
+ * to subscribers.</p>
  */
 public final class StompSendToFanoutHandler implements StompServerCommandHandler {
 
@@ -70,12 +71,27 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
             return;
         }
 
-        Message message = Message.builder()
-                .destination(Destination.create(destination))
-                .createdAt(Instant.now())
-                .producerId(connection.session())
-                .body(sf.body())
-                .build();
+        String group = sf.getHeader(StompHeaders.Elements.GROUP);
+        Message message;
+        try {
+            message = Message.builder()
+                    .group(group)
+                    .destination(Destination.create(destination))
+                    .createdAt(Instant.now())
+                    .producerId(connection.session())
+                    .body(sf.body())
+                    .build();
+        } catch (IllegalArgumentException e) {
+            log.warn(
+                    "Rejected dispatch due to malformed headers. session={}, group={}, destination={}",
+                    connection.session(),
+                    group,
+                    destination
+            );
+            connection.send(errorFrame("Wrong send.", e.getMessage()));
+            connection.close();
+            return;
+        }
 
         try {
             CompletableFuture<@Nullable Void> dispatchResult = dispatchGateway.sparkDispatch(message);

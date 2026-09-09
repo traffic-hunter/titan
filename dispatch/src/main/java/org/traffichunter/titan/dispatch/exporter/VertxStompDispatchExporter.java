@@ -51,7 +51,7 @@ public final class VertxStompDispatchExporter implements DispatchExporter {
     }
 
     @Override
-    public AggregationResult export(Destination destination, Buffer payload) {
+    public AggregationResult export(String group, Destination destination, Buffer payload) {
         Assert.checkState(server.isListening(), "Vert.x STOMP server is not listening");
 
         io.vertx.ext.stomp.Destination stompDestination = server.stompHandler()

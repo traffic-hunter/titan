@@ -258,4 +258,35 @@ class DestinationGroupRegistryTest {
         created.add(queue);
         return queue;
     }
+
+    @Test
+    void get_or_put_with_group_creates_queue_in_that_group_only() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        Destination destination = destination("addressed/price");
+
+        DispatcherQueue queue = track(registry.getOrPut("market", destination));
+
+        assertThat(queue.getGroup()).isEqualTo("market");
+        assertThat(registry.containsGroup("market")).isTrue();
+        assertThat(registry.get("market", destination)).isSameAs(queue);
+        assertThat(registry.get(destination)).isNull();
+        assertThat(registry.get(DEFAULT_GROUP, destination)).isNull();
+    }
+
+    @Test
+    void get_with_group_does_not_create_group() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+
+        assertThat(registry.get("ghost", destination("addressed/none"))).isNull();
+        assertThat(registry.containsGroup("ghost")).isFalse();
+    }
+
+    @Test
+    void invalid_group_name_is_rejected() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+
+        assertThatThrownBy(() -> registry.getOrPut("bad/name", destination("addressed/bad")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(registry.containsGroup("bad/name")).isFalse();
+    }
 }

@@ -27,6 +27,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 
 /**
  * Registry of destination queues.
@@ -38,6 +39,11 @@ import org.traffichunter.titan.core.util.Destination;
  * <p>{@link DestinationGroupRegistry} is the default implementation. It keeps queues in
  * named {@link DestinationGroup}s. Each group is itself a {@code Dispatcher} over the
  * queues it owns.</p>
+ *
+ * <p>Methods that take only a {@link Destination} address the default group. The
+ * overloads that also take a group name reach other groups. A dispatcher that has no
+ * notion of groups serves the default group and refuses every other name, so a message
+ * aimed at an unknown group fails instead of landing in the wrong queue.</p>
  *
  * @author yungwang-o
  */
@@ -73,6 +79,35 @@ public interface Dispatcher {
      */
     @CanIgnoreReturnValue
     DispatcherQueue getOrPut(Destination destination);
+
+    /**
+     * Returns the queue for the destination inside the named group, or {@code null} when
+     * it has not been created. Looking up a group never creates it.
+     *
+     * @throws UnsupportedOperationException when this dispatcher cannot serve the group
+     */
+    default @Nullable DispatcherQueue get(String group, Destination destination) {
+        if (DestinationGroups.isDefault(group)) {
+            return get(destination);
+        }
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName() + " has no destination group " + group);
+    }
+
+    /**
+     * Returns the existing queue or creates one for this destination inside the named
+     * group. Implementations that manage groups create the group on first use.
+     *
+     * @throws UnsupportedOperationException when this dispatcher cannot serve the group
+     */
+    @CanIgnoreReturnValue
+    default DispatcherQueue getOrPut(String group, Destination destination) {
+        if (DestinationGroups.isDefault(group)) {
+            return getOrPut(destination);
+        }
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName() + " has no destination group " + group);
+    }
 
     /**
      * Returns the existing queue or creates one with the requested byte limit.

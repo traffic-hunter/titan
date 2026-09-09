@@ -76,6 +76,18 @@ final class DispatcherDestinationGroup implements DestinationGroup {
     }
 
     @Override
+    public @Nullable DispatcherQueue get(String group, Destination destination) {
+        requireOwnGroup(group);
+        return get(destination);
+    }
+
+    @Override
+    public DispatcherQueue getOrPut(String group, Destination destination) {
+        requireOwnGroup(group);
+        return getOrPut(destination);
+    }
+
+    @Override
     public DispatcherQueue getOrPut(Destination destination, long maxPendingBytes) {
         return create(() -> dispatcher.getOrPut(destination, maxPendingBytes));
     }
@@ -129,6 +141,13 @@ final class DispatcherDestinationGroup implements DestinationGroup {
             return action.get();
         } finally {
             lifecycle.readLock().unlock();
+        }
+    }
+
+    private void requireOwnGroup(String group) {
+        if (!name.equals(group)) {
+            throw new UnsupportedOperationException(
+                    "Destination group " + name + " cannot serve group " + group);
         }
     }
 

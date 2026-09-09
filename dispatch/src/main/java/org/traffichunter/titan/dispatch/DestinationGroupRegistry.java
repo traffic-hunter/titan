@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
 
 /**
@@ -37,8 +38,9 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
  * <p>Groups are namespaces. The same destination may exist in several groups as
  * separate queues, and the registry holds no queues itself. As a {@code Dispatcher} the
  * registry is the {@value #DEFAULT_GROUP} namespace: calls that name no group read and
- * create queues there. Other groups are reached through {@link #getOrPutGroup(String)}.
- * The default group always exists and cannot be removed.</p>
+ * create queues there. Other groups are reached through {@link #getOrPutGroup(String)}
+ * or the overloads that take a group name. The default group always exists and cannot
+ * be removed.</p>
  *
  * @author yun
  */
@@ -124,6 +126,19 @@ public final class DestinationGroupRegistry implements Dispatcher {
         return defaultGroup.getOrPut(destination, maxPendingBytes);
     }
 
+    /** Reads inside the named group. An unknown group yields {@code null} and is not created. */
+    @Override
+    public @Nullable DispatcherQueue get(String group, Destination destination) {
+        DispatcherDestinationGroup destinationGroup = groups.get(group);
+        return destinationGroup == null ? null : destinationGroup.get(destination);
+    }
+
+    /** Creates the group on first use, then the queue inside it. */
+    @Override
+    public DispatcherQueue getOrPut(String group, Destination destination) {
+        return groupOrCreate(group).getOrPut(destination);
+    }
+
     @Override
     public List<DispatcherQueue> searchAll(Destination destination) {
         return defaultGroup.searchAll(destination);
@@ -140,7 +155,7 @@ public final class DestinationGroupRegistry implements Dispatcher {
     }
 
     private DispatcherDestinationGroup groupOrCreate(String name) {
-        Assert.checkArgument(!name.isBlank(), "group name must not be blank");
+        Assert.checkArgument(DestinationGroups.isValid(name), "Invalid group name: " + name);
         return groups.computeIfAbsent(name, groupName ->
                 new DispatcherDestinationGroup(groupName, defaultMaxPendingBytes, defaultResumePendingBytes));
     }

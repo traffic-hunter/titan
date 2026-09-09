@@ -31,6 +31,7 @@ import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.AggregationResult;
@@ -42,10 +43,12 @@ import java.util.List;
  * Dispatch exporter for STOMP subscriptions.
  *
  * <p>The exporter asks the server connection for subscriptions matching the
- * destination, then emits a STOMP {@code MESSAGE} frame per subscription. The
- * {@code subscription} header is copied from the subscription id owned by that
- * client session, which lets a single STOMP connection multiplex multiple
- * subscriptions correctly.</p>
+ * destination within the group, then emits a STOMP {@code MESSAGE} frame per
+ * subscription. The {@code subscription} header is copied from the subscription
+ * id owned by that client session, which lets a single STOMP connection
+ * multiplex multiple subscriptions correctly. The {@code group} header is added
+ * only for groups other than the default, so clients that never send the header
+ * never see it.</p>
  *
  * <p>Each outgoing frame receives a copied payload buffer because the same
  * logical message can be written to many clients. Sharing one buffer instance
@@ -71,9 +74,9 @@ public class StompDispatchExporter implements DispatchExporter {
     }
 
     @Override
-    public AggregationResult export(Destination destination, Buffer message) {
+    public AggregationResult export(String group, Destination destination, Buffer message) {
         List<StompServerSubscription> subscriptions =
-                serverConnection.subscriptions().findByDestination(destination);
+                serverConnection.subscriptions().findByDestination(group, destination);
 
         AggregationResult result = AggregationResult.create(
                 List.of(destination),
@@ -92,6 +95,9 @@ public class StompDispatchExporter implements DispatchExporter {
             frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
             frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
             frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
+            if (!DestinationGroups.isDefault(group)) {
+                frame.addHeader(StompHeaders.Elements.GROUP, group);
+            }
 
             Promise<StompFrame> sendPromise = clientChannel.send(frame);
             sendPromise.addListener(sendFuture -> {
