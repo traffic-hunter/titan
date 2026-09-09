@@ -107,12 +107,12 @@ final class DispatcherDestinationGroup implements DestinationGroup {
     /**
      * Marks the group removed when it holds no queues.
      *
-     * @return {@code false} when the group still has queues and stays active
+     * @return {@code false} when the group still has queues, or was already removed
      */
     boolean tryRemove() {
         lifecycle.writeLock().lock();
         try {
-            if (!dispatcher.isEmpty()) {
+            if (removed || !dispatcher.isEmpty()) {
                 return false;
             }
             removed = true;

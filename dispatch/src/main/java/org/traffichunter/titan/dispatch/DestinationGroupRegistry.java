@@ -94,21 +94,15 @@ public final class DestinationGroupRegistry implements Dispatcher {
      * @return {@code true} when the group existed and was removed
      */
     public boolean removeGroup(String name) {
-        if (DEFAULT_GROUP.equals(name)) {
+        if (DEFAULT_GROUP.equals(name) || !groups.containsKey(name)) {
             return false;
         }
+        // computeIfPresent returns null for a missing key as well as for a removed entry.
+        // The containsKey check above is what lets null mean "removed" here.
+        DispatcherDestinationGroup destinationGroup =
+                groups.computeIfPresent(name, (groupName, group) -> group.tryRemove() ? null : group);
 
-        boolean[] removed = {false};
-        // computeIfPresent holds the map entry while the group decides, so a concurrent
-        // getOrPutGroup either waits for this outcome or sees the group already gone.
-        groups.computeIfPresent(name, (groupName, group) -> {
-            if (group.tryRemove()) {
-                removed[0] = true;
-                return null;
-            }
-            return group;
-        });
-        return removed[0];
+        return destinationGroup == null;
     }
 
     public List<DestinationGroup> groups() {
