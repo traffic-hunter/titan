@@ -24,18 +24,30 @@ THE SOFTWARE.
 package org.traffichunter.titan.core.channel;
 
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 
 /**
  * @author yun
  */
 public class Subscription {
 
+    private final String group;
     private final Destination destination;
     private final String id;
 
+    /** Subscription in the default group. */
     public Subscription(Destination destination, String id) {
+        this(DestinationGroups.DEFAULT, destination, id);
+    }
+
+    public Subscription(String group, Destination destination, String id) {
+        this.group = group;
         this.destination = destination;
         this.id = id;
+    }
+
+    public String getGroup() {
+        return group;
     }
 
     public Destination getDestination() {
