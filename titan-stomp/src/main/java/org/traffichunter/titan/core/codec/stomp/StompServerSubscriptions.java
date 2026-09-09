@@ -83,9 +83,11 @@ public final class StompServerSubscriptions {
         return values();
     }
 
-    public List<StompServerSubscription> findByDestination(Destination destination) {
+    /** Subscriptions on the destination inside the given group only. */
+    public List<StompServerSubscription> findByDestination(String group, Destination destination) {
         return values().stream()
-                .filter(subscription -> subscription.destination().equals(destination))
+                .filter(subscription -> subscription.getGroup().equals(group)
+                        && subscription.destination().equals(destination))
                 .toList();
     }
 

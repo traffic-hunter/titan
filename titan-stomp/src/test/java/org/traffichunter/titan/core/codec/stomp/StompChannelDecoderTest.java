@@ -468,4 +468,42 @@ class StompChannelDecoderTest {
             frames.clear();
         }
     }
+
+    @Test
+    void decode_send_frame_with_group_header() {
+        StompHeaders headers = StompHeaders.create();
+        headers.put(StompHeaders.Elements.DESTINATION, "/topic/price");
+        headers.put(StompHeaders.Elements.GROUP, "market");
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
+        Buffer input = frame.toBuffer();
+        List<StompFrame> handled = new ArrayList<>();
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), input);
+
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.getHeader(StompHeaders.Elements.GROUP)).isEqualTo("market"));
+            assertThat(result).isNotNull();
+            result.release();
+        } finally {
+            input.release();
+        }
+    }
+
+    @Test
+    void unknown_header_still_throws() {
+        Buffer input = Buffer.heap().alloc("SEND\ndestination:/topic/price\ncustom-header:x\n\nhello\0");
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+
+            assertThatThrownBy(() -> decoder.decode(new InMemoryNetChannel(), input))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("custom-header");
+        } finally {
+            input.release();
+        }
+    }
 }
