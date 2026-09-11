@@ -208,23 +208,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
         wLock.lock();
         try {
-            Node<T> current = root;
-            for (String part : split) {
-                if (part.isEmpty()) {
-                    continue;
-                }
-                current = current.children.get(part);
-                if (current == null) {
-                    return null;
-                }
-            }
-
-            T value = current.value;
-            if (value == null) {
-                return null;
-            }
-            remove(root, split, 0);
-            return value;
+            return remove(root, split, 0);
         } finally {
             wLock.unlock();
         }
@@ -238,14 +222,6 @@ public final class TrieImpl<T> implements Trie<T> {
         } finally {
             rLock.unlock();
         }
-    }
-
-    private List<T> searchAll(final Node<T> node) {
-        List<T> list = new ArrayList<>();
-
-        tour(node, list);
-
-        return list;
     }
 
     private List<T> searchChildren(final Node<T> node) {
@@ -291,38 +267,31 @@ public final class TrieImpl<T> implements Trie<T> {
         }
     }
 
-    private boolean remove(final Node<T> node, final String[] parts, int idx) {
+    /** Removes the value at the end of {@code parts} and prunes nodes left empty on the way back up. */
+    private @Nullable T remove(final Node<T> node, final String[] parts, int idx) {
         // Skip empty strings from leading /
         while (idx < parts.length && parts[idx].isEmpty()) {
             idx++;
         }
 
-        if(idx == parts.length) {
-            if (node.value == null) {
-                return false;
-            }
+        if (idx == parts.length) {
+            T value = node.value;
             node.value = null;
-            return true;
+            return value;
         }
 
         String part = parts[idx];
         Node<T> child = node.children.get(part);
-
         if (child == null) {
-            return false;
+            return null;
         }
 
-        boolean removed = remove(child, parts, idx + 1);
-
-        if (!removed) {
-            return false;
-        }
-
-        if (child.value == null && child.children.isEmpty()) {
+        T removed = remove(child, parts, idx + 1);
+        if (removed != null && child.value == null && child.children.isEmpty()) {
             node.children.remove(part);
         }
 
-        return true;
+        return removed;
     }
 
     static class Node<T> {
@@ -330,12 +299,5 @@ public final class TrieImpl<T> implements Trie<T> {
         final Map<String, Node<T>> children = new HashMap<>();
         @Nullable T value;
 
-        Node() {
-            this(null);
-        }
-
-        Node(final @Nullable T value) {
-            this.value = value;
-        }
     }
 }
