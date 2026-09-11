@@ -18,8 +18,10 @@ package org.traffichunter.titan.core.message;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
-import org.traffichunter.titan.core.util.IdGenerator;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
+import org.traffichunter.titan.core.util.IdGenerator;
 
 /**
  * Message stored and routed by Titan's dispatcher queues.
@@ -28,11 +30,16 @@ import org.traffichunter.titan.core.util.Destination;
  * The constructor copies the supplied array, so queued messages do not retain codec or network
  * resources and do not require explicit release.</p>
  *
+ * <p>Every message belongs to a destination group. Messages built without one belong to
+ * {@link DestinationGroups#DEFAULT}.</p>
+ *
  * @author yungwang-o
  */
 public final class Message {
 
     private final String uniqueId = IdGenerator.uuid();
+
+    private final String group;
 
     private final Destination destination;
 
@@ -46,11 +53,22 @@ public final class Message {
 
     private final byte[] body;
 
+    /** Message in the default group. */
     public Message(final Destination destination,
                    final Instant createdAt,
                    final String producerId,
                    final byte[] body
     ) {
+        this(DestinationGroups.DEFAULT, destination, createdAt, producerId, body);
+    }
+
+    public Message(final String group,
+                   final Destination destination,
+                   final Instant createdAt,
+                   final String producerId,
+                   final byte[] body
+    ) {
+        this.group = Objects.requireNonNull(group, "group");
         this.destination = Objects.requireNonNull(destination, "routingKey");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.producerId = Objects.requireNonNull(producerId, "producerId");
@@ -64,6 +82,10 @@ public final class Message {
 
     public String getUniqueId() {
         return uniqueId;
+    }
+
+    public String getGroup() {
+        return group;
     }
 
     public Destination getDestination() {
@@ -104,6 +126,7 @@ public final class Message {
         }
         return getSize() == message.getSize() && Objects.equals(
                 getUniqueId(), message.getUniqueId()) && Objects.equals(
+                getGroup(), message.getGroup()) && Objects.equals(
                 getDestination(), message.getDestination()) && Objects.equals(getCreatedAt(),
                 message.getCreatedAt()) && Objects.equals(getDispatchedAt(), message.getDispatchedAt())
                 && Objects.equals(getProducerId(), message.getProducerId()) && Objects.deepEquals(
@@ -114,6 +137,7 @@ public final class Message {
     public int hashCode() {
         return Objects.hash(
                 getUniqueId(),
+                getGroup(),
                 getDestination(),
                 getCreatedAt(),
                 getDispatchedAt(),
@@ -125,6 +149,7 @@ public final class Message {
     public String toString() {
         return "{" +
                 "uniqueId:'" + uniqueId + '\'' +
+                ", group:'" + group + '\'' +
                 ", routingKey:" + destination +
                 ", createdAt:" + createdAt +
                 ", dispatchedAt:" + dispatchedAt +
@@ -136,12 +161,19 @@ public final class Message {
 
     public static final class MessageBuilder {
 
+        private @Nullable String group;
         private Destination destination;
         private Instant createdAt;
         private String producerId;
         private byte[] body;
 
         private MessageBuilder() {
+        }
+
+        /** Null or blank means the default group. */
+        public MessageBuilder group(@Nullable String group) {
+            this.group = group;
+            return this;
         }
 
         public MessageBuilder destination(Destination destination) {
@@ -165,7 +197,7 @@ public final class Message {
         }
 
         public Message build() {
-            return new Message(destination, createdAt, producerId, body);
+            return new Message(DestinationGroups.normalize(group), destination, createdAt, producerId, body);
         }
     }
 }

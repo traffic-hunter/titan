@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.codec.stomp.*;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.secure.auth.authentication.AuthenticationImpl;
@@ -244,6 +245,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 StompClientChannel sc = event.connection();
 
                 String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
+                String group = sf.getHeader(StompHeaders.Elements.GROUP);
                 String id = sf.getHeader(StompHeaders.Elements.ID);
                 String ack = sf.getHeader(StompHeaders.Elements.ACK);
                 if(ack == null) {
@@ -263,15 +265,29 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                     return;
                 }
 
-                final Destination dest = Destination.create(destination);
-                boolean registered = context.serverConnection().subscriptions().register(
-                        StompServerSubscription.builder()
-                                .id(id)
-                                .ackMode(ack)
-                                .destination(dest)
-                                .connection(sc)
-                                .build()
-                );
+                StompServerSubscription subscription;
+                try {
+                    subscription = StompServerSubscription.builder()
+                            .id(id)
+                            .ackMode(ack)
+                            .group(group)
+                            .destination(Destination.create(destination))
+                            .connection(sc)
+                            .build();
+                } catch (IllegalArgumentException e) {
+                    log.warn(
+                            "Failed to subscribe due to malformed headers. session={}, group={}, destination={}, id={}",
+                            sc.session(),
+                            group,
+                            destination,
+                            id
+                    );
+                    sc.send(errorFrame("Failed to subscribe.", e.getMessage()));
+                    sc.close();
+                    return;
+                }
+
+                boolean registered = context.serverConnection().subscriptions().register(subscription);
                 if (!registered) {
                     log.warn(
                             "Failed to subscribe due to duplicate subscription id. session={}, destination={}, id={}",
@@ -284,8 +300,9 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                     return;
                 }
                 log.info(
-                        "Subscribed session. session={}, destination={}, subscriptionId={}, ack={}",
+                        "Subscribed session. session={}, group={}, destination={}, subscriptionId={}, ack={}",
                         sc.session(),
+                        subscription.getGroup(),
                         destination,
                         id,
                         ack
@@ -350,8 +367,22 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                     return;
                 }
 
-                Destination dest = Destination.create(destination);
-                var subscriptions = context.serverConnection().subscriptions().findByDestination(dest);
+                String group;
+                Destination dest;
+                try {
+                    group = DestinationGroups.normalize(sf.getHeader(StompHeaders.Elements.GROUP));
+                    dest = Destination.create(destination);
+                } catch (IllegalArgumentException e) {
+                    log.warn(
+                            "Failed to send due to malformed headers. session={}, destination={}",
+                            sc.session(),
+                            destination
+                    );
+                    sc.send(errorFrame("Wrong send.", e.getMessage()));
+                    sc.close();
+                    return;
+                }
+                var subscriptions = context.serverConnection().subscriptions().findByDestination(group, dest);
                 if (subscriptions.isEmpty()) {
                     if (context.option().sendErrorOnNoSubscriptions()) {
                         log.warn(
@@ -373,6 +404,9 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                         messageFrame.addHeader(StompHeaders.Elements.DESTINATION, destination);
                         messageFrame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
                         messageFrame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
+                        if (!DestinationGroups.isDefault(group)) {
+                            messageFrame.addHeader(StompHeaders.Elements.GROUP, group);
+                        }
 
                         String contentType = sf.getHeader(StompHeaders.Elements.CONTENT_TYPE);
                         if (contentType != null) {

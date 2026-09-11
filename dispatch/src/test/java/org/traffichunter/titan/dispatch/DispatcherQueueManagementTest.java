@@ -1,12 +1,14 @@
 package org.traffichunter.titan.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
 import javax.management.ObjectName;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 class DispatcherQueueManagementTest {
@@ -152,5 +154,22 @@ class DispatcherQueueManagementTest {
         DispatcherQueueMbeans.unregister(queue.getDestination());
 
         assertThat(ManagementFactory.getPlatformMBeanServer().isRegistered(name)).isFalse();
+    }
+
+    @Test
+    void trie_dispatcher_serves_its_own_group_only() {
+        Dispatcher dispatcher = new TrieDispatcher();
+        Destination destination = Destination.create("/queue/own-group");
+
+        DispatcherQueue queue = dispatcher.getOrPut(DestinationGroups.DEFAULT, destination);
+
+        assertThat(queue).isSameAs(dispatcher.get(destination));
+        assertThat(dispatcher.get(DestinationGroups.DEFAULT, destination)).isSameAs(queue);
+        assertThatThrownBy(() -> dispatcher.getOrPut("market", destination))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> dispatcher.get("market", destination))
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        DispatcherQueueMbeans.unregister(destination.path());
     }
 }

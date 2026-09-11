@@ -38,13 +38,14 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
     @Override
     public DispatchChain handle(DispatchContext context, DispatchChain chain) {
         Message message = context.getMessage();
+        String group = message.getGroup();
         Destination destination = message.getDestination();
 
-        DispatcherQueue dq = dispatcher.getOrPut(destination);
+        DispatcherQueue dq = dispatcher.getOrPut(group, destination);
 
         if (dq.enqueue(message) == null) {
-            log.warn("Dispatcher queue is full, no message was enqueued = {}", destination);
-            throw new IllegalStateException("Dispatcher queue is full = " + destination);
+            log.warn("Dispatcher queue is full, no message was enqueued. group={}, destination={}", group, destination);
+            throw new IllegalStateException("Dispatcher queue is full = " + group + ":" + destination.path());
         }
 
         return chain.next(context);

@@ -199,7 +199,11 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         MESSAGE("message"),
         CONTENT_LENGTH("content-length"),
         CONTENT_TYPE("content-type"),
+        /** Destination group a SEND or SUBSCRIBE targets. Absent means the default group. */
+        GROUP("group"),
         ;
+
+        private static final Map<String, Elements> BY_NAME = buildByName();
 
         private final String name;
 
@@ -212,11 +216,15 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         }
 
         public static Elements convertToElements(final String value) {
-            return Optional.ofNullable(toMap().get(value))
+            return Optional.ofNullable(BY_NAME.get(value))
                     .orElseThrow(() -> new IllegalArgumentException("Unknown element: " + value));
         }
 
         public static Map<String, Elements> toMap() {
+            return BY_NAME;
+        }
+
+        private static Map<String, Elements> buildByName() {
             Map<String, Elements> map = new HashMap<>();
             Arrays.stream(values()).forEach(elements -> map.put(elements.getName(), elements));
 

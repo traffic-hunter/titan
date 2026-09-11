@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -12,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
@@ -87,7 +90,7 @@ class DispatchGatewayQueueManagementTest {
             }
 
             @Override
-            public AggregationResult export(Destination destination, Buffer payload) {
+            public AggregationResult export(String group, Destination destination, Buffer payload) {
                 return AggregationResult.completed(List.of(destination), 0, 0, 0);
             }
         };
@@ -355,6 +358,101 @@ class DispatchGatewayQueueManagementTest {
 
     private static Message message(Destination destination) {
         return Message.builder()
+                .destination(destination)
+                .createdAt(Instant.now())
+                .producerId("test")
+                .body("test".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .build();
+    }
+
+    @Test
+    void spark_dispatch_with_group_routes_to_group_queue() throws Exception {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        Map<String, Integer> exported = new ConcurrentHashMap<>();
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+                recordingExporter(exported),
+                registry
+        );
+        Destination destination = Destination.create("/queue/grouped-route");
+
+        gateway.sparkDispatch(message("market", destination)).get();
+
+        assertThat(registry.get("market", destination)).isNotNull();
+        assertThat(registry.get(destination)).isNull();
+        awaitExported(exported, "market");
+        assertThat(exported).containsOnlyKeys("market");
+
+        gateway.close();
+    }
+
+    @Test
+    void same_destination_in_two_groups_gets_two_consumers() throws Exception {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        Map<String, Integer> exported = new ConcurrentHashMap<>();
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+                recordingExporter(exported),
+                registry
+        );
+        Destination destination = Destination.create("/queue/grouped-twice");
+
+        gateway.sparkDispatch(message("market", destination)).get();
+        gateway.sparkDispatch(message("notification", destination)).get();
+
+        awaitExported(exported, "market");
+        awaitExported(exported, "notification");
+        assertThat(exported).containsOnlyKeys("market", "notification");
+        assertThat(registry.get("market", destination)).isNotSameAs(registry.get("notification", destination));
+
+        gateway.close();
+    }
+
+    @Test
+    void message_without_group_uses_default_group() throws Exception {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        Map<String, Integer> exported = new ConcurrentHashMap<>();
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+                recordingExporter(exported),
+                registry
+        );
+        Destination destination = Destination.create("/queue/grouped-default");
+
+        gateway.sparkDispatch(message(destination)).get();
+
+        assertThat(registry.get(destination)).isNotNull();
+        awaitExported(exported, DestinationGroups.DEFAULT);
+        assertThat(exported).containsOnlyKeys(DestinationGroups.DEFAULT);
+
+        gateway.close();
+    }
+
+    private static void awaitExported(Map<String, Integer> exported, String group) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (!exported.containsKey(group)) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("No export observed for group " + group + ": " + exported);
+            }
+            Thread.sleep(10);
+        }
+    }
+
+    private static DispatchExporter recordingExporter(Map<String, Integer> exported) {
+        return new DispatchExporter() {
+            @Override
+            public String name() {
+                return "recording";
+            }
+
+            @Override
+            public AggregationResult export(String group, Destination destination, Buffer payload) {
+                exported.merge(group, 1, Integer::sum);
+                return AggregationResult.completed(List.of(destination), 0, 0, 0);
+            }
+        };
+    }
+
+    private static Message message(String group, Destination destination) {
+        return Message.builder()
+                .group(group)
                 .destination(destination)
                 .createdAt(Instant.now())
                 .producerId("test")

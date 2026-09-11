@@ -26,6 +26,7 @@ public final class JmxDispatcherQueueCollector {
     public List<QueueSnapshot> collect() {
         return resourceDetector.detect().stream()
                 .map(queue -> new QueueSnapshot(
+                        queue.group(),
                         queue.destination(),
                         queue.size(),
                         queue.pendingBytes(),

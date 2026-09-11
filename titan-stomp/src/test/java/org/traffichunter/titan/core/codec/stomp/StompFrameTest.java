@@ -65,4 +65,16 @@ class StompFrameTest {
         String body = "hihi";
         return StompFrame.create(headers, StompCommand.SEND, body.getBytes(StandardCharsets.UTF_8));
     }
+
+    @Test
+    void do_parse_accepts_group_header() {
+        StompHeaders headers = StompHeaders.create();
+        headers.put(Elements.DESTINATION, "/topic/price");
+        headers.put(Elements.GROUP, "market");
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, "hi".getBytes(StandardCharsets.UTF_8));
+
+        StompFrame parsed = StompFrame.doParse(frame.toString(), StompHeaders.create());
+
+        assertEquals("market", parsed.getHeader(Elements.GROUP));
+    }
 }

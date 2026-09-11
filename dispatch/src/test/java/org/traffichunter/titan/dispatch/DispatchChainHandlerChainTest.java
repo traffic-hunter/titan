@@ -106,7 +106,7 @@ class DispatchChainHandlerChainTest {
             }
 
             @Override
-            public AggregationResult export(Destination destination, Buffer payload) {
+            public AggregationResult export(String group, Destination destination, Buffer payload) {
                 assertThat(destination).isEqualTo(expected);
                 exported.countDown();
                 return AggregationResult.completed(List.of(destination), 0, 0, 0);

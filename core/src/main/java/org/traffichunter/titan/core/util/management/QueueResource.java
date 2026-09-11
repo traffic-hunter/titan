@@ -27,6 +27,7 @@ package org.traffichunter.titan.core.util.management;
  * @author yun
  */
 public record QueueResource(
+        String group,
         String destination,
         int size,
         long pendingBytes,
@@ -34,4 +35,16 @@ public record QueueResource(
         long resumePendingBytes,
         boolean paused
 ) {
+
+    /** Resource for a queue in the default group. */
+    public QueueResource(
+            String destination,
+            int size,
+            long pendingBytes,
+            long maxPendingBytes,
+            long resumePendingBytes,
+            boolean paused
+    ) {
+        this(DispatcherQueueMbean.DEFAULT_GROUP, destination, size, pendingBytes, maxPendingBytes, resumePendingBytes, paused);
+    }
 }

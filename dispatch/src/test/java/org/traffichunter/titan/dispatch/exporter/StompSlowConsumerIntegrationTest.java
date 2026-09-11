@@ -41,6 +41,7 @@ import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.management.ChannelWriteBufferResource;
 import org.traffichunter.titan.core.util.management.ChannelWriteBufferResourceDetector;
@@ -126,7 +127,7 @@ class StompSlowConsumerIntegrationTest {
             Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> !slowChannel.isWritable());
             Buffer message = Buffer.heap().alloc("message");
             try {
-                result = exporter.export(destination, message);
+                result = exporter.export(DestinationGroups.DEFAULT, destination, message);
             } finally {
                 message.release();
             }

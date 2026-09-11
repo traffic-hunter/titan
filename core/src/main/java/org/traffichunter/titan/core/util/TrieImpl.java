@@ -195,14 +195,28 @@ public final class TrieImpl<T> implements Trie<T> {
     }
 
     @Override
-    public void remove(final String word) {
+    public @Nullable T remove(final String word) {
         String[] split = word.split(SPLITTER);
 
         wLock.lock();
         try {
-            if(!remove(root, split, 0)) {
-                throw new IllegalStateException("No such word: " + word);
+            Node<T> current = root;
+            for (String part : split) {
+                if (part.isEmpty()) {
+                    continue;
+                }
+                current = current.children.get(part);
+                if (current == null) {
+                    return null;
+                }
             }
+
+            T value = current.value;
+            if (value == null) {
+                return null;
+            }
+            remove(root, split, 0);
+            return value;
         } finally {
             wLock.unlock();
         }

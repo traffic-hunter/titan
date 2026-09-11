@@ -56,6 +56,7 @@ public final class QueueResourceDetector implements ResourceDetector<List<QueueR
             List<QueueResource> queues = new ArrayList<>();
             for (ObjectName name : server.queryNames(query, null)) {
                 queues.add(new QueueResource(
+                        attribute(name, "Group", String.class),
                         attribute(name, "Destination", String.class),
                         attribute(name, "Size", Integer.class),
                         attribute(name, "PendingBytes", Long.class),
@@ -64,7 +65,7 @@ public final class QueueResourceDetector implements ResourceDetector<List<QueueR
                         attribute(name, "Paused", Boolean.class)
                 ));
             }
-            queues.sort(Comparator.comparing(QueueResource::destination));
+            queues.sort(Comparator.comparing(QueueResource::group).thenComparing(QueueResource::destination));
             return List.copyOf(queues);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to detect dispatcher queue resources", e);

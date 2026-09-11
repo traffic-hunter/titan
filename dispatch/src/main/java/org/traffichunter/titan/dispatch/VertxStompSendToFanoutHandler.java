@@ -34,10 +34,15 @@ import java.util.concurrent.CompletionException;
 
 /**
  * Vert.x STOMP ingress adapter that publishes SEND frames through Titan fanout.
+ *
+ * <p>Vert.x keeps its own subscription table keyed by path only, so this adapter cannot
+ * scope delivery to a destination group. A SEND that names one is refused with an ERROR
+ * frame; every other frame goes to the default group.</p>
  */
 public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame> {
 
     private static final Logger log = LoggerFactory.getLogger(VertxStompSendToFanoutHandler.class);
+    private static final String GROUP_HEADER = "group";
 
     private final DispatchGateway dispatchGateway;
 
@@ -59,6 +64,20 @@ public final class VertxStompSendToFanoutHandler implements Handler<ServerFrame>
                         "Wrong send.",
                         Headers.create(frame.getHeaders()),
                         "Wrong send destination id, Id is required."
+                ));
+                serverConnection.close();
+            });
+            return;
+        }
+
+        if (frame.getHeader(GROUP_HEADER) != null) {
+            vertx.runOnContext(v -> {
+                log.warn("Rejected Vert.x dispatch due to group header. session={}, destination={}",
+                        serverConnection.session(), destination);
+                serverConnection.write(Frames.createErrorFrame(
+                        "Unsupported header.",
+                        Headers.create(frame.getHeaders()),
+                        "Destination groups are not supported on the Vert.x transport."
                 ));
                 serverConnection.close();
             });

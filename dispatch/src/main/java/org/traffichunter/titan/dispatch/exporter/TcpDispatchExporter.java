@@ -46,7 +46,7 @@ public class TcpDispatchExporter implements DispatchExporter {
     }
 
     @Override
-    public AggregationResult export(Destination destination, Buffer payload) {
+    public AggregationResult export(String group, Destination destination, Buffer payload) {
         Assert.checkState(inetServer.isStarted(), "Cannot send an unstarted inet server");
 
         int attempted = 0;

@@ -17,7 +17,9 @@ package org.traffichunter.titan.core.codec.stomp;
 
 import org.traffichunter.titan.core.channel.Subscription;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 
 /**
  * @author yun
@@ -27,13 +29,24 @@ public class StompServerSubscription extends Subscription implements StompSubscr
     private final String ackMode;
     private final StompClientChannel connection;
 
+    /** Subscription in the default group. */
     public StompServerSubscription(
             Destination destination,
             String id,
             String ackMode,
             StompClientChannel connection
     ) {
-        super(destination, id);
+        this(DestinationGroups.DEFAULT, destination, id, ackMode, connection);
+    }
+
+    public StompServerSubscription(
+            String group,
+            Destination destination,
+            String id,
+            String ackMode,
+            StompClientChannel connection
+    ) {
+        super(group, destination, id);
         this.ackMode = ackMode;
         this.connection = connection;
     }
@@ -62,12 +75,19 @@ public class StompServerSubscription extends Subscription implements StompSubscr
 
     public static final class StompServerSubscriptionBuilder {
 
+        private @Nullable String group;
         private Destination destination;
         private String id;
         private String ackMode;
         private StompClientChannel connection;
 
         private StompServerSubscriptionBuilder() {
+        }
+
+        /** Null or blank means the default group. */
+        public StompServerSubscriptionBuilder group(@Nullable String group) {
+            this.group = group;
+            return this;
         }
 
         public StompServerSubscriptionBuilder destination(Destination destination) {
@@ -91,7 +111,8 @@ public class StompServerSubscription extends Subscription implements StompSubscr
         }
 
         public StompServerSubscription build() {
-            return new StompServerSubscription(destination, id, ackMode, connection);
+            return new StompServerSubscription(
+                    DestinationGroups.normalize(group), destination, id, ackMode, connection);
         }
     }
 }

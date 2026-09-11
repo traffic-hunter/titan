@@ -21,11 +21,19 @@ public final class DispatcherQueueMbeans {
     public static final String DOMAIN = "org.traffichunter.titan";
     public static final String TYPE = "DispatcherQueue";
 
+    /** Name of a queue in the default group. */
     public static ObjectName objectName(String destination) {
+        return objectName(DispatcherQueueMbean.DEFAULT_GROUP, destination);
+    }
+
+    public static ObjectName objectName(String group, String destination) {
         try {
-            return new ObjectName(DOMAIN + ":type=" + TYPE + ",destination=" + ObjectName.quote(destination));
+            return new ObjectName(DOMAIN + ":type=" + TYPE
+                    + ",group=" + ObjectName.quote(group)
+                    + ",destination=" + ObjectName.quote(destination));
         } catch (JMException e) {
-            throw new IllegalArgumentException("Invalid dispatcher queue destination: " + destination, e);
+            throw new IllegalArgumentException(
+                    "Invalid dispatcher queue name: group=" + group + ", destination=" + destination, e);
         }
     }
 
@@ -34,7 +42,7 @@ public final class DispatcherQueueMbeans {
     }
 
     public static ObjectName register(MBeanServer server, DispatcherQueueMbean queue) {
-        ObjectName name = objectName(queue.getDestination());
+        ObjectName name = objectName(queue.getGroup(), queue.getDestination());
         try {
             StandardMBean mbean = new StandardMBean(queue, DispatcherQueueMbean.class);
             if (server.isRegistered(name)) {
@@ -47,12 +55,22 @@ public final class DispatcherQueueMbeans {
         }
     }
 
+    /** Unregisters a queue in the default group. */
     public static void unregister(String destination) {
-        unregister(ManagementFactory.getPlatformMBeanServer(), destination);
+        unregister(DispatcherQueueMbean.DEFAULT_GROUP, destination);
     }
 
+    public static void unregister(String group, String destination) {
+        unregister(ManagementFactory.getPlatformMBeanServer(), group, destination);
+    }
+
+    /** Unregisters a queue in the default group. */
     public static void unregister(MBeanServer server, String destination) {
-        ObjectName name = objectName(destination);
+        unregister(server, DispatcherQueueMbean.DEFAULT_GROUP, destination);
+    }
+
+    public static void unregister(MBeanServer server, String group, String destination) {
+        ObjectName name = objectName(group, destination);
         try {
             if (server.isRegistered(name)) {
                 server.unregisterMBean(name);

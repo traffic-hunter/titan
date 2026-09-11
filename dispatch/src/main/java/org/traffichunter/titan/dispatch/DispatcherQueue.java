@@ -54,6 +54,11 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     }
 
     static DispatcherQueue create(Destination key, long maxPendingBytes, long resumePendingBytes) {
+        return create(key, maxPendingBytes, resumePendingBytes, DEFAULT_GROUP);
+    }
+
+    /** Creates a queue that belongs to the named group. */
+    static DispatcherQueue create(Destination key, long maxPendingBytes, long resumePendingBytes, String group) {
         DispatcherQueue queue = new MessageDispatcherQueue(
                 key,
                 new DestinationQueueMetadata(
@@ -61,7 +66,8 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
                         Instant.now(),
                         maxPendingBytes,
                         resumePendingBytes
-                )
+                ),
+                group
         );
         DispatcherQueueMbeans.register(queue);
         return queue;

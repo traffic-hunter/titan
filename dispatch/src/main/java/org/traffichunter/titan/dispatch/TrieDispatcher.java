@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
  * Trie-backed dispatcher for path-like destinations.
@@ -38,6 +39,7 @@ public class TrieDispatcher implements Dispatcher {
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
+    private final String group;
 
     public TrieDispatcher() {
         this(DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
@@ -51,7 +53,13 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     public TrieDispatcher(long defaultMaxPendingBytes, long defaultResumePendingBytes) {
+        this(DispatcherQueue.DEFAULT_GROUP, defaultMaxPendingBytes, defaultResumePendingBytes);
+    }
+
+    /** Dispatcher whose queues belong to the named group. */
+    public TrieDispatcher(String group, long defaultMaxPendingBytes, long defaultResumePendingBytes) {
         DestinationQueueMetadata.validateThresholds(defaultMaxPendingBytes, defaultResumePendingBytes);
+        this.group = group;
         this.defaultMaxPendingBytes = defaultMaxPendingBytes;
         this.defaultResumePendingBytes = defaultResumePendingBytes;
     }
@@ -67,18 +75,36 @@ public class TrieDispatcher implements Dispatcher {
             DispatcherQueue queue = DispatcherQueue.create(
                     destination,
                     defaultMaxPendingBytes,
-                    defaultResumePendingBytes
+                    defaultResumePendingBytes,
+                    group
             );
-            log.info("Created new dispatcher for path {}", path);
+            log.info("Created new dispatcher for path {} in group {}", path, group);
             return queue;
         });
     }
 
     @Override
+    public @Nullable DispatcherQueue get(String group, Destination destination) {
+        requireOwnGroup(group);
+        return get(destination);
+    }
+
+    @Override
+    public DispatcherQueue getOrPut(String group, Destination destination) {
+        requireOwnGroup(group);
+        return getOrPut(destination);
+    }
+
+    @Override
     public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
         return trie.computeIfAbsent(destination.path(), path -> {
-            DispatcherQueue queue = DispatcherQueue.create(destination, maxPendingBytes);
-            log.info("Created new dispatcher for path {}", path);
+            DispatcherQueue queue = DispatcherQueue.create(
+                    destination,
+                    maxPendingBytes,
+                    DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes),
+                    group
+            );
+            log.info("Created new dispatcher for path {} in group {}", path, group);
             return queue;
         });
     }
@@ -104,6 +130,21 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public void remove(Destination destination) {
-        trie.remove(destination.path());
+        DispatcherQueue queue = trie.remove(destination.path());
+        if (queue != null) {
+            DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());
+        }
+    }
+
+    /** {@code true} when this dispatcher holds no queues. */
+    public boolean isEmpty() {
+        return trie.isEmpty();
+    }
+
+    private void requireOwnGroup(String group) {
+        if (!this.group.equals(group)) {
+            throw new UnsupportedOperationException(
+                    "TrieDispatcher for group " + this.group + " cannot serve group " + group);
+        }
     }
 }

@@ -51,6 +51,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     private final BlockingQueue<Message> queue;
     private final DestinationQueueMetadata metadata;
+    private final String group;
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
 
@@ -84,9 +85,14 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     MessageDispatcherQueue(final Destination destination, DestinationQueueMetadata metadata) {
+        this(destination, metadata, DEFAULT_GROUP);
+    }
+
+    MessageDispatcherQueue(final Destination destination, DestinationQueueMetadata metadata, String group) {
         this.metadata = metadata;
         this.queue = new LinkedBlockingQueue<>();
         this.destination = destination;
+        this.group = group;
     }
 
     @Override
@@ -102,6 +108,11 @@ class MessageDispatcherQueue implements DispatcherQueue {
     @Override
     public String getDestination() {
         return destination.path();
+    }
+
+    @Override
+    public String getGroup() {
+        return group;
     }
 
     @Override
