@@ -24,18 +24,25 @@
 package org.traffichunter.titan.core.util;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 
 /**
+ * Path trie keyed by {@code /}-separated segments.
+ *
+ * <p>Reads take no lock. Each node keeps its children in a {@link ConcurrentHashMap} and its
+ * value in a volatile field, so a reader always sees a fully published node. Writes share one
+ * lock, which keeps a removal that prunes empty nodes from interleaving with an insert that is
+ * descending through them. A reader that races a removal may see the value or {@code null},
+ * never a half-built node.</p>
+ *
  * @author yungwang-o
  */
 @ThreadSafe
@@ -45,10 +52,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     private final Node<T> root = new Node<>();
 
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
-    private final Lock rLock = lock.readLock();
-    private final Lock wLock = lock.writeLock();
+    private final Lock wLock = new ReentrantLock();
 
     @Override
     public T insert(final String word, final T value) {
@@ -73,27 +77,20 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public @Nullable T get(final String word) {
-        String[] split = word.split(SPLITTER);
+        Node<T> current = root;
 
-        rLock.lock();
-        try {
-            Node<T> current = root;
-
-            for (String str : split) {
-                if (str.isEmpty()) {
-                    continue; // Skip empty strings from leading /
-                }
-
-                current = current.children.get(str);
-
-                if (current == null) {
-                    return null;
-                }
+        for (String str : word.split(SPLITTER)) {
+            if (str.isEmpty()) {
+                continue; // Skip empty strings from leading /
             }
-            return current.value;
-        } finally {
-            rLock.unlock();
+
+            current = current.children.get(str);
+
+            if (current == null) {
+                return null;
+            }
         }
+        return current.value;
     }
 
     @Override
@@ -111,55 +108,53 @@ public final class TrieImpl<T> implements Trie<T> {
 
         validateWildcard(split);
 
-        rLock.lock();
-        try {
-            Node<T> current = root;
+        Node<T> current = root;
 
-            for (int i = 0; i < split.length - 1; i++) {
-                if (split[i].isEmpty()) {
-                    continue; // Skip empty strings from leading /
-                }
-
-                current = current.children.get(split[i]);
-
-                if (current == null) {
-                    return List.of();
-                }
+        for (int i = 0; i < split.length - 1; i++) {
+            if (split[i].isEmpty()) {
+                continue; // Skip empty strings from leading /
             }
 
-            return searchChildren(current);
-        } finally {
-            rLock.unlock();
+            current = current.children.get(split[i]);
+
+            if (current == null) {
+                return List.of();
+            }
         }
+
+        return searchChildren(current);
     }
 
     @Override
     public boolean startsWith(final String prefix) {
-        String[] split = prefix.split(SPLITTER);
+        Node<T> current = root;
 
-        rLock.lock();
-        try {
-            Node<T> current = root;
-
-            for(String str : split) {
-                if (str.isEmpty()) {
-                    continue; // Skip empty strings from leading /
-                }
-
-                current = current.children.get(str);
-
-                if (current == null) {
-                    return false;
-                }
+        for (String str : prefix.split(SPLITTER)) {
+            if (str.isEmpty()) {
+                continue; // Skip empty strings from leading /
             }
-            return true;
-        } finally {
-            rLock.unlock();
+
+            current = current.children.get(str);
+
+            if (current == null) {
+                return false;
+            }
         }
+        return true;
     }
 
+    /**
+     * Resolves without a lock first. Routing calls this for every message and the value
+     * almost always exists, so only a miss pays for the lock. The miss path checks again
+     * under the lock because another thread may have filled it in.
+     */
     @Override
     public T computeIfAbsent(String word, Function<? super String, ? extends T> mappingFunction) {
+        T existing = get(word);
+        if (existing != null) {
+            return existing;
+        }
+
         wLock.lock();
         try {
             Node<T> current = root;
@@ -216,12 +211,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public boolean isEmpty() {
-        rLock.lock();
-        try {
-            return root.children.isEmpty();
-        } finally {
-            rLock.unlock();
-        }
+        return root.children.isEmpty();
     }
 
     private List<T> searchChildren(final Node<T> node) {
@@ -296,8 +286,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     static class Node<T> {
 
-        final Map<String, Node<T>> children = new HashMap<>();
-        @Nullable T value;
-
+        final Map<String, Node<T>> children = new ConcurrentHashMap<>();
+        volatile @Nullable T value;
     }
 }

@@ -273,6 +273,33 @@ class TrieImplTest {
     }
 
     @Test
+    void reads_stay_consistent_while_another_thread_inserts_and_removes() throws Exception {
+        Trie<String> trie = new TrieImpl<>();
+        trie.insert("/a/stable", "stable");
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<?> writer = executor.submit(() -> {
+            for (int i = 0; i < 20_000; i++) {
+                trie.insert("/a/b/" + (i % 8), "v");
+                trie.remove("/a/b/" + (i % 8));
+            }
+        });
+
+        try {
+            while (!writer.isDone()) {
+                // Readers hold no lock, so a value under churn is either present or absent.
+                String churned = trie.get("/a/b/3");
+                assertThat(churned == null || "v".equals(churned)).isTrue();
+                assertThat(trie.get("/a/stable")).isEqualTo("stable");
+                assertThat(trie.searchAll("/a/*")).contains("stable");
+            }
+            writer.get(5, TimeUnit.SECONDS);
+            assertThat(trie.searchAll("/a/*")).containsExactly("stable");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void putIfAbsent_inserts_value_and_returns_null_when_missing() {
         Trie<String> trie = new TrieImpl<>();
 
