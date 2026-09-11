@@ -250,6 +250,21 @@ class DestinationGroupRegistryTest {
         assertThat(server.isRegistered(DispatcherQueueMbeans.objectName(destination.path()))).isFalse();
     }
 
+    @Test
+    void conditional_remove_reaches_the_group_the_queue_belongs_to() {
+        DestinationGroupRegistry registry = new DestinationGroupRegistry();
+        Destination destination = destination("conditional/price");
+        DispatcherQueue market = track(registry.getOrPut("market", destination));
+        DispatcherQueue fallback = track(registry.getOrPut(destination));
+
+        // The queue carries its own group, so the removal does not go to the default one.
+        assertThat(registry.remove(market)).isTrue();
+
+        assertThat(registry.get("market", destination)).isNull();
+        assertThat(registry.get(destination)).isSameAs(fallback);
+        assertThat(registry.remove(market)).isFalse();
+    }
+
     private Destination destination(String suffix) {
         return Destination.create("/queue/group/" + suffix);
     }

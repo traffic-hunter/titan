@@ -273,6 +273,33 @@ class TrieImplTest {
     }
 
     @Test
+    void reads_stay_consistent_while_another_thread_inserts_and_removes() throws Exception {
+        Trie<String> trie = new TrieImpl<>();
+        trie.insert("/a/stable", "stable");
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<?> writer = executor.submit(() -> {
+            for (int i = 0; i < 20_000; i++) {
+                trie.insert("/a/b/" + (i % 8), "v");
+                trie.remove("/a/b/" + (i % 8));
+            }
+        });
+
+        try {
+            while (!writer.isDone()) {
+                // Readers hold no lock, so a value under churn is either present or absent.
+                String churned = trie.get("/a/b/3");
+                assertThat(churned == null || "v".equals(churned)).isTrue();
+                assertThat(trie.get("/a/stable")).isEqualTo("stable");
+                assertThat(trie.searchAll("/a/*")).contains("stable");
+            }
+            writer.get(5, TimeUnit.SECONDS);
+            assertThat(trie.searchAll("/a/*")).containsExactly("stable");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void putIfAbsent_inserts_value_and_returns_null_when_missing() {
         Trie<String> trie = new TrieImpl<>();
 
@@ -300,5 +327,34 @@ class TrieImplTest {
             case "/b/*" -> List.of("/b/b/a");
             default -> List.of();
         };
+    }
+
+    @Test
+    void remove_with_expected_value_removes_only_that_instance() {
+        Trie<String> trie = new TrieImpl<>();
+        String first = new String("value");
+        trie.insert("/a/b/c", first);
+
+        assertThat(trie.remove("/a/b/c", first)).isTrue();
+        assertThat(trie.get("/a/b/c")).isNull();
+    }
+
+    @Test
+    void remove_with_expected_value_keeps_a_replacement() {
+        Trie<String> trie = new TrieImpl<>();
+        String stale = new String("value");
+        String replacement = new String("value");
+        trie.insert("/a/b/c", replacement);
+
+        // Equal but not the same instance, so the stale reference must not take the replacement.
+        assertThat(trie.remove("/a/b/c", stale)).isFalse();
+        assertThat(trie.get("/a/b/c")).isSameAs(replacement);
+    }
+
+    @Test
+    void remove_with_expected_value_returns_false_when_path_does_not_exist() {
+        Trie<String> trie = new TrieImpl<>();
+
+        assertThat(trie.remove("/a/b/c", "value")).isFalse();
     }
 }

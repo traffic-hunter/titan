@@ -16,18 +16,26 @@
 package org.traffichunter.titan.core.util;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.concurrent.ThreadSafe;
 
 /**
+ * Path trie keyed by {@code /}-separated segments.
+ *
+ * <p>Reads take no lock. Each node keeps its children in a {@link ConcurrentHashMap} and its
+ * value in a volatile field, so a reader always sees a fully published node. Writes share one
+ * lock, which keeps a removal that prunes empty nodes from interleaving with an insert that is
+ * descending through them. A reader that races a removal may see the value or {@code null},
+ * never a half-built node.</p>
+ *
  * @author yungwang-o
  */
 @ThreadSafe
@@ -37,10 +45,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     private final Node<T> root = new Node<>();
 
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
-    private final Lock rLock = lock.readLock();
-    private final Lock wLock = lock.writeLock();
+    private final Lock wLock = new ReentrantLock();
 
     @Override
     public T insert(final String word, final T value) {
@@ -65,27 +70,20 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public @Nullable T get(final String word) {
-        String[] split = word.split(SPLITTER);
+        Node<T> current = root;
 
-        rLock.lock();
-        try {
-            Node<T> current = root;
-
-            for (String str : split) {
-                if (str.isEmpty()) {
-                    continue; // Skip empty strings from leading /
-                }
-
-                current = current.children.get(str);
-
-                if (current == null) {
-                    return null;
-                }
+        for (String str : word.split(SPLITTER)) {
+            if (str.isEmpty()) {
+                continue; // Skip empty strings from leading /
             }
-            return current.value;
-        } finally {
-            rLock.unlock();
+
+            current = current.children.get(str);
+
+            if (current == null) {
+                return null;
+            }
         }
+        return current.value;
     }
 
     @Override
@@ -103,55 +101,53 @@ public final class TrieImpl<T> implements Trie<T> {
 
         validateWildcard(split);
 
-        rLock.lock();
-        try {
-            Node<T> current = root;
+        Node<T> current = root;
 
-            for (int i = 0; i < split.length - 1; i++) {
-                if (split[i].isEmpty()) {
-                    continue; // Skip empty strings from leading /
-                }
-
-                current = current.children.get(split[i]);
-
-                if (current == null) {
-                    return List.of();
-                }
+        for (int i = 0; i < split.length - 1; i++) {
+            if (split[i].isEmpty()) {
+                continue; // Skip empty strings from leading /
             }
 
-            return searchChildren(current);
-        } finally {
-            rLock.unlock();
+            current = current.children.get(split[i]);
+
+            if (current == null) {
+                return List.of();
+            }
         }
+
+        return searchChildren(current);
     }
 
     @Override
     public boolean startsWith(final String prefix) {
-        String[] split = prefix.split(SPLITTER);
+        Node<T> current = root;
 
-        rLock.lock();
-        try {
-            Node<T> current = root;
-
-            for(String str : split) {
-                if (str.isEmpty()) {
-                    continue; // Skip empty strings from leading /
-                }
-
-                current = current.children.get(str);
-
-                if (current == null) {
-                    return false;
-                }
+        for (String str : prefix.split(SPLITTER)) {
+            if (str.isEmpty()) {
+                continue; // Skip empty strings from leading /
             }
-            return true;
-        } finally {
-            rLock.unlock();
+
+            current = current.children.get(str);
+
+            if (current == null) {
+                return false;
+            }
         }
+        return true;
     }
 
+    /**
+     * Resolves without a lock first. Routing calls this for every message and the value
+     * almost always exists, so only a miss pays for the lock. The miss path checks again
+     * under the lock because another thread may have filled it in.
+     */
     @Override
     public T computeIfAbsent(String word, Function<? super String, ? extends T> mappingFunction) {
+        T existing = get(word);
+        if (existing != null) {
+            return existing;
+        }
+
         wLock.lock();
         try {
             Node<T> current = root;
@@ -200,23 +196,20 @@ public final class TrieImpl<T> implements Trie<T> {
 
         wLock.lock();
         try {
-            Node<T> current = root;
-            for (String part : split) {
-                if (part.isEmpty()) {
-                    continue;
-                }
-                current = current.children.get(part);
-                if (current == null) {
-                    return null;
-                }
-            }
+            return remove(root, split, 0, null);
+        } finally {
+            wLock.unlock();
+        }
+    }
 
-            T value = current.value;
-            if (value == null) {
-                return null;
-            }
-            remove(root, split, 0);
-            return value;
+    @Override
+    public boolean remove(final String word, final T expected) {
+        Objects.requireNonNull(expected, "expected");
+        String[] split = word.split(SPLITTER);
+
+        wLock.lock();
+        try {
+            return remove(root, split, 0, expected) != null;
         } finally {
             wLock.unlock();
         }
@@ -224,20 +217,7 @@ public final class TrieImpl<T> implements Trie<T> {
 
     @Override
     public boolean isEmpty() {
-        rLock.lock();
-        try {
-            return root.children.isEmpty();
-        } finally {
-            rLock.unlock();
-        }
-    }
-
-    private List<T> searchAll(final Node<T> node) {
-        List<T> list = new ArrayList<>();
-
-        tour(node, list);
-
-        return list;
+        return root.children.isEmpty();
     }
 
     private List<T> searchChildren(final Node<T> node) {
@@ -283,51 +263,47 @@ public final class TrieImpl<T> implements Trie<T> {
         }
     }
 
-    private boolean remove(final Node<T> node, final String[] parts, int idx) {
+    /**
+     * Removes the value at the end of {@code parts} and prunes nodes left empty on the way back
+     * up. A non-null {@code expected} limits the removal to that instance.
+     */
+    private @Nullable T remove(
+            final Node<T> node,
+            final String[] parts,
+            int idx,
+            final @Nullable T expected
+    ) {
         // Skip empty strings from leading /
         while (idx < parts.length && parts[idx].isEmpty()) {
             idx++;
         }
 
-        if(idx == parts.length) {
-            if (node.value == null) {
-                return false;
+        if (idx == parts.length) {
+            T value = node.value;
+            if (value == null || (expected != null && value != expected)) {
+                return null;
             }
             node.value = null;
-            return true;
+            return value;
         }
 
         String part = parts[idx];
         Node<T> child = node.children.get(part);
-
         if (child == null) {
-            return false;
+            return null;
         }
 
-        boolean removed = remove(child, parts, idx + 1);
-
-        if (!removed) {
-            return false;
-        }
-
-        if (child.value == null && child.children.isEmpty()) {
+        T removed = remove(child, parts, idx + 1, expected);
+        if (removed != null && child.value == null && child.children.isEmpty()) {
             node.children.remove(part);
         }
 
-        return true;
+        return removed;
     }
 
     static class Node<T> {
 
-        final Map<String, Node<T>> children = new HashMap<>();
-        @Nullable T value;
-
-        Node() {
-            this(null);
-        }
-
-        Node(final @Nullable T value) {
-            this.value = value;
-        }
+        final Map<String, Node<T>> children = new ConcurrentHashMap<>();
+        volatile @Nullable T value;
     }
 }

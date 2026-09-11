@@ -34,7 +34,8 @@ import org.traffichunter.titan.core.util.Destination;
  *
  * <p>Messages are dispatched in insertion order through {@link LinkedBlockingQueue}. A manual
  * pause blocks both enqueue and dispatch operations. A pressure pause blocks only enqueue
- * operations so consumers can drain the queue until it reaches the resume threshold.</p>
+ * operations so consumers can drain the queue until it reaches the resume threshold. A closed
+ * queue refuses every message, and the refusal outranks both pauses.</p>
  *
  * @author yungwang-o
  */
@@ -55,9 +56,10 @@ class MessageDispatcherQueue implements DispatcherQueue {
     private final ReentrantLock pauseLock = new ReentrantLock();
     private final Condition pauseCondition = pauseLock.newCondition();
 
-    private volatile Destination destination;
+    private final Destination destination;
     private volatile boolean manuallyPaused;
     private volatile boolean pressurePaused;
+    private volatile boolean closed;
 
     /**
      * {@link LinkedBlockingQueue} unbounded queue.
@@ -122,6 +124,10 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
     @Override
     public @Nullable Message enqueue(final Message message) {
+        if (closed) {
+            return null;
+        }
+
         if(isPaused()) {
             log.info("Waiting for queue to be resumed");
             if (!awaitResume()) {
@@ -228,15 +234,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public void updateRoutingKey(final Destination key) {
-
-        synchronized (this) {
-            this.destination = key;
-            metadata.destination(key.path());
-        }
-    }
-
-    @Override
     public void remove(Message message) {
         if(!queue.remove(message)) {
             throw new IllegalStateException("Message not found");
@@ -283,13 +280,30 @@ class MessageDispatcherQueue implements DispatcherQueue {
         resumeAfterPressure();
     }
 
+    @Override
+    public void close() {
+        pauseLock.lock();
+        try {
+            closed = true;
+            // Producers parked on a pause have to wake up and read the refusal.
+            pauseCondition.signalAll();
+        } finally {
+            pauseLock.unlock();
+        }
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
+    }
+
     private boolean awaitResume() {
         pauseLock.lock();
         try {
-            while (isPaused()) {
+            while (isPaused() && !closed) {
                 pauseCondition.await();
             }
-            return true;
+            return !closed;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;

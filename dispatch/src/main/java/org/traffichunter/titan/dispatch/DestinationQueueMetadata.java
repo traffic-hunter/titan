@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @ThreadSafe
 public final class DestinationQueueMetadata {
 
-    private volatile String destination;
+    private final String destination;
     private final Instant createdAt;
     private final long maxPendingBytes;
     private final long resumePendingBytes;
@@ -92,13 +92,6 @@ public final class DestinationQueueMetadata {
 
     void paused(boolean paused) {
         this.paused.set(paused);
-    }
-
-    void destination(String destination) {
-        if (destination.isBlank()) {
-            throw new IllegalArgumentException("Destination must not be blank");
-        }
-        this.destination = destination;
     }
 
     public String getDestination() {

@@ -16,7 +16,6 @@
 package org.traffichunter.titan.dispatch;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -28,7 +27,6 @@ import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
-import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
@@ -47,7 +45,6 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
 
     private final Map<ConsumerKey, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
-    private final Set<DispatcherQueue> deletedQueues = ConcurrentHashMap.newKeySet();
     private final ExecutorService executor;
     private final DispatchExporter exporter;
     private final Dispatcher dispatcher;
@@ -90,18 +87,22 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         if (size > 0 && !force) {
             return DispatcherQueueDeleteResult.notEmpty(size);
         }
+
+        // Remove the queue this call looked up, never a replacement created since. The
+        // dispatcher unregisters the MBean of whatever it actually removed.
+        if (!dispatcher.remove(queue)) {
+            return DispatcherQueueDeleteResult.notFound();
+        }
+        queue.close();
         if (force) {
             queue.clear();
         }
 
-        deletedQueues.add(queue);
         CompletableFuture<@Nullable Void> consumer =
                 consumers.remove(new ConsumerKey(DestinationGroups.DEFAULT, destination));
         if (consumer != null) {
             consumer.cancel(true);
         }
-        dispatcher.remove(destination);
-        DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());
         return DispatcherQueueDeleteResult.deleted(size);
     }
 
@@ -121,7 +122,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             try {
                 while (!closed.get()
                         && !Thread.currentThread().isInterrupted()
-                        && !deletedQueues.contains(queue)) {
+                        && !queue.isClosed()) {
                     try {
                         Message message = queue.dispatch(1, TimeUnit.SECONDS);
                         if (message == null) {
@@ -143,7 +144,6 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             } catch (Exception e) {
                 result.completeExceptionally(e);
             } finally {
-                deletedQueues.remove(queue);
                 consumers.remove(key, result);
             }
         });

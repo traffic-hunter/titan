@@ -304,4 +304,35 @@ class MessageDispatcherQueueTest {
                 .body("test".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build();
     }
+
+    @Test
+    void closed_queue_refuses_new_messages() {
+        DispatcherQueue queue = new MessageDispatcherQueue(Destination.create("/queue/closed"));
+
+        queue.close();
+
+        assertThat(queue.isClosed()).isTrue();
+        assertThat(queue.enqueue(message("/queue/closed"))).isNull();
+        assertThat(queue.size()).isZero();
+    }
+
+    @Test
+    void closing_wakes_a_producer_waiting_on_a_pause() throws Exception {
+        DispatcherQueue queue = new MessageDispatcherQueue(Destination.create("/queue/closed-while-paused"));
+        queue.pause();
+        AtomicReference<Message> enqueued = new AtomicReference<>();
+        CountDownLatch started = new CountDownLatch(1);
+        Thread producer = new Thread(() -> {
+            started.countDown();
+            enqueued.set(queue.enqueue(message("/queue/closed-while-paused")));
+        });
+        producer.start();
+        started.await(5, TimeUnit.SECONDS);
+
+        queue.close();
+        producer.join(5_000);
+
+        assertThat(producer.isAlive()).isFalse();
+        assertThat(enqueued.get()).isNull();
+    }
 }

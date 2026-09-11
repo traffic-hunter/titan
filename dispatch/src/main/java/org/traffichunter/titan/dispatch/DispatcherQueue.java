@@ -35,6 +35,9 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
  * stops both sides of that handoff, while an automatic pressure pause stops producers and lets
  * consumers continue draining queued messages.</p>
  *
+ * <p>A queue that leaves its dispatcher is closed and refuses further messages, so a producer
+ * holding a stale reference fails instead of writing into a queue nothing drains.</p>
+ *
  * @author yungwang-o
  */
 public interface DispatcherQueue extends Pausable, Iterator<Message>, DispatcherQueueMbean {
@@ -112,7 +115,18 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
 
     void remove(Message message);
 
-    void updateRoutingKey(Destination key);
+    /**
+     * Refuses further messages.
+     *
+     * <p>Called once the queue has left its dispatcher. {@link #enqueue(Message)} then returns
+     * {@code null} and any producer waiting on a pause wakes up and sees the same answer. A
+     * message accepted just before the close is still queued, so a caller that must not lose
+     * one checks {@link #size()} afterwards. Closing is one way.</p>
+     */
+    void close();
+
+    /** {@code true} once the queue has been closed. */
+    boolean isClosed();
 
     int size();
 

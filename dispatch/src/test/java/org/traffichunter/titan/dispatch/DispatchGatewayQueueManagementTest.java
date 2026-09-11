@@ -459,4 +459,25 @@ class DispatchGatewayQueueManagementTest {
                 .body("test".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build();
     }
+
+    @Test
+    void deleted_queue_refuses_messages_from_a_producer_holding_it() {
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+                noopExporter(),
+                dispatcher
+        );
+        Destination destination = Destination.create("/queue/delete-closes");
+        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+
+        assertThat(gateway.deleteQueue(destination, false).isDeleted()).isTrue();
+
+        // A producer that resolved the queue before the delete would otherwise write into
+        // a queue nothing drains.
+        assertThat(queue.isClosed()).isTrue();
+        assertThat(queue.enqueue(message(destination))).isNull();
+        assertThat(queue.size()).isZero();
+
+        gateway.close();
+    }
 }
