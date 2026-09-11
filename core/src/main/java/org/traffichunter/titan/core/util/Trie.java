@@ -50,5 +50,15 @@ public interface Trie<T> {
     /** Removes and returns the value for {@code word}, or {@code null} when no value exists. */
     @Nullable T remove(String word);
 
+    /**
+     * Removes the value for {@code word} only while it is the expected instance.
+     *
+     * <p>A caller that looked the value up earlier uses this to avoid removing a replacement
+     * inserted in the meantime.</p>
+     *
+     * @return {@code true} when the expected value was present and removed
+     */
+    boolean remove(String word, T expected);
+
     boolean isEmpty();
 }

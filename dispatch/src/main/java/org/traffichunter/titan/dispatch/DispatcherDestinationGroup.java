@@ -116,6 +116,17 @@ final class DispatcherDestinationGroup implements DestinationGroup {
         }
     }
 
+    @Override
+    public boolean remove(DispatcherQueue expected) {
+        lifecycle.writeLock().lock();
+        try {
+            ensureActive();
+            return dispatcher.remove(expected);
+        } finally {
+            lifecycle.writeLock().unlock();
+        }
+    }
+
     /**
      * Marks the group removed when it holds no queues.
      *

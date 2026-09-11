@@ -328,4 +328,33 @@ class TrieImplTest {
             default -> List.of();
         };
     }
+
+    @Test
+    void remove_with_expected_value_removes_only_that_instance() {
+        Trie<String> trie = new TrieImpl<>();
+        String first = new String("value");
+        trie.insert("/a/b/c", first);
+
+        assertThat(trie.remove("/a/b/c", first)).isTrue();
+        assertThat(trie.get("/a/b/c")).isNull();
+    }
+
+    @Test
+    void remove_with_expected_value_keeps_a_replacement() {
+        Trie<String> trie = new TrieImpl<>();
+        String stale = new String("value");
+        String replacement = new String("value");
+        trie.insert("/a/b/c", replacement);
+
+        // Equal but not the same instance, so the stale reference must not take the replacement.
+        assertThat(trie.remove("/a/b/c", stale)).isFalse();
+        assertThat(trie.get("/a/b/c")).isSameAs(replacement);
+    }
+
+    @Test
+    void remove_with_expected_value_returns_false_when_path_does_not_exist() {
+        Trie<String> trie = new TrieImpl<>();
+
+        assertThat(trie.remove("/a/b/c", "value")).isFalse();
+    }
 }

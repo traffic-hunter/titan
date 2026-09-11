@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
+import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.util.Destination;
@@ -171,5 +172,50 @@ class DispatcherQueueManagementTest {
                 .isInstanceOf(UnsupportedOperationException.class);
 
         DispatcherQueueMbeans.unregister(destination.path());
+    }
+
+    @Test
+    void conditional_remove_keeps_a_queue_recreated_since_the_lookup() {
+        Destination destination = Destination.create("/queue/stale-remove");
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+        ObjectName name = DispatcherQueueMbeans.objectName(destination.path());
+
+        DispatcherQueue stale = dispatcher.getOrPut(destination);
+        dispatcher.remove(destination);
+        DispatcherQueue replacement = dispatcher.getOrPut(destination);
+
+        // A delete that started before the replacement existed must leave it alone,
+        // including its MBean, which shares the object name with the stale queue.
+        assertThat(dispatcher.remove(stale)).isFalse();
+        assertThat(dispatcher.get(destination)).isSameAs(replacement);
+        assertThat(server.isRegistered(name)).isTrue();
+
+        assertThat(dispatcher.remove(replacement)).isTrue();
+        assertThat(dispatcher.get(destination)).isNull();
+        assertThat(server.isRegistered(name)).isFalse();
+    }
+
+    @Test
+    void map_dispatcher_unregisters_the_mbean_of_a_removed_queue() {
+        Destination destination = Destination.create("/queue/map-mbean");
+        Dispatcher dispatcher = new MapDispatcher(4);
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+        ObjectName name = DispatcherQueueMbeans.objectName(destination.path());
+
+        DispatcherQueue queue = dispatcher.getOrPut(destination);
+        assertThat(server.isRegistered(name)).isTrue();
+
+        dispatcher.remove(destination);
+
+        assertThat(dispatcher.get(destination)).isNull();
+        assertThat(server.isRegistered(name)).isFalse();
+
+        DispatcherQueue replacement = dispatcher.getOrPut(destination);
+        assertThat(dispatcher.remove(queue)).isFalse();
+        assertThat(server.isRegistered(name)).isTrue();
+
+        assertThat(dispatcher.remove(replacement)).isTrue();
+        assertThat(server.isRegistered(name)).isFalse();
     }
 }

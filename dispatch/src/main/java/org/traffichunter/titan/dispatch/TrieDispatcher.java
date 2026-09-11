@@ -140,8 +140,17 @@ public class TrieDispatcher implements Dispatcher {
     public void remove(Destination destination) {
         DispatcherQueue queue = trie.remove(destination.path());
         if (queue != null) {
-            DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());
+            DispatcherQueueMbeans.unregister(queue);
         }
+    }
+
+    @Override
+    public boolean remove(DispatcherQueue expected) {
+        if (!trie.remove(expected.route().path(), expected)) {
+            return false;
+        }
+        DispatcherQueueMbeans.unregister(expected);
+        return true;
     }
 
     /** {@code true} when this dispatcher holds no queues. */

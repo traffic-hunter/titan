@@ -52,8 +52,11 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
         DispatcherQueue dq = dispatcher.getOrPut(group, destination);
 
         if (dq.enqueue(message) == null) {
-            log.warn("Dispatcher queue is full, no message was enqueued. group={}, destination={}", group, destination);
-            throw new IllegalStateException("Dispatcher queue is full = " + group + ":" + destination.path());
+            // A queue refuses when it is full, when a pause was interrupted, or once it is closed.
+            log.warn("Dispatcher queue refused the message. group={}, destination={}, closed={}",
+                    group, destination, dq.isClosed());
+            throw new IllegalStateException(
+                    "Dispatcher queue refused the message = " + group + ":" + destination.path());
         }
 
         return chain.next(context);

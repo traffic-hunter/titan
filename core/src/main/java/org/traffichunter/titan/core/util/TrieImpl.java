@@ -26,6 +26,7 @@ package org.traffichunter.titan.core.util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -203,7 +204,20 @@ public final class TrieImpl<T> implements Trie<T> {
 
         wLock.lock();
         try {
-            return remove(root, split, 0);
+            return remove(root, split, 0, null);
+        } finally {
+            wLock.unlock();
+        }
+    }
+
+    @Override
+    public boolean remove(final String word, final T expected) {
+        Objects.requireNonNull(expected, "expected");
+        String[] split = word.split(SPLITTER);
+
+        wLock.lock();
+        try {
+            return remove(root, split, 0, expected) != null;
         } finally {
             wLock.unlock();
         }
@@ -257,8 +271,16 @@ public final class TrieImpl<T> implements Trie<T> {
         }
     }
 
-    /** Removes the value at the end of {@code parts} and prunes nodes left empty on the way back up. */
-    private @Nullable T remove(final Node<T> node, final String[] parts, int idx) {
+    /**
+     * Removes the value at the end of {@code parts} and prunes nodes left empty on the way back
+     * up. A non-null {@code expected} limits the removal to that instance.
+     */
+    private @Nullable T remove(
+            final Node<T> node,
+            final String[] parts,
+            int idx,
+            final @Nullable T expected
+    ) {
         // Skip empty strings from leading /
         while (idx < parts.length && parts[idx].isEmpty()) {
             idx++;
@@ -266,6 +288,9 @@ public final class TrieImpl<T> implements Trie<T> {
 
         if (idx == parts.length) {
             T value = node.value;
+            if (value == null || (expected != null && value != expected)) {
+                return null;
+            }
             node.value = null;
             return value;
         }
@@ -276,7 +301,7 @@ public final class TrieImpl<T> implements Trie<T> {
             return null;
         }
 
-        T removed = remove(child, parts, idx + 1);
+        T removed = remove(child, parts, idx + 1, expected);
         if (removed != null && child.value == null && child.children.isEmpty()) {
             node.children.remove(part);
         }

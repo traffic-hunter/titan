@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
  * Hash-map dispatcher implementation.
@@ -120,7 +121,19 @@ public class MapDispatcher implements Dispatcher {
 
     @Override
     public void remove(Destination destination) {
-        map.remove(destination);
+        DispatcherQueue queue = map.remove(destination);
+        if (queue != null) {
+            DispatcherQueueMbeans.unregister(queue);
+        }
+    }
+
+    @Override
+    public boolean remove(DispatcherQueue expected) {
+        if (!map.remove(expected.route(), expected)) {
+            return false;
+        }
+        DispatcherQueueMbeans.unregister(expected);
+        return true;
     }
 
     private boolean isDescendant(String path, String prefix) {

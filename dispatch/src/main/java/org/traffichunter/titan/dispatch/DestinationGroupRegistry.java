@@ -157,6 +157,13 @@ public final class DestinationGroupRegistry implements Dispatcher {
         defaultGroup.remove(destination);
     }
 
+    /** Removes the queue from the group it belongs to, which need not be the default one. */
+    @Override
+    public boolean remove(DispatcherQueue expected) {
+        DispatcherDestinationGroup group = groups.get(expected.getGroup());
+        return group != null && group.remove(expected);
+    }
+
     private DispatcherDestinationGroup groupOrCreate(String name) {
         Assert.checkArgument(DestinationGroups.isValid(name), "Invalid group name: " + name);
         return groups.computeIfAbsent(name, groupName ->

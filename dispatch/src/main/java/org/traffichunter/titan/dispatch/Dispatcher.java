@@ -129,4 +129,16 @@ public interface Dispatcher {
     boolean exists(Destination destination);
 
     void remove(Destination destination);
+
+    /**
+     * Removes the queue only while it is still the one registered for its destination.
+     *
+     * <p>Deleting by destination alone can take out a queue created since the caller looked
+     * one up. A caller that holds the queue it means to delete passes it here, and a
+     * {@code false} result says a newer queue now serves that destination. The queue carries
+     * its own group and destination, so this reaches any group.</p>
+     *
+     * @return {@code true} when the queue was present and removed
+     */
+    boolean remove(DispatcherQueue expected);
 }
