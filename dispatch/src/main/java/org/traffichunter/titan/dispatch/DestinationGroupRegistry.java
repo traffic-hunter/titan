@@ -129,6 +129,9 @@ public final class DestinationGroupRegistry implements Dispatcher {
     /** Reads inside the named group. An unknown group yields {@code null} and is not created. */
     @Override
     public @Nullable DispatcherQueue get(String group, Destination destination) {
+        if (!DestinationGroups.isValid(group)) {
+            return null;
+        }
         DispatcherDestinationGroup destinationGroup = groups.get(group);
         return destinationGroup == null ? null : destinationGroup.get(destination);
     }

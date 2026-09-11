@@ -47,7 +47,8 @@ public interface Trie<T> {
 
     @Nullable T putIfAbsent(String word, T value);
 
-    void remove(String word);
+    /** Removes and returns the value for {@code word}, or {@code null} when no value exists. */
+    @Nullable T remove(String word);
 
     boolean isEmpty();
 }

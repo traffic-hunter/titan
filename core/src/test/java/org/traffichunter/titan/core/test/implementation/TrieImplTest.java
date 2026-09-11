@@ -188,16 +188,32 @@ class TrieImplTest {
     }
 
     @Test
-    void remove_failed_when_path_does_not_exist_test() {
+    void remove_returns_null_when_path_does_not_exist_test() {
         String dq1 = "/a/b/a";
 
         Trie<String> trie = new TrieImpl<>();
 
         trie.insert(dq1, dq1);
 
-        assertThatThrownBy(() -> trie.remove("/a/b/c"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("No such word: /a/b/c");
+        assertThat(trie.remove("/a/b/c")).isNull();
+    }
+
+    @Test
+    void remove_returns_the_removed_value() {
+        Trie<String> trie = new TrieImpl<>();
+        trie.insert("/a/b/c", "value");
+
+        String removed = trie.remove("/a/b/c");
+
+        assertThat(removed).isEqualTo("value");
+        assertThat(trie.get("/a/b/c")).isNull();
+    }
+
+    @Test
+    void remove_returns_null_when_path_does_not_exist() {
+        Trie<String> trie = new TrieImpl<>();
+
+        assertThat(trie.remove("/a/b/c")).isNull();
     }
 
     @Test

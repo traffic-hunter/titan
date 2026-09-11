@@ -30,6 +30,7 @@ import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Trie;
 import org.traffichunter.titan.core.util.TrieImpl;
+import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
  * Trie-backed dispatcher for path-like destinations.
@@ -137,7 +138,10 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public void remove(Destination destination) {
-        trie.remove(destination.path());
+        DispatcherQueue queue = trie.remove(destination.path());
+        if (queue != null) {
+            DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());
+        }
     }
 
     /** {@code true} when this dispatcher holds no queues. */
