@@ -191,6 +191,11 @@ Rules:
 - The deprecated Vert.x STOMP transport does not support groups. A `SEND` with
   a `group` header on that transport is refused with an `ERROR` frame.
 
+The Java client and the Spring integration take the group as the first argument
+of their send and subscribe methods. See
+[the client example](../examples/client.md#destination-groups) and
+[the Spring example](../examples/spring-client.md#destination-groups).
+
 Queue management over HTTP and the CLI still operates on the `default` group.
 
 ## Fanout mode versus the default STOMP handler

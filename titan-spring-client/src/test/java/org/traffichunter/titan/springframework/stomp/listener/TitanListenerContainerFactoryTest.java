@@ -1,9 +1,12 @@
 package org.traffichunter.titan.springframework.stomp.listener;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -36,6 +39,8 @@ import org.traffichunter.titan.springframework.stomp.factory.SimpleTitanListener
 
 class TitanListenerContainerFactoryTest {
 
+    private static final String SUBSCRIPTION_ID = "sub-1";
+
     private TitanClient client;
     private TitanClientManager manager;
 
@@ -45,8 +50,13 @@ class TitanListenerContainerFactoryTest {
         manager = new TitanClientManager(client, new TitanProperties());
 
         when(client.isConnected()).thenReturn(true);
-        when(client.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
-                .thenReturn(CompletableFuture.completedFuture("/topic/test"));
+        when(client.subscribe(
+                eq("default"),
+                eq("/topic/test"),
+                org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()
+        )).thenReturn(CompletableFuture.completedFuture(SUBSCRIPTION_ID));
+        when(client.unsubscribe(anyString()))
+                .thenReturn(CompletableFuture.completedFuture(mock(StompFrames.class)));
     }
 
     @Test
@@ -111,22 +121,70 @@ class TitanListenerContainerFactoryTest {
     }
 
     @Test
-    void listener_container_stops_by_unsubscribing_active_destination() throws Exception {
-        when(client.unsubscribe("/topic/test"))
-                .thenReturn(CompletableFuture.completedFuture(mock(StompFrames.class)));
+    void listener_container_stops_by_unsubscribing_its_own_subscription_id() throws Exception {
         TitanListenerContainer container = listenerContainer(endpoint("handle"));
 
         container.start();
+        assertEquals(SUBSCRIPTION_ID, container.subscriptionId());
+
         container.stop();
 
-        verify(client).unsubscribe("/topic/test");
+        verify(client).unsubscribe(SUBSCRIPTION_ID);
+        assertTrue(container.isStopped());
+        assertNull(container.subscriptionId());
+    }
+
+    @Test
+    void listener_container_subscribes_within_its_endpoint_group() throws Exception {
+        when(client.subscribe(
+                eq("market"),
+                eq("/topic/test"),
+                org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()
+        )).thenReturn(CompletableFuture.completedFuture("sub-market"));
+        TitanListenerContainer container = listenerContainer(groupedEndpoint("market"));
+
+        container.start();
+
+        verify(client).subscribe(eq("market"), eq("/topic/test"), any());
+        assertEquals("sub-market", container.subscriptionId());
+    }
+
+    @Test
+    void listener_container_unsubscribes_even_while_the_connection_is_down() throws Exception {
+        TitanListenerContainer container = listenerContainer(endpoint("handle"));
+        container.start();
+
+        when(client.isConnected()).thenReturn(false);
+        when(client.unsubscribe(SUBSCRIPTION_ID))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("not connected")));
+
+        container.stop();
+
+        // The client drops the logical subscription, so a reconnect does not restore it.
+        verify(client).unsubscribe(SUBSCRIPTION_ID);
         assertTrue(container.isStopped());
     }
 
     @Test
+    void stopped_listener_ignores_a_late_delivery() throws Exception {
+        TitanListenerContainer container = listenerContainer(endpoint("handle"));
+
+        container.start();
+        Handler<StompFrames> handler = subscribedHandler();
+        container.stop();
+        handler.handle(messageFrame("msg-3"));
+
+        verify(client, never()).ack(anyString());
+        verify(client, never()).nack(anyString());
+    }
+
+    @Test
     void listener_container_resets_running_when_subscribe_fails() throws Exception {
-        when(client.subscribe(eq("/topic/test"), org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()))
-                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("subscribe failed")));
+        when(client.subscribe(
+                eq("default"),
+                eq("/topic/test"),
+                org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()
+        )).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("subscribe failed")));
         TitanListenerContainer container = listenerContainer(endpoint("handle"));
 
         assertThatThrownBy(container::start)
@@ -142,6 +200,12 @@ class TitanListenerContainerFactoryTest {
     private static TitanListenerEndpoint endpoint(String name) throws NoSuchMethodException {
         Method method = Fixture.class.getDeclaredMethod(name, String.class);
         return new TitanListenerEndpoint("fixture#handle", "/topic/test", new Fixture(), method, "client", 1);
+    }
+
+    private static TitanListenerEndpoint groupedEndpoint(String group) throws NoSuchMethodException {
+        Method method = Fixture.class.getDeclaredMethod("handle", String.class);
+        return new TitanListenerEndpoint(
+                "fixture#handle", group, "/topic/test", new Fixture(), method, "client", 1);
     }
 
     private TitanListenerContainer listenerContainer(TitanListenerEndpoint endpoint) {
@@ -160,7 +224,7 @@ class TitanListenerContainerFactoryTest {
     @SuppressWarnings("unchecked")
     private Handler<StompFrames> subscribedHandler() {
         ArgumentCaptor<Handler<StompFrames>> captor = ArgumentCaptor.forClass(Handler.class);
-        verify(client).subscribe(eq("/topic/test"), captor.capture());
+        verify(client).subscribe(eq("default"), eq("/topic/test"), captor.capture());
         return captor.getValue();
     }
 

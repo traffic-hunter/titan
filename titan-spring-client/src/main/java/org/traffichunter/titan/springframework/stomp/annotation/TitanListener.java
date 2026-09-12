@@ -28,6 +28,11 @@ import java.lang.annotation.*;
  * void onAlert(String payload) {
  *     // handle message
  * }
+ *
+ * @TitanListener(group = "market", destination = "/topic/alerts")
+ * void onMarketAlert(String payload) {
+ *     // handle message published to the market group
+ * }
  * }</pre>
  *
  * @author yun
@@ -36,6 +41,14 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface TitanListener {
+
+    /**
+     * Destination group to subscribe within.
+     *
+     * <p>Blank selects the default group. The value may be a {@code ${...}} property reference,
+     * which is resolved against the Spring environment before the listener starts.</p>
+     */
+    String group() default "";
 
     String destination();
 

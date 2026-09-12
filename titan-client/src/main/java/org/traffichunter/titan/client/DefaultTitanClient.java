@@ -246,13 +246,13 @@ public final class DefaultTitanClient implements TitanClient {
     @Override
     public CompletableFuture<StompFrames> unsubscribe(String subscriptionId) {
         StompConnection source = activeConnection();
+        forget(subscriptionId);
         if (source == null) {
             return notConnected();
         }
 
         return source.unsubscribe(subscriptionId)
                 .thenComposeAsync(frames -> {
-                    subscriptionManager.remove(subscriptionId);
                     StompConnection current = this.connection;
                     if (current != null && current != source) {
                         return current.unsubscribe(subscriptionId).thenApply(ignored -> frames);
@@ -264,13 +264,13 @@ public final class DefaultTitanClient implements TitanClient {
     @Override
     public CompletableFuture<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
         StompConnection source = activeConnection();
+        forget(subscriptionId);
         if (source == null) {
             return notConnected();
         }
 
         return source.unsubscribe(subscriptionId, headers)
                 .thenComposeAsync(frames -> {
-                    subscriptionManager.remove(subscriptionId);
                     StompConnection current = this.connection;
                     if (current != null && current != source) {
                         return current.unsubscribe(subscriptionId, headers).thenApply(ignored -> frames);
@@ -353,8 +353,7 @@ public final class DefaultTitanClient implements TitanClient {
 
     @Override
     public boolean isConnected() {
-        StompConnection connection = this.connection;
-        return status.get() == Status.CONNECTED && connection != null && connection.isConnected();
+        return activeConnection() != null;
     }
 
     @Override
@@ -551,8 +550,20 @@ public final class DefaultTitanClient implements TitanClient {
         }
     }
 
+    /**
+     * Returns the connection messaging operations may use, or {@code null}.
+     *
+     * <p>This is the same condition {@link #isConnected()} reports, so a client that calls
+     * itself disconnected never hands a dead connection to an operation. The socket can still
+     * die immediately after this returns; a caller that must not lose a message reads the
+     * result of the operation rather than this.</p>
+     */
     private @Nullable StompConnection activeConnection() {
-        return status.get() == Status.CONNECTED ? connection : null;
+        StompConnection connection = this.connection;
+        if (status.get() != Status.CONNECTED || connection == null || !connection.isConnected()) {
+            return null;
+        }
+        return connection;
     }
 
     private void cancelReconnect() {
@@ -572,6 +583,16 @@ public final class DefaultTitanClient implements TitanClient {
                 return true;
             }
         }
+    }
+
+    /**
+     * Drops the logical subscription before the UNSUBSCRIBE frame is even attempted.
+     *
+     * <p>The caller has given the subscription up, so waiting for the server to confirm would
+     * leave a broken or already closed connection restoring it on the next reconnect.</p>
+     */
+    private void forget(String subscriptionId) {
+        subscriptionManager.remove(subscriptionId);
     }
 
     private static <T> CompletableFuture<T> notConnected() {

@@ -57,8 +57,52 @@ public final class TitanTemplate implements StompOperations {
     }
 
     @Override
+    public CompletableFuture<StompFrames> send(String group, String destination, Buffer payload) {
+        TitanClient client;
+        try {
+            client = connection();
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return client.send(group, destination, payload);
+    }
+
+    @Override
+    public CompletableFuture<StompFrames> send(
+            String group,
+            String destination,
+            Buffer payload,
+            Map<Elements, String> headers
+    ) {
+        TitanClient client;
+        try {
+            client = connection();
+        } catch (RuntimeException error) {
+            payload.release();
+            throw error;
+        }
+        return client.send(group, destination, payload, headers);
+    }
+
+    @Override
     public CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler) {
         return connection().subscribe(destination, handler);
+    }
+
+    @Override
+    public CompletableFuture<String> subscribe(String group, String destination, Handler<StompFrames> handler) {
+        return connection().subscribe(group, destination, handler);
+    }
+
+    @Override
+    public CompletableFuture<String> subscribe(
+            String group,
+            String destination,
+            Map<Elements, String> headers,
+            Handler<StompFrames> handler
+    ) {
+        return connection().subscribe(group, destination, headers, handler);
     }
 
     @Override
@@ -108,6 +152,48 @@ public final class TitanTemplate implements StompOperations {
 
     public String subscribe(String destination) throws Exception {
         return await(subscribe(destination, NOOP_HANDLER));
+    }
+
+    /**
+     * Sends a UTF-8 string payload to a destination group and waits for the transport result.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination target STOMP destination
+     * @param payload string payload
+     * @return the resulting transport frame
+     * @throws Exception when the send fails or the wait times out
+     */
+    public StompFrames send(String group, String destination, String payload) throws Exception {
+        return send(group, destination, payload.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Sends the remaining bytes of {@code byteBuffer} to a destination group.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination target STOMP destination
+     * @param byteBuffer payload source, left with its position unchanged
+     * @return the resulting transport frame
+     * @throws Exception when the send fails or the wait times out
+     */
+    public StompFrames send(String group, String destination, ByteBuffer byteBuffer) throws Exception {
+        ByteBuffer copied = byteBuffer.slice();
+        byte[] payload = new byte[copied.remaining()];
+        copied.get(payload);
+        return send(group, destination, payload);
+    }
+
+    /**
+     * Sends a byte payload to a destination group and waits for the transport result.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination target STOMP destination
+     * @param payload payload bytes
+     * @return the resulting transport frame
+     * @throws Exception when the send fails or the wait times out
+     */
+    public StompFrames send(String group, String destination, byte[] payload) throws Exception {
+        return await(send(group, destination, Buffer.heap().alloc(payload)));
     }
 
     private <T> T await(CompletableFuture<T> future) throws Exception {

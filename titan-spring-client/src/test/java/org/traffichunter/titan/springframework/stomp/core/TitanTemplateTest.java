@@ -177,6 +177,28 @@ class TitanTemplateTest {
     }
 
     @Test
+    void blocking_send_with_a_group_delegates_to_the_group_api() throws Exception {
+        when(client.send(eq("market"), eq("/topic/test"), any(Buffer.class)))
+                .thenReturn(CompletableFuture.completedFuture(frame));
+
+        StompFrames result = template.send("market", "/topic/test", "hello");
+
+        ArgumentCaptor<Buffer> payload = ArgumentCaptor.forClass(Buffer.class);
+        verify(client).send(eq("market"), eq("/topic/test"), payload.capture());
+        assertThat(result).isSameAs(frame);
+        assertThat(new String(payload.getValue().getBytes(), StandardCharsets.UTF_8)).isEqualTo("hello");
+    }
+
+    @Test
+    void subscribe_with_a_group_delegates_to_the_group_api() {
+        CompletableFuture<String> expected = CompletableFuture.completedFuture("sub-1");
+        Handler<StompFrames> handler = frames -> { };
+        when(client.subscribe(eq("market"), eq("/topic/test"), eq(handler))).thenReturn(expected);
+
+        assertThat(template.subscribe("market", "/topic/test", handler)).isSameAs(expected);
+    }
+
+    @Test
     void rejects_invalid_destination_synchronously() {
         when(client.subscribe(any(), any(Handler.class)))
                 .thenThrow(new IllegalArgumentException("Invalid routing key"));

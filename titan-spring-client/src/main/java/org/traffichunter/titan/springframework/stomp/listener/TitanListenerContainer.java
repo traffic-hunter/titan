@@ -1,5 +1,6 @@
 package org.traffichunter.titan.springframework.stomp.listener;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite;
 import org.springframework.messaging.handler.invocation.InvocableHandlerMethod;
@@ -12,6 +13,7 @@ import org.traffichunter.titan.springframework.stomp.core.TitanClientManager;
 import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessageAdapter;
 import org.springframework.util.ErrorHandler;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
 
@@ -21,6 +23,10 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
  * Runtime container for a single Titan listener endpoint.
  * Manages subscription lifecycle and invokes the target bean method.
  * Successful listener execution sends ACK when possible; failures call NACK.
+ *
+ * <p>Each container subscribes within its endpoint's destination group and keeps the identifier
+ * the client assigned, so several listeners can share a destination across groups and each one
+ * unsubscribes only its own.</p>
  *
  * @author yun
  */
@@ -34,6 +40,9 @@ public final class TitanListenerContainer {
     private final ErrorHandler listenerErrorHandler;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+
+    private volatile @Nullable TitanClient client;
+    private volatile @Nullable String subscriptionId;
 
     public TitanListenerContainer(
             TitanListenerEndpoint endpoint,
@@ -57,14 +66,20 @@ public final class TitanListenerContainer {
 
         try {
             TitanClient connection = manager.connection();
-            String subscriptionId = connection.subscribe(endpoint.destination(), frame -> {
+            this.client = connection;
+            String id = connection.subscribe(endpoint.group(), endpoint.destination(), frame -> {
+                if (!running.get()) {
+                    // A frame already on its way when stop() ran is no longer this listener's.
+                    return;
+                }
                 try {
                     invoke(frame);
                     acknowledgeIfPossible(frame, connection);
                 } catch (Exception e) {
                     log.error(
-                            "Failed to invoke Titan listener handler. id={}, destination={}",
+                            "Failed to invoke Titan listener handler. id={}, group={}, destination={}",
                             endpoint.id(),
+                            endpoint.group(),
                             endpoint.destination(),
                             e
                     );
@@ -73,13 +88,17 @@ public final class TitanListenerContainer {
                 }
             }).get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
 
+            this.subscriptionId = id;
             log.info(
-                    "Started Titan listener. id={}, destination={}, subscriptionId={}",
+                    "Started Titan listener. id={}, group={}, destination={}, subscriptionId={}",
                     endpoint.id(),
+                    endpoint.group(),
                     endpoint.destination(),
-                    subscriptionId
+                    id
             );
         } catch (Exception e) {
+            this.client = null;
+            this.subscriptionId = null;
             running.set(false);
             throw new IllegalStateException("Failed to start listener " + endpoint.id(), e);
         }
@@ -93,18 +112,29 @@ public final class TitanListenerContainer {
             return;
         }
 
+        TitanClient connection = this.client;
+        String id = this.subscriptionId;
+        this.client = null;
+        this.subscriptionId = null;
+        if (connection == null || id == null) {
+            return;
+        }
+
         try {
-            TitanClient connection = manager.currentConnection();
-            if(connection == null) {
-                return;
-            }
-
+            // Asked even when the connection is down. The client then drops the subscription it
+            // would otherwise replay, so a reconnect does not bring this listener back.
+            CompletableFuture<StompFrames> unsubscribed = connection.unsubscribe(id);
             if (connection.isConnected()) {
-                connection.unsubscribe(endpoint.destination())
-                        .get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
+                unsubscribed.get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
             }
 
-            log.info("Stopped Titan listener. id={}, destination={}", endpoint.id(), endpoint.destination());
+            log.info(
+                    "Stopped Titan listener. id={}, group={}, destination={}, subscriptionId={}",
+                    endpoint.id(),
+                    endpoint.group(),
+                    endpoint.destination(),
+                    id
+            );
         } catch (Exception e) {
             throw new IllegalStateException("Failed to stop listener " + endpoint.id(), e);
         }
@@ -130,6 +160,11 @@ public final class TitanListenerContainer {
 
     TitanClientManager manager() {
         return manager;
+    }
+
+    /** Identifier the client assigned to this listener's subscription, or {@code null}. */
+    public @Nullable String subscriptionId() {
+        return subscriptionId;
     }
 
     HandlerMethodArgumentResolverComposite argumentResolvers() {
