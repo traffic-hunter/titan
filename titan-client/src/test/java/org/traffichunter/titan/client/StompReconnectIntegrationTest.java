@@ -381,6 +381,73 @@ class StompReconnectIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void client_restores_a_grouped_subscription_after_server_restart(
+            StompTestServer testServer
+    ) throws Exception {
+        DefaultTitanClient client = startClient(testServer);
+        BlockingQueue<StompFrames> market = new LinkedBlockingQueue<>();
+        BlockingQueue<StompFrames> plain = new LinkedBlockingQueue<>();
+        String destination = "/queue/reconnect-group";
+
+        try {
+            client.connect().get(3, SECONDS);
+            String marketId = client.subscribe("market", destination, market::add).get(3, SECONDS);
+            client.subscribe(destination, plain::add).get(3, SECONDS);
+
+            testServer.stop();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
+
+            testServer.restart();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
+
+            client.send("market", destination, "after-restart").get(3, SECONDS);
+
+            StompFrames restored = market.poll(3, SECONDS);
+            assertThat(restored).isNotNull();
+            assertThat(restored.body()).asString(StandardCharsets.UTF_8).isEqualTo("after-restart");
+            assertThat(restored.getHeader(Elements.SUBSCRIPTION)).isEqualTo(marketId);
+            assertThat(restored.getHeader(Elements.GROUP)).isEqualTo("market");
+            assertThat(plain.poll(500, TimeUnit.MILLISECONDS)).isNull();
+        } finally {
+            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
+        }
+    }
+
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void subscription_dropped_while_the_connection_is_down_is_not_restored(
+            StompTestServer testServer
+    ) throws Exception {
+        DefaultTitanClient client = startClient(testServer);
+        BlockingQueue<StompFrames> received = new LinkedBlockingQueue<>();
+        String destination = "/queue/unsubscribed-while-offline";
+
+        try {
+            client.connect().get(3, SECONDS);
+            String subscriptionId = client.subscribe("market", destination, received::add).get(3, SECONDS);
+
+            testServer.stop();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
+
+            // No frame can be sent, so the call fails; the subscription still has to go away.
+            assertThat(client.unsubscribe(subscriptionId)).failsWithin(3, SECONDS);
+
+            testServer.restart();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
+
+            client.send("market", destination, "must-not-be-delivered").get(3, SECONDS);
+            assertThat(received.poll(500, TimeUnit.MILLISECONDS)).isNull();
+        } finally {
+            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
+        }
+    }
+
     private static DefaultTitanClient startClient(StompTestServer testServer) {
         DefaultTitanClient client = new DefaultTitanClient(
                 new TitanStompClientDriver(EventLoopGroups.singleGroup(), reconnectConfiguration(testServer))

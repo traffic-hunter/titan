@@ -17,7 +17,9 @@ package org.traffichunter.titan.client;
 
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.Handler;
 
 /**
@@ -40,4 +42,16 @@ public record Subscription(
         StompHeaders stompHeaders,
         Handler<StompFrames> framesHandler
 ) {
+
+    /**
+     * Returns the destination group this subscription belongs to.
+     *
+     * <p>The group is read back from the stored headers rather than kept twice, so it always
+     * matches the SUBSCRIBE frame that a reconnect replays.</p>
+     *
+     * @return the resolved group name, {@code default} when the headers name none
+     */
+    public String group() {
+        return DestinationGroups.normalize(stompHeaders.get(Elements.GROUP));
+    }
 }

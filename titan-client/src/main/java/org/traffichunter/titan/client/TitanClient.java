@@ -134,6 +134,108 @@ public interface TitanClient {
     );
 
     /**
+     * Sends a UTF-8 string payload to a destination group.
+     *
+     * @param group destination group; {@code null} or blank means the default group
+     * @param destination target STOMP destination
+     * @param payload string payload
+     * @return the asynchronous transport result
+     */
+    default CompletableFuture<StompFrames> send(String group, String destination, String payload) {
+        return send(group, destination, Buffer.heap().alloc(payload));
+    }
+
+    /**
+     * Sends a STOMP message to a destination group.
+     *
+     * <p>This overload follows the same ownership-transfer contract as
+     * {@link #send(String, Buffer)}. A malformed group name fails the returned future and the
+     * payload is released before the frame is built.</p>
+     *
+     * @param group destination group; {@code null} or blank means the default group
+     * @param destination target STOMP destination
+     * @param payload message payload whose ownership is transferred to the client
+     * @return the asynchronous transport result
+     */
+    default CompletableFuture<StompFrames> send(String group, String destination, Buffer payload) {
+        return send(group, destination, payload, Map.of());
+    }
+
+    /**
+     * Sends a STOMP message to a destination group with additional headers.
+     *
+     * <p>The supplied map is copied, never modified. Naming a group here and passing a
+     * {@code group} header that resolves to a different name fails the request.</p>
+     *
+     * @param group destination group; {@code null} or blank means the default group
+     * @param destination target STOMP destination
+     * @param payload message payload whose ownership is transferred to the client
+     * @param headers additional STOMP headers
+     * @return the asynchronous transport result
+     */
+    default CompletableFuture<StompFrames> send(
+            String group,
+            String destination,
+            Buffer payload,
+            Map<Elements, String> headers
+    ) {
+        Map<Elements, String> grouped;
+        try {
+            grouped = GroupHeaders.forGroup(group, headers);
+        } catch (RuntimeException error) {
+            payload.release();
+            return CompletableFuture.failedFuture(error);
+        }
+        return send(destination, payload, grouped);
+    }
+
+    /**
+     * Subscribes to a destination within a group.
+     *
+     * <p>The subscription receives its own identifier, so the same destination can be subscribed
+     * to in several groups, or twice in one group, over a single connection.</p>
+     *
+     * @param group destination group; {@code null} or blank means the default group
+     * @param destination destination to subscribe to
+     * @param handler handler for received MESSAGE frames
+     * @return a future containing the assigned subscription identifier
+     */
+    default CompletableFuture<String> subscribe(
+            String group,
+            String destination,
+            Handler<StompFrames> handler
+    ) {
+        return subscribe(group, destination, Map.of(), handler);
+    }
+
+    /**
+     * Subscribes to a destination within a group using additional SUBSCRIBE headers.
+     *
+     * <p>An {@code id} header is honoured as the subscription identifier; without one the client
+     * generates a unique identifier. The supplied map is copied, never modified.</p>
+     *
+     * @param group destination group; {@code null} or blank means the default group
+     * @param destination destination to subscribe to
+     * @param headers additional SUBSCRIBE headers
+     * @param handler handler for received MESSAGE frames
+     * @return a future containing the assigned subscription identifier
+     */
+    default CompletableFuture<String> subscribe(
+            String group,
+            String destination,
+            Map<Elements, String> headers,
+            Handler<StompFrames> handler
+    ) {
+        Map<Elements, String> grouped;
+        try {
+            grouped = GroupHeaders.withSubscriptionId(GroupHeaders.forGroup(group, headers));
+        } catch (RuntimeException error) {
+            return CompletableFuture.failedFuture(error);
+        }
+        return subscribe(destination, grouped, handler);
+    }
+
+    /**
      * Removes the subscription identified by {@code subscriptionId}.
      *
      * @param subscriptionId identifier returned by subscribe
