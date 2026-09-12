@@ -121,6 +121,54 @@ Operations accepting a Titan `Buffer` return `CompletableFuture`; the String,
 byte-array, and `ByteBuffer` send overloads are blocking conveniences. Use
 `@TitanListener` for annotation-driven message handling.
 
+## Destination Groups
+
+`@TitanListener` subscribes within a destination group and `TitanTemplate`
+publishes to one. A blank group means `default`. The wire rules are in
+[Destination groups](../concepts/destinations.md#destination-groups).
+
+```java
+import org.springframework.stereotype.Component;
+import org.traffichunter.titan.springframework.stomp.annotation.TitanListener;
+
+@Component
+public class OrderListeners {
+
+    @TitanListener(group = "market", destination = "/orders")
+    public void onMarketOrder(String payload) {
+    }
+
+    @TitanListener(group = "notification", destination = "/orders")
+    public void onNotificationOrder(String payload) {
+    }
+}
+```
+
+The group accepts a property reference, which is resolved against the Spring
+environment:
+
+```java
+@TitanListener(group = "${titan.order-group}", destination = "/orders")
+public void onOrder(String payload) {
+}
+```
+
+A placeholder nothing resolves, or a name outside `^[a-zA-Z0-9_-]{1,64}$`, fails
+while listeners are being discovered rather than at the first SUBSCRIBE.
+
+Publishing and programmatic subscribing name the group first:
+
+```java
+template.send("market", "/orders", "{\"id\":42}");
+template.send("market", "/orders", payload);
+template.subscribe("market", "/orders", frame -> handle(frame));
+```
+
+Each listener keeps the subscription identifier the client assigned it, so
+stopping one listener leaves the other listeners on the same destination running.
+Stopping a listener while the connection is down drops its subscription too, so a
+later reconnect does not bring it back.
+
 ## Lifecycle And Acknowledgement
 
 `spring.titan.client` selects the STOMP client implementation. `titan` uses the
