@@ -17,6 +17,8 @@ package org.traffichunter.titan.perftest;
 
 import java.time.Duration;
 
+import org.traffichunter.titan.core.util.DestinationGroups;
+
 /**
  * Validated settings supplied by the Go CLI to one performance test run.
  *
@@ -25,6 +27,7 @@ import java.time.Duration;
 record PerfTestOptions(
         String host,
         int port,
+        String group,
         String destination,
         int warmupMessages,
         int messages,
@@ -39,6 +42,7 @@ record PerfTestOptions(
     static PerfTestOptions parse(String[] arguments) {
         String host = null;
         int port = 0;
+        String group = null;
         String destination = null;
         int warmupMessages = 0;
         int messages = 0;
@@ -55,6 +59,7 @@ record PerfTestOptions(
             switch (arguments[index]) {
                 case "--host" -> host = value;
                 case "--port" -> port = positiveInt("port", value);
+                case "--group" -> group = value;
                 case "--destination" -> destination = value;
                 case "--warmup-messages" -> warmupMessages = nonNegativeInt("warmup messages", value);
                 case "--messages" -> messages = positiveInt("messages", value);
@@ -85,6 +90,8 @@ record PerfTestOptions(
         return new PerfTestOptions(
                 host,
                 port,
+                // A missing or blank name is the default group, the same reading the broker gives it.
+                DestinationGroups.normalize(group),
                 destination,
                 warmupMessages,
                 messages,
