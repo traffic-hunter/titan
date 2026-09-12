@@ -16,6 +16,7 @@
 package org.traffichunter.titan.dispatch.exporter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
@@ -276,6 +277,38 @@ class DispatchExporterTest {
         assertThat(result.totalAttempted()).isEqualTo(2);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isEqualTo(1);
+    }
+
+    @Test
+    void vertxStompDispatchExporter_refuses_a_group_it_cannot_keep_to_itself() {
+        when(vertxServer.isListening()).thenReturn(true);
+
+        VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
+
+        // Vert.x resolves subscribers by path, so delivering here would hand a market message to
+        // every subscriber of the destination, default group included.
+        assertThatThrownBy(() -> exporter.export(
+                "market",
+                Destination.create("/topic/orders"),
+                Buffer.heap().alloc("hello".getBytes())
+        )).isInstanceOf(UnsupportedOperationException.class).hasMessageContaining("market");
+
+        verify(vertxServer, never()).stompHandler();
+    }
+
+    @Test
+    void tcpFanoutExporter_refuses_a_group_it_cannot_keep_to_itself() {
+        when(inetServer.isStarted()).thenReturn(true);
+
+        TcpDispatchExporter exporter = new TcpDispatchExporter(inetServer);
+
+        assertThatThrownBy(() -> exporter.export(
+                "market",
+                Destination.create("/topic/a"),
+                Buffer.heap().alloc("p".getBytes())
+        )).isInstanceOf(UnsupportedOperationException.class).hasMessageContaining("market");
+
+        verify(inetServer, never()).childChannel();
     }
 
     private static IOEventLoop immediateEventLoop() {

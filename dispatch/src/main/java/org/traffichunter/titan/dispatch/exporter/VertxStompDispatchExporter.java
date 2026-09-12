@@ -20,6 +20,7 @@ import io.vertx.ext.stomp.Frame;
 import io.vertx.ext.stomp.StompServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.AggregationResult;
@@ -27,6 +28,12 @@ import org.traffichunter.titan.dispatch.AggregationResult;
 import java.util.List;
 
 /**
+ * Dispatch exporter that hands a payload to the Vert.x STOMP server's own destination.
+ *
+ * <p>Vert.x resolves subscribers by path alone, so it cannot tell two groups holding one
+ * destination apart. This exporter therefore serves the default group only and refuses anything
+ * else, matching the Vert.x SEND handler, which rejects a {@code group} header outright.</p>
+ *
  * @author yun
  */
 public final class VertxStompDispatchExporter implements DispatchExporter {
@@ -45,6 +52,10 @@ public final class VertxStompDispatchExporter implements DispatchExporter {
     @Override
     public AggregationResult export(String group, Destination destination, Buffer payload) {
         Assert.checkState(server.isListening(), "Vert.x STOMP server is not listening");
+        if (!DestinationGroups.isDefault(group)) {
+            throw new UnsupportedOperationException(
+                    "The Vert.x STOMP exporter cannot keep destination group " + group + " to itself");
+        }
 
         io.vertx.ext.stomp.Destination stompDestination = server.stompHandler()
                 .getDestination(destination.path());

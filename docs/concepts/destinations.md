@@ -190,6 +190,10 @@ Rules:
   `/orders`.
 - The deprecated Vert.x STOMP transport does not support groups. A `SEND` with
   a `group` header on that transport is refused with an `ERROR` frame.
+- An exporter that resolves its subscribers by destination alone cannot keep a
+  group to itself. The raw TCP exporter and the Vert.x STOMP exporter therefore
+  serve the `default` group only and refuse a message from any other, rather
+  than handing it to every subscriber they know.
 
 The Java client and the Spring integration take the group as the first argument
 of their send and subscribe methods. See

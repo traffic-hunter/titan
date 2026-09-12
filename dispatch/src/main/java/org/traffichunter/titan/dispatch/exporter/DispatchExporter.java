@@ -31,6 +31,10 @@ import org.traffichunter.titan.dispatch.AggregationResult;
  * {@link AggregationResult} that reports how many writes were attempted and
  * completed. Subscribers of the same destination in another group must not
  * receive the payload.</p>
+ *
+ * <p>Not every protocol can express a group. An implementation whose subscribers are resolved by
+ * destination alone throws {@link UnsupportedOperationException} for a group other than
+ * {@code default} instead of delivering the payload to all of them.</p>
  */
 public interface DispatchExporter {
 
