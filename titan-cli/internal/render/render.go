@@ -25,6 +25,8 @@ const (
 
 type Options struct {
 	Color bool
+	// Group limits the queue table to one destination group. Empty shows every group.
+	Group string
 }
 
 var NoColor = Options{}
@@ -114,7 +116,21 @@ func Status(w io.Writer, snapshot monitor.Snapshot, options Options) {
 		label("slow skips", 11, options),
 		snapshot.ChannelWrites.SkippedMessages,
 	)
-	fmt.Fprintf(w, "  %s %d destinations\n", label("queues", 11, options), len(snapshot.Queues))
+	queues := selectGroup(snapshot.Queues, options.Group)
+	if options.Group == "" {
+		fmt.Fprintf(w, "  %s %s in %s\n",
+			label("queues", 11, options),
+			count(len(queues), "queue"),
+			count(groupCount(queues), "group"),
+		)
+		return
+	}
+	fmt.Fprintf(w, "  %s %s in group %s   %s server-wide\n",
+		label("queues", 11, options),
+		count(len(queues), "queue"),
+		options.Group,
+		count(len(snapshot.Queues), "queue"),
+	)
 }
 
 func JVM(w io.Writer, snapshot monitor.Snapshot, options Options) {
@@ -136,33 +152,75 @@ func JVM(w io.Writer, snapshot monitor.Snapshot, options Options) {
 	)
 }
 
+// queueRow lays out one queue line and the header above it. A queue is
+// identified by its group and destination together, so both get a column.
+const queueRow = "%-14s %-28s %7s  %9s  %9s  %-7s %s"
+
 func Queues(w io.Writer, queues []monitor.QueueSnapshot, options Options) {
-	copied := append([]monitor.QueueSnapshot(nil), queues...)
+	copied := selectGroup(queues, options.Group)
 	sort.Slice(copied, func(i, j int) bool {
+		if copied[i].Group != copied[j].Group {
+			return copied[i].Group < copied[j].Group
+		}
 		return copied[i].Destination < copied[j].Destination
 	})
 
+	if options.Group != "" {
+		fmt.Fprintf(w, "  %s\n", paint("group filter: "+options.Group, muted, options))
+	}
 	if len(copied) == 0 {
+		if options.Group != "" {
+			fmt.Fprintf(w, "  %s\n", paint("No dispatcher queues in group "+options.Group+".", muted, options))
+			return
+		}
 		fmt.Fprintf(w, "  %s\n", paint("No dispatcher queues registered.", muted, options))
 		return
 	}
 
-	fmt.Fprintf(w, "  %s\n", paint("DESTINATION                           SIZE    PENDING      LIMIT  STATE    PRESSURE", cyan, options))
-	fmt.Fprintf(w, "  %s\n", paint(strings.Repeat("-", 88), muted, options))
+	header := fmt.Sprintf(queueRow, "GROUP", "DESTINATION", "SIZE", "PENDING", "LIMIT", "STATE", "PRESSURE")
+	fmt.Fprintf(w, "  %s\n", paint(header, cyan, options))
+	fmt.Fprintf(w, "  %s\n", paint(strings.Repeat("-", len(header)), muted, options))
 	for _, queue := range copied {
-		state := queueState("run", options)
+		state := "run"
 		if queue.Paused {
-			state = queueState("pause", options)
+			state = "pause"
 		}
-		fmt.Fprintf(w, "  %-34s %7s  %9s  %9s  %s %s\n",
-			truncate(queue.Destination, 34),
+		fmt.Fprintf(w, "  %-14s %-28s %7s  %9s  %9s  %s %s\n",
+			truncate(queue.Group, 14),
+			truncate(queue.Destination, 28),
 			compactInt(queue.Size),
 			byteSize(queue.PendingBytes),
 			byteSize(queue.MaxPendingBytes),
-			state,
+			queueState(state, options),
 			metricBar(ratio(queue.PendingBytes, queue.MaxPendingBytes), 18, options),
 		)
 	}
+}
+
+// selectGroup keeps the queues of one group, or every queue when no group is set.
+func selectGroup(queues []monitor.QueueSnapshot, group string) []monitor.QueueSnapshot {
+	selected := make([]monitor.QueueSnapshot, 0, len(queues))
+	for _, queue := range queues {
+		if group == "" || queue.Group == group {
+			selected = append(selected, queue)
+		}
+	}
+	return selected
+}
+
+func groupCount(queues []monitor.QueueSnapshot) int {
+	seen := make(map[string]struct{}, len(queues))
+	for _, queue := range queues {
+		seen[queue.Group] = struct{}{}
+	}
+	return len(seen)
+}
+
+func count(value int, noun string) string {
+	if value == 1 {
+		return fmt.Sprintf("%d %s", value, noun)
+	}
+	return fmt.Sprintf("%d %ss", value, noun)
 }
 
 func header(w io.Writer, title string, addr string, options Options) {
@@ -184,7 +242,7 @@ func meta(w io.Writer, snapshot monitor.Snapshot, view View, options Options) {
 		paint("uptime", muted, options),
 		uptime(snapshot.Server.UptimeMillis),
 		paint("queues", muted, options),
-		len(snapshot.Queues),
+		len(selectGroup(snapshot.Queues, options.Group)),
 	)
 }
 

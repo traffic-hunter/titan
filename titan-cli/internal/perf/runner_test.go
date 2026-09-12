@@ -1,6 +1,7 @@
 package perf
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -52,5 +53,26 @@ func TestReportReportsSuccessfulDelivery(t *testing.T) {
 
 	if !report.Successful() {
 		t.Fatal("expected report to be successful")
+	}
+}
+
+func TestRunRejectsAMalformedGroupBeforeLookingForTheRunner(t *testing.T) {
+	_, err := Run(context.Background(), Config{
+		Host:              "127.0.0.1",
+		Port:              61613,
+		Group:             "bad/name",
+		Destination:       "/queue/perf",
+		Messages:          1,
+		Producers:         1,
+		PayloadBytes:      measurementBytes,
+		ConnectTimeout:    time.Second,
+		CompletionTimeout: time.Second,
+	})
+
+	if err == nil {
+		t.Fatalf("expected a group error")
+	}
+	if !strings.Contains(err.Error(), "invalid group name") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

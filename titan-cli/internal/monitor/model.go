@@ -47,6 +47,7 @@ type ThreadSnapshot struct {
 }
 
 type QueueSnapshot struct {
+	Group              string `json:"group"`
 	Destination        string `json:"destination"`
 	Size               int    `json:"size"`
 	PendingBytes       int64  `json:"pendingBytes"`

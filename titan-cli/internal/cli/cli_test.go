@@ -82,6 +82,7 @@ func TestPerfSettingsArePassedToPerfCommand(t *testing.T) {
 	arguments := perfSettingsArguments(
 		"broker.internal",
 		"61613",
+		"market",
 		"/queue/orders",
 		"250",
 		"5000",
@@ -95,6 +96,7 @@ func TestPerfSettingsArePassedToPerfCommand(t *testing.T) {
 		"perf-test",
 		"--host", "broker.internal",
 		"--port", "61613",
+		"--group", "market",
 		"--destination", "/queue/orders",
 		"--warmup-messages", "250",
 		"--messages", "5000",
@@ -177,7 +179,7 @@ func TestQueueCreateUsesTokenFromEnvironment(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
-		_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":30,"paused":false}`))
+		_, _ = w.Write([]byte(`{"group":"default","destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":30,"paused":false}`))
 	}))
 	defer server.Close()
 	var stdout bytes.Buffer
@@ -187,7 +189,7 @@ func TestQueueCreateUsesTokenFromEnvironment(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
 	}
-	if !strings.Contains(stdout.String(), "created /queue/orders") {
+	if !strings.Contains(stdout.String(), "created default:/queue/orders") {
 		t.Fatalf("expected create output, got %q", stdout.String())
 	}
 }
@@ -220,7 +222,7 @@ func snapshotServer(t *testing.T) *httptest.Server {
 				"heap":{"used":512,"max":1024},
 				"thread":{"threadCount":4,"peakThreadCount":8,"totalStartedThreadCount":16}
 			},
-			"queues":[{"destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]
+			"queues":[{"group":"default","destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]
 		}`))
 	}))
 }
@@ -233,7 +235,7 @@ func queueServer(t *testing.T, status int) *httptest.Server {
 		}
 		w.WriteHeader(status)
 		if status == http.StatusOK {
-			_, _ = w.Write([]byte(`[{"destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]`))
+			_, _ = w.Write([]byte(`[{"group":"default","destination":"/queue/orders","size":5,"pendingBytes":20,"maxPendingBytes":40,"paused":false}]`))
 		}
 	}))
 }
@@ -269,7 +271,7 @@ func TestQueueActionCommandsSendActionAndUseEnvironmentToken(t *testing.T) {
 			if requests != 1 {
 				t.Fatalf("expected 1 request, got %d", requests)
 			}
-			if !strings.Contains(stdout.String(), action+"d /queue/orders") {
+			if !strings.Contains(stdout.String(), action+"d default:/queue/orders") {
 				t.Fatalf("expected %s output, got %q", action, stdout.String())
 			}
 		})
@@ -336,5 +338,134 @@ func TestQueueCommandRegistersEveryAction(t *testing.T) {
 		if !found {
 			t.Fatalf("expected queue %q subcommand, got missing", name)
 		}
+	}
+}
+
+func TestQueueListFiltersByGroup(t *testing.T) {
+	var query string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		_, _ = w.Write([]byte(`[{"group":"market","destination":"/queue/orders","size":1,"maxPendingBytes":40}]`))
+	}))
+	defer server.Close()
+	var stdout bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "--no-color", "queue", "list", "--group", "market"}, &stdout, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	if query != "group=market" {
+		t.Fatalf("expected a group filter, got %q", query)
+	}
+	if !strings.Contains(stdout.String(), "group filter: market") {
+		t.Fatalf("expected the filter to be named, got %q", stdout.String())
+	}
+}
+
+func TestQueueListWithoutGroupAsksForEveryGroup(t *testing.T) {
+	var query string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		_, _ = w.Write([]byte(`[{"group":"default","destination":"/queue/orders"}]`))
+	}))
+	defer server.Close()
+
+	code := Run([]string{"--addr", server.URL, "--no-color", "queue", "list"}, &bytes.Buffer{}, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	if query != "" {
+		t.Fatalf("expected no group parameter, got %q", query)
+	}
+}
+
+func TestQueueChangeWithoutGroupTargetsTheDefaultGroup(t *testing.T) {
+	var group string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		group = r.URL.Query().Get("group")
+	}))
+	defer server.Close()
+
+	code := Run([]string{"--addr", server.URL, "queue", "pause", "/queue/orders"}, &bytes.Buffer{}, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	if group != "default" {
+		t.Fatalf("expected the default group, got %q", group)
+	}
+}
+
+func TestQueueChangeSendsTheNamedGroup(t *testing.T) {
+	var group string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		group = r.URL.Query().Get("group")
+	}))
+	defer server.Close()
+	var stdout bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "queue", "purge", "/queue/orders", "--group", "market"}, &stdout, &bytes.Buffer{}, "test")
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+	if group != "market" {
+		t.Fatalf("expected the market group, got %q", group)
+	}
+	if !strings.Contains(stdout.String(), "purged market:/queue/orders") {
+		t.Fatalf("expected the group in the result, got %q", stdout.String())
+	}
+}
+
+func TestQueueCommandRejectsAMalformedGroupBeforeRequesting(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+	}))
+	defer server.Close()
+	var stderr bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "queue", "delete", "/queue/orders", "--group", "bad/name"}, &bytes.Buffer{}, &stderr, "test")
+
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if requests != 0 {
+		t.Fatalf("expected no request, got %d", requests)
+	}
+	if !strings.Contains(stderr.String(), "invalid group name") {
+		t.Fatalf("expected an invalid group message, got %q", stderr.String())
+	}
+}
+
+func TestViewRejectsAMalformedGroup(t *testing.T) {
+	var stderr bytes.Buffer
+
+	code := Run([]string{"--group", "bad/name", "--once"}, &bytes.Buffer{}, &stderr, "test")
+
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "invalid group name") {
+		t.Fatalf("expected an invalid group message, got %q", stderr.String())
+	}
+}
+
+func TestQueueListReportsAServerWithoutGroups(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"destination":"/queue/orders"}]`))
+	}))
+	defer server.Close()
+	var stderr bytes.Buffer
+
+	code := Run([]string{"--addr", server.URL, "queue", "list"}, &bytes.Buffer{}, &stderr, "test")
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "update the Titan server and CLI together") {
+		t.Fatalf("expected a contract message, got %q", stderr.String())
 	}
 }

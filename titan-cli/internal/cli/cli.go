@@ -37,6 +37,7 @@ type viewOptions struct {
 	interval time.Duration
 	timeout  time.Duration
 	view     string
+	group    string
 	noClear  bool
 	noColor  bool
 	once     bool
@@ -47,6 +48,7 @@ type queueOptions struct {
 	token           string
 	timeout         time.Duration
 	noColor         bool
+	group           string
 	maxPendingBytes int64
 	force           bool
 }
@@ -54,6 +56,7 @@ type queueOptions struct {
 type perfOptions struct {
 	host              string
 	port              int
+	group             string
 	destination       string
 	warmupMessages    int
 	messages          int
@@ -141,6 +144,7 @@ func newRootCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer, version
 	command.PersistentFlags().BoolVar(&options.noColor, "no-color", false, "Render without ANSI colors")
 	command.Flags().DurationVar(&options.interval, "interval", time.Second, "Polling interval")
 	command.Flags().StringVar(&options.view, "view", "overview", "Initial view: overview, queues, or jvm")
+	command.Flags().StringVar(&options.group, "group", "", "Show only queues in this destination group")
 	command.Flags().BoolVar(&options.noClear, "no-clear", false, "Render without clearing the terminal")
 	command.Flags().BoolVar(&options.once, "once", false, "Render one frame and exit")
 	command.AddCommand(monitorCommand(stdout, options))
@@ -163,6 +167,7 @@ func monitorCommand(stdout io.Writer, options *viewOptions) *cobra.Command {
 	}
 	command.Flags().DurationVar(&options.interval, "interval", time.Second, "Polling interval")
 	command.Flags().StringVar(&options.view, "view", "overview", "Initial view: overview, queues, or jvm")
+	command.Flags().StringVar(&options.group, "group", "", "Show only queues in this destination group")
 	command.Flags().BoolVar(&options.noClear, "no-clear", false, "Render without clearing the terminal")
 	command.Flags().BoolVar(&options.once, "once", false, "Render one frame and exit")
 	return command
@@ -180,6 +185,7 @@ func perfCommand(stdout io.Writer) *cobra.Command {
 			report, err := perf.Run(cmd.Context(), perf.Config{
 				Host:              options.host,
 				Port:              options.port,
+				Group:             options.group,
 				Destination:       options.destination,
 				WarmupMessages:    options.warmupMessages,
 				Messages:          options.messages,
@@ -201,6 +207,7 @@ func perfCommand(stdout io.Writer) *cobra.Command {
 	}
 	command.Flags().StringVar(&options.host, "host", "127.0.0.1", "Titan STOMP host")
 	command.Flags().IntVar(&options.port, "port", 7777, "Titan STOMP port")
+	command.Flags().StringVar(&options.group, "group", "", "Destination group; empty uses the default group")
 	command.Flags().StringVar(&options.destination, "destination", "/queue/perf-test", "STOMP destination")
 	command.Flags().IntVar(&options.warmupMessages, "warmup-messages", 1_000, "Number of warm-up messages")
 	command.Flags().IntVar(&options.messages, "messages", 10_000, "Number of messages")
@@ -214,6 +221,7 @@ func perfCommand(stdout io.Writer) *cobra.Command {
 
 func printPerfReport(output io.Writer, report perf.Report) {
 	fmt.Fprintln(output, "Titan performance test")
+	fmt.Fprintf(output, "  queue      : %s\n", queueRef(report.Group, report.Destination))
 	fmt.Fprintf(output, "  requested  : %d\n", report.Requested)
 	fmt.Fprintf(output, "  sent       : %d\n", report.Sent)
 	fmt.Fprintf(output, "  received   : %d\n", report.Received)
@@ -316,6 +324,7 @@ func mainMenuOptions() []huh.Option[string] {
 func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
 	host := "127.0.0.1"
 	port := "7777"
+	group := ""
 	destination := "/queue/perf-test"
 	warmupMessages := "1000"
 	messages := "10000"
@@ -327,6 +336,7 @@ func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewInput().Title("Host").Value(&host).Validate(notBlank("host")),
 		huh.NewInput().Title("Port").Value(&port).Validate(positiveNumber("port", false)),
+		huh.NewInput().Title("Group").Description("Leave empty to use the default group.").Value(&group).Validate(optionalGroup),
 		huh.NewInput().Title("Destination").Value(&destination).Validate(notBlank("destination")),
 		huh.NewInput().Title("Warm-up messages").Value(&warmupMessages).Validate(positiveNumber("warm-up messages", true)),
 		huh.NewInput().Title("Messages").Value(&messages).Validate(positiveNumber("messages", false)),
@@ -341,6 +351,7 @@ func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
 	return perfSettingsArguments(
 		host,
 		port,
+		group,
 		destination,
 		warmupMessages,
 		messages,
@@ -354,6 +365,7 @@ func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
 func perfSettingsArguments(
 	host string,
 	port string,
+	group string,
 	destination string,
 	warmupMessages string,
 	messages string,
@@ -366,6 +378,7 @@ func perfSettingsArguments(
 		"perf-test",
 		"--host", host,
 		"--port", port,
+		"--group", group,
 		"--destination", destination,
 		"--warmup-messages", warmupMessages,
 		"--messages", messages,
@@ -374,6 +387,13 @@ func perfSettingsArguments(
 		"--connect-timeout", connectTimeout,
 		"--completion-timeout", completionTimeout,
 	}
+}
+
+// optionalGroup accepts an empty value, which means the default group, and
+// otherwise requires a name the server would accept.
+func optionalGroup(value string) error {
+	_, err := monitor.NormalizeGroup(value)
+	return err
 }
 
 func notBlank(name string) func(string) error {
@@ -430,6 +450,12 @@ func queueCommand(stdout io.Writer, rootOptions *viewOptions) *cobra.Command {
 			options.noColor = rootOptions.noColor
 		},
 	}
+	command.PersistentFlags().StringVar(
+		&options.group,
+		"group",
+		"",
+		"Destination group; omit to list every group, or to target the default group on a change",
+	)
 	command.AddCommand(queueListCommand(stdout, options))
 	command.AddCommand(queueCreateCommand(stdout, options))
 	command.AddCommand(queueDeleteCommand(stdout, options))
@@ -449,11 +475,15 @@ func queueActionCommand(stdout io.Writer, options *queueOptions, action string, 
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			group, err := monitor.NormalizeGroup(options.group)
+			if err != nil {
+				return exitError{code: 2, err: err}
+			}
 			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
-			if err := applyQueueAction(cmd.Context(), client, action, args[0]); err != nil {
+			if err := applyQueueAction(cmd.Context(), client, action, group, args[0]); err != nil {
 				return queueError(err)
 			}
-			fmt.Fprintf(stdout, "%sd %s\n", action, args[0])
+			fmt.Fprintf(stdout, "%sd %s\n", action, queueRef(group, args[0]))
 			return nil
 		},
 	}
@@ -461,17 +491,39 @@ func queueActionCommand(stdout io.Writer, options *queueOptions, action string, 
 
 // applyQueueAction routes an action name to the matching monitor client call so
 // the interactive menu and the cobra commands share one code path.
-func applyQueueAction(ctx context.Context, client monitor.Client, action string, destination string) error {
+func applyQueueAction(
+	ctx context.Context,
+	client monitor.Client,
+	action string,
+	group string,
+	destination string,
+) error {
 	switch action {
 	case "pause":
-		return client.PauseQueue(ctx, destination)
+		return client.PauseQueue(ctx, group, destination)
 	case "resume":
-		return client.ResumeQueue(ctx, destination)
+		return client.ResumeQueue(ctx, group, destination)
 	case "purge":
-		return client.PurgeQueue(ctx, destination)
+		return client.PurgeQueue(ctx, group, destination)
 	default:
 		return fmt.Errorf("unsupported queue action %q", action)
 	}
+}
+
+// queueRef names a queue the way the server does, by group and destination
+// together. Printed in full even when the table had to truncate a column.
+func queueRef(group string, destination string) string {
+	return group + ":" + destination
+}
+
+// resolveListGroup reads the filter for a list request. An omitted flag lists
+// every group; an explicitly blank one means the default group, matching how
+// the server reads a blank parameter.
+func resolveListGroup(cmd *cobra.Command, value string) (string, error) {
+	if !cmd.Flags().Changed("group") {
+		return "", nil
+	}
+	return monitor.NormalizeGroup(value)
 }
 
 func queueListCommand(stdout io.Writer, options *queueOptions) *cobra.Command {
@@ -481,12 +533,16 @@ func queueListCommand(stdout io.Writer, options *queueOptions) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			group, err := resolveListGroup(cmd, options.group)
+			if err != nil {
+				return exitError{code: 2, err: err}
+			}
 			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
-			queues, err := client.Queues(cmd.Context())
+			queues, err := client.Queues(cmd.Context(), group)
 			if err != nil {
 				return queueError(err)
 			}
-			render.Queues(stdout, queues, render.Options{Color: !options.noColor})
+			render.Queues(stdout, queues, render.Options{Color: !options.noColor, Group: group})
 			return nil
 		},
 	}
@@ -503,12 +559,22 @@ func queueCreateCommand(stdout io.Writer, options *queueOptions) *cobra.Command 
 			if options.maxPendingBytes <= 0 {
 				return exitError{code: 2, err: fmt.Errorf("max pending bytes must be greater than 0")}
 			}
+			group, err := monitor.NormalizeGroup(options.group)
+			if err != nil {
+				return exitError{code: 2, err: err}
+			}
 			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
-			queue, err := client.CreateQueue(cmd.Context(), args[0], options.maxPendingBytes)
+			queue, err := client.CreateQueue(cmd.Context(), group, args[0], options.maxPendingBytes)
 			if err != nil {
 				return queueError(err)
 			}
-			fmt.Fprintf(stdout, "created %s size=%d maxPendingBytes=%d\n", queue.Destination, queue.Size, queue.MaxPendingBytes)
+			fmt.Fprintf(
+				stdout,
+				"created %s size=%d maxPendingBytes=%d\n",
+				queueRef(queue.Group, queue.Destination),
+				queue.Size,
+				queue.MaxPendingBytes,
+			)
 			return nil
 		},
 	}
@@ -524,12 +590,15 @@ func queueDeleteCommand(stdout io.Writer, options *queueOptions) *cobra.Command 
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
-			err := client.DeleteQueue(cmd.Context(), args[0], options.force)
+			group, err := monitor.NormalizeGroup(options.group)
 			if err != nil {
+				return exitError{code: 2, err: err}
+			}
+			client := monitor.NewClientWithTimeout(options.addr, options.token, options.timeout)
+			if err := client.DeleteQueue(cmd.Context(), group, args[0], options.force); err != nil {
 				return queueError(err)
 			}
-			fmt.Fprintf(stdout, "deleted %s\n", args[0])
+			fmt.Fprintf(stdout, "deleted %s\n", queueRef(group, args[0]))
 			return nil
 		},
 	}
@@ -596,7 +665,7 @@ func queueError(err error) error {
 }
 
 func renderOptions(options *viewOptions) render.Options {
-	return render.Options{Color: !options.noColor}
+	return render.Options{Color: !options.noColor, Group: options.group}
 }
 
 func validate(options *viewOptions) error {
@@ -608,6 +677,9 @@ func validate(options *viewOptions) error {
 	}
 	if !render.ValidView(render.View(options.view)) {
 		return fmt.Errorf("unsupported view %q", options.view)
+	}
+	if options.group != "" && !monitor.ValidGroup(options.group) {
+		return fmt.Errorf("invalid group name %q", options.group)
 	}
 	return nil
 }

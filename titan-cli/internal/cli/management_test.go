@@ -14,6 +14,7 @@ import (
 // scriptedPrompt drives the management menu without a terminal.
 type scriptedPrompt struct {
 	actions      []string
+	groups       []string
 	destinations []string
 	confirms     []bool
 	maxPending   int64
@@ -28,6 +29,15 @@ func (p *scriptedPrompt) Action() (string, error) {
 	action := p.actions[0]
 	p.actions = p.actions[1:]
 	return action, nil
+}
+
+func (p *scriptedPrompt) Group(string) (string, error) {
+	if len(p.groups) == 0 {
+		return "", nil
+	}
+	group := p.groups[0]
+	p.groups = p.groups[1:]
+	return group, nil
 }
 
 func (p *scriptedPrompt) Destination(string) (string, error) {
@@ -143,7 +153,7 @@ func TestManagementLoopRunsActionsThenReturnsOnBack(t *testing.T) {
 	if prompt.acknowledged != 1 {
 		t.Fatalf("expected list to wait for acknowledgement once, got %d", prompt.acknowledged)
 	}
-	if !strings.Contains(out.String(), "paused /queue/orders") {
+	if !strings.Contains(out.String(), "paused default:/queue/orders") {
 		t.Fatalf("expected pause output, got %q", out.String())
 	}
 }
@@ -167,7 +177,7 @@ func TestPurgeSendsNoRequestWhenConfirmationIsDeclined(t *testing.T) {
 		t.Fatalf("expected no requests, got %d", requests)
 	}
 	if len(prompt.confirmed) != 1 ||
-		prompt.confirmed[0] != "Remove every pending message from /queue/orders?" {
+		prompt.confirmed[0] != "Remove every pending message from default:/queue/orders?" {
 		t.Fatalf("unexpected confirmation prompt %v", prompt.confirmed)
 	}
 	if !strings.Contains(out.String(), "cancelled purge") {
@@ -191,7 +201,7 @@ func TestPurgeSendsRequestWhenConfirmed(t *testing.T) {
 	if action != "purge" {
 		t.Fatalf("expected purge action, got %q", action)
 	}
-	if !strings.Contains(out.String(), "purged /queue/orders") {
+	if !strings.Contains(out.String(), "purged default:/queue/orders") {
 		t.Fatalf("expected purge output, got %q", out.String())
 	}
 }
@@ -262,7 +272,7 @@ func TestDeleteNonEmptyQueueForcesWhenConfirmed(t *testing.T) {
 	if strings.Join(forces, ",") != "false,true" {
 		t.Fatalf("expected a non-force attempt then a force delete, got %v", forces)
 	}
-	if !strings.Contains(out.String(), "deleted /queue/orders") {
+	if !strings.Contains(out.String(), "deleted default:/queue/orders") {
 		t.Fatalf("expected delete output, got %q", out.String())
 	}
 }
@@ -271,7 +281,7 @@ func TestCreateQueueUsesPromptedMaxPendingBytes(t *testing.T) {
 	var maxPendingBytes string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		maxPendingBytes = r.URL.Query().Get("maxPendingBytes")
-		_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":2048,"paused":false}`))
+		_, _ = w.Write([]byte(`{"group":"default","destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":2048,"paused":false}`))
 	}))
 	defer server.Close()
 
@@ -284,7 +294,7 @@ func TestCreateQueueUsesPromptedMaxPendingBytes(t *testing.T) {
 	if maxPendingBytes != "2048" {
 		t.Fatalf("expected maxPendingBytes 2048, got %q", maxPendingBytes)
 	}
-	if !strings.Contains(out.String(), "created /queue/orders") {
+	if !strings.Contains(out.String(), "created default:/queue/orders") {
 		t.Fatalf("expected create output, got %q", out.String())
 	}
 }
@@ -367,5 +377,105 @@ func TestOptionalPositiveNumberAcceptsBlankButRejectsInvalid(t *testing.T) {
 	}
 	if err := validate("-1"); err == nil {
 		t.Fatalf("expected a negative number to be rejected")
+	}
+}
+
+func TestManagementActionsTargetThePromptedGroup(t *testing.T) {
+	var queries []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queries = append(queries, r.URL.Query().Get("group"))
+	}))
+	defer server.Close()
+
+	prompt := &scriptedPrompt{
+		actions:      []string{managementPause, managementBack},
+		groups:       []string{"market"},
+		destinations: []string{"/queue/orders"},
+	}
+	var out bytes.Buffer
+
+	if err := runManagementLoop(context.Background(), monitor.NewClient(server.URL, ""), prompt, &out, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Join(queries, ",") != "market" {
+		t.Fatalf("expected the market group, got %v", queries)
+	}
+	if !strings.Contains(out.String(), "paused market:/queue/orders") {
+		t.Fatalf("expected the group in the result, got %q", out.String())
+	}
+}
+
+func TestManagementListFiltersByThePromptedGroup(t *testing.T) {
+	var query string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	prompt := &scriptedPrompt{
+		actions: []string{managementList, managementBack},
+		groups:  []string{"market"},
+	}
+	var out bytes.Buffer
+
+	if err := runManagementLoop(context.Background(), monitor.NewClient(server.URL, ""), prompt, &out, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if query != "group=market" {
+		t.Fatalf("expected a group filter, got %q", query)
+	}
+}
+
+func TestManagementRejectsAMalformedGroupBeforeRequesting(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+	}))
+	defer server.Close()
+
+	prompt := &scriptedPrompt{
+		actions:      []string{managementPause, managementBack},
+		groups:       []string{"bad/name"},
+		destinations: []string{"/queue/orders"},
+	}
+	var out bytes.Buffer
+
+	if err := runManagementLoop(context.Background(), monitor.NewClient(server.URL, ""), prompt, &out, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("expected no request, got %d", requests)
+	}
+	if !strings.Contains(out.String(), "invalid group name") {
+		t.Fatalf("expected an invalid group notice, got %q", out.String())
+	}
+}
+
+func TestForceDeleteRetriesTheSameGroup(t *testing.T) {
+	var groups []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		groups = append(groups, r.URL.Query().Get("group"))
+		if r.URL.Query().Get("force") == "false" {
+			w.WriteHeader(http.StatusConflict)
+		}
+	}))
+	defer server.Close()
+
+	prompt := &scriptedPrompt{
+		groups:       []string{"market"},
+		destinations: []string{"/queue/orders"},
+		confirms:     []bool{true},
+	}
+	var out bytes.Buffer
+
+	if err := deleteQueueInteractive(context.Background(), monitor.NewClient(server.URL, ""), prompt, &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Join(groups, ",") != "market,market" {
+		t.Fatalf("expected both attempts on the market group, got %v", groups)
+	}
+	if !strings.Contains(out.String(), "deleted market:/queue/orders") {
+		t.Fatalf("expected the group in the result, got %q", out.String())
 	}
 }

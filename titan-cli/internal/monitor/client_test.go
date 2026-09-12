@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -57,15 +58,21 @@ func TestCreateAndDeleteQueueUseManagementEndpoint(t *testing.T) {
 		switch r.Method {
 		case http.MethodPost:
 			sawCreate = true
+			if r.URL.Query().Get("group") != "market" {
+				t.Fatalf("unexpected group %q", r.URL.Query().Get("group"))
+			}
 			if r.URL.Query().Get("destination") != "/queue/orders" {
 				t.Fatalf("unexpected destination %q", r.URL.Query().Get("destination"))
 			}
 			if r.URL.Query().Get("maxPendingBytes") != "20" {
 				t.Fatalf("unexpected maxPendingBytes %q", r.URL.Query().Get("maxPendingBytes"))
 			}
-			_, _ = w.Write([]byte(`{"destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":20,"paused":false}`))
+			_, _ = w.Write([]byte(`{"group":"market","destination":"/queue/orders","size":0,"pendingBytes":0,"maxPendingBytes":20,"paused":false}`))
 		case http.MethodDelete:
 			sawDelete = true
+			if r.URL.Query().Get("group") != "market" {
+				t.Fatalf("unexpected group %q", r.URL.Query().Get("group"))
+			}
 			if r.URL.Query().Get("force") != "true" {
 				t.Fatalf("unexpected force %q", r.URL.Query().Get("force"))
 			}
@@ -77,14 +84,17 @@ func TestCreateAndDeleteQueueUseManagementEndpoint(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "secret")
-	queue, err := client.CreateQueue(context.Background(), "/queue/orders", 20)
+	queue, err := client.CreateQueue(context.Background(), "market", "/queue/orders", 20)
 	if err != nil {
 		t.Fatalf("unexpected create error: %v", err)
 	}
 	if queue.MaxPendingBytes != 20 {
 		t.Fatalf("expected maxPendingBytes 20, got %d", queue.MaxPendingBytes)
 	}
-	if err := client.DeleteQueue(context.Background(), "/queue/orders", true); err != nil {
+	if queue.Group != "market" {
+		t.Fatalf("expected group market, got %q", queue.Group)
+	}
+	if err := client.DeleteQueue(context.Background(), "market", "/queue/orders", true); err != nil {
 		t.Fatalf("unexpected delete error: %v", err)
 	}
 	if !sawCreate || !sawDelete {
@@ -99,13 +109,13 @@ func TestQueueActionsUseActionParameter(t *testing.T) {
 		want   string
 	}{
 		{name: "pause", want: "pause", invoke: func(c Client) error {
-			return c.PauseQueue(context.Background(), "/queue/orders")
+			return c.PauseQueue(context.Background(), "market", "/queue/orders")
 		}},
 		{name: "resume", want: "resume", invoke: func(c Client) error {
-			return c.ResumeQueue(context.Background(), "/queue/orders")
+			return c.ResumeQueue(context.Background(), "market", "/queue/orders")
 		}},
 		{name: "purge", want: "purge", invoke: func(c Client) error {
-			return c.PurgeQueue(context.Background(), "/queue/orders")
+			return c.PurgeQueue(context.Background(), "market", "/queue/orders")
 		}},
 	}
 
@@ -125,6 +135,9 @@ func TestQueueActionsUseActionParameter(t *testing.T) {
 				}
 				if got := r.URL.Query().Get("destination"); got != "/queue/orders" {
 					t.Fatalf("unexpected destination %q", got)
+				}
+				if got := r.URL.Query().Get("group"); got != "market" {
+					t.Fatalf("unexpected group %q", got)
 				}
 				if r.Header.Get("Authorization") != "Bearer secret" {
 					t.Fatalf("missing bearer token")
@@ -148,7 +161,7 @@ func TestQueueActionReturnsHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := NewClient(server.URL, "secret").PauseQueue(context.Background(), "/queue/missing")
+	err := NewClient(server.URL, "secret").PauseQueue(context.Background(), "default", "/queue/missing")
 
 	var httpErr HTTPError
 	if !errors.As(err, &httpErr) {
@@ -156,5 +169,87 @@ func TestQueueActionReturnsHTTPError(t *testing.T) {
 	}
 	if httpErr.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", httpErr.StatusCode)
+	}
+}
+
+func TestQueuesFiltersByGroup(t *testing.T) {
+	var query string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		_, _ = w.Write([]byte(`[{"group":"market","destination":"/queue/orders","size":0,"maxPendingBytes":20}]`))
+	}))
+	defer server.Close()
+
+	queues, err := NewClient(server.URL, "secret").Queues(context.Background(), "market")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if query != "group=market" {
+		t.Fatalf("expected group filter in query, got %q", query)
+	}
+	if len(queues) != 1 || queues[0].Group != "market" {
+		t.Fatalf("unexpected queues %#v", queues)
+	}
+}
+
+func TestQueuesWithoutGroupFilterSendsNoParameter(t *testing.T) {
+	var query string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		_, _ = w.Write([]byte(`[{"group":"default","destination":"/queue/orders"}]`))
+	}))
+	defer server.Close()
+
+	if _, err := NewClient(server.URL, "secret").Queues(context.Background(), ""); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if query != "" {
+		t.Fatalf("expected no query, got %q", query)
+	}
+}
+
+func TestQueuesRejectAResponseWithoutAGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"destination":"/queue/orders"}]`))
+	}))
+	defer server.Close()
+
+	_, err := NewClient(server.URL, "secret").Queues(context.Background(), "")
+
+	if err == nil {
+		t.Fatalf("expected a contract error")
+	}
+	if !strings.Contains(err.Error(), "update the Titan server and CLI together") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNormalizeGroup(t *testing.T) {
+	for _, testCase := range []struct {
+		input string
+		want  string
+		fails bool
+	}{
+		{input: "", want: DefaultGroup},
+		{input: "   ", want: DefaultGroup},
+		{input: "market", want: "market"},
+		{input: " market ", want: "market"},
+		{input: "bad/name", fails: true},
+		{input: strings.Repeat("g", 65), fails: true},
+	} {
+		got, err := NormalizeGroup(testCase.input)
+		if testCase.fails {
+			if err == nil {
+				t.Fatalf("expected %q to fail", testCase.input)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", testCase.input, err)
+		}
+		if got != testCase.want {
+			t.Fatalf("expected %q for %q, got %q", testCase.want, testCase.input, got)
+		}
 	}
 }
