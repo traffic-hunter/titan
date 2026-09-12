@@ -1,6 +1,7 @@
 package org.traffichunter.titan.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.traffichunter.titan.core.util.DestinationGroups.DEFAULT;
 
 import java.time.Instant;
 import java.util.List;
@@ -28,9 +29,9 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/delete-safe");
-        gateway.createQueue(destination, 10).enqueue(message(destination));
+        gateway.createQueue(DEFAULT, destination, 10).enqueue(message(destination));
 
-        DispatcherQueueDeleteResult result = gateway.deleteQueue(destination, false);
+        DispatcherQueueDeleteResult result = gateway.deleteQueue(DEFAULT, destination, false);
 
         assertThat(result.status()).isEqualTo(DispatcherQueueDeleteResult.Status.NOT_EMPTY);
         assertThat(dispatcher.get(destination)).isNotNull();
@@ -46,10 +47,10 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/delete-force");
-        DispatcherQueue first = gateway.createQueue(destination, 10);
+        DispatcherQueue first = gateway.createQueue(DEFAULT, destination, 10);
         first.enqueue(message(destination));
 
-        DispatcherQueueDeleteResult result = gateway.deleteQueue(destination, true);
+        DispatcherQueueDeleteResult result = gateway.deleteQueue(DEFAULT, destination, true);
 
         assertThat(result.isDeleted()).isTrue();
         assertThat(dispatcher.get(destination)).isNull();
@@ -104,9 +105,9 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/pause-state");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.pauseQueue(destination)).isTrue();
+        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isTrue();
 
@@ -121,18 +122,18 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/pause-withholds");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
         Message queued = message(destination);
         queue.enqueue(queued);
 
-        assertThat(gateway.pauseQueue(destination)).isTrue();
+        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
 
         // A manual pause blocks dispatch, so the queued message is withheld
         // until the queue resumes rather than being delivered.
         assertThat(queue.dispatch(200, TimeUnit.MILLISECONDS)).isNull();
         assertThat(queue.size()).isEqualTo(1);
 
-        assertThat(gateway.resumeQueue(destination)).isTrue();
+        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.dispatch(5, TimeUnit.SECONDS)).isSameAs(queued);
         assertThat(queue.size()).isZero();
@@ -149,7 +150,7 @@ class DispatchGatewayQueueManagementTest {
         );
         Destination destination = Destination.create("/queue/pressure-drains");
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(destination, first.getSize());
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
         queue.enqueue(first);
         queue.enqueue(message(destination));
 
@@ -173,11 +174,11 @@ class DispatchGatewayQueueManagementTest {
         // Fill the queue exactly so the next message trips the pressure pause,
         // then stack a manual pause on top of it.
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(destination, first.getSize());
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
         queue.enqueue(first);
         queue.enqueue(message(destination));
         assertThat(queue.isPaused()).isTrue();
-        assertThat(gateway.pauseQueue(destination)).isTrue();
+        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
 
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch drained = new CountDownLatch(1);
@@ -197,7 +198,7 @@ class DispatchGatewayQueueManagementTest {
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
         assertThat(drained.await(200, TimeUnit.MILLISECONDS)).isFalse();
 
-        gateway.resumeQueue(destination);
+        gateway.resumeQueue(DEFAULT, destination);
 
         // Clearing the manual pause has to wake the parked consumer even though
         // the pressure pause is still set. Otherwise nothing drains the queue and
@@ -217,8 +218,8 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/pause-blocks-producer");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
-        gateway.pauseQueue(destination);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        gateway.pauseQueue(DEFAULT, destination);
 
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch enqueued = new CountDownLatch(1);
@@ -234,7 +235,7 @@ class DispatchGatewayQueueManagementTest {
         assertThat(enqueued.await(200, TimeUnit.MILLISECONDS)).isFalse();
         assertThat(queue.size()).isZero();
 
-        gateway.resumeQueue(destination);
+        gateway.resumeQueue(DEFAULT, destination);
 
         assertThat(enqueued.await(5, TimeUnit.SECONDS)).isTrue();
         assertThat(queue.size()).isEqualTo(1);
@@ -251,10 +252,10 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/pause-twice");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.pauseQueue(destination)).isTrue();
-        assertThat(gateway.pauseQueue(destination)).isTrue();
+        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
+        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isTrue();
 
@@ -269,10 +270,10 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/resume-state");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
-        gateway.pauseQueue(destination);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        gateway.pauseQueue(DEFAULT, destination);
 
-        assertThat(gateway.resumeQueue(destination)).isTrue();
+        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isFalse();
 
@@ -287,9 +288,9 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/resume-running");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.resumeQueue(destination)).isTrue();
+        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isFalse();
 
@@ -307,12 +308,12 @@ class DispatchGatewayQueueManagementTest {
         // Size the queue so the first message fills it exactly. The second
         // message then fails to reserve bytes and trips the pressure pause.
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(destination, first.getSize());
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
         queue.enqueue(first);
         queue.enqueue(message(destination));
 
         assertThat(queue.isPaused()).isTrue();
-        assertThat(gateway.resumeQueue(destination)).isTrue();
+        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isTrue();
 
@@ -327,10 +328,10 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/purge-state");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
         queue.enqueue(message(destination));
 
-        assertThat(gateway.purgeQueue(destination)).isTrue();
+        assertThat(gateway.purgeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(dispatcher.get(destination)).isSameAs(queue);
         assertThat(queue.size()).isZero();
@@ -348,9 +349,9 @@ class DispatchGatewayQueueManagementTest {
         );
         Destination destination = Destination.create("/queue/missing-state");
 
-        assertThat(gateway.pauseQueue(destination)).isFalse();
-        assertThat(gateway.resumeQueue(destination)).isFalse();
-        assertThat(gateway.purgeQueue(destination)).isFalse();
+        assertThat(gateway.pauseQueue(DEFAULT, destination)).isFalse();
+        assertThat(gateway.resumeQueue(DEFAULT, destination)).isFalse();
+        assertThat(gateway.purgeQueue(DEFAULT, destination)).isFalse();
         assertThat(dispatcher.get(destination)).isNull();
 
         gateway.close();
@@ -468,9 +469,9 @@ class DispatchGatewayQueueManagementTest {
                 dispatcher
         );
         Destination destination = Destination.create("/queue/delete-closes");
-        DispatcherQueue queue = gateway.createQueue(destination, 1024);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.deleteQueue(destination, false).isDeleted()).isTrue();
+        assertThat(gateway.deleteQueue(DEFAULT, destination, false).isDeleted()).isTrue();
 
         // A producer that resolved the queue before the delete would otherwise write into
         // a queue nothing drains.

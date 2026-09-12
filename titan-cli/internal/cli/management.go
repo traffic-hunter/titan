@@ -34,10 +34,30 @@ const (
 // flows can be driven by a script in tests, where no terminal is attached.
 type managementPrompt interface {
 	Action() (string, error)
+	// Group asks for a destination group and may answer with an empty string.
+	// Listing reads that as every group; a change reads it as the default group.
+	Group(title string) (string, error)
 	Destination(title string) (string, error)
 	MaxPendingBytes() (int64, error)
 	Confirm(prompt string) (bool, error)
 	Acknowledge() error
+}
+
+// filterGroup reads a list filter, where a blank answer means every group.
+func filterGroup(value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "", nil
+	}
+	return monitor.NormalizeGroup(value)
+}
+
+// targetGroup reads the group a change applies to, defaulting to the default group.
+func targetGroup(prompt managementPrompt) (string, error) {
+	value, err := prompt.Group("Group")
+	if err != nil {
+		return "", err
+	}
+	return monitor.NormalizeGroup(value)
 }
 
 // managementActionOptions lists the management submenu entries in display order.
@@ -110,23 +130,35 @@ func runManagementAction(
 ) error {
 	switch action {
 	case managementList:
-		queues, err := client.Queues(ctx)
+		raw, err := prompt.Group("Group filter")
 		if err != nil {
 			return err
 		}
-		render.Queues(out, queues, render.Options{Color: color})
+		group, err := filterGroup(raw)
+		if err != nil {
+			return err
+		}
+		queues, err := client.Queues(ctx, group)
+		if err != nil {
+			return err
+		}
+		render.Queues(out, queues, render.Options{Color: color, Group: group})
 		return prompt.Acknowledge()
 	case managementCreate:
 		return createQueueInteractive(ctx, client, prompt, out)
 	case managementPause, managementResume:
+		group, err := targetGroup(prompt)
+		if err != nil {
+			return err
+		}
 		destination, err := prompt.Destination("Destination")
 		if err != nil {
 			return err
 		}
-		if err := applyQueueAction(ctx, client, action, destination); err != nil {
+		if err := applyQueueAction(ctx, client, action, group, destination); err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "%sd %s\n", action, destination)
+		fmt.Fprintf(out, "%sd %s\n", action, queueRef(group, destination))
 		return nil
 	case managementPurge:
 		return purgeQueueInteractive(ctx, client, prompt, out)
@@ -143,6 +175,10 @@ func createQueueInteractive(
 	prompt managementPrompt,
 	out io.Writer,
 ) error {
+	group, err := targetGroup(prompt)
+	if err != nil {
+		return err
+	}
 	destination, err := prompt.Destination("Destination")
 	if err != nil {
 		return err
@@ -152,14 +188,14 @@ func createQueueInteractive(
 		return err
 	}
 
-	queue, err := client.CreateQueue(ctx, destination, maxPendingBytes)
+	queue, err := client.CreateQueue(ctx, group, destination, maxPendingBytes)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(
 		out,
 		"created %s size=%d pendingBytes=%d maxPendingBytes=%d paused=%t\n",
-		queue.Destination,
+		queueRef(queue.Group, queue.Destination),
 		queue.Size,
 		queue.PendingBytes,
 		queue.MaxPendingBytes,
@@ -176,23 +212,28 @@ func purgeQueueInteractive(
 	prompt managementPrompt,
 	out io.Writer,
 ) error {
+	group, err := targetGroup(prompt)
+	if err != nil {
+		return err
+	}
 	destination, err := prompt.Destination("Destination")
 	if err != nil {
 		return err
 	}
-	confirmed, err := prompt.Confirm(fmt.Sprintf("Remove every pending message from %s?", destination))
+	queue := queueRef(group, destination)
+	confirmed, err := prompt.Confirm(fmt.Sprintf("Remove every pending message from %s?", queue))
 	if err != nil {
 		return err
 	}
 	if !confirmed {
-		fmt.Fprintf(out, "cancelled purge of %s\n", destination)
+		fmt.Fprintf(out, "cancelled purge of %s\n", queue)
 		return nil
 	}
 
-	if err := client.PurgeQueue(ctx, destination); err != nil {
+	if err := client.PurgeQueue(ctx, group, destination); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "purged %s\n", destination)
+	fmt.Fprintf(out, "purged %s\n", queue)
 	return nil
 }
 
@@ -205,14 +246,19 @@ func deleteQueueInteractive(
 	prompt managementPrompt,
 	out io.Writer,
 ) error {
+	group, err := targetGroup(prompt)
+	if err != nil {
+		return err
+	}
 	destination, err := prompt.Destination("Destination")
 	if err != nil {
 		return err
 	}
+	queue := queueRef(group, destination)
 
-	err = client.DeleteQueue(ctx, destination, false)
+	err = client.DeleteQueue(ctx, group, destination, false)
 	if err == nil {
-		fmt.Fprintf(out, "deleted %s\n", destination)
+		fmt.Fprintf(out, "deleted %s\n", queue)
 		return nil
 	}
 
@@ -222,20 +268,21 @@ func deleteQueueInteractive(
 	}
 
 	confirmed, confirmErr := prompt.Confirm(
-		fmt.Sprintf("%s still holds messages. Delete the queue and drop them?", destination),
+		fmt.Sprintf("%s still holds messages. Delete the queue and drop them?", queue),
 	)
 	if confirmErr != nil {
 		return confirmErr
 	}
 	if !confirmed {
-		fmt.Fprintf(out, "cancelled delete of %s\n", destination)
+		fmt.Fprintf(out, "cancelled delete of %s\n", queue)
 		return nil
 	}
 
-	if err := client.DeleteQueue(ctx, destination, true); err != nil {
+	// The retry names the same queue the conflict came from, never a different group.
+	if err := client.DeleteQueue(ctx, group, destination, true); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "deleted %s\n", destination)
+	fmt.Fprintf(out, "deleted %s\n", queue)
 	return nil
 }
 
@@ -315,6 +362,21 @@ func (p *huhManagementPrompt) Action() (string, error) {
 			Value(&selected),
 	)).WithInput(p.stdin).WithOutput(p.stdout).WithTheme(managementTheme())
 	return selected, form.Run()
+}
+
+func (p *huhManagementPrompt) Group(title string) (string, error) {
+	group := ""
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewInput().
+			Title(title).
+			Description("Leave empty for the default group.").
+			Value(&group).
+			Validate(optionalGroup),
+	)).WithInput(p.stdin).WithOutput(p.stdout).WithTheme(managementTheme())
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(group), nil
 }
 
 func (p *huhManagementPrompt) Destination(title string) (string, error) {

@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.codec.json.Json;
@@ -13,6 +14,7 @@ import org.traffichunter.titan.dispatch.DispatcherQueueDeleteResult;
 import org.traffichunter.titan.dispatch.DispatcherQueueManager;
 import org.traffichunter.titan.dispatch.DispatcherQueueManagers;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.monitor.MonitoringSnapshotService;
 import org.traffichunter.titan.monitor.model.QueueSnapshot;
 
@@ -22,6 +24,11 @@ import org.traffichunter.titan.monitor.model.QueueSnapshot;
  * <p>Read operations follow the monitor authorization policy. Changes require both
  * a configured monitor token and a valid bearer token in the request. Queue deletion
  * is therefore unavailable when a local development server runs without authentication.</p>
+ *
+ * <p>A queue is named by its {@code group} and {@code destination} together. On a read the
+ * {@code group} parameter narrows the listing and leaving it out lists every group; on a
+ * change leaving it out means the default group, so a request never reaches another
+ * namespace by accident.</p>
  *
  * @author yungwang-o
  */
@@ -37,6 +44,10 @@ public final class MonitoringQueueServlet extends HttpServlet {
 
     /**
      * Returns queue snapshots collected from JMX.
+     *
+     * <p>Without a {@code group} parameter every group is listed. With one, only that
+     * group's queues are returned; a group that holds no queues is an empty list rather
+     * than a missing resource.</p>
      */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -44,7 +55,16 @@ public final class MonitoringQueueServlet extends HttpServlet {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
-        writeJson(response, HttpServletResponse.SC_OK, service.snapshot().queues());
+
+        List<QueueSnapshot> queues = service.snapshot().queues();
+        if (request.getParameter("group") != null) {
+            String group = group(request, response);
+            if (group == null) {
+                return;
+            }
+            queues = queues.stream().filter(queue -> group.equals(queue.group())).toList();
+        }
+        writeJson(response, HttpServletResponse.SC_OK, queues);
     }
 
     /**
@@ -63,6 +83,10 @@ public final class MonitoringQueueServlet extends HttpServlet {
         if (manager == null) {
             return;
         }
+        String group = group(request, response);
+        if (group == null) {
+            return;
+        }
         Destination destination = destination(request, response);
         if (destination == null) {
             return;
@@ -70,14 +94,15 @@ public final class MonitoringQueueServlet extends HttpServlet {
 
         String action = request.getParameter("action");
         if (action == null || action.isBlank()) {
-            createQueue(manager, destination, request, response);
+            createQueue(manager, group, destination, request, response);
             return;
         }
-        applyAction(manager, destination, action, response);
+        applyAction(manager, group, destination, action, response);
     }
 
     private void createQueue(
             DispatcherQueueManager manager,
+            String group,
             Destination destination,
             HttpServletRequest request,
             HttpServletResponse response
@@ -87,7 +112,7 @@ public final class MonitoringQueueServlet extends HttpServlet {
             return;
         }
 
-        DispatcherQueue queue = manager.createQueue(destination, maxPendingBytes);
+        DispatcherQueue queue = manager.createQueue(group, destination, maxPendingBytes);
         writeJson(response, HttpServletResponse.SC_OK, snapshot(queue));
     }
 
@@ -99,15 +124,16 @@ public final class MonitoringQueueServlet extends HttpServlet {
      */
     private void applyAction(
             DispatcherQueueManager manager,
+            String group,
             Destination destination,
             String action,
             HttpServletResponse response
     ) throws IOException {
         boolean found;
         switch (action) {
-            case "pause" -> found = manager.pauseQueue(destination);
-            case "resume" -> found = manager.resumeQueue(destination);
-            case "purge" -> found = manager.purgeQueue(destination);
+            case "pause" -> found = manager.pauseQueue(group, destination);
+            case "resume" -> found = manager.resumeQueue(group, destination);
+            case "purge" -> found = manager.purgeQueue(group, destination);
             default -> {
                 writeJson(response, HttpServletResponse.SC_BAD_REQUEST, new ErrorResponse("unsupported action " + action));
                 return;
@@ -118,7 +144,7 @@ public final class MonitoringQueueServlet extends HttpServlet {
             writeJson(response, HttpServletResponse.SC_NOT_FOUND, new ErrorResponse("queue not found"));
             return;
         }
-        writeJson(response, HttpServletResponse.SC_OK, new ActionResponse(action, destination.path()));
+        writeJson(response, HttpServletResponse.SC_OK, new ActionResponse(action, group, destination.path()));
     }
 
     /**
@@ -137,12 +163,16 @@ public final class MonitoringQueueServlet extends HttpServlet {
         if (manager == null) {
             return;
         }
+        String group = group(request, response);
+        if (group == null) {
+            return;
+        }
         Destination destination = destination(request, response);
         if (destination == null) {
             return;
         }
 
-        DispatcherQueueDeleteResult result = manager.deleteQueue(destination, force(request));
+        DispatcherQueueDeleteResult result = manager.deleteQueue(group, destination, force(request));
         switch (result.status()) {
             case DELETED -> writeJson(response, HttpServletResponse.SC_OK, new DeleteResponse("deleted", result.size()));
             case NOT_FOUND -> writeJson(response, HttpServletResponse.SC_NOT_FOUND, new ErrorResponse("queue not found"));
@@ -172,6 +202,24 @@ public final class MonitoringQueueServlet extends HttpServlet {
             return null;
         }
         return manager;
+    }
+
+    /**
+     * Resolves the group a request targets.
+     *
+     * <p>A missing or blank parameter means the default group, the same reading the STOMP
+     * {@code group} header gets. A malformed name is answered with {@code 400} rather than
+     * being replaced by a group the caller did not ask for.</p>
+     *
+     * @return the resolved group, or {@code null} once an error response has been written
+     */
+    private @Nullable String group(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        try {
+            return DestinationGroups.normalize(request.getParameter("group"));
+        } catch (IllegalArgumentException e) {
+            writeJson(response, HttpServletResponse.SC_BAD_REQUEST, new ErrorResponse(e.getMessage()));
+            return null;
+        }
     }
 
     private @Nullable Destination destination(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -234,7 +282,7 @@ public final class MonitoringQueueServlet extends HttpServlet {
     private record DeleteResponse(String status, int size) {
     }
 
-    private record ActionResponse(String status, String destination) {
+    private record ActionResponse(String status, String group, String destination) {
     }
 
     private record ErrorResponse(String error) {

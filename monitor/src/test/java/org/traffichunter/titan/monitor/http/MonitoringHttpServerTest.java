@@ -21,6 +21,7 @@ import org.traffichunter.titan.dispatch.*;
 import org.traffichunter.titan.dispatch.Dispatcher;
 import org.traffichunter.titan.dispatch.TrieDispatcher;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 import org.traffichunter.titan.monitor.MonitoringSnapshotService;
 
@@ -203,7 +204,7 @@ class MonitoringHttpServerTest {
     @Test
     void rejects_non_empty_queue_delete_until_force_is_used() throws Exception {
         TestQueueManager manager = new TestQueueManager();
-        DispatcherQueue queue = manager.createQueue(Destination.create("/queue/non-empty"), 10);
+        DispatcherQueue queue = manager.createQueue(DestinationGroups.DEFAULT, Destination.create("/queue/non-empty"), 10);
         queue.enqueue(Message.builder()
                 .destination(Destination.create("/queue/non-empty"))
                 .createdAt(java.time.Instant.now())
@@ -276,7 +277,7 @@ class MonitoringHttpServerTest {
     @Test
     void applies_pause_resume_and_purge_actions() throws Exception {
         TestQueueManager manager = new TestQueueManager();
-        DispatcherQueue queue = manager.createQueue(Destination.create("/queue/actions"), 1024);
+        DispatcherQueue queue = manager.createQueue(DestinationGroups.DEFAULT, Destination.create("/queue/actions"), 1024);
         queue.enqueue(Message.builder()
                 .destination(Destination.create("/queue/actions"))
                 .createdAt(Instant.now())
@@ -509,65 +510,6 @@ class MonitoringHttpServerTest {
     private static int availablePort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
-        }
-    }
-
-    @NullMarked
-    private static final class TestQueueManager implements DispatcherQueueManager {
-
-        private final Dispatcher dispatcher = new TrieDispatcher();
-
-        @Override
-        public DispatcherQueue createQueue(Destination destination, long maxPendingBytes) {
-            return dispatcher.getOrPut(destination, maxPendingBytes);
-        }
-
-        @Override
-        public boolean pauseQueue(Destination destination) {
-            DispatcherQueue queue = dispatcher.get(destination);
-            if (queue == null) {
-                return false;
-            }
-            queue.pause();
-            return true;
-        }
-
-        @Override
-        public boolean resumeQueue(Destination destination) {
-            DispatcherQueue queue = dispatcher.get(destination);
-            if (queue == null) {
-                return false;
-            }
-            queue.resume();
-            return true;
-        }
-
-        @Override
-        public boolean purgeQueue(Destination destination) {
-            DispatcherQueue queue = dispatcher.get(destination);
-            if (queue == null) {
-                return false;
-            }
-            queue.clear();
-            return true;
-        }
-
-        @Override
-        public DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
-            DispatcherQueue queue = dispatcher.get(destination);
-            if (queue == null) {
-                return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_FOUND, 0);
-            }
-            int size = queue.size();
-            if (size > 0 && !force) {
-                return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_EMPTY, size);
-            }
-            if (force) {
-                queue.clear();
-            }
-            dispatcher.remove(destination);
-            DispatcherQueueMbeans.unregister(queue.getDestination());
-            return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.DELETED, size);
         }
     }
 }

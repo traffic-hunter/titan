@@ -96,6 +96,12 @@ public class TrieDispatcher implements Dispatcher {
     }
 
     @Override
+    public DispatcherQueue getOrPut(String group, Destination destination, long maxPendingBytes) {
+        requireOwnGroup(group);
+        return getOrPut(destination, maxPendingBytes);
+    }
+
+    @Override
     public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
         return trie.computeIfAbsent(destination.path(), path -> {
             DispatcherQueue queue = DispatcherQueue.create(

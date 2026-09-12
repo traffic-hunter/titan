@@ -14,7 +14,6 @@ import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessag
 import org.springframework.util.ErrorHandler;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
@@ -28,6 +27,11 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
  * the client assigned, so several listeners can share a destination across groups and each one
  * unsubscribes only its own.</p>
  *
+ * <p>A SUBSCRIBE takes time to complete, and a stop or a start timeout can land while one is on
+ * the wire. Each start therefore carries a generation, and an identifier that arrives once its
+ * generation is over belongs to nobody: the container releases it instead of storing it, so a
+ * stopped listener never leaves a subscription behind.</p>
+ *
  * @author yun
  */
 public final class TitanListenerContainer {
@@ -39,8 +43,10 @@ public final class TitanListenerContainer {
     private final HandlerMethodArgumentResolverComposite argumentResolvers;
     private final ErrorHandler listenerErrorHandler;
 
-    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final Object lifecycle = new Object();
 
+    private volatile boolean running;
+    private long generation;
     private volatile @Nullable TitanClient client;
     private volatile @Nullable String subscriptionId;
 
@@ -60,21 +66,29 @@ public final class TitanListenerContainer {
      * Subscribe to the endpoint destination and start dispatching frames.
      */
     public void start() {
-        if (!running.compareAndSet(false, true)) {
-            return;
+        long token;
+        synchronized (lifecycle) {
+            if (running) {
+                return;
+            }
+            running = true;
+            token = ++generation;
         }
 
+        TitanClient connection = null;
+        CompletableFuture<String> subscribing = null;
         try {
-            TitanClient connection = manager.connection();
+            connection = manager.connection();
             this.client = connection;
-            String id = connection.subscribe(endpoint.group(), endpoint.destination(), frame -> {
-                if (!running.get()) {
+            TitanClient current = connection;
+            subscribing = current.subscribe(endpoint.group(), endpoint.destination(), frame -> {
+                if (!running) {
                     // A frame already on its way when stop() ran is no longer this listener's.
                     return;
                 }
                 try {
                     invoke(frame);
-                    acknowledgeIfPossible(frame, connection);
+                    acknowledgeIfPossible(frame, current);
                 } catch (Exception e) {
                     log.error(
                             "Failed to invoke Titan listener handler. id={}, group={}, destination={}",
@@ -84,11 +98,19 @@ public final class TitanListenerContainer {
                             e
                     );
                     handleListenerError(e);
-                    negativeAcknowledgeIfPossible(frame, connection);
+                    negativeAcknowledgeIfPossible(frame, current);
                 }
-            }).get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
+            });
 
-            this.subscriptionId = id;
+            String id = subscribing.get(manager.connectTimeoutMillis(), TimeUnit.MILLISECONDS);
+            if (!claim(token, id)) {
+                // The container was stopped, or started again, while this SUBSCRIBE was on the
+                // wire. Nobody holds this identifier now, so this is the only chance to give the
+                // subscription back.
+                release(current, id);
+                return;
+            }
+
             log.info(
                     "Started Titan listener. id={}, group={}, destination={}, subscriptionId={}",
                     endpoint.id(),
@@ -97,9 +119,13 @@ public final class TitanListenerContainer {
                     id
             );
         } catch (Exception e) {
-            this.client = null;
-            this.subscriptionId = null;
-            running.set(false);
+            abandon(token);
+            if (subscribing != null) {
+                // A SUBSCRIBE that succeeds after its timeout still creates a subscription on the
+                // server, and this container is no longer the one holding it.
+                TitanClient late = connection;
+                subscribing.thenAccept(id -> release(late, id));
+            }
             throw new IllegalStateException("Failed to start listener " + endpoint.id(), e);
         }
     }
@@ -108,14 +134,21 @@ public final class TitanListenerContainer {
      * Stop dispatching and unsubscribe from the endpoint destination.
      */
     public void stop() {
-        if (!running.compareAndSet(true, false)) {
-            return;
+        TitanClient connection;
+        String id;
+        synchronized (lifecycle) {
+            if (!running) {
+                return;
+            }
+            running = false;
+            // Ends the generation of a start that is still waiting for its identifier, so it
+            // releases that subscription rather than storing it here.
+            generation++;
+            connection = this.client;
+            id = this.subscriptionId;
+            this.client = null;
+            this.subscriptionId = null;
         }
-
-        TitanClient connection = this.client;
-        String id = this.subscriptionId;
-        this.client = null;
-        this.subscriptionId = null;
         if (connection == null || id == null) {
             return;
         }
@@ -144,14 +177,14 @@ public final class TitanListenerContainer {
      * Return whether this container is currently running.
      */
     public boolean isRunning() {
-        return running.get();
+        return running;
     }
 
     /**
      * Return whether this container is currently stopped.
      */
     public boolean isStopped() {
-        return !running.get();
+        return !running;
     }
 
     TitanListenerEndpoint endpoint() {
@@ -173,6 +206,55 @@ public final class TitanListenerContainer {
 
     ErrorHandler listenerErrorHandler() {
         return listenerErrorHandler;
+    }
+
+    /**
+     * Stores the identifier when this start is still the one that owns the container.
+     *
+     * @return {@code false} when the container was stopped or started again in the meantime
+     */
+    private boolean claim(long token, String id) {
+        synchronized (lifecycle) {
+            if (!running || generation != token) {
+                return false;
+            }
+            this.subscriptionId = id;
+            return true;
+        }
+    }
+
+    /** Clears the container's state unless a later start already took it over. */
+    private void abandon(long token) {
+        synchronized (lifecycle) {
+            if (generation != token) {
+                return;
+            }
+            running = false;
+            this.client = null;
+            this.subscriptionId = null;
+        }
+    }
+
+    /** Gives back a subscription this container no longer holds, without waiting for the frame. */
+    private void release(@Nullable TitanClient connection, @Nullable String id) {
+        if (connection == null || id == null) {
+            return;
+        }
+        try {
+            connection.unsubscribe(id);
+            log.info(
+                    "Released a Titan subscription that outlived its listener. id={}, subscriptionId={}",
+                    endpoint.id(),
+                    id
+            );
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Failed to release a Titan subscription that outlived its listener. id={}, subscriptionId={}",
+                    endpoint.id(),
+                    id,
+                    e
+            );
+        }
     }
 
     private void invoke(StompFrames frame) throws Exception {

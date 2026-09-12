@@ -129,6 +129,34 @@ class GroupedStompClientIntegrationTest {
 
     @Test
     @Timeout(value = 30, unit = SECONDS)
+    void the_header_api_gets_its_own_identifiers_too() throws Exception {
+        int port = startDispatchingServer("");
+        DefaultTitanClient client = connect(port, "");
+
+        BlockingQueue<StompFrames> market = new LinkedBlockingQueue<>();
+        BlockingQueue<StompFrames> plain = new LinkedBlockingQueue<>();
+        // Neither call names an id. Falling back to the destination would give both the same one
+        // and the second subscription would take the first one's place.
+        String marketId = client
+                .subscribe(DESTINATION, Map.of(Elements.GROUP, "market"), market::add)
+                .get(5, SECONDS);
+        String plainId = client.subscribe(DESTINATION, plain::add).get(5, SECONDS);
+
+        assertThat(marketId).isNotEqualTo(plainId);
+        assertThat(marketId).isNotEqualTo(DESTINATION);
+        assertThat(plainId).isNotEqualTo(DESTINATION);
+
+        client.send("market", DESTINATION, "m1").get(5, SECONDS);
+        client.send(DESTINATION, Buffer.heap().alloc("d1")).get(5, SECONDS);
+
+        assertThat(body(market.poll(10, SECONDS))).isEqualTo("m1");
+        assertThat(body(plain.poll(10, SECONDS))).isEqualTo("d1");
+        assertThat(market.poll(500, TimeUnit.MILLISECONDS)).isNull();
+        assertThat(plain.poll(500, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
     void unsubscribing_one_group_leaves_the_other_receiving() throws Exception {
         int port = startDispatchingServer("");
         DefaultTitanClient client = connect(port, "");

@@ -19,6 +19,7 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.AggregationResult;
 
@@ -31,6 +32,10 @@ import java.util.List;
  * <p>Every active child channel receives the payload, regardless of protocol subscriptions.
  * Use a protocol-aware exporter such as {@link StompDispatchExporter} to send only to
  * channels with matching subscriptions.</p>
+ *
+ * <p>Raw TCP has no way to express a destination group, so this exporter serves the default
+ * group only and refuses anything else rather than handing one group's messages to every
+ * channel it knows.</p>
  */
 public class TcpDispatchExporter implements DispatchExporter {
 
@@ -48,6 +53,10 @@ public class TcpDispatchExporter implements DispatchExporter {
     @Override
     public AggregationResult export(String group, Destination destination, Buffer payload) {
         Assert.checkState(inetServer.isStarted(), "Cannot send an unstarted inet server");
+        if (!DestinationGroups.isDefault(group)) {
+            throw new UnsupportedOperationException(
+                    "The inet exporter cannot keep destination group " + group + " to itself");
+        }
 
         int attempted = 0;
         int succeeded = 0;

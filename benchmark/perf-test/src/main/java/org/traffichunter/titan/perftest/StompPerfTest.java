@@ -55,7 +55,7 @@ final class StompPerfTest {
         try {
             consumer.start();
             consumer.connect().get(options.connectTimeout().toMillis(), TimeUnit.MILLISECONDS);
-            consumer.subscribe(options.destination(), frame -> {
+            consumer.subscribe(options.group(), options.destination(), frame -> {
                 byte[] body = frame.body();
                 if (body.length < Long.BYTES + Integer.BYTES + Long.BYTES) {
                     return;
@@ -92,7 +92,7 @@ final class StompPerfTest {
             for (int index = 0; index < options.warmupMessages(); index++) {
                 byte[] payload = payload(options.payloadBytes(), runId, -1);
                 producers.get(index % producers.size())
-                        .send(options.destination(), Buffer.heap().alloc(payload))
+                        .send(options.group(), options.destination(), Buffer.heap().alloc(payload))
                         .get(options.completionTimeout().toMillis(), TimeUnit.MILLISECONDS);
             }
             if (!warmupCompleted.await(options.completionTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
@@ -112,6 +112,7 @@ final class StompPerfTest {
 
                             try {
                                 producer.send(
+                                        options.group(),
                                         options.destination(),
                                         Buffer.heap().alloc(payload(options.payloadBytes(), runId, id))
                                 ).get(options.completionTimeout().toMillis(), TimeUnit.MILLISECONDS);

@@ -190,13 +190,42 @@ Rules:
   `/orders`.
 - The deprecated Vert.x STOMP transport does not support groups. A `SEND` with
   a `group` header on that transport is refused with an `ERROR` frame.
+- An exporter that resolves its subscribers by destination alone cannot keep a
+  group to itself. The raw TCP exporter and the Vert.x STOMP exporter therefore
+  serve the `default` group only and refuse a message from any other, rather
+  than handing it to every subscriber they know.
 
 The Java client and the Spring integration take the group as the first argument
 of their send and subscribe methods. See
 [the client example](../examples/client.md#destination-groups) and
 [the Spring example](../examples/spring-client.md#destination-groups).
 
-Queue management over HTTP and the CLI still operates on the `default` group.
+Queue management over HTTP and the CLI names the group alongside the
+destination. See [the monitoring guide](../operate/monitoring.md#manage-queues)
+for the `group` parameter and the `--group` flag.
+
+### What a group costs
+
+A group is a namespace, not a shared pool. Everything a destination owns exists
+once per group:
+
+- one `DispatcherQueue`, holding its own pending messages;
+- one consumer task on the gateway executor;
+- one JMX MBean, named for the group and the destination.
+
+`max-pending-bytes` is that one queue's limit, not a server-wide budget. Ten
+groups holding `/orders` at 64 MiB each admit 640 MiB of backlog between them.
+The limit is a ceiling the queue refuses beyond, not memory reserved up front.
+
+Groups are created on demand by whichever `SEND` names one first, and nothing
+caps how many exist; only the 64-character name rule applies. Deleting the last
+queue of a group does not delete the group, and a group with no queues appears
+nowhere in monitoring output. What the CLI summarises as `N queues in N groups`
+is the number of groups that currently hold a queue, not the number the
+dispatcher knows about.
+
+Where group names come from client input rather than from configuration, treat
+the queue and consumer count as growing with them and watch `queue list`.
 
 ## Fanout mode versus the default STOMP handler
 

@@ -211,8 +211,9 @@ public interface TitanClient {
     /**
      * Subscribes to a destination within a group using additional SUBSCRIBE headers.
      *
-     * <p>An {@code id} header is honoured as the subscription identifier; without one the client
-     * generates a unique identifier. The supplied map is copied, never modified.</p>
+     * <p>An {@code id} header is honoured as the subscription identifier; without one the
+     * connection assigns a unique identifier, the same as it does for a subscribe that names no
+     * group. The supplied map is copied, never modified.</p>
      *
      * @param group destination group; {@code null} or blank means the default group
      * @param destination destination to subscribe to
@@ -228,7 +229,7 @@ public interface TitanClient {
     ) {
         Map<Elements, String> grouped;
         try {
-            grouped = GroupHeaders.withSubscriptionId(GroupHeaders.forGroup(group, headers));
+            grouped = GroupHeaders.forGroup(group, headers);
         } catch (RuntimeException error) {
             return CompletableFuture.failedFuture(error);
         }

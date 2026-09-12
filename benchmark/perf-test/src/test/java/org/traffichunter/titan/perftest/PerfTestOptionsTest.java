@@ -69,4 +69,43 @@ class PerfTestOptionsTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("at least 20");
     }
+
+    @Test
+    void reads_the_destination_group() {
+        PerfTestOptions options = PerfTestOptions.parse(arguments("--group", "market"));
+
+        assertThat(options.group()).isEqualTo("market");
+    }
+
+    @Test
+    void a_missing_or_blank_group_is_the_default_group() {
+        assertThat(PerfTestOptions.parse(arguments()).group()).isEqualTo("default");
+        assertThat(PerfTestOptions.parse(arguments("--group", "  ")).group()).isEqualTo("default");
+    }
+
+    @Test
+    void rejects_a_malformed_group() {
+        assertThatThrownBy(() -> PerfTestOptions.parse(arguments("--group", "bad/name")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid group name");
+    }
+
+    /** Builds a valid argument list, with the extra options appended. */
+    private static String[] arguments(String... extra) {
+        String[] base = {
+                "--host", "localhost",
+                "--port", "61613",
+                "--destination", "/queue/perf",
+                "--warmup-messages", "100",
+                "--messages", "1000",
+                "--producers", "4",
+                "--payload-bytes", "256",
+                "--connect-timeout-millis", "2000",
+                "--completion-timeout-millis", "30000"
+        };
+        String[] merged = new String[base.length + extra.length];
+        System.arraycopy(base, 0, merged, 0, base.length);
+        System.arraycopy(extra, 0, merged, base.length, extra.length);
+        return merged;
+    }
 }

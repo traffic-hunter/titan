@@ -62,11 +62,22 @@ func (c Client) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
 		return Snapshot{}, err
 	}
+	if err := checkQueueContract(snapshot.Queues); err != nil {
+		return Snapshot{}, err
+	}
 	return snapshot, nil
 }
 
-func (c Client) Queues(ctx context.Context) ([]QueueSnapshot, error) {
-	request, err := c.request(ctx, http.MethodGet, "/titan/monitor/queues")
+// Queues lists dispatcher queues. An empty group lists every group, while a
+// named group asks the server to return only that group's queues.
+func (c Client) Queues(ctx context.Context, group string) ([]QueueSnapshot, error) {
+	path := "/titan/monitor/queues"
+	if group != "" {
+		values := url.Values{}
+		values.Set("group", group)
+		path += "?" + values.Encode()
+	}
+	request, err := c.request(ctx, http.MethodGet, path)
 	if err != nil {
 		return nil, err
 	}
@@ -84,11 +95,22 @@ func (c Client) Queues(ctx context.Context) ([]QueueSnapshot, error) {
 	if err := json.NewDecoder(response.Body).Decode(&queues); err != nil {
 		return nil, err
 	}
+	if err := checkQueueContract(queues); err != nil {
+		return nil, err
+	}
 	return queues, nil
 }
 
-func (c Client) CreateQueue(ctx context.Context, destination string, maxPendingBytes int64) (QueueSnapshot, error) {
+// CreateQueue creates a queue inside group. The group is always sent, so a
+// request never falls back to another namespace on the server.
+func (c Client) CreateQueue(
+	ctx context.Context,
+	group string,
+	destination string,
+	maxPendingBytes int64,
+) (QueueSnapshot, error) {
 	values := url.Values{}
+	values.Set("group", group)
 	values.Set("destination", destination)
 	if maxPendingBytes > 0 {
 		values.Set("maxPendingBytes", fmt.Sprintf("%d", maxPendingBytes))
@@ -111,11 +133,15 @@ func (c Client) CreateQueue(ctx context.Context, destination string, maxPendingB
 	if err := json.NewDecoder(response.Body).Decode(&queue); err != nil {
 		return QueueSnapshot{}, err
 	}
+	if err := checkQueueContract([]QueueSnapshot{queue}); err != nil {
+		return QueueSnapshot{}, err
+	}
 	return queue, nil
 }
 
-func (c Client) DeleteQueue(ctx context.Context, destination string, force bool) error {
+func (c Client) DeleteQueue(ctx context.Context, group string, destination string, force bool) error {
 	values := url.Values{}
+	values.Set("group", group)
 	values.Set("destination", destination)
 	values.Set("force", fmt.Sprintf("%t", force))
 	request, err := c.request(ctx, http.MethodDelete, "/titan/monitor/queues?"+values.Encode())
@@ -137,25 +163,26 @@ func (c Client) DeleteQueue(ctx context.Context, destination string, force bool)
 // PauseQueue manually pauses the queue for the destination.
 //
 // Pausing is idempotent: an already paused queue reports success.
-func (c Client) PauseQueue(ctx context.Context, destination string) error {
-	return c.queueAction(ctx, "pause", destination)
+func (c Client) PauseQueue(ctx context.Context, group string, destination string) error {
+	return c.queueAction(ctx, "pause", group, destination)
 }
 
 // ResumeQueue clears the manual pause for the queue of the destination.
 //
 // A queue that is still under byte pressure stays paused by flow control.
-func (c Client) ResumeQueue(ctx context.Context, destination string) error {
-	return c.queueAction(ctx, "resume", destination)
+func (c Client) ResumeQueue(ctx context.Context, group string, destination string) error {
+	return c.queueAction(ctx, "resume", group, destination)
 }
 
 // PurgeQueue removes every pending message and keeps the queue itself.
-func (c Client) PurgeQueue(ctx context.Context, destination string) error {
-	return c.queueAction(ctx, "purge", destination)
+func (c Client) PurgeQueue(ctx context.Context, group string, destination string) error {
+	return c.queueAction(ctx, "purge", group, destination)
 }
 
-func (c Client) queueAction(ctx context.Context, action string, destination string) error {
+func (c Client) queueAction(ctx context.Context, action string, group string, destination string) error {
 	values := url.Values{}
 	values.Set("action", action)
+	values.Set("group", group)
 	values.Set("destination", destination)
 	request, err := c.request(ctx, http.MethodPost, "/titan/monitor/queues?"+values.Encode())
 	if err != nil {

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/traffic-hunter/titan/titan-cli/internal/monitor"
 )
 
 const measurementBytes = 20
@@ -20,6 +22,7 @@ const resultPrefix = "TITAN_PERF_RESULT="
 type Config struct {
 	Host              string
 	Port              int
+	Group             string
 	Destination       string
 	WarmupMessages    int
 	Messages          int
@@ -31,6 +34,9 @@ type Config struct {
 }
 
 type Report struct {
+	Group       string
+	Destination string
+
 	Requested  int
 	Sent       int64
 	Received   int64
@@ -59,6 +65,14 @@ func (r Report) Successful() bool {
 }
 
 func Run(ctx context.Context, config Config) (Report, error) {
+	// The group is resolved once here so the runner always receives an explicit
+	// name and every publish and subscribe in the run targets the same queue.
+	group, err := monitor.NormalizeGroup(config.Group)
+	if err != nil {
+		return Report{}, err
+	}
+	config.Group = group
+
 	if err := validate(config); err != nil {
 		return Report{}, err
 	}
@@ -75,6 +89,7 @@ func Run(ctx context.Context, config Config) (Report, error) {
 		"-jar", runner,
 		"--host", config.Host,
 		"--port", strconv.Itoa(config.Port),
+		"--group", config.Group,
 		"--destination", config.Destination,
 		"--warmup-messages", strconv.Itoa(config.WarmupMessages),
 		"--messages", strconv.Itoa(config.Messages),
@@ -100,6 +115,8 @@ func Run(ctx context.Context, config Config) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	result.Group = config.Group
+	result.Destination = config.Destination
 	return result, nil
 }
 

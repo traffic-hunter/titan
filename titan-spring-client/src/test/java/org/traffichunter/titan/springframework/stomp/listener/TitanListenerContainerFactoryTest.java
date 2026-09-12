@@ -17,6 +17,8 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -191,6 +193,61 @@ class TitanListenerContainerFactoryTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Failed to start listener");
         assertTrue(container.isStopped());
+    }
+
+    @Test
+    void listener_container_releases_a_subscription_that_arrives_after_stop() throws Exception {
+        CompletableFuture<String> subscribing = new CompletableFuture<>();
+        CountDownLatch subscribed = new CountDownLatch(1);
+        when(client.subscribe(
+                eq("default"),
+                eq("/topic/test"),
+                org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()
+        )).thenAnswer(invocation -> {
+            subscribed.countDown();
+            return subscribing;
+        });
+        TitanListenerContainer container = listenerContainer(endpoint("handle"));
+
+        Thread starting = new Thread(container::start, "listener-start");
+        starting.start();
+        assertTrue(subscribed.await(5, TimeUnit.SECONDS));
+
+        // Stopped before the SUBSCRIBE came back, so stop() has no identifier to work with. The
+        // subscription the server is about to confirm is the start's to give back.
+        container.stop();
+        subscribing.complete(SUBSCRIPTION_ID);
+        starting.join(5_000);
+
+        verify(client).unsubscribe(SUBSCRIPTION_ID);
+        assertTrue(container.isStopped());
+        assertNull(container.subscriptionId());
+    }
+
+    @Test
+    void listener_container_releases_a_subscription_that_arrives_after_the_start_timeout() throws Exception {
+        TitanProperties properties = new TitanProperties();
+        properties.setConnectTimeoutMillis(50L);
+        manager = new TitanClientManager(client, properties);
+        CompletableFuture<String> subscribing = new CompletableFuture<>();
+        when(client.subscribe(
+                eq("default"),
+                eq("/topic/test"),
+                org.mockito.ArgumentMatchers.<Handler<StompFrames>>any()
+        )).thenReturn(subscribing);
+        TitanListenerContainer container = listenerContainer(endpoint("handle"));
+
+        assertThatThrownBy(container::start)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Failed to start listener");
+
+        // The SUBSCRIBE outlived its own timeout. The server still created the subscription, and
+        // nothing else is left holding its identifier.
+        subscribing.complete(SUBSCRIPTION_ID);
+
+        verify(client).unsubscribe(SUBSCRIPTION_ID);
+        assertTrue(container.isStopped());
+        assertNull(container.subscriptionId());
     }
 
     private static TitanListenerEndpoint endpoint() throws NoSuchMethodException {

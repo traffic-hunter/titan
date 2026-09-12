@@ -22,6 +22,7 @@ import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.Map;
@@ -101,7 +102,7 @@ final class TitanStompConnection implements StompConnection {
     ) {
         validateDestination(destination);
         StompHeaders stompHeaders = toHeaders(headers);
-        String subscriptionId = stompHeaders.getOrDefault(Elements.ID, destination);
+        String subscriptionId = subscriptionId(stompHeaders);
         return connection.subscribe(destination, stompHeaders, handler::handle)
                 .map(frame -> subscriptionId)
                 .toCompletableFuture();
@@ -181,6 +182,23 @@ final class TitanStompConnection implements StompConnection {
     void replace(StompClientChannel connection) {
         this.connection = connection;
         installHandlers(connection);
+    }
+
+    /**
+     * Returns the identifier the SUBSCRIBE frame will carry, naming one when the caller did not.
+     *
+     * <p>The channel below falls back to the destination, so two subscriptions to one
+     * destination share an identifier and the second replaces the first. Two groups holding the
+     * same destination make that an everyday case rather than a mistake.</p>
+     */
+    private static String subscriptionId(StompHeaders headers) {
+        String declared = headers.get(Elements.ID);
+        if (declared != null) {
+            return declared;
+        }
+        String generated = IdGenerator.uuid();
+        headers.put(Elements.ID, generated);
+        return generated;
     }
 
     private static StompHeaders toHeaders(Map<Elements, String> headers) {

@@ -118,15 +118,12 @@ class GroupApiTest {
     }
 
     @Test
-    void every_subscription_gets_its_own_identifier() {
-        String first = client.subscribe("market", "/queue/price", frame -> { }).join();
-        String second = client.subscribe("market", "/queue/price", frame -> { }).join();
-        String other = client.subscribe("notification", "/queue/price", frame -> { }).join();
+    void the_group_overload_leaves_the_identifier_to_the_connection() {
+        client.subscribe("market", "/queue/price", frame -> { }).join();
 
-        assertThat(first).isNotEqualTo(second).isNotEqualTo(other);
-        assertThat(second).isNotEqualTo(other);
-        assertThat(client.subscribedHeaders)
-                .allSatisfy(headers -> assertThat(headers).containsKey(Elements.ID));
+        // Naming the group is all this overload does. The identifier is assigned one layer down,
+        // so a subscribe that names no group is given the same guarantee.
+        assertThat(client.subscribedHeaders).containsExactly(Map.of(Elements.GROUP, "market"));
     }
 
     @Test

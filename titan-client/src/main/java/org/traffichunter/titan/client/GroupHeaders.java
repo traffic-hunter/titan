@@ -29,7 +29,6 @@ import java.util.Objects;
 
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.util.DestinationGroups;
-import org.traffichunter.titan.core.util.IdGenerator;
 
 /**
  * Turns a group argument into the headers a STOMP frame carries.
@@ -77,19 +76,5 @@ final class GroupHeaders {
             copied.put(Elements.GROUP, resolved);
         }
         return copied;
-    }
-
-    /**
-     * Gives a subscription its own identifier unless the caller named one.
-     *
-     * <p>Without this, two subscriptions to the same destination in different groups would both
-     * fall back to the destination as their identifier and collide on one connection.</p>
-     *
-     * @param headers headers to complete, modified in place
-     * @return the same map
-     */
-    static Map<Elements, String> withSubscriptionId(Map<Elements, String> headers) {
-        headers.computeIfAbsent(Elements.ID, ignored -> IdGenerator.uuid());
-        return headers;
     }
 }

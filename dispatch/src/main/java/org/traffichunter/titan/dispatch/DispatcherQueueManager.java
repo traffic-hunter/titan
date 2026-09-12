@@ -10,6 +10,11 @@ import org.traffichunter.titan.core.util.Destination;
  * Management tools such as the monitor HTTP API use it to create or remove queues
  * without depending on a specific fanout implementation.</p>
  *
+ * <p>A queue is named by its group and its destination together. Callers pass a group
+ * that has already been resolved, so a request never silently falls back to another
+ * namespace. Only creation may bring a group into existence; every other operation looks
+ * one up and reports that the queue is missing when the group is unknown.</p>
+ *
  * @author yungwang-o
  */
 public interface DispatcherQueueManager {
@@ -21,11 +26,12 @@ public interface DispatcherQueueManager {
      * they should return the existing queue and leave its original byte limit
      * unchanged.</p>
      *
+     * @param group group that owns the queue, created on first use
      * @param destination destination to register
      * @param maxPendingBytes maximum queued payload bytes
      * @return existing or newly created queue
      */
-    DispatcherQueue createQueue(Destination destination, long maxPendingBytes);
+    DispatcherQueue createQueue(String group, Destination destination, long maxPendingBytes);
 
     /**
      * Deletes the queue for the destination.
@@ -34,11 +40,12 @@ public interface DispatcherQueueManager {
      * deletion of non-empty queues. When {@code force} is {@code true}, queued
      * messages may be dropped before the queue is removed.</p>
      *
+     * @param group group that owns the queue
      * @param destination destination to remove
      * @param force whether queued messages may be dropped
      * @return deletion outcome
      */
-    DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force);
+    DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force);
 
     /**
      * Manually pauses the queue for the destination.
@@ -51,10 +58,11 @@ public interface DispatcherQueueManager {
      * call still reports success. A manual pause is independent of the
      * automatic pressure pause, so releasing one does not release the other.</p>
      *
+     * @param group group that owns the queue
      * @param destination destination to pause
      * @return {@code true} when the queue exists
      */
-    boolean pauseQueue(Destination destination);
+    boolean pauseQueue(String group, Destination destination);
 
     /**
      * Clears the manual pause for the queue of the destination.
@@ -64,18 +72,20 @@ public interface DispatcherQueueManager {
      * pressure it keeps rejecting producers through flow control, while
      * consumers can drain it back below the resume threshold.</p>
      *
+     * @param group group that owns the queue
      * @param destination destination to resume
      * @return {@code true} when the queue exists
      */
-    boolean resumeQueue(Destination destination);
+    boolean resumeQueue(String group, Destination destination);
 
     /**
      * Removes every pending message from the queue of the destination.
      *
      * <p>The queue itself is kept and its consumer stays attached.</p>
      *
+     * @param group group that owns the queue
      * @param destination destination to purge
      * @return {@code true} when the queue exists
      */
-    boolean purgeQueue(Destination destination);
+    boolean purgeQueue(String group, Destination destination);
 }

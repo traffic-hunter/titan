@@ -142,6 +142,12 @@ public final class DestinationGroupRegistry implements Dispatcher {
         return groupOrCreate(group).getOrPut(destination);
     }
 
+    /** Creates the group on first use, then the queue inside it with the given byte limit. */
+    @Override
+    public DispatcherQueue getOrPut(String group, Destination destination, long maxPendingBytes) {
+        return groupOrCreate(group).getOrPut(destination, maxPendingBytes);
+    }
+
     @Override
     public List<DispatcherQueue> searchAll(Destination destination) {
         return defaultGroup.searchAll(destination);
