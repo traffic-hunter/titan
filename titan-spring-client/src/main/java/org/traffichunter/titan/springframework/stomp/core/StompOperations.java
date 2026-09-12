@@ -39,7 +39,60 @@ public interface StompOperations {
      */
     CompletableFuture<StompFrames> send(String destination, Buffer payload, Map<Elements, String> headers);
 
+    /**
+     * Sends a message to a destination group, transferring ownership of {@code payload}.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination target STOMP destination
+     * @param payload payload whose ownership is transferred
+     * @return asynchronous send result
+     */
+    CompletableFuture<StompFrames> send(String group, String destination, Buffer payload);
+
+    /**
+     * Sends a message to a destination group with headers, using the same ownership contract as
+     * {@link #send(String, String, Buffer)}.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination target STOMP destination
+     * @param payload payload whose ownership is transferred
+     * @param headers additional STOMP headers
+     * @return asynchronous send result
+     */
+    CompletableFuture<StompFrames> send(
+            String group,
+            String destination,
+            Buffer payload,
+            Map<Elements, String> headers
+    );
+
     CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler);
+
+    /**
+     * Subscribes to a destination within a group.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination destination to subscribe to
+     * @param handler handler for received MESSAGE frames
+     * @return future containing the assigned subscription identifier
+     */
+    CompletableFuture<String> subscribe(String group, String destination, Handler<StompFrames> handler);
+
+    /**
+     * Subscribes to a destination within a group using additional SUBSCRIBE headers.
+     *
+     * @param group destination group; blank means the default group
+     * @param destination destination to subscribe to
+     * @param headers additional SUBSCRIBE headers
+     * @param handler handler for received MESSAGE frames
+     * @return future containing the assigned subscription identifier
+     */
+    CompletableFuture<String> subscribe(
+            String group,
+            String destination,
+            Map<Elements, String> headers,
+            Handler<StompFrames> handler
+    );
 
     CompletableFuture<String> subscribe(String destination, Map<Elements, String> headers, Handler<StompFrames> handler);
 

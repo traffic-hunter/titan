@@ -21,8 +21,10 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.Assert;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.springframework.stomp.annotation.TitanListener;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpoint;
 import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpointRegistry;
@@ -65,6 +67,7 @@ public class TitanListenerAnnotationBeanPostProcessor implements BeanPostProcess
             String id = titanListener.id().isBlank() ? beanName + "#" + method.getName() : titanListener.id();
             TitanListenerEndpoint endpoint = new TitanListenerEndpoint(
                     id,
+                    resolveGroup(titanListener.group(), method),
                     titanListener.destination(),
                     bean,
                     method,
@@ -76,6 +79,36 @@ public class TitanListenerAnnotationBeanPostProcessor implements BeanPostProcess
         }
 
         return bean;
+    }
+
+    /** Endpoints discovered so far, in discovery order. */
+    List<TitanListenerEndpoint> endpoints() {
+        return List.copyOf(endpoints);
+    }
+
+    /**
+     * Resolves a configured group name and refuses one the broker would reject.
+     *
+     * <p>A property reference is substituted first. A placeholder that nothing resolves, or a
+     * name outside the group naming rule, fails here rather than at the first SUBSCRIBE.</p>
+     */
+    private String resolveGroup(String group, Method method) {
+        String resolved = group;
+        if (beanFactory instanceof ConfigurableBeanFactory configurableBeanFactory) {
+            try {
+                resolved = configurableBeanFactory.resolveEmbeddedValue(group);
+            } catch (RuntimeException error) {
+                throw new IllegalStateException(
+                        "Failed to resolve @TitanListener group for " + method, error);
+            }
+        }
+
+        try {
+            return DestinationGroups.normalize(resolved);
+        } catch (IllegalArgumentException error) {
+            throw new IllegalStateException(
+                    "Invalid @TitanListener group for " + method + ": " + resolved, error);
+        }
     }
 
     @Override
