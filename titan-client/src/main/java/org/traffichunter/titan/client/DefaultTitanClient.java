@@ -353,8 +353,7 @@ public final class DefaultTitanClient implements TitanClient {
 
     @Override
     public boolean isConnected() {
-        StompConnection connection = this.connection;
-        return status.get() == Status.CONNECTED && connection != null && connection.isConnected();
+        return activeConnection() != null;
     }
 
     @Override
@@ -551,8 +550,20 @@ public final class DefaultTitanClient implements TitanClient {
         }
     }
 
+    /**
+     * Returns the connection messaging operations may use, or {@code null}.
+     *
+     * <p>This is the same condition {@link #isConnected()} reports, so a client that calls
+     * itself disconnected never hands a dead connection to an operation. The socket can still
+     * die immediately after this returns; a caller that must not lose a message reads the
+     * result of the operation rather than this.</p>
+     */
     private @Nullable StompConnection activeConnection() {
-        return status.get() == Status.CONNECTED ? connection : null;
+        StompConnection connection = this.connection;
+        if (status.get() != Status.CONNECTED || connection == null || !connection.isConnected()) {
+            return null;
+        }
+        return connection;
     }
 
     private void cancelReconnect() {
