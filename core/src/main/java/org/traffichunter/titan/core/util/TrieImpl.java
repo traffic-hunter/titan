@@ -77,11 +77,11 @@ public final class TrieImpl<T> implements Trie<T> {
                 continue; // Skip empty strings from leading /
             }
 
-            current = current.children.get(str);
-
-            if (current == null) {
+            Node<T> child = current.children.get(str);
+            if (child == null) {
                 return null;
             }
+            current = child;
         }
         return current.value;
     }
@@ -108,11 +108,11 @@ public final class TrieImpl<T> implements Trie<T> {
                 continue; // Skip empty strings from leading /
             }
 
-            current = current.children.get(split[i]);
-
-            if (current == null) {
+            Node<T> child = current.children.get(split[i]);
+            if (child == null) {
                 return List.of();
             }
+            current = child;
         }
 
         return searchChildren(current);
@@ -127,11 +127,11 @@ public final class TrieImpl<T> implements Trie<T> {
                 continue; // Skip empty strings from leading /
             }
 
-            current = current.children.get(str);
-
-            if (current == null) {
+            Node<T> child = current.children.get(str);
+            if (child == null) {
                 return false;
             }
+            current = child;
         }
         return true;
     }
@@ -158,11 +158,17 @@ public final class TrieImpl<T> implements Trie<T> {
                 current = current.children.computeIfAbsent(str, key -> new Node<>());
             }
 
-            if (current.value == null) {
-                current.value = mappingFunction.apply(word);
+            T value = current.value;
+            if (value != null) {
+                return value;
             }
 
-            return current.value;
+            T mapped = Objects.requireNonNull(
+                    mappingFunction.apply(word),
+                    "mappingFunction returned null"
+            );
+            current.value = mapped;
+            return mapped;
         } finally {
             wLock.unlock();
         }
@@ -254,8 +260,9 @@ public final class TrieImpl<T> implements Trie<T> {
     }
 
     private void tour(final Node<T> node, final List<T> list) {
-        if(node.value != null) {
-            list.add(node.value);
+        T value = node.value;
+        if (value != null) {
+            list.add(value);
         }
 
         for(Node<T> child : node.children.values()) {

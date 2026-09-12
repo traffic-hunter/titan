@@ -244,6 +244,16 @@ class TrieImplTest {
     }
 
     @Test
+    void computeIfAbsent_rejects_a_null_mapping_result() {
+        Trie<String> trie = new TrieImpl<>();
+
+        assertThatThrownBy(() -> trie.computeIfAbsent("/a/b/c", key -> null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("mappingFunction returned null");
+        assertThat(trie.get("/a/b/c")).isNull();
+    }
+
+    @Test
     void computeIfAbsent_creates_value_once_when_called_concurrently() throws Exception {
         Trie<String> trie = new TrieImpl<>();
         AtomicInteger calls = new AtomicInteger();
@@ -290,7 +300,9 @@ class TrieImplTest {
                 String churned = trie.get("/a/b/3");
                 assertThat(churned == null || "v".equals(churned)).isTrue();
                 assertThat(trie.get("/a/stable")).isEqualTo("stable");
-                assertThat(trie.searchAll("/a/*")).contains("stable");
+                assertThat(trie.searchAll("/a/*"))
+                        .doesNotContainNull()
+                        .contains("stable");
             }
             writer.get(5, TimeUnit.SECONDS);
             assertThat(trie.searchAll("/a/*")).containsExactly("stable");
