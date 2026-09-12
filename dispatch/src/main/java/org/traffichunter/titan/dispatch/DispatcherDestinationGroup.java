@@ -93,6 +93,12 @@ final class DispatcherDestinationGroup implements DestinationGroup {
     }
 
     @Override
+    public DispatcherQueue getOrPut(String group, Destination destination, long maxPendingBytes) {
+        requireOwnGroup(group);
+        return getOrPut(destination, maxPendingBytes);
+    }
+
+    @Override
     public List<DispatcherQueue> searchAll(Destination destination) {
         return dispatcher.searchAll(destination);
     }

@@ -121,12 +121,12 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * existing instance is returned and the supplied byte limit is ignored.</p>
      */
     @Override
-    public DispatcherQueue createQueue(Destination destination, long maxPendingBytes) {
+    public DispatcherQueue createQueue(String group, Destination destination, long maxPendingBytes) {
         if (closed.get()) {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatcher.getOrPut(destination, maxPendingBytes);
+        return dispatcher.getOrPut(group, destination, maxPendingBytes);
     }
 
     /**
@@ -138,11 +138,11 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * requested.</p>
      */
     @Override
-    public DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
+    public DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
         if (closed.get()) {
             throw new IllegalStateException("DispatchGateway is closed");
         }
-        return fanoutHandler.deleteQueue(destination, force);
+        return fanoutHandler.deleteQueue(group, destination, force);
     }
 
     /**
@@ -151,11 +151,11 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * <p>A manual pause blocks both enqueue and dispatch, so producers stop
      * being admitted and queued messages stop being delivered. The consumer
      * stays attached and waits until the queue is resumed. To discard the
-     * queued messages instead, use {@link #purgeQueue(Destination)}.</p>
+     * queued messages instead, use {@link #purgeQueue(String, Destination)}.</p>
      */
     @Override
-    public boolean pauseQueue(Destination destination) {
-        DispatcherQueue queue = getQueue(destination);
+    public boolean pauseQueue(String group, Destination destination) {
+        DispatcherQueue queue = getQueue(group, destination);
         if (queue == null) {
             return false;
         }
@@ -172,8 +172,8 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * so consumers can drain the queue back below the resume threshold.</p>
      */
     @Override
-    public boolean resumeQueue(Destination destination) {
-        DispatcherQueue queue = getQueue(destination);
+    public boolean resumeQueue(String group, Destination destination) {
+        DispatcherQueue queue = getQueue(group, destination);
         if (queue == null) {
             return false;
         }
@@ -185,8 +185,8 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
      * Drops every pending message while keeping the queue and its consumer.
      */
     @Override
-    public boolean purgeQueue(Destination destination) {
-        DispatcherQueue queue = getQueue(destination);
+    public boolean purgeQueue(String group, Destination destination) {
+        DispatcherQueue queue = getQueue(group, destination);
         if (queue == null) {
             return false;
         }
@@ -214,11 +214,12 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         }
     }
 
-    private @Nullable DispatcherQueue getQueue(Destination destination) {
+    /** Looks the queue up inside its own group. An unknown group is not created. */
+    private @Nullable DispatcherQueue getQueue(String group, Destination destination) {
         if (closed.get()) {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatcher.get(destination);
+        return dispatcher.get(group, destination);
     }
 }

@@ -111,6 +111,21 @@ public interface Dispatcher {
     DispatcherQueue getOrPut(Destination destination, long maxPendingBytes);
 
     /**
+     * Returns the existing queue or creates one with the requested byte limit inside the
+     * named group. An existing queue keeps the byte limit it was created with.
+     *
+     * @throws UnsupportedOperationException when this dispatcher cannot serve the group
+     */
+    @CanIgnoreReturnValue
+    default DispatcherQueue getOrPut(String group, Destination destination, long maxPendingBytes) {
+        if (DestinationGroups.isDefault(group)) {
+            return getOrPut(destination, maxPendingBytes);
+        }
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName() + " has no destination group " + group);
+    }
+
+    /**
      * Returns queues matching the destination pattern.
      *
      * <p>Exact destinations return at most one queue. Wildcard destinations such as

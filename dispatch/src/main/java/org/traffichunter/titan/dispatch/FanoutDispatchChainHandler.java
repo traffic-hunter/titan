@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
@@ -74,12 +73,12 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         return consumers.computeIfAbsent(new ConsumerKey(group, destination), this::consume);
     }
 
-    DispatcherQueueDeleteResult deleteQueue(Destination destination, boolean force) {
+    DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
         if (closed.get()) {
             throw new IllegalStateException("Fanout dispatch handler is closed");
         }
 
-        DispatcherQueue queue = dispatcher.get(destination);
+        DispatcherQueue queue = dispatcher.get(group, destination);
         if (queue == null) {
             return DispatcherQueueDeleteResult.notFound();
         }
@@ -87,6 +86,12 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         if (size > 0 && !force) {
             return DispatcherQueueDeleteResult.notEmpty(size);
         }
+
+        // Read the consumer before the queue leaves the dispatcher. A queue recreated
+        // afterwards registers a consumer of its own, and the compare below is what keeps
+        // this call from cancelling that one.
+        ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
+        CompletableFuture<@Nullable Void> consumer = consumers.get(key);
 
         // Remove the queue this call looked up, never a replacement created since. The
         // dispatcher unregisters the MBean of whatever it actually removed.
@@ -98,9 +103,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             queue.clear();
         }
 
-        CompletableFuture<@Nullable Void> consumer =
-                consumers.remove(new ConsumerKey(DestinationGroups.DEFAULT, destination));
-        if (consumer != null) {
+        if (consumer != null && consumers.remove(key, consumer)) {
             consumer.cancel(true);
         }
         return DispatcherQueueDeleteResult.deleted(size);
