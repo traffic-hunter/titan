@@ -24,6 +24,7 @@ import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -448,6 +449,154 @@ class StompReconnectIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void a_header_map_edited_before_the_subscribe_completes_keeps_its_group(
+            StompTestServer testServer
+    ) throws Exception {
+        CompletableFuture<Void> subscriptionWritten = new CompletableFuture<>();
+        CompletableFuture<Void> releaseSubscription = new CompletableFuture<>();
+        CompletableFuture<Map<Elements, String>> restored = new CompletableFuture<>();
+        FaultInjectingDriver driver = new FaultInjectingDriver(
+                new TitanStompClientDriver(
+                        EventLoopGroups.singleGroup(),
+                        reconnectConfiguration(testServer)
+                ),
+                (attempt, connection) -> attempt == 1
+                        ? interceptSubscriptions(connection, (delegate, destination, headers, handler) ->
+                                delegate.subscribe(destination, headers, handler)
+                                        .thenCompose(subscriptionId -> {
+                                            subscriptionWritten.complete(null);
+                                            return releaseSubscription.thenApply(ignored -> subscriptionId);
+                                        }))
+                        : interceptSubscriptions(connection, (delegate, destination, headers, handler) -> {
+                            restored.complete(Map.copyOf(headers));
+                            return delegate.subscribe(destination, headers, handler);
+                        })
+        );
+        DefaultTitanClient client = new DefaultTitanClient(driver);
+        String destination = "/queue/edited-headers";
+        Map<Elements, String> headers = new HashMap<>();
+        headers.put(Elements.GROUP, "market");
+
+        try {
+            client.start();
+            client.connect().get(3, SECONDS);
+            CompletableFuture<String> subscription = client.subscribe(destination, headers, frame -> { });
+            subscriptionWritten.get(3, SECONDS);
+
+            // The subscription kept for reconnect used to be built from this map once the
+            // SUBSCRIBE completed, so an edit landing in this window chose the restored group.
+            headers.put(Elements.GROUP, "notification");
+            releaseSubscription.complete(null);
+            String subscriptionId = subscription.get(3, SECONDS);
+
+            testServer.stop();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
+            testServer.restart();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
+
+            assertThat(restored.get(3, SECONDS))
+                    .containsEntry(Elements.GROUP, "market")
+                    .containsEntry(Elements.ID, subscriptionId);
+        } finally {
+            releaseSubscription.complete(null);
+            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
+        }
+    }
+
+    @Test
+    @Timeout(value = 40, unit = SECONDS)
+    void a_subscription_dropped_while_another_one_is_being_restored_is_not_restored(
+            StompTestServer testServer
+    ) throws Exception {
+        HeldRestore held = new HeldRestore();
+        DefaultTitanClient client = new DefaultTitanClient(held.driver(testServer));
+        BlockingQueue<StompFrames> market = new LinkedBlockingQueue<>();
+        BlockingQueue<StompFrames> notification = new LinkedBlockingQueue<>();
+        String destination = "/queue/dropped-during-restore";
+
+        try {
+            client.start();
+            client.connect().get(3, SECONDS);
+            String marketId = client.subscribe("market", destination, market::add).get(3, SECONDS);
+            String notificationId =
+                    client.subscribe("notification", destination, notification::add).get(3, SECONDS);
+
+            testServer.stop();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
+            testServer.restart();
+
+            // One subscription of the snapshot is on the wire. The other has not been sent yet,
+            // and dropping it now must keep the replay from sending it at all.
+            String holding = held.reached();
+            String dropped = holding.equals(marketId) ? notificationId : marketId;
+            client.unsubscribe(dropped);
+            held.release();
+
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
+
+            client.send("market", destination, "m1").get(3, SECONDS);
+            client.send("notification", destination, "n1").get(3, SECONDS);
+
+            boolean marketHeld = holding.equals(marketId);
+            assertThat((marketHeld ? market : notification).poll(3, SECONDS)).isNotNull();
+            assertThat((marketHeld ? notification : market).poll(500, TimeUnit.MILLISECONDS)).isNull();
+        } finally {
+            held.release();
+            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
+        }
+    }
+
+    @Test
+    @Timeout(value = 40, unit = SECONDS)
+    void a_subscription_dropped_while_its_own_restore_is_in_flight_is_undone(
+            StompTestServer testServer
+    ) throws Exception {
+        HeldRestore held = new HeldRestore();
+        DefaultTitanClient client = new DefaultTitanClient(held.driver(testServer));
+        BlockingQueue<StompFrames> market = new LinkedBlockingQueue<>();
+        BlockingQueue<StompFrames> notification = new LinkedBlockingQueue<>();
+        String destination = "/queue/dropped-mid-restore";
+
+        try {
+            client.start();
+            client.connect().get(3, SECONDS);
+            String marketId = client.subscribe("market", destination, market::add).get(3, SECONDS);
+            String notificationId =
+                    client.subscribe("notification", destination, notification::add).get(3, SECONDS);
+
+            testServer.stop();
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
+            testServer.restart();
+
+            // Dropped while its own SUBSCRIBE is on the wire. Only the replay knows the server
+            // is about to accept it, so only the replay can take it back.
+            String holding = held.reached();
+            client.unsubscribe(holding);
+            held.release();
+
+            await().atMost(10, SECONDS)
+                    .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
+
+            client.send("market", destination, "m1").get(3, SECONDS);
+            client.send("notification", destination, "n1").get(3, SECONDS);
+
+            boolean marketHeld = holding.equals(marketId);
+            assertThat(holding).isIn(marketId, notificationId);
+            assertThat((marketHeld ? market : notification).poll(500, TimeUnit.MILLISECONDS)).isNull();
+            assertThat((marketHeld ? notification : market).poll(3, SECONDS)).isNotNull();
+        } finally {
+            held.release();
+            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
+        }
+    }
+
     private static DefaultTitanClient startClient(StompTestServer testServer) {
         DefaultTitanClient client = new DefaultTitanClient(
                 new TitanStompClientDriver(EventLoopGroups.singleGroup(), reconnectConfiguration(testServer))
@@ -483,6 +632,45 @@ class StompReconnectIntegrationTest {
                 configuration.tlsContext(),
                 configuration.webSocketPath()
         );
+    }
+
+    /**
+     * Holds the first SUBSCRIBE of a reconnect's replay until the test lets it go.
+     *
+     * <p>That pause is the window the tests need: the snapshot has been taken and is being
+     * replayed, so an unsubscribe issued now reaches a subscription the replay is about to
+     * recreate.</p>
+     */
+    private static final class HeldRestore {
+
+        private final CompletableFuture<String> reached = new CompletableFuture<>();
+        private final CompletableFuture<Void> release = new CompletableFuture<>();
+
+        private FaultInjectingDriver driver(StompTestServer testServer) {
+            return new FaultInjectingDriver(
+                    new TitanStompClientDriver(
+                            EventLoopGroups.singleGroup(),
+                            reconnectConfiguration(testServer)
+                    ),
+                    (attempt, connection) -> attempt == 1
+                            ? connection
+                            : interceptSubscriptions(connection, (delegate, destination, headers, handler) -> {
+                                if (reached.complete(headers.get(Elements.ID))) {
+                                    return release.thenCompose(ignored ->
+                                            delegate.subscribe(destination, headers, handler));
+                                }
+                                return delegate.subscribe(destination, headers, handler);
+                            })
+            );
+        }
+
+        private String reached() throws Exception {
+            return reached.get(15, SECONDS);
+        }
+
+        private void release() {
+            release.complete(null);
+        }
     }
 
     private static StompConnection interceptSubscriptions(

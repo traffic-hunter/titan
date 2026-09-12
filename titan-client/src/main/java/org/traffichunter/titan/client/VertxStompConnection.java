@@ -21,6 +21,7 @@ import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.codec.stomp.vertx.VertxStompFrame;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.util.HashMap;
@@ -113,11 +114,7 @@ final class VertxStompConnection implements StompConnection {
 
     @Override
     public CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler) {
-        validateDestination(destination);
-        return connection.subscribe(
-                destination,
-                frame -> handler.handle(VertxStompFrame.wrap(frame))
-        ).toCompletionStage().toCompletableFuture();
+        return subscribe(destination, Map.of(), handler);
     }
 
     @Override
@@ -127,9 +124,14 @@ final class VertxStompConnection implements StompConnection {
             Handler<StompFrames> handler
     ) {
         validateDestination(destination);
+        Map<String, String> vertxHeaders = toVertxHeaders(headers);
+        // Vert.x falls back to the destination as the identifier and refuses a second
+        // subscription that ends up with one already taken, which is what two groups holding the
+        // same destination would do. It returns whichever identifier the headers name.
+        vertxHeaders.putIfAbsent(Elements.ID.getName(), IdGenerator.uuid());
         return connection.subscribe(
                 destination,
-                toVertxHeaders(headers),
+                vertxHeaders,
                 frame -> handler.handle(VertxStompFrame.wrap(frame))
         ).toCompletionStage().toCompletableFuture();
     }

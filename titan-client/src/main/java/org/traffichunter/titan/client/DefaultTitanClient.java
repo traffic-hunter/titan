@@ -15,8 +15,10 @@
  */
 package org.traffichunter.titan.client;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +63,9 @@ public final class DefaultTitanClient implements TitanClient {
     private final AtomicReference<Status> status = new AtomicReference<>(Status.INITIALIZED);
     private final AtomicReference<@Nullable RetryResult> reconnectResult = new AtomicReference<>();
     private final Worker worker;
+    private final Object subscriptionLock = new Object();
+
+    private @Nullable Restore restore;
 
     private volatile @Nullable StompConnection connection;
     private volatile Handler<StompFrames> errorHandler = ignored -> {};
@@ -187,29 +192,7 @@ public final class DefaultTitanClient implements TitanClient {
 
     @Override
     public CompletableFuture<String> subscribe(String destination, Handler<StompFrames> handler) {
-        StompConnection source = activeConnection();
-        if (source == null) {
-            return notConnected();
-        }
-
-        return source.subscribe(destination, handler)
-                .thenComposeAsync(subscriptionId -> {
-                    StompHeaders stompHeaders = StompHeaders.create();
-                    stompHeaders.put(Elements.ID, subscriptionId);
-                    subscriptionManager.add(new Subscription(
-                            subscriptionId,
-                            Destination.create(destination),
-                            stompHeaders,
-                            handler
-                    ));
-
-                    StompConnection current = this.connection;
-                    if (current != null && current != source) {
-                        return current.subscribe(destination, stompHeaders.toMap(), handler)
-                                .thenApply(ignored -> subscriptionId);
-                    }
-                    return CompletableFuture.completedFuture(subscriptionId);
-                }, worker);
+        return subscribe(destination, Map.of(), handler);
     }
 
     @Override
@@ -223,9 +206,13 @@ public final class DefaultTitanClient implements TitanClient {
             return notConnected();
         }
 
-        return source.subscribe(destination, headers, handler)
+        // The frame and the subscription kept for reconnect are built from one copy. Reading the
+        // caller's map again after the SUBSCRIBE completes would let a map the caller kept
+        // editing decide which group this subscription is restored into.
+        Map<Elements, String> sent = Map.copyOf(headers);
+        return source.subscribe(destination, sent, handler)
                 .thenComposeAsync(subscriptionId -> {
-                    StompHeaders stompHeaders = new StompHeaders(headers);
+                    StompHeaders stompHeaders = new StompHeaders(sent);
                     stompHeaders.put(Elements.ID, subscriptionId);
                     subscriptionManager.add(new Subscription(
                             subscriptionId,
@@ -245,8 +232,7 @@ public final class DefaultTitanClient implements TitanClient {
 
     @Override
     public CompletableFuture<StompFrames> unsubscribe(String subscriptionId) {
-        StompConnection source = activeConnection();
-        forget(subscriptionId);
+        StompConnection source = forget(subscriptionId);
         if (source == null) {
             return notConnected();
         }
@@ -263,8 +249,7 @@ public final class DefaultTitanClient implements TitanClient {
 
     @Override
     public CompletableFuture<StompFrames> unsubscribe(String subscriptionId, Map<Elements, String> headers) {
-        StompConnection source = activeConnection();
-        forget(subscriptionId);
+        StompConnection source = forget(subscriptionId);
         if (source == null) {
             return notConnected();
         }
@@ -486,37 +471,39 @@ public final class DefaultTitanClient implements TitanClient {
         );
 
         try {
-            List<Subscription> subscriptions = await(worker.submit(() -> {
+            Restore started = await(worker.submit(() -> {
                 if (status.get() != Status.CONNECTING) {
-                    return List.of();
+                    return null;
                 }
                 bind(connection);
-                return subscriptionManager.subscriptions();
+                synchronized (subscriptionLock) {
+                    // The snapshot and the bookkeeping that corrects it are published together.
+                    // An unsubscribe therefore either runs before the snapshot is taken, and is
+                    // simply absent from it, or finds a restore it can correct.
+                    Restore restore = new Restore(connection, subscriptionManager.subscriptions());
+                    this.restore = restore;
+                    return restore;
+                }
             }), timeoutNanos, "preparing STOMP reconnect");
 
-            if (status.get() != Status.CONNECTING) {
+            if (started == null || status.get() != Status.CONNECTING) {
                 connection.disconnect();
                 return;
             }
 
-            long restoreDeadline = System.nanoTime() + timeoutNanos;
-            for (Subscription subscription : subscriptions) {
-                long remaining = restoreDeadline - System.nanoTime();
-                if (remaining <= 0) {
-                    throw new ClientException("Timed out while restoring STOMP subscriptions");
-                }
-                await(connection.subscribe(
-                        subscription.destination().path(),
-                        subscription.stompHeaders().toMap(),
-                        subscription.framesHandler()
-                ), remaining, "restoring STOMP subscriptions");
-            }
+            restoreSubscriptions(started, timeoutNanos);
 
             boolean connected = await(worker.submit(() -> {
                 if (!connection.isConnected()) {
                     throw new ClientException("STOMP connection closed while restoring subscriptions");
                 }
-                return status.compareAndSet(Status.CONNECTING, Status.CONNECTED);
+                synchronized (subscriptionLock) {
+                    boolean result = status.compareAndSet(Status.CONNECTING, Status.CONNECTED);
+                    // Kept until the client reports itself connected, so an unsubscribe that
+                    // arrives in between is still sent on the connection the restore used.
+                    this.restore = null;
+                    return result;
+                }
             }), timeoutNanos, "completing STOMP reconnect");
 
             if (!connected) {
@@ -525,7 +512,65 @@ public final class DefaultTitanClient implements TitanClient {
         } catch (RuntimeException error) {
             connection.disconnect();
             throw error;
+        } finally {
+            synchronized (subscriptionLock) {
+                this.restore = null;
+            }
         }
+    }
+
+    /**
+     * Replays the snapshot on the replacement connection, skipping what has been unsubscribed.
+     *
+     * <p>A subscription can be given up at any point of this loop. One that goes before its
+     * SUBSCRIBE is sent is simply not sent. One that goes while the SUBSCRIBE is on the wire is
+     * undone here, because by then only this loop knows the server ever received it. Both cases
+     * would otherwise leave a subscription the caller has already dropped delivering messages
+     * for the rest of the connection's life.</p>
+     */
+    private void restoreSubscriptions(Restore restore, long timeoutNanos) {
+        long deadline = System.nanoTime() + timeoutNanos;
+        for (Subscription subscription : restore.subscriptions) {
+            String subscriptionId = subscription.id();
+            synchronized (subscriptionLock) {
+                if (!restore.pending.remove(subscriptionId)
+                        || subscriptionManager.get(subscriptionId) == null) {
+                    continue;
+                }
+                restore.inFlight.add(subscriptionId);
+            }
+
+            await(restore.connection.subscribe(
+                    subscription.destination().path(),
+                    subscription.stompHeaders().toMap(),
+                    subscription.framesHandler()
+            ), remaining(deadline), "restoring STOMP subscriptions");
+
+            boolean cancelled;
+            synchronized (subscriptionLock) {
+                restore.inFlight.remove(subscriptionId);
+                cancelled = restore.cancelled.remove(subscriptionId);
+                if (!cancelled) {
+                    restore.installed.add(subscriptionId);
+                }
+            }
+
+            if (cancelled) {
+                await(
+                        restore.connection.unsubscribe(subscriptionId),
+                        remaining(deadline),
+                        "releasing a STOMP subscription cancelled during a restore"
+                );
+            }
+        }
+    }
+
+    private static long remaining(long deadline) {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0) {
+            throw new ClientException("Timed out while restoring STOMP subscriptions");
+        }
+        return remaining;
     }
 
     /** Waits on the dedicated reconnect thread and normalizes JDK future failures. */
@@ -586,13 +631,41 @@ public final class DefaultTitanClient implements TitanClient {
     }
 
     /**
-     * Drops the logical subscription before the UNSUBSCRIBE frame is even attempted.
+     * Drops the logical subscription and returns the connection its UNSUBSCRIBE belongs on.
      *
-     * <p>The caller has given the subscription up, so waiting for the server to confirm would
-     * leave a broken or already closed connection restoring it on the next reconnect.</p>
+     * <p>The subscription is given up before the frame is even attempted, because waiting for
+     * the server to confirm would leave a broken or already closed connection restoring it on
+     * the next reconnect.</p>
+     *
+     * <p>A reconnect that is restoring right now works from a snapshot taken before this call,
+     * so it is told about the removal as well. It skips a subscription it has not sent yet,
+     * undoes one whose SUBSCRIBE is still on the wire, and hands back its own connection for one
+     * it has already installed. That last case is why this returns a connection at all: the
+     * client is still {@code CONNECTING}, so {@link #activeConnection()} would refuse to name
+     * one and the restored subscription would survive on the server.</p>
+     *
+     * @return connection to send the UNSUBSCRIBE on, or {@code null} when there is none to send
      */
-    private void forget(String subscriptionId) {
-        subscriptionManager.remove(subscriptionId);
+    private @Nullable StompConnection forget(String subscriptionId) {
+        synchronized (subscriptionLock) {
+            subscriptionManager.remove(subscriptionId);
+
+            Restore current = this.restore;
+            if (current == null) {
+                return activeConnection();
+            }
+            if (current.pending.remove(subscriptionId)) {
+                return activeConnection();
+            }
+            if (current.installed.remove(subscriptionId)) {
+                return current.connection;
+            }
+            if (current.inFlight.contains(subscriptionId)) {
+                current.cancelled.add(subscriptionId);
+                return null;
+            }
+            return activeConnection();
+        }
     }
 
     private static <T> CompletableFuture<T> notConnected() {
@@ -604,6 +677,30 @@ public final class DefaultTitanClient implements TitanClient {
             callback.run();
         } catch (RuntimeException error) {
             log.warn("Titan client handler failed", error);
+        }
+    }
+
+    /**
+     * Bookkeeping for the subscription restore of one reconnect attempt.
+     *
+     * <p>Every identifier of the snapshot starts in {@code pending}, moves to {@code inFlight}
+     * while its SUBSCRIBE is on the wire, and ends in {@code installed}. An unsubscribe that
+     * arrives while one is in flight leaves it in {@code cancelled} instead, which is the
+     * restore's instruction to undo it. All four sets are guarded by {@code subscriptionLock}.</p>
+     */
+    private static final class Restore {
+
+        private final StompConnection connection;
+        private final List<Subscription> subscriptions;
+        private final Set<String> pending = new HashSet<>();
+        private final Set<String> inFlight = new HashSet<>();
+        private final Set<String> installed = new HashSet<>();
+        private final Set<String> cancelled = new HashSet<>();
+
+        private Restore(StompConnection connection, List<Subscription> subscriptions) {
+            this.connection = connection;
+            this.subscriptions = subscriptions;
+            subscriptions.forEach(subscription -> pending.add(subscription.id()));
         }
     }
 }

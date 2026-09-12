@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -108,8 +109,10 @@ public abstract class AbstractTitanSmokeLocalTest {
     void unsubscribe_and_resubscribe_smoke() throws Exception {
         String destination = destination("unsubscribe");
 
-        subscribeReceivingEventually(destination);
-        unsubscribeEventually(destination);
+        // Unsubscribing takes the identifier the subscribe handed back. A destination is not one:
+        // subscribing to it twice gives two subscriptions with two identifiers.
+        Subscribed first = subscribeEventually(destination);
+        unsubscribeEventually(first.id());
         BlockingQueue<String> received = subscribeReceivingEventually(destination);
         sendEventually(destination, PAYLOAD + "-after-unsubscribe");
         assertReceived(received, PAYLOAD + "-after-unsubscribe");
@@ -163,19 +166,30 @@ public abstract class AbstractTitanSmokeLocalTest {
     }
 
     private BlockingQueue<String> subscribeReceivingEventually(String destination) {
+        return subscribeEventually(destination).received();
+    }
+
+    private Subscribed subscribeEventually(String destination) {
         BlockingQueue<String> received = new LinkedBlockingQueue<>();
+        AtomicReference<String> subscriptionId = new AtomicReference<>();
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
                 .ignoreExceptions()
-                .untilAsserted(() -> assertThat(clientManager.connection()
-                        .subscribe(destination, frame -> received.add(body(frame)))
-                        .get(clientManager.connectTimeoutMillis(), TimeUnit.MILLISECONDS)
-                ).isNotNull());
+                .untilAsserted(() -> {
+                    subscriptionId.set(clientManager.connection()
+                            .subscribe(destination, frame -> received.add(body(frame)))
+                            .get(clientManager.connectTimeoutMillis(), TimeUnit.MILLISECONDS));
+                    assertThat(subscriptionId.get()).isNotNull();
+                });
         String probe = PAYLOAD + "-probe-" + UUID.randomUUID();
         sendEventually(destination, probe);
         assertReceived(received, probe);
         received.clear();
-        return received;
+        return new Subscribed(subscriptionId.get(), received);
+    }
+
+    /** A live subscription: what the client called it, and what it has delivered. */
+    private record Subscribed(String id, BlockingQueue<String> received) {
     }
 
     private void sendEventually(String destination, String payload) {
@@ -185,11 +199,11 @@ public abstract class AbstractTitanSmokeLocalTest {
                 .untilAsserted(() -> assertThat(titanTemplate.send(destination, payload)).isNotNull());
     }
 
-    private void unsubscribeEventually(String destination) {
+    private void unsubscribeEventually(String subscriptionId) {
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
                 .ignoreExceptions()
-                .untilAsserted(() -> assertThat(titanTemplate.unsubscribe(destination)).isNotNull());
+                .untilAsserted(() -> assertThat(titanTemplate.unsubscribe(subscriptionId)).isNotNull());
     }
 
     private static void assertReceived(BlockingQueue<String> received, String payload) {

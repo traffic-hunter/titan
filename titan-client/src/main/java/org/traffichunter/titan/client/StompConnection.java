@@ -74,6 +74,10 @@ public interface StompConnection {
     /**
      * Creates a subscription using explicit STOMP headers.
      *
+     * <p>An implementation assigns an identifier of its own whenever the headers name none, so
+     * two subscriptions never share one. The same destination in two groups is two
+     * subscriptions, and a destination may also be subscribed to twice within one group.</p>
+     *
      * @param destination destination to subscribe to
      * @param headers additional SUBSCRIBE headers
      * @param handler handler for received MESSAGE frames
