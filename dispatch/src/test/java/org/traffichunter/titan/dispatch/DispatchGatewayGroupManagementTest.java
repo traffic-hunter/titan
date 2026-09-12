@@ -4,11 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -171,6 +176,66 @@ class DispatchGatewayGroupManagementTest {
         gateway.sparkDispatch(message("notification")).join();
         await().atMost(Duration.ofSeconds(5))
                 .untilAsserted(() -> assertThat(exported.get("notification")).isEqualTo(2));
+    }
+
+    @Test
+    void a_message_that_arrives_while_a_delete_runs_still_gets_a_consumer() throws Exception {
+        CountDownLatch removed = new CountDownLatch(1);
+        CountDownLatch resumeDelete = new CountDownLatch(1);
+        ThreadPoolExecutorDispatchGateway hooked = new ThreadPoolExecutorDispatchGateway(
+                recordingExporter(exported),
+                pauseAfterRemove(registry, removed, resumeDelete)
+        );
+
+        try {
+            hooked.sparkDispatch(message("market")).join();
+            await().atMost(Duration.ofSeconds(5))
+                    .untilAsserted(() -> assertThat(exported.get("market")).isEqualTo(1));
+
+            CompletableFuture<DispatcherQueueDeleteResult> delete = CompletableFuture.supplyAsync(
+                    () -> hooked.deleteQueue("market", DESTINATION, true));
+            assertThat(removed.await(5, TimeUnit.SECONDS)).isTrue();
+
+            // The deleted queue is out of the dispatcher and the delete has not finished. This
+            // message lands in a queue created on the spot, and no later message will come along
+            // to notice it has nothing draining it.
+            hooked.sparkDispatch(message("market")).join();
+            resumeDelete.countDown();
+
+            assertThat(delete.get(5, TimeUnit.SECONDS).status())
+                    .isEqualTo(DispatcherQueueDeleteResult.Status.DELETED);
+            await().atMost(Duration.ofSeconds(5))
+                    .untilAsserted(() -> assertThat(exported.get("market")).isEqualTo(2));
+        } finally {
+            hooked.close();
+        }
+    }
+
+    /** Wraps a dispatcher so a queue removal blocks until the test lets it finish. */
+    private static Dispatcher pauseAfterRemove(
+            Dispatcher delegate,
+            CountDownLatch removed,
+            CountDownLatch resume
+    ) {
+        return (Dispatcher) Proxy.newProxyInstance(
+                Dispatcher.class.getClassLoader(),
+                new Class<?>[]{Dispatcher.class},
+                (proxy, method, arguments) -> {
+                    Object result;
+                    try {
+                        result = method.invoke(delegate, arguments);
+                    } catch (InvocationTargetException error) {
+                        throw error.getCause();
+                    }
+                    if (method.getName().equals("remove")
+                            && arguments.length == 1
+                            && arguments[0] instanceof DispatcherQueue) {
+                        removed.countDown();
+                        resume.await(5, TimeUnit.SECONDS);
+                    }
+                    return result;
+                }
+        );
     }
 
     private static Message message(String group) {

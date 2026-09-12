@@ -32,7 +32,8 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * Owns destination consumer registration, execution, and removal after messages are routed.
  *
  * <p>At most one long-lived consumer is registered per destination within a group. The same
- * destination in two groups is two queues and therefore two consumers. The handler starts that task
+ * destination in two groups is two queues and therefore two consumers, and a queue deleted and
+ * created again is a new queue that gets a consumer of its own. The handler starts that task
  * without awaiting its completion because dispatch completion only represents successful
  * queue admission and consumer activation. Queue deletion and handler shutdown cancel registered
  * consumers and let their polling loops observe the corresponding lifecycle state.</p>
@@ -43,7 +44,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
     private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
 
-    private final Map<ConsumerKey, CompletableFuture<@Nullable Void>> consumers = new ConcurrentHashMap<>();
+    private final Map<ConsumerKey, Consumer> consumers = new ConcurrentHashMap<>();
     private final ExecutorService executor;
     private final DispatchExporter exporter;
     private final Dispatcher dispatcher;
@@ -70,7 +71,22 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         if (closed.get()) {
             throw new IllegalStateException("Fanout dispatch handler is closed");
         }
-        return consumers.computeIfAbsent(new ConsumerKey(group, destination), this::consume);
+
+        ConsumerKey key = new ConsumerKey(group, destination);
+        Consumer existing = consumers.get(key);
+        if (existing != null && !existing.queue().isClosed()) {
+            return existing.task();
+        }
+
+        // The registered consumer drains a queue that has since been deleted, and it only ever
+        // drains the instance it was handed. Whatever queue the message just went into is a
+        // different one and needs a consumer of its own, or it would sit there undelivered.
+        return consumers.compute(key, (ignored, current) -> {
+            if (current != null && !current.queue().isClosed()) {
+                return current;
+            }
+            return consume(key);
+        }).task();
     }
 
     DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
@@ -87,40 +103,43 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             return DispatcherQueueDeleteResult.notEmpty(size);
         }
 
-        // Read the consumer before the queue leaves the dispatcher. A queue recreated
-        // afterwards registers a consumer of its own, and the compare below is what keeps
-        // this call from cancelling that one.
-        ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
-        CompletableFuture<@Nullable Void> consumer = consumers.get(key);
+        // Closed before it leaves the dispatcher. A producer admitted in the meantime is refused
+        // outright rather than filling a queue this call is about to drop, and a replacement
+        // created afterwards is open, which is how fanout tells the two apart.
+        queue.close();
 
         // Remove the queue this call looked up, never a replacement created since. The
         // dispatcher unregisters the MBean of whatever it actually removed.
         if (!dispatcher.remove(queue)) {
             return DispatcherQueueDeleteResult.notFound();
         }
-        queue.close();
         if (force) {
             queue.clear();
         }
 
-        if (consumer != null && consumers.remove(key, consumer)) {
-            consumer.cancel(true);
+        // Cancel only the consumer of this very queue. A replacement registers one of its own,
+        // and taking that one down would leave the new queue with nothing draining it.
+        ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
+        Consumer consumer = consumers.get(key);
+        if (consumer != null && consumer.queue() == queue && consumers.remove(key, consumer)) {
+            consumer.task().cancel(true);
         }
         return DispatcherQueueDeleteResult.deleted(size);
     }
 
     void close() {
         if (closed.compareAndSet(false, true)) {
-            consumers.values().forEach(future -> future.cancel(true));
+            consumers.values().forEach(consumer -> consumer.task().cancel(true));
             consumers.clear();
         }
     }
 
-    private CompletableFuture<@Nullable Void> consume(ConsumerKey key) {
+    private Consumer consume(ConsumerKey key) {
         DispatcherQueue queue = dispatcher.getOrPut(key.group(), key.destination());
         log.info("Starting fanout consumer for group={} destination={}", key.group(), key.destination().path());
 
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
+        Consumer consumer = new Consumer(queue, result);
         executor.execute(() -> {
             try {
                 while (!closed.get()
@@ -147,13 +166,23 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             } catch (Exception e) {
                 result.completeExceptionally(e);
             } finally {
-                consumers.remove(key, result);
+                consumers.remove(key, consumer);
             }
         });
-        return result;
+        return consumer;
     }
 
     /** Queue identity as seen by fanout: a destination inside one group. */
     private record ConsumerKey(String group, Destination destination) {
+    }
+
+    /**
+     * A running consumer together with the queue instance it drains.
+     *
+     * <p>The queue is what makes a consumer replaceable. A key outlives the queue it named, so
+     * without the instance neither a delete nor a later message could tell a consumer that is
+     * still serving the current queue from one left over from a deleted queue.</p>
+     */
+    private record Consumer(DispatcherQueue queue, CompletableFuture<@Nullable Void> task) {
     }
 }
