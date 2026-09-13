@@ -299,8 +299,18 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
             }
 
             int idx = splitFrameDatum.indexOf(":");
-            String key = splitFrameDatum.substring(0, idx);
-            String value = splitFrameDatum.substring(idx + 1);
+            if(idx < 0) {
+                return StompFrame.ERR_STOMP_FRAME;
+            }
+
+            String key;
+            String value;
+            try {
+                key = StompHeaders.decode(splitFrameDatum.substring(0, idx), command);
+                value = StompHeaders.decode(splitFrameDatum.substring(idx + 1), command);
+            } catch (StompFrameException error) {
+                return StompFrame.ERR_STOMP_FRAME;
+            }
 
             headers.put(Elements.convertToElements(key), value);
         }

@@ -16,9 +16,11 @@
 package org.traffichunter.titan.core.channel.websocket;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.ChannelHandlerChain;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.Protocol;
@@ -137,6 +139,11 @@ public final class WebSocketChannel implements NetChannel {
     @Override
     public ChannelHandlerChain chain() {
         return delegate.chain();
+    }
+
+    @Override
+    public Channel closeHandler(Handler<Channel> handler) {
+        return delegate.closeHandler(handler);
     }
 
     @Override

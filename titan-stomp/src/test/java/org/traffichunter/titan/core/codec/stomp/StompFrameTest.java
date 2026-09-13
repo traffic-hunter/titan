@@ -67,6 +67,27 @@ class StompFrameTest {
     }
 
     @Test
+    void do_parse_reads_back_an_escaped_header_value() {
+        StompHeaders headers = StompHeaders.create();
+        headers.put(Elements.DESTINATION, "/topic/price");
+        headers.put(Elements.RECEIPT, "run-7:producer-2");
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, "hi".getBytes(StandardCharsets.UTF_8));
+
+        // The WebSocket path parses the bytes the frame was written as, which are escaped.
+        StompFrame parsed = StompFrame.doParse(frame.toBuffer().toString(), StompHeaders.create());
+
+        assertEquals("run-7:producer-2", parsed.getHeader(Elements.RECEIPT));
+        assertEquals("/topic/price", parsed.getHeader(Elements.DESTINATION));
+    }
+
+    @Test
+    void do_parse_rejects_a_header_line_without_a_colon() {
+        StompFrame parsed = StompFrame.doParse("SEND\r\nbroken\r\n\r\nhi\u0000", StompHeaders.create());
+
+        assertSame(StompFrame.ERR_STOMP_FRAME, parsed);
+    }
+
+    @Test
     void do_parse_accepts_group_header() {
         StompHeaders headers = StompHeaders.create();
         headers.put(Elements.DESTINATION, "/topic/price");
