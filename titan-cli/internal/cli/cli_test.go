@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/traffic-hunter/titan/titan-cli/internal/perf"
 )
 
 func TestRunRejectsUnknownCommand(t *testing.T) {
@@ -73,29 +74,35 @@ func TestRunRejectsInvalidPerfPayloadBeforeConnecting(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
-	if !strings.Contains(stderr.String(), "at least 20") {
+	if !strings.Contains(stderr.String(), "at least 24") {
 		t.Fatalf("expected payload validation message, got %q", stderr.String())
 	}
 }
 
 func TestPerfSettingsArePassedToPerfCommand(t *testing.T) {
-	arguments := perfSettingsArguments(
-		"broker.internal",
-		"61613",
-		"market",
-		"/queue/orders",
-		"250",
-		"5000",
-		"8",
-		"2048",
-		"3s",
-		"45s",
-	)
+	arguments := perfSettingsArguments(perfSettings{
+		host:              "broker.internal",
+		port:              "61613",
+		transport:         perf.TransportWebSocket,
+		sendMode:          perf.SendModeWrite,
+		pathLabel:         perf.PathDirect,
+		group:             "market",
+		destination:       "/queue/orders",
+		warmupMessages:    "250",
+		messages:          "5000",
+		producers:         "8",
+		payloadBytes:      "2048",
+		connectTimeout:    "3s",
+		completionTimeout: "45s",
+	})
 
 	expected := []string{
 		"perf-test",
 		"--host", "broker.internal",
 		"--port", "61613",
+		"--transport", "websocket",
+		"--send-mode", "write",
+		"--path-label", "direct",
 		"--group", "market",
 		"--destination", "/queue/orders",
 		"--warmup-messages", "250",

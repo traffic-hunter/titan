@@ -56,6 +56,10 @@ type queueOptions struct {
 type perfOptions struct {
 	host              string
 	port              int
+	transport         string
+	webSocketPath     string
+	sendMode          string
+	pathLabel         string
 	group             string
 	destination       string
 	warmupMessages    int
@@ -65,6 +69,10 @@ type perfOptions struct {
 	connectTimeout    time.Duration
 	completionTimeout time.Duration
 	runnerPath        string
+	resultsDir        string
+	runID             string
+	iteration         int
+	fixtureManifest   string
 }
 
 func Run(args []string, stdout io.Writer, stderr io.Writer, version string) int {
@@ -185,6 +193,10 @@ func perfCommand(stdout io.Writer) *cobra.Command {
 			report, err := perf.Run(cmd.Context(), perf.Config{
 				Host:              options.host,
 				Port:              options.port,
+				Transport:         options.transport,
+				WebSocketPath:     options.webSocketPath,
+				SendMode:          options.sendMode,
+				PathLabel:         options.pathLabel,
 				Group:             options.group,
 				Destination:       options.destination,
 				WarmupMessages:    options.warmupMessages,
@@ -194,19 +206,29 @@ func perfCommand(stdout io.Writer) *cobra.Command {
 				ConnectTimeout:    options.connectTimeout,
 				CompletionTimeout: options.completionTimeout,
 				RunnerPath:        options.runnerPath,
+				ResultsDir:        options.resultsDir,
+				RunID:             options.runID,
+				Iteration:         options.iteration,
+				FixtureManifest:   options.fixtureManifest,
 			})
 			if err != nil {
 				return exitError{code: 1, err: err}
 			}
 			printPerfReport(stdout, report)
 			if !report.Successful() {
-				return exitError{code: 1, err: fmt.Errorf("performance test did not deliver every message")}
+				return exitError{code: 1, err: fmt.Errorf("performance test did not account for every message")}
 			}
 			return nil
 		},
 	}
 	command.Flags().StringVar(&options.host, "host", "127.0.0.1", "Titan STOMP host")
 	command.Flags().IntVar(&options.port, "port", 7777, "Titan STOMP port")
+	command.Flags().StringVar(&options.transport, "transport", perf.TransportTCP, "Transport: tcp or websocket")
+	command.Flags().StringVar(&options.webSocketPath, "websocket-path", "/stomp", "WebSocket upgrade path")
+	command.Flags().StringVar(&options.sendMode, "send-mode", perf.SendModeReceipt,
+		"receipt waits for the broker to accept each message; write only submits the local write")
+	command.Flags().StringVar(&options.pathLabel, "path-label", perf.PathDispatch,
+		"Server path the fixture is running: dispatch or direct")
 	command.Flags().StringVar(&options.group, "group", "", "Destination group; empty uses the default group")
 	command.Flags().StringVar(&options.destination, "destination", "/queue/perf-test", "STOMP destination")
 	command.Flags().IntVar(&options.warmupMessages, "warmup-messages", 1_000, "Number of warm-up messages")
@@ -214,25 +236,82 @@ func perfCommand(stdout io.Writer) *cobra.Command {
 	command.Flags().IntVar(&options.producers, "producers", 1, "Concurrent producer connections")
 	command.Flags().IntVar(&options.payloadBytes, "payload-bytes", 1_024, "Payload size in bytes")
 	command.Flags().DurationVar(&options.connectTimeout, "connect-timeout", 5*time.Second, "Connection timeout")
-	command.Flags().DurationVar(&options.completionTimeout, "completion-timeout", 30*time.Second, "Overall test timeout")
+	command.Flags().DurationVar(&options.completionTimeout, "completion-timeout", 120*time.Second, "Overall test deadline")
 	command.Flags().StringVar(&options.runnerPath, "runner", "", "Path to the Titan Java performance runner")
+	command.Flags().StringVar(&options.resultsDir, "results-dir", "", "Directory to keep the raw result and run manifest in")
+	command.Flags().StringVar(&options.runID, "run-id", "", "Name of this run inside the results directory")
+	command.Flags().IntVar(&options.iteration, "iteration", 0, "Repetition number of this run")
+	command.Flags().StringVar(&options.fixtureManifest, "fixture-manifest", "",
+		"Manifest written by the stability fixture, copied into the run manifest")
 	return command
 }
 
 func printPerfReport(output io.Writer, report perf.Report) {
 	fmt.Fprintln(output, "Titan performance test")
-	fmt.Fprintf(output, "  queue      : %s\n", queueRef(report.Group, report.Destination))
-	fmt.Fprintf(output, "  requested  : %d\n", report.Requested)
-	fmt.Fprintf(output, "  sent       : %d\n", report.Sent)
-	fmt.Fprintf(output, "  received   : %d\n", report.Received)
-	fmt.Fprintf(output, "  failed     : %d\n", report.Failed)
-	fmt.Fprintf(output, "  elapsed    : %.3f s\n", report.Elapsed.Seconds())
-	fmt.Fprintf(output, "  throughput : %.2f msg/s\n", report.Throughput)
-	if report.Received > 0 {
-		fmt.Fprintf(output, "  latency p50: %.3f ms\n", float64(report.P50.Microseconds())/1_000)
-		fmt.Fprintf(output, "  latency p95: %.3f ms\n", float64(report.P95.Microseconds())/1_000)
-		fmt.Fprintf(output, "  latency p99: %.3f ms\n", float64(report.P99.Microseconds())/1_000)
+	fmt.Fprintf(output, "  queue          : %s\n", queueRef(report.Group, report.Destination))
+	fmt.Fprintf(output, "  run            : %s over %s on the %s path, %d producers\n",
+		report.SendMode, report.Transport, report.PathLabel, report.Producers)
+	fmt.Fprintf(output, "  requested      : %d\n", report.Requested)
+	fmt.Fprintf(output, "  attempted      : %d (not attempted %d)\n", report.Attempted, report.NotAttempted)
+	fmt.Fprintf(output, "  write submitted: %s\n", countOrUnsupported(report.WriteSubmitted))
+	fmt.Fprintf(output, "  written        : %s\n", countOrUnsupported(report.Written))
+	fmt.Fprintf(output, "  accepted       : %s\n", countOrUnsupported(report.Accepted))
+	fmt.Fprintf(output, "  rejected       : %d\n", report.Rejected)
+	fmt.Fprintf(output, "  not sent       : %d\n", report.LocalNotSent)
+	fmt.Fprintf(output, "  unknown        : %d\n", report.Unknown)
+	fmt.Fprintf(output, "  received       : %d (duplicates %d)\n", report.Received, report.Duplicates)
+	fmt.Fprintf(output, "  missing        : %d\n", report.AcceptedNotReceived)
+	fmt.Fprintf(output, "  contradictions : %d\n", report.Contradiction)
+	if report.ForeignMessages > 0 || report.MalformedMessages > 0 {
+		fmt.Fprintf(output, "  stray messages : %d foreign, %d malformed\n",
+			report.ForeignMessages, report.MalformedMessages)
 	}
+	fmt.Fprintf(output, "  warm-up        : %d of %d\n", report.WarmupReceived, report.WarmupRequested)
+	fmt.Fprintf(output, "  elapsed        : %.3f s\n", report.Elapsed.Seconds())
+	fmt.Fprintf(output, "  throughput     : %.2f msg/s\n", report.Throughput)
+	printLatency(output, "delivery", report.DeliveryLatency)
+	printLatency(output, "receipt", report.ReceiptLatency)
+	if !report.CountsBalanced {
+		fmt.Fprintln(output, "  counts do not add up; the run is not a measurement")
+	}
+	if !report.CompletedBeforeDeadline {
+		fmt.Fprintln(output, "  the deadline passed before the run settled")
+	}
+	if !report.ProducersStopped {
+		fmt.Fprintln(output, "  producer threads were still running when the report was frozen")
+	}
+	for _, failure := range report.CleanupErrors {
+		fmt.Fprintf(output, "  cleanup        : %s\n", failure)
+	}
+	if report.ResultsPath != "" {
+		fmt.Fprintf(output, "  results        : %s\n", report.ResultsPath)
+	}
+}
+
+// countOrUnsupported prints a stage this runner cannot observe as such, never as a zero.
+func countOrUnsupported(count *int) string {
+	if count == nil {
+		return "not measured"
+	}
+	return strconv.Itoa(*count)
+}
+
+func printLatency(output io.Writer, name string, latency *perf.Latency) {
+	if latency == nil {
+		return
+	}
+	fmt.Fprintf(output, "  %-8s p50/p95/p99/max: %.3f / %.3f / %.3f / %.3f ms (%d samples)\n",
+		name,
+		milliseconds(latency.P50),
+		milliseconds(latency.P95),
+		milliseconds(latency.P99),
+		milliseconds(latency.Max),
+		latency.Samples,
+	)
+}
+
+func milliseconds(duration time.Duration) float64 {
+	return float64(duration.Microseconds()) / 1_000
 }
 
 func microBenchmarkCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer) *cobra.Command {
@@ -322,70 +401,88 @@ func mainMenuOptions() []huh.Option[string] {
 }
 
 func selectPerfSettings(stdin io.Reader, stdout io.Writer) ([]string, error) {
-	host := "127.0.0.1"
-	port := "7777"
-	group := ""
-	destination := "/queue/perf-test"
-	warmupMessages := "1000"
-	messages := "10000"
-	producers := "1"
-	payloadBytes := "1024"
-	connectTimeout := "5s"
-	completionTimeout := "30s"
+	settings := perfSettings{
+		host:              "127.0.0.1",
+		port:              "7777",
+		transport:         perf.TransportTCP,
+		sendMode:          perf.SendModeReceipt,
+		pathLabel:         perf.PathDispatch,
+		destination:       "/queue/perf-test",
+		warmupMessages:    "1000",
+		messages:          "10000",
+		producers:         "1",
+		payloadBytes:      "1024",
+		connectTimeout:    "5s",
+		completionTimeout: "120s",
+	}
 
 	form := huh.NewForm(huh.NewGroup(
-		huh.NewInput().Title("Host").Value(&host).Validate(notBlank("host")),
-		huh.NewInput().Title("Port").Value(&port).Validate(positiveNumber("port", false)),
-		huh.NewInput().Title("Group").Description("Leave empty to use the default group.").Value(&group).Validate(optionalGroup),
-		huh.NewInput().Title("Destination").Value(&destination).Validate(notBlank("destination")),
-		huh.NewInput().Title("Warm-up messages").Value(&warmupMessages).Validate(positiveNumber("warm-up messages", true)),
-		huh.NewInput().Title("Messages").Value(&messages).Validate(positiveNumber("messages", false)),
-		huh.NewInput().Title("Producer connections").Value(&producers).Validate(positiveNumber("producers", false)),
-		huh.NewInput().Title("Payload bytes").Value(&payloadBytes).Validate(minimumNumber("payload bytes", 20)),
-		huh.NewInput().Title("Connect timeout").Value(&connectTimeout).Validate(durationValue),
-		huh.NewInput().Title("Completion timeout").Value(&completionTimeout).Validate(durationValue),
+		huh.NewInput().Title("Host").Value(&settings.host).Validate(notBlank("host")),
+		huh.NewInput().Title("Port").Value(&settings.port).Validate(positiveNumber("port", false)),
+		huh.NewSelect[string]().Title("Transport").Options(
+			huh.NewOption("TCP", perf.TransportTCP),
+			huh.NewOption("WebSocket", perf.TransportWebSocket),
+		).Value(&settings.transport),
+		huh.NewSelect[string]().Title("Send mode").
+			Description("Receipt waits for the broker to accept each message.").
+			Options(
+				huh.NewOption("Receipt", perf.SendModeReceipt),
+				huh.NewOption("Write", perf.SendModeWrite),
+			).Value(&settings.sendMode),
+		huh.NewSelect[string]().Title("Server path").
+			Description("Must match the path the server is running.").
+			Options(
+				huh.NewOption("Dispatch queues", perf.PathDispatch),
+				huh.NewOption("Direct STOMP", perf.PathDirect),
+			).Value(&settings.pathLabel),
+		huh.NewInput().Title("Group").Description("Leave empty to use the default group.").Value(&settings.group).Validate(optionalGroup),
+		huh.NewInput().Title("Destination").Value(&settings.destination).Validate(notBlank("destination")),
+		huh.NewInput().Title("Warm-up messages").Value(&settings.warmupMessages).Validate(positiveNumber("warm-up messages", true)),
+		huh.NewInput().Title("Messages").Value(&settings.messages).Validate(positiveNumber("messages", false)),
+		huh.NewInput().Title("Producer connections").Value(&settings.producers).Validate(positiveNumber("producers", false)),
+		huh.NewInput().Title("Payload bytes").Value(&settings.payloadBytes).Validate(minimumNumber("payload bytes", 24)),
+		huh.NewInput().Title("Connect timeout").Value(&settings.connectTimeout).Validate(durationValue),
+		huh.NewInput().Title("Completion timeout").Value(&settings.completionTimeout).Validate(durationValue),
 	)).WithInput(stdin).WithOutput(stdout).WithTheme(huh.ThemeCharm())
 	if err := form.Run(); err != nil {
 		return nil, err
 	}
-	return perfSettingsArguments(
-		host,
-		port,
-		group,
-		destination,
-		warmupMessages,
-		messages,
-		producers,
-		payloadBytes,
-		connectTimeout,
-		completionTimeout,
-	), nil
+	return perfSettingsArguments(settings), nil
 }
 
-func perfSettingsArguments(
-	host string,
-	port string,
-	group string,
-	destination string,
-	warmupMessages string,
-	messages string,
-	producers string,
-	payloadBytes string,
-	connectTimeout string,
-	completionTimeout string,
-) []string {
+// perfSettings holds one interactive answer per performance test option.
+type perfSettings struct {
+	host              string
+	port              string
+	transport         string
+	sendMode          string
+	pathLabel         string
+	group             string
+	destination       string
+	warmupMessages    string
+	messages          string
+	producers         string
+	payloadBytes      string
+	connectTimeout    string
+	completionTimeout string
+}
+
+func perfSettingsArguments(settings perfSettings) []string {
 	return []string{
 		"perf-test",
-		"--host", host,
-		"--port", port,
-		"--group", group,
-		"--destination", destination,
-		"--warmup-messages", warmupMessages,
-		"--messages", messages,
-		"--producers", producers,
-		"--payload-bytes", payloadBytes,
-		"--connect-timeout", connectTimeout,
-		"--completion-timeout", completionTimeout,
+		"--host", settings.host,
+		"--port", settings.port,
+		"--transport", settings.transport,
+		"--send-mode", settings.sendMode,
+		"--path-label", settings.pathLabel,
+		"--group", settings.group,
+		"--destination", settings.destination,
+		"--warmup-messages", settings.warmupMessages,
+		"--messages", settings.messages,
+		"--producers", settings.producers,
+		"--payload-bytes", settings.payloadBytes,
+		"--connect-timeout", settings.connectTimeout,
+		"--completion-timeout", settings.completionTimeout,
 	}
 }
 
