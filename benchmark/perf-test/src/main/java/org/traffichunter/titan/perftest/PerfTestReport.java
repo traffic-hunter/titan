@@ -15,62 +15,167 @@
  */
 package org.traffichunter.titan.perftest;
 
-import org.traffichunter.titan.core.codec.json.Json;
+import java.lang.management.ManagementFactory;
+import java.util.List;
 
-import java.util.Arrays;
-import java.util.Locale;
+import org.traffichunter.titan.core.codec.json.Json;
+import org.traffichunter.titan.perftest.PerfTestOptions.SendMode;
 
 /**
  * Measurements returned to the Go CLI as a single JSON object.
  *
+ * <p>A stage this runner cannot observe is serialized as {@code null} rather than as a zero, so a
+ * missing measurement is never read as a successful one. {@code written} is always null here: the
+ * channel completes a write once the outbound pipeline ran, which can leave bytes behind in the
+ * channel's own buffer, so this runner has no way to see a socket write through.</p>
+ *
  * @author yun
  */
 record PerfTestReport(
-        int requested,
-        int sent,
-        int received,
-        int failed,
+        String runId,
+        PerfTestOptions options,
+        MeasurementSnapshot snapshot,
         long elapsedNanos,
-        long[] latencyNanos
+        boolean completedBeforeDeadline,
+        boolean producersStopped,
+        List<String> cleanupErrors
 ) {
 
     String toJson() {
-        long[] samples = Arrays.stream(latencyNanos).filter(value -> value > 0).sorted().toArray();
+        MeasurementSnapshot measurements = snapshot;
+        boolean receiptMode = options.sendMode() == SendMode.RECEIPT;
         double elapsedSeconds = elapsedNanos / 1_000_000_000.0;
-        double throughput = elapsedSeconds == 0 ? 0 : received / elapsedSeconds;
+        double throughput = elapsedSeconds == 0 ? 0 : measurements.received() / elapsedSeconds;
 
         Result result = new Result(
-                requested,
-                sent,
-                received,
-                failed,
+                runId,
+                options.sendMode().label(),
+                options.transport().label(),
+                options.pathLabel().label(),
+                options.group(),
+                options.destination(),
+                options.producers(),
+                options.payloadBytes(),
+                measurements.requested(),
+                measurements.attempted(),
+                measurements.notAttempted(),
+                receiptMode ? null : measurements.writeSubmitted(),
+                null,
+                receiptMode ? measurements.accepted() : null,
+                measurements.rejected(),
+                measurements.localNotSent(),
+                measurements.unknown(),
+                measurements.received(),
+                measurements.duplicates(),
+                measurements.acceptedNotReceived(),
+                measurements.contradiction(),
+                measurements.foreignMessages(),
+                measurements.malformedMessages(),
+                measurements.warmupRequested(),
+                measurements.warmupReceived(),
+                measurements.countsBalanced(),
+                completedBeforeDeadline,
+                producersStopped,
+                List.copyOf(cleanupErrors),
                 elapsedNanos,
                 throughput,
-                percentile(samples, 0.50),
-                percentile(samples, 0.95),
-                percentile(samples, 0.99)
+                Latency.of(measurements.deliveryLatencyNanos()),
+                receiptMode ? Latency.of(measurements.acceptLatencyNanos()) : null,
+                Environment.current()
         );
 
         return Json.serialize(result);
     }
 
-    private static long percentile(long[] values, double percentile) {
-        if (values.length == 0) {
-            return 0;
+    /**
+     * Latency distribution of one stage.
+     *
+     * <p>A stage with no samples has no distribution. Missing samples are left out rather than
+     * filled in with zeros, which would pull every percentile towards a latency nobody measured.</p>
+     */
+    record Latency(int samples, long p50Nanos, long p95Nanos, long p99Nanos, long maxNanos) {
+
+        static Latency of(long[] sorted) {
+            if (sorted.length == 0) {
+                return null;
+            }
+            return new Latency(
+                    sorted.length,
+                    percentile(sorted, 0.50),
+                    percentile(sorted, 0.95),
+                    percentile(sorted, 0.99),
+                    sorted[sorted.length - 1]
+            );
         }
-        int index = (int) Math.ceil(percentile * values.length) - 1;
-        return values[Math.max(0, index)];
+
+        private static long percentile(long[] sorted, double percentile) {
+            int index = (int) Math.ceil(percentile * sorted.length) - 1;
+            return sorted[Math.clamp(index, 0, sorted.length - 1)];
+        }
+    }
+
+    /** The machine and runtime the load generator ran on. */
+    record Environment(
+            String javaVersion,
+            String javaVendor,
+            String jvmName,
+            String osName,
+            String osVersion,
+            String osArch,
+            int availableProcessors,
+            long maxHeapBytes,
+            List<String> jvmArguments
+    ) {
+
+        static Environment current() {
+            return new Environment(
+                    System.getProperty("java.version", "unknown"),
+                    System.getProperty("java.vendor", "unknown"),
+                    System.getProperty("java.vm.name", "unknown"),
+                    System.getProperty("os.name", "unknown"),
+                    System.getProperty("os.version", "unknown"),
+                    System.getProperty("os.arch", "unknown"),
+                    Runtime.getRuntime().availableProcessors(),
+                    Runtime.getRuntime().maxMemory(),
+                    List.copyOf(ManagementFactory.getRuntimeMXBean().getInputArguments())
+            );
+        }
     }
 
     record Result(
+            String runId,
+            String sendMode,
+            String transport,
+            String pathLabel,
+            String group,
+            String destination,
+            int producers,
+            int payloadBytes,
             int requested,
-            int sent,
+            int attempted,
+            int notAttempted,
+            Integer writeSubmitted,
+            Integer written,
+            Integer accepted,
+            int rejected,
+            int localNotSent,
+            int unknown,
             int received,
-            int failed,
+            int duplicates,
+            int acceptedNotReceived,
+            int contradiction,
+            int foreignMessages,
+            int malformedMessages,
+            int warmupRequested,
+            int warmupReceived,
+            boolean countsBalanced,
+            boolean completedBeforeDeadline,
+            boolean producersStopped,
+            List<String> cleanupErrors,
             long elapsedNanos,
             double throughput,
-            long latencyP50Nanos,
-            long latencyP95Nanos,
-            long latencyP99Nanos
+            Latency deliveryLatency,
+            Latency receiptLatency,
+            Environment environment
     ) { }
 }

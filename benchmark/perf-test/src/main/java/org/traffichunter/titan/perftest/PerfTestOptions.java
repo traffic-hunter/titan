@@ -16,6 +16,7 @@
 package org.traffichunter.titan.perftest;
 
 import java.time.Duration;
+import java.util.Locale;
 
 import org.traffichunter.titan.core.util.DestinationGroups;
 
@@ -27,6 +28,10 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 record PerfTestOptions(
         String host,
         int port,
+        Transport transport,
+        String webSocketPath,
+        SendMode sendMode,
+        DispatchPath pathLabel,
         String group,
         String destination,
         int warmupMessages,
@@ -37,11 +42,83 @@ record PerfTestOptions(
         Duration completionTimeout
 ) {
 
-    private static final int MEASUREMENT_BYTES = Long.BYTES + Integer.BYTES + Long.BYTES;
+    /** Run identifier, producer identifier, sequence number, and the send timestamp. */
+    static final int MEASUREMENT_BYTES = Long.BYTES + Integer.BYTES + Integer.BYTES + Long.BYTES;
+
+    private static final String DEFAULT_WEBSOCKET_PATH = "/stomp";
+
+    /** How the runner reaches the broker. */
+    enum Transport {
+        TCP,
+        WEBSOCKET;
+
+        static Transport parse(String value) {
+            return switch (value.toLowerCase(Locale.ROOT).trim()) {
+                case "tcp" -> TCP;
+                case "websocket", "ws" -> WEBSOCKET;
+                default -> throw new IllegalArgumentException("Invalid transport: " + value);
+            };
+        }
+
+        String label() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * What a completed send tells the runner.
+     *
+     * <p>{@link #RECEIPT} waits for the broker's RECEIPT, so a completed send means the message was
+     * accepted. {@link #WRITE} returns once the local write was submitted, which says nothing about
+     * the broker and is kept only to compare publish rates.</p>
+     */
+    enum SendMode {
+        RECEIPT,
+        WRITE;
+
+        static SendMode parse(String value) {
+            return switch (value.toLowerCase(Locale.ROOT).trim()) {
+                case "receipt" -> RECEIPT;
+                case "write" -> WRITE;
+                default -> throw new IllegalArgumentException("Invalid send mode: " + value);
+            };
+        }
+
+        String label() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * The server path this run is aimed at.
+     *
+     * <p>The runner cannot tell the two apart over STOMP. The label is carried into the report so a
+     * result is never read as evidence about the path the fixture was not running.</p>
+     */
+    enum DispatchPath {
+        DISPATCH,
+        DIRECT;
+
+        static DispatchPath parse(String value) {
+            return switch (value.toLowerCase(Locale.ROOT).trim()) {
+                case "dispatch" -> DISPATCH;
+                case "direct" -> DIRECT;
+                default -> throw new IllegalArgumentException("Invalid path label: " + value);
+            };
+        }
+
+        String label() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
 
     static PerfTestOptions parse(String[] arguments) {
         String host = null;
         int port = 0;
+        Transport transport = Transport.TCP;
+        String webSocketPath = DEFAULT_WEBSOCKET_PATH;
+        SendMode sendMode = SendMode.RECEIPT;
+        DispatchPath pathLabel = DispatchPath.DISPATCH;
         String group = null;
         String destination = null;
         int warmupMessages = 0;
@@ -59,6 +136,10 @@ record PerfTestOptions(
             switch (arguments[index]) {
                 case "--host" -> host = value;
                 case "--port" -> port = positiveInt("port", value);
+                case "--transport" -> transport = Transport.parse(value);
+                case "--websocket-path" -> webSocketPath = value;
+                case "--send-mode" -> sendMode = SendMode.parse(value);
+                case "--path-label" -> pathLabel = DispatchPath.parse(value);
                 case "--group" -> group = value;
                 case "--destination" -> destination = value;
                 case "--warmup-messages" -> warmupMessages = nonNegativeInt("warmup messages", value);
@@ -90,6 +171,10 @@ record PerfTestOptions(
         return new PerfTestOptions(
                 host,
                 port,
+                transport,
+                normalizeWebSocketPath(webSocketPath),
+                sendMode,
+                pathLabel,
                 // A missing or blank name is the default group, the same reading the broker gives it.
                 DestinationGroups.normalize(group),
                 destination,
@@ -100,6 +185,13 @@ record PerfTestOptions(
                 Duration.ofMillis(connectTimeoutMillis),
                 Duration.ofMillis(completionTimeoutMillis)
         );
+    }
+
+    private static String normalizeWebSocketPath(String path) {
+        if (path.isBlank()) {
+            return "/";
+        }
+        return path.startsWith("/") ? path : "/" + path;
     }
 
     private static int positiveInt(String name, String value) {

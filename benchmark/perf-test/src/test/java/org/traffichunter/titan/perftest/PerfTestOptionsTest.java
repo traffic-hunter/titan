@@ -20,6 +20,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.perftest.PerfTestOptions.DispatchPath;
+import org.traffichunter.titan.perftest.PerfTestOptions.SendMode;
+import org.traffichunter.titan.perftest.PerfTestOptions.Transport;
 
 /**
  * @author yun
@@ -37,7 +40,7 @@ class PerfTestOptionsTest {
                 "--producers", "4",
                 "--payload-bytes", "256",
                 "--connect-timeout-millis", "2000",
-                "--completion-timeout-millis", "30000"
+                "--completion-timeout-millis", "120000"
         });
 
         assertThat(options.host()).isEqualTo("localhost");
@@ -48,26 +51,14 @@ class PerfTestOptionsTest {
         assertThat(options.producers()).isEqualTo(4);
         assertThat(options.payloadBytes()).isEqualTo(256);
         assertThat(options.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
-        assertThat(options.completionTimeout()).isEqualTo(Duration.ofSeconds(30));
+        assertThat(options.completionTimeout()).isEqualTo(Duration.ofSeconds(120));
     }
 
     @Test
     void rejects_payload_too_small_for_measurement_metadata() {
-        String[] arguments = {
-                "--host", "localhost",
-                "--port", "61613",
-                "--destination", "/queue/perf",
-                "--warmup-messages", "0",
-                "--messages", "1",
-                "--producers", "1",
-                "--payload-bytes", "12",
-                "--connect-timeout-millis", "1000",
-                "--completion-timeout-millis", "1000"
-        };
-
-        assertThatThrownBy(() -> PerfTestOptions.parse(arguments))
+        assertThatThrownBy(() -> PerfTestOptions.parse(arguments("--payload-bytes", "20")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("at least 20");
+                .hasMessageContaining("at least 24");
     }
 
     @Test
@@ -90,6 +81,49 @@ class PerfTestOptionsTest {
                 .hasMessageContaining("Invalid group name");
     }
 
+    @Test
+    void a_run_measures_acceptance_over_tcp_on_the_dispatch_path_unless_told_otherwise() {
+        PerfTestOptions options = PerfTestOptions.parse(arguments());
+
+        assertThat(options.transport()).isEqualTo(Transport.TCP);
+        assertThat(options.sendMode()).isEqualTo(SendMode.RECEIPT);
+        assertThat(options.pathLabel()).isEqualTo(DispatchPath.DISPATCH);
+        assertThat(options.webSocketPath()).isEqualTo("/stomp");
+    }
+
+    @Test
+    void reads_the_transport_and_its_websocket_path() {
+        PerfTestOptions options = PerfTestOptions.parse(
+                arguments("--transport", "websocket", "--websocket-path", "titan")
+        );
+
+        assertThat(options.transport()).isEqualTo(Transport.WEBSOCKET);
+        assertThat(options.webSocketPath()).isEqualTo("/titan");
+    }
+
+    @Test
+    void reads_the_send_mode_and_the_path_label() {
+        PerfTestOptions options = PerfTestOptions.parse(
+                arguments("--send-mode", "write", "--path-label", "direct")
+        );
+
+        assertThat(options.sendMode()).isEqualTo(SendMode.WRITE);
+        assertThat(options.pathLabel()).isEqualTo(DispatchPath.DIRECT);
+    }
+
+    @Test
+    void rejects_settings_it_cannot_honour() {
+        assertThatThrownBy(() -> PerfTestOptions.parse(arguments("--transport", "udp")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid transport");
+        assertThatThrownBy(() -> PerfTestOptions.parse(arguments("--send-mode", "ack")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid send mode");
+        assertThatThrownBy(() -> PerfTestOptions.parse(arguments("--path-label", "queue")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid path label");
+    }
+
     /** Builds a valid argument list, with the extra options appended. */
     private static String[] arguments(String... extra) {
         String[] base = {
@@ -101,7 +135,7 @@ class PerfTestOptionsTest {
                 "--producers", "4",
                 "--payload-bytes", "256",
                 "--connect-timeout-millis", "2000",
-                "--completion-timeout-millis", "30000"
+                "--completion-timeout-millis", "120000"
         };
         String[] merged = new String[base.length + extra.length];
         System.arraycopy(base, 0, merged, 0, base.length);

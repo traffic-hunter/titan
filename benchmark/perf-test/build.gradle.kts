@@ -5,6 +5,8 @@ plugins {
 
 dependencies {
     implementation(project(":titan-client"))
+
+    testImplementation(project(":benchmark:stability-fixture"))
 }
 
 application {
