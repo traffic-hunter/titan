@@ -16,6 +16,7 @@
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -52,6 +53,7 @@ public final class InMemoryNetChannel implements NetChannel {
     private volatile boolean active;
     private volatile boolean connected;
     private volatile boolean closed;
+    private volatile Handler<Channel> closeHandler = ignored -> {};
 
     @Override
     public ChannelHandlerChain chain() {
@@ -142,6 +144,12 @@ public final class InMemoryNetChannel implements NetChannel {
     }
 
     @Override
+    public Channel closeHandler(Handler<Channel> handler) {
+        this.closeHandler = handler;
+        return this;
+    }
+
+    @Override
     public void close() {
         closed = true;
         active = false;
@@ -150,6 +158,7 @@ public final class InMemoryNetChannel implements NetChannel {
         clearQueue(pendingWrites);
         clearQueue(flushedWrites);
         closeHandlerChain();
+        closeHandler.handle(this);
     }
 
     private void closeHandlerChain() {

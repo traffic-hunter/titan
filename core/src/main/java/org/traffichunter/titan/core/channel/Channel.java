@@ -21,6 +21,7 @@ import java.time.Instant;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 /**
@@ -92,6 +93,12 @@ public interface Channel {
     boolean isActive();
 
     boolean isClosed();
+
+    /**
+     * Registers the handler invoked once this channel has closed, however it closed.
+     */
+    @CanIgnoreReturnValue
+    Channel closeHandler(Handler<Channel> handler);
 
     void close();
 }

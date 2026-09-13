@@ -100,6 +100,7 @@ public class StompClientTcpChannel implements StompClientChannel {
         clientHandlerConfigurer.handle(this.stompClientHandler);
         this.option = option;
         this.connectPromise = Promise.newPromise(eventLoop());
+        netChannel.closeHandler(ignored -> transportClosed());
     }
 
     @Override
@@ -125,6 +126,11 @@ public class StompClientTcpChannel implements StompClientChannel {
     @Override
     public String version() {
         return option.version().getVersion();
+    }
+
+    @Override
+    public StompSessionOption option() {
+        return option;
     }
 
     @Override
@@ -544,5 +550,14 @@ public class StompClientTcpChannel implements StompClientChannel {
     @Override
     public int hashCode() {
         return netChannel.id().hashCode();
+    }
+
+    /** Reports a session the peer ended. A local close clears the flag before reaching here. */
+    private void transportClosed() {
+        boolean dropped = stompConnected;
+        close();
+        if (dropped) {
+            connectionDroppedHandler.handle(this);
+        }
     }
 }

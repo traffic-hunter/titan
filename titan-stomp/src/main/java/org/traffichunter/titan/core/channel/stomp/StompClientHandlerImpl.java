@@ -95,8 +95,13 @@ public final class StompClientHandlerImpl implements StompClientHandler {
                 String heartbeat = frame.getHeader(StompHeaders.Elements.HEART_BEAT);
                 if (heartbeat != null) {
                     StompFrame.HeartBeat server = StompFrame.HeartBeat.doParse(heartbeat);
-                    long ping = StompFrame.HeartBeat.computePingClientToServer(StompFrame.HeartBeat.DEFAULT, server);
-                    long pong = StompFrame.HeartBeat.computePongServerToClient(StompFrame.HeartBeat.DEFAULT, server);
+                    // Negotiate against what this client offered in CONNECT, not the defaults.
+                    StompFrame.HeartBeat client = StompFrame.HeartBeat.create(
+                            connection.option().heartbeatX(),
+                            connection.option().heartbeatY()
+                    );
+                    long ping = StompFrame.HeartBeat.computePingClientToServer(client, server);
+                    long pong = StompFrame.HeartBeat.computePongServerToClient(client, server);
                     connection.setHeartbeat(ping, pong, () -> connection.send(StompFrame.PING));
                 }
             }

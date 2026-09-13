@@ -201,14 +201,14 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
                 String heartbeat = Optional.ofNullable(sf.getHeader(StompHeaders.Elements.HEART_BEAT))
                         .orElse(StompFrame.HeartBeat.ZERO.value());
-                long ping = StompFrame.HeartBeat.computePingClientToServer(
-                        StompFrame.HeartBeat.DEFAULT,
-                        StompFrame.HeartBeat.doParse(heartbeat)
+                // Negotiate against, and advertise, what this server was configured with.
+                StompFrame.HeartBeat offered = StompFrame.HeartBeat.create(
+                        sc.option().heartbeatX(),
+                        sc.option().heartbeatY()
                 );
-                long pong = StompFrame.HeartBeat.computePongServerToClient(
-                        StompFrame.HeartBeat.DEFAULT,
-                        StompFrame.HeartBeat.doParse(heartbeat)
-                );
+                StompFrame.HeartBeat requested = StompFrame.HeartBeat.doParse(heartbeat);
+                long ping = StompFrame.HeartBeat.computePingClientToServer(offered, requested);
+                long pong = StompFrame.HeartBeat.computePongServerToClient(offered, requested);
 
                 sc.setHeartbeat(ping, pong, () -> sc.send(StompFrame.PING));
 
@@ -216,7 +216,7 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 frame.addHeader(StompHeaders.Elements.SESSION, sc.session());
                 frame.addHeader(StompHeaders.Elements.VERSION, sc.version());
                 frame.addHeader(StompHeaders.Elements.SERVER, IdGenerator.name());
-                frame.addHeader(StompHeaders.Elements.HEART_BEAT, StompFrame.HeartBeat.DEFAULT.value());
+                frame.addHeader(StompHeaders.Elements.HEART_BEAT, offered.value());
                 sc.send(frame);
                 log.info(
                         "Accepted STOMP CONNECT. session={}, version={}, heartbeat={}",

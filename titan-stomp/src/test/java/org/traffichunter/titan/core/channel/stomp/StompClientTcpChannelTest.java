@@ -16,14 +16,18 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.core.channel.Channel;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,6 +42,60 @@ import static org.mockito.Mockito.when;
  * @author yun
  */
 class StompClientTcpChannelTest {
+
+    private static final Map<NetChannel, Object> closeHandlers = new IdentityHashMap<>();
+
+    @Test
+    void a_transport_that_closes_under_a_live_session_reports_a_dropped_connection() {
+        NetChannel netChannel = netChannelWithChain();
+        StompClientTcpChannel channel = connectedChannel(netChannel);
+        AtomicReference<StompClientChannel> dropped = new AtomicReference<>();
+        channel.connectionDroppedHandler(dropped::set);
+
+        closeTransport(netChannel);
+
+        // Nothing else notices a peer that walks away from a connection this side only publishes on.
+        assertThat(dropped.get()).isSameAs(channel);
+        assertThat(channel.isConnected()).isFalse();
+    }
+
+    @Test
+    void a_session_closed_from_this_side_is_not_reported_as_dropped() {
+        NetChannel netChannel = netChannelWithChain();
+        StompClientTcpChannel channel = connectedChannel(netChannel);
+        AtomicReference<StompClientChannel> dropped = new AtomicReference<>();
+        channel.connectionDroppedHandler(dropped::set);
+
+        channel.close();
+        // The handler chain closes after the channel does, which must not look like a drop.
+        closeTransport(netChannel);
+
+        assertThat(dropped.get()).isNull();
+    }
+
+    private static StompClientTcpChannel connectedChannel(NetChannel netChannel) {
+        StompClientTcpChannel channel = new StompClientTcpChannel(netChannel, StompSessionOption.DEFAULT);
+        channel.connected();
+        return channel;
+    }
+
+    /** A channel that remembers its close handler, so the test can close it the way the transport does. */
+    private static NetChannel netChannelWithChain() {
+        IOEventLoop eventLoop = mock(IOEventLoop.class);
+        NetChannel netChannel = mock(NetChannel.class);
+        when(netChannel.eventLoop()).thenReturn(eventLoop);
+        when(netChannel.isConnected()).thenReturn(true);
+        when(netChannel.closeHandler(any())).thenAnswer(invocation -> {
+            closeHandlers.put(netChannel, invocation.getArgument(0));
+            return netChannel;
+        });
+        return netChannel;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void closeTransport(NetChannel netChannel) {
+        ((Handler<Channel>) closeHandlers.get(netChannel)).handle(netChannel);
+    }
 
     @Test
     void return_failed_promise_when_event_loop_rejects_send() {

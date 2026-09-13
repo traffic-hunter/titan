@@ -73,6 +73,8 @@ public interface StompClientChannel extends StompChannel {
     @Override
     NetChannel channel();
 
+    StompSessionOption option();
+
     @CanIgnoreReturnValue
     Promise<StompFrame> disconnect();
 

@@ -32,10 +32,9 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
     private static final char CARRIAGE_RETURN = '\r';
     private static final char COLON = ':';
 
-    private static final String ESCAPE_ESCAPE = "\\\\";
-    private static final String COLON_ESCAPE = "\\c";
-    private static final String LINE_FEED_ESCAPE = "\\n";
-    private static final String CARRIAGE_RETURN_ESCAPE = "\\r";
+    private static final char ESCAPE_CODE_LINE_FEED = 'n';
+    private static final char ESCAPE_CODE_CARRIAGE_RETURN = 'r';
+    private static final char ESCAPE_CODE_COLON = 'c';
 
     private final String name;
     private final String version;
@@ -72,21 +71,25 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         return version;
     }
 
+    /** Escapes one header name or value for the wire. */
     public static String encode(@Nullable final String value, final StompCommand command) {
         if(value == null) {
             return "";
         }
 
-        final boolean skipCommand = (command == StompCommand.CONNECT || command == StompCommand.CONNECTED);
+        // CONNECT and CONNECTED are exempt from escaping.
+        if (command == StompCommand.CONNECT || command == StompCommand.CONNECTED) {
+            return value;
+        }
 
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(value.length());
         for(int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
             switch (c) {
-                case ESCAPE -> sb.append(skipCommand ? c : ESCAPE_ESCAPE);
-                case LINE_FEED -> sb.append(skipCommand ? c : LINE_FEED_ESCAPE);
-                case CARRIAGE_RETURN -> sb.append(skipCommand ? c : CARRIAGE_RETURN_ESCAPE);
-                case COLON -> sb.append(skipCommand ? c : COLON_ESCAPE);
+                case ESCAPE -> sb.append(ESCAPE).append(ESCAPE);
+                case LINE_FEED -> sb.append(ESCAPE).append(ESCAPE_CODE_LINE_FEED);
+                case CARRIAGE_RETURN -> sb.append(ESCAPE).append(ESCAPE_CODE_CARRIAGE_RETURN);
+                case COLON -> sb.append(ESCAPE).append(ESCAPE_CODE_COLON);
                 default -> sb.append(c);
             }
         }
@@ -98,29 +101,40 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         return Map.copyOf(map);
     }
 
+    /**
+     * Reverses {@link #encode(String, StompCommand)}.
+     *
+     * @throws StompFrameException when the value holds an escape sequence STOMP does not define
+     */
     public static String decode(final String value, final StompCommand command) {
+        // CONNECT and CONNECTED are exempt from escaping.
+        if (command == StompCommand.CONNECT || command == StompCommand.CONNECTED) {
+            return value;
+        }
 
-        final boolean skipCommand = (command == StompCommand.CONNECT || command == StompCommand.CONNECTED);
-
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(value.length());
         for(int i = 0; i < value.length();) {
             char c = value.charAt(i);
 
-            if(c == ESCAPE && i + 1 < value.length()) {
-                char next = value.charAt(i + 1);
-
-                switch (next) {
-                    case ESCAPE -> sb.append(ESCAPE);
-                    case LINE_FEED -> sb.append(skipCommand ? ESCAPE : LINE_FEED);
-                    case CARRIAGE_RETURN -> sb.append(skipCommand ? ESCAPE : CARRIAGE_RETURN);
-                    case COLON -> sb.append(skipCommand ? ESCAPE : COLON);
-                    default -> throw new StompFrameException("Illegal escape sequence: \\\\\" + next");
-                }
-                i += 2;
-            } else {
+            if(c != ESCAPE) {
                 sb.append(c);
                 i++;
+                continue;
             }
+
+            if(i + 1 >= value.length()) {
+                throw new StompFrameException("Illegal trailing escape in header: " + value);
+            }
+
+            char next = value.charAt(i + 1);
+            switch (next) {
+                case ESCAPE -> sb.append(ESCAPE);
+                case ESCAPE_CODE_LINE_FEED -> sb.append(LINE_FEED);
+                case ESCAPE_CODE_CARRIAGE_RETURN -> sb.append(CARRIAGE_RETURN);
+                case ESCAPE_CODE_COLON -> sb.append(COLON);
+                default -> throw new StompFrameException("Illegal escape sequence: " + ESCAPE + next);
+            }
+            i += 2;
         }
 
         return sb.toString();

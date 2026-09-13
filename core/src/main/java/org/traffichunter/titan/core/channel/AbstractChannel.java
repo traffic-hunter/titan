@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullUnmarked;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.IdGenerator;
 
 import java.io.IOException;
@@ -61,6 +62,7 @@ public abstract class AbstractChannel implements Channel {
 
     private volatile IOEventLoop eventLoop;
     private volatile boolean registered;
+    private volatile Handler<@NonNull Channel> closeHandler = ignored -> {};
 
     public AbstractChannel(SelectableChannel sc, ChannelHandShakeEventListener initializer) {
         this.sc = sc;
@@ -171,6 +173,12 @@ public abstract class AbstractChannel implements Channel {
     }
 
     @Override
+    public Channel closeHandler(@NonNull Handler<@NonNull Channel> handler) {
+        this.closeHandler = handler;
+        return this;
+    }
+
+    @Override
     public void close() {
         if(isClosed()) {
             return;
@@ -186,6 +194,11 @@ public abstract class AbstractChannel implements Channel {
             throw new ChannelException("Failed to close channel");
         } finally {
             closeHandlerChain();
+            try {
+                closeHandler.handle(this);
+            } catch (Exception error) {
+                log.warn("Failed to notify the channel close handler. channelId={}", channelId, error);
+            }
         }
     }
 

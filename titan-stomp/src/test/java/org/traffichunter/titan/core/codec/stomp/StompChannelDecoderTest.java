@@ -133,6 +133,45 @@ class StompChannelDecoderTest {
     }
 
     @Test
+    void a_header_value_holding_a_colon_survives_the_round_trip() {
+        StompHeaders headers = StompHeaders.create();
+        headers.put(StompHeaders.Elements.RECEIPT, "run-7:producer-2:message-9");
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
+        Buffer input = frame.toBuffer();
+        List<StompFrame> handled = new ArrayList<>();
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, (decoded, channel) ->
+                    handled.add(decoded));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), input);
+
+            // The colon left as "\\c" would make the receipt no longer match the request waiting
+            // for it, which is how a receipt-bearing SEND ends up never completing.
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.getHeader(StompHeaders.Elements.RECEIPT))
+                            .isEqualTo("run-7:producer-2:message-9"));
+            assertThat(result).isNotNull();
+            result.release();
+        } finally {
+            input.release();
+        }
+    }
+
+    @Test
+    void an_illegal_escape_sequence_in_a_header_is_an_error_frame() {
+        Buffer input = Buffer.heap().alloc("SEND\nreceipt:a\\tb\n\nhello\u0000");
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, ((sf, sc) -> {}));
+            Buffer result = decoder.decode(new InMemoryNetChannel(), input);
+
+            assertThat(result).isEqualTo(StompFrame.ERR_STOMP_FRAME.toBuffer());
+        } finally {
+            input.release();
+        }
+    }
+
+    @Test
     void decode_no_body_frame() {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, "1");

@@ -25,6 +25,7 @@ import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompServerHandler;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
 import org.traffichunter.titan.core.codec.TooLongFrameException;
+import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.nio.charset.StandardCharsets;
@@ -141,8 +142,14 @@ public class StompChannelDecoder extends ChannelDecoder {
                     return StompFrame.ERR_STOMP_FRAME;
                 }
 
-                String key = keyValue[0].trim();
-                String value = keyValue[1].trim();
+                String key;
+                String value;
+                try {
+                    key = StompHeaders.decode(keyValue[0].trim(), stompCommand);
+                    value = StompHeaders.decode(keyValue[1].trim(), stompCommand);
+                } catch (StompFrameException error) {
+                    return StompFrame.ERR_STOMP_FRAME;
+                }
                 if (key.equals(CONTENT_LENGTH)) {
                     contentLength = Integer.parseInt(value);
                     if (contentLength < 0) {
