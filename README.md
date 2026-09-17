@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/titan-logo-transparent.png" alt="Titan" width="160">
+  <img src=".github/assets/titan-flow-lockup.svg" alt="Titan" width="420">
 </p>
 
 # Titan
