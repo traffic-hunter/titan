@@ -1,44 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
-  <title id="title">Titan Split-T logo</title>
-  <desc id="desc">An off-white message route branching through a graphite T-shaped junction on a Titan orange background.</desc>
-
-  <style>
-    .favicon-canvas { fill: #ffffff; }
-    @media (prefers-color-scheme: dark) {
-      .favicon-canvas { fill: #11151b; }
-    }
-  </style>
-
-  <!-- Opaque, theme-aware corners prevent a white halo in dark mode. -->
-  <rect class="favicon-canvas" width="256" height="256"/>
-  <rect width="256" height="256" rx="40" fill="#FF6B35"/>
-
-  <!-- Graphite counter-stroke completes the abstract T. -->
-  <path
-    d="M116 48V100M116 156V208"
-    fill="none"
-    stroke="#11151B"
-    stroke-width="16"
-    stroke-linecap="round"
-  />
-
-  <!-- One incoming signal branches into three destinations. -->
-  <path
-    d="M36 128H218
-       M122 128
-       C139 128 145 111 154 94
-       L174 61
-       C179 53 187 51 197 51
-       H218
-       M122 128
-       C139 128 145 145 154 162
-       L174 195
-       C179 203 187 205 197 205
-       H218"
-    fill="none"
-    stroke="#F6F7F4"
-    stroke-width="16"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Titan flow symbol</title>
+  <path fill="#192128" d="M20 337C87 321 109 267 138 181C166 96 231 29 311 10C329 5 345 15 348 32C352 51 342 65 322 69C242 83 191 124 158 187C119 262 94 318 20 337Z"/>
+  <path fill="#FF6B35" d="M20 337C108 321 150 242 207 183C270 118 342 92 426 99C444 100 456 113 456 129C456 147 444 159 426 158C350 151 289 168 230 211C152 270 112 326 20 337Z"/>
+  <path fill="#192128" d="M20 337C112 339 164 304 229 259C295 213 367 196 433 214C452 219 462 232 458 249C454 267 438 275 420 270C358 252 307 264 242 294C156 334 97 350 20 337Z"/>
 </svg>
