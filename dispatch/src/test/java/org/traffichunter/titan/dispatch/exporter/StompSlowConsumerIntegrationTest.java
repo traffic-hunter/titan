@@ -45,7 +45,6 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.management.ChannelWriteBufferResource;
 import org.traffichunter.titan.core.util.management.ChannelWriteBufferResourceDetector;
-import org.traffichunter.titan.dispatch.AggregationResult;
 import org.traffichunter.titan.dispatch.SlowConsumerMetrics;
 
 /**
@@ -119,7 +118,6 @@ class StompSlowConsumerIntegrationTest {
         StompDispatchExporter exporter = new StompDispatchExporter(serverChannel, metrics);
 
         byte[] payload = new byte[8 * 1024];
-        AggregationResult result = AggregationResult.create(List.of(destination), 0);
         for (int pressureCycle = 0; pressureCycle < 20 && metrics.getSkippedMessages() == 0; pressureCycle++) {
             for (int attempt = 0; attempt < 4096 && slowChannel.isWritable(); attempt++) {
                 slowChannel.writeAndFlush(Buffer.direct().alloc(payload)).get(5, TimeUnit.SECONDS);
@@ -127,7 +125,7 @@ class StompSlowConsumerIntegrationTest {
             Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> !slowChannel.isWritable());
             Buffer message = Buffer.heap().alloc("message");
             try {
-                result = exporter.export(DestinationGroups.DEFAULT, destination, message);
+                exporter.export(DestinationGroups.DEFAULT, destination, message);
             } finally {
                 message.release();
             }
@@ -139,11 +137,6 @@ class StompSlowConsumerIntegrationTest {
         assertThat(writeBuffers.pendingBytes()).isPositive();
         assertThat(writeBuffers.nonWritableBuffers()).isPositive();
 
-        AggregationResult completed = result;
-        Awaitility.await().atMost(Duration.ofSeconds(5)).until(completed::isDone);
-        assertThat(result.totalAttempted()).isEqualTo(2);
-        assertThat(result.succeeded()).isOne();
-        assertThat(result.failed()).isOne();
         assertThat(metrics.getSkippedMessages()).isOne();
 
         byte[] received = new byte[1024];

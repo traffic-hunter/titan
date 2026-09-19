@@ -15,15 +15,20 @@
  */
 package org.traffichunter.titan.dispatch.exporter;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.dispatch.AggregationResult;
-
-import java.util.List;
 
 /**
  * Dispatch exporter that writes raw payload buffers to every active TCP child
@@ -39,6 +44,8 @@ import java.util.List;
  */
 public class TcpDispatchExporter implements DispatchExporter {
 
+    private static final Logger log = LoggerFactory.getLogger(TcpDispatchExporter.class);
+
     private final InetServer inetServer;
 
     public TcpDispatchExporter(InetServer inetServer) {
@@ -51,37 +58,31 @@ public class TcpDispatchExporter implements DispatchExporter {
     }
 
     @Override
-    public AggregationResult export(String group, Destination destination, Buffer payload) {
+    public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
         Assert.checkState(inetServer.isStarted(), "Cannot send an unstarted inet server");
         if (!DestinationGroups.isDefault(group)) {
             throw new UnsupportedOperationException(
                     "The inet exporter cannot keep destination group " + group + " to itself");
         }
 
-        int attempted = 0;
-        int succeeded = 0;
-        int failed = 0;
+        List<CompletableFuture<?>> writes = new ArrayList<>();
         for (NetChannel channel : inetServer.childChannel().stream().toList()) {
             if (!channel.isActive() || channel.isClosed()) {
                 continue;
             }
 
-            attempted++;
             Buffer copiedPayload = payload.copy();
             try {
-                channel.writeAndFlush(copiedPayload);
-                succeeded++;
+                writes.add(channel.writeAndFlush(copiedPayload)
+                        .toCompletableFuture()
+                        .handle((ignored, ignoredError) -> null));
             } catch (Exception e) {
+                // One unusable channel must not stop the fanout to the others.
                 copiedPayload.release();
-                failed++;
+                log.warn("Failed to write a fanout payload. channelId={}", channel.id(), e);
             }
         }
 
-        return AggregationResult.completed(
-                List.of(destination),
-                attempted,
-                succeeded,
-                failed
-        );
+        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
     }
 }

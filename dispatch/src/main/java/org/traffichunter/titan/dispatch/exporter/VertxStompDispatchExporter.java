@@ -18,14 +18,15 @@ package org.traffichunter.titan.dispatch.exporter;
 import io.vertx.ext.stomp.Command;
 import io.vertx.ext.stomp.Frame;
 import io.vertx.ext.stomp.StompServer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.dispatch.AggregationResult;
-
-import java.util.List;
 
 /**
  * Dispatch exporter that hands a payload to the Vert.x STOMP server's own destination.
@@ -50,7 +51,7 @@ public final class VertxStompDispatchExporter implements DispatchExporter {
     }
 
     @Override
-    public AggregationResult export(String group, Destination destination, Buffer payload) {
+    public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
         Assert.checkState(server.isListening(), "Vert.x STOMP server is not listening");
         if (!DestinationGroups.isDefault(group)) {
             throw new UnsupportedOperationException(
@@ -60,32 +61,18 @@ public final class VertxStompDispatchExporter implements DispatchExporter {
         io.vertx.ext.stomp.Destination stompDestination = server.stompHandler()
                 .getDestination(destination.path());
         if (stompDestination == null) {
-            return AggregationResult.completed(List.of(destination), 0, 0, 0);
+            return CompletableFuture.completedFuture(null);
         }
 
-        int attempted = stompDestination.numberOfSubscriptions();
-        int succeeded = 0;
-        int failed = 0;
-
-        try {
-            Frame frame = new Frame()
-                    .setCommand(Command.MESSAGE)
-                    .setDestination(destination.path())
-                    .setBody(io.vertx.core.buffer.Buffer.buffer(payload.getBytes()));
-            frame.addHeader(Frame.DESTINATION, destination.path());
-            frame.addHeader(Frame.MESSAGE_ID, IdGenerator.uuid());
-            frame.addHeader(Frame.CONTENT_LENGTH, Integer.toString(payload.length()));
-            stompDestination.dispatch(null, frame);
-            succeeded = attempted;
-        } catch (Exception e) {
-            failed = attempted;
-        }
-
-        return AggregationResult.completed(
-                List.of(destination),
-                attempted,
-                succeeded,
-                failed
-        );
+        Frame frame = new Frame()
+                .setCommand(Command.MESSAGE)
+                .setDestination(destination.path())
+                .setBody(io.vertx.core.buffer.Buffer.buffer(payload.getBytes()));
+        frame.addHeader(Frame.DESTINATION, destination.path());
+        frame.addHeader(Frame.MESSAGE_ID, IdGenerator.uuid());
+        frame.addHeader(Frame.CONTENT_LENGTH, Integer.toString(payload.length()));
+        // Vert.x owns the write from here and reports nothing back, so there is nothing to wait for.
+        stompDestination.dispatch(null, frame);
+        return CompletableFuture.completedFuture(null);
     }
 }
