@@ -65,16 +65,6 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
         this.body = body.clone();
     }
 
-    private StompFrame(final StompHeaders headers, final StompCommand command, final Buffer body) {
-        this.headers = headers;
-        this.command = command;
-        try {
-            this.body = body.getBytes();
-        } finally {
-            body.release();
-        }
-    }
-
     public static StompFrame create(final StompHeaders headers, final StompCommand command) {
         return new StompFrame(headers, command);
     }
@@ -86,7 +76,11 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
                                     final StompCommand command,
                                     final Buffer body) {
 
-        return new StompFrame(headers, command, body);
+        try {
+            return new StompFrame(headers, command, body.getBytes());
+        } finally {
+            body.release();
+        }
     }
 
     public StompHeaders getHeaders() {
@@ -258,7 +252,7 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     }
 
     public static StompFrame errorFrame(final StompHeaders headers, final String message, final String body) {
-        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, Buffer.heap().alloc(body));
+        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, body.getBytes(StandardCharsets.UTF_8));
         errorFrame.addHeader(Elements.MESSAGE, message);
         errorFrame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
         errorFrame.addHeader(Elements.CONTENT_TYPE, MediaType.TEXT_PLAIN);
@@ -328,10 +322,8 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     private void logging(boolean isLogging, StringBuilder sb) {
         String bodyText = new String(body, StandardCharsets.UTF_8);
         if (isLogging && bodyText.length() >= 100) {
-            String loggingStr = bodyText;
-
-            String pre = loggingStr.substring(0, 30);
-            String post = loggingStr.substring(loggingStr.length() - 30);
+            String pre = bodyText.substring(0, 30);
+            String post = bodyText.substring(bodyText.length() - 30);
             sb.append(pre).append(".............").append(post);
         } else {
             sb.append(bodyText);
