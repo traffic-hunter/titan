@@ -253,7 +253,11 @@ public class StompClientTcpChannel implements StompClientChannel {
 
     @Override
     public Promise<StompFrame> send(String destination, Buffer body, StompHeaders headers) {
-        return send(destination, create(headers, StompCommand.SEND, body));
+        try {
+            return send(destination, create(headers, StompCommand.SEND, body.getBytes()));
+        } finally {
+            body.release();
+        }
     }
 
     @Override

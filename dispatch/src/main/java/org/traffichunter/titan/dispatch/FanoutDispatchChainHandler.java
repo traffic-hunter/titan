@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
@@ -98,6 +99,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         if (queue == null) {
             return DispatcherQueueDeleteResult.notFound();
         }
+
+        // Read before the queue leaves: a replacement would hide the consumer this call must stop.
+        ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
+        Consumer consumer = consumers.get(key);
+
         int size = queue.size();
         if (size > 0 && !force) {
             return DispatcherQueueDeleteResult.notEmpty(size);
@@ -119,17 +125,16 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
         // Cancel only the consumer of this very queue. A replacement registers one of its own,
         // and taking that one down would leave the new queue with nothing draining it.
-        ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
-        Consumer consumer = consumers.get(key);
-        if (consumer != null && consumer.queue() == queue && consumers.remove(key, consumer)) {
-            consumer.task().cancel(true);
+        if (consumer != null && consumer.queue() == queue) {
+            consumers.remove(key, consumer);
+            consumer.cancel();
         }
         return DispatcherQueueDeleteResult.deleted(size);
     }
 
     void close() {
         if (closed.compareAndSet(false, true)) {
-            consumers.values().forEach(consumer -> consumer.task().cancel(true));
+            consumers.values().forEach(Consumer::cancel);
             consumers.clear();
         }
     }
@@ -139,8 +144,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         log.info("Starting fanout consumer for group={} destination={}", key.group(), key.destination().path());
 
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
-        Consumer consumer = new Consumer(queue, result);
-        executor.execute(() -> {
+        Future<?> handle = executor.submit(() -> {
             try {
                 while (!closed.get()
                         && !Thread.currentThread().isInterrupted()
@@ -152,7 +156,6 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
                         }
                         exporter.export(key.group(), key.destination(), message);
                     } catch (InterruptedException e) {
-                        log.error("Interrupted while waiting for message to be delivered", e);
                         Thread.currentThread().interrupt();
                         break;
                     } catch (Exception e) {
@@ -166,10 +169,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             } catch (Exception e) {
                 result.completeExceptionally(e);
             } finally {
-                consumers.remove(key, consumer);
+                consumers.computeIfPresent(key, (ignored, current) ->
+                        current.queue() == queue ? null : current);
             }
         });
-        return consumer;
+        return new Consumer(queue, result, handle);
     }
 
     /** Queue identity as seen by fanout: a destination inside one group. */
@@ -183,6 +187,16 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
      * without the instance neither a delete nor a later message could tell a consumer that is
      * still serving the current queue from one left over from a deleted queue.</p>
      */
-    private record Consumer(DispatcherQueue queue, CompletableFuture<@Nullable Void> task) {
+    private record Consumer(
+            DispatcherQueue queue,
+            CompletableFuture<@Nullable Void> task,
+            Future<?> handle
+    ) {
+
+        /** Interrupts the parked thread. The executor runs the handle, not {@link #task()}. */
+        void cancel() {
+            handle.cancel(true);
+            task.cancel(true);
+        }
     }
 }
