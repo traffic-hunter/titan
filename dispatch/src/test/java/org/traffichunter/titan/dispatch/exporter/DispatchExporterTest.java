@@ -33,6 +33,9 @@ import io.vertx.ext.stomp.StompServerHandler;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -55,7 +58,6 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.channel.ChannelRegistry;
-import org.traffichunter.titan.dispatch.AggregationResult;
 import org.traffichunter.titan.dispatch.SlowConsumerMetrics;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,25 +82,6 @@ class DispatchExporterTest {
     private io.vertx.ext.stomp.Destination vertxDestination;
 
     @Test
-    void aggregationResult_completes_when_done_reaches_attempted() {
-        AggregationResult result = AggregationResult.create(
-                List.of(Destination.create("/topic/test")),
-                2
-        );
-
-        result.success();
-        assertThat(result.isDone()).isFalse();
-
-        result.fail();
-
-        assertThat(result.isDone()).isTrue();
-        assertThat(result.done()).isEqualTo(2);
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.failed()).isEqualTo(1);
-        assertThat(result.isSuccess()).isFalse();
-    }
-
-    @Test
     void default_message_export_releases_temporary_buffer() {
         Message message = Message.builder()
                 .destination(Destination.create("/topic/test"))
@@ -115,10 +98,10 @@ class DispatchExporterTest {
             }
 
             @Override
-            public AggregationResult export(String group, Destination destination, Buffer payload) {
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
                 assertThat(payload.byteBuf().refCnt()).isOne();
                 exported.set(payload);
-                return AggregationResult.completed(List.of(destination), 0, 0, 0);
+                return CompletableFuture.completedFuture(null);
             }
         };
 
@@ -128,7 +111,105 @@ class DispatchExporterTest {
     }
 
     @Test
-    void stompFanoutExporter_aggregates_success_and_failure() throws Exception {
+    void export_stage_completes_only_after_every_subscriber_settles() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel settledConn = writableConnection(loop, "session-1");
+        StompClientChannel pendingConn = writableConnection(loop, "session-2");
+        Promise<StompFrame> pendingWrite = Promise.newPromise(loop);
+        when(pendingConn.send(any(StompFrame.class))).thenReturn(pendingWrite);
+
+        subscriptions.register(subscription(null, destination, "sub-1", settledConn));
+        subscriptions.register(subscription(null, destination, "sub-2", pendingConn));
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        CompletableFuture<@Nullable Void> completion = exporter
+                .export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()))
+                .toCompletableFuture();
+
+        assertThat(completion).isNotDone();
+
+        pendingWrite.success(StompFrame.PING);
+
+        assertThat(completion).isDone();
+    }
+
+    @Test
+    void export_stage_completes_normally_when_a_write_fails() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel failingConn = writableConnection(loop, "session-1");
+        Promise<StompFrame> failedWrite = Promise.newPromise(loop);
+        failedWrite.fail(new IllegalStateException("send failed"));
+        when(failingConn.send(any(StompFrame.class))).thenReturn(failedWrite);
+        subscriptions.register(subscription(null, destination, "sub-1", failingConn));
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        CompletableFuture<@Nullable Void> completion = exporter
+                .export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()))
+                .toCompletableFuture();
+
+        // Callers treat completion as the end of the export, so one unreachable subscriber
+        // must not turn it into a failure.
+        assertThat(completion).isCompleted();
+        assertThat(completion).isNotCompletedExceptionally();
+    }
+
+    @Test
+    void export_stage_completes_when_no_subscription_matches() {
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        CompletableFuture<@Nullable Void> completion = exporter
+                .export(DestinationGroups.DEFAULT, Destination.create("/topic/empty"), Buffer.heap().alloc("x".getBytes()))
+                .toCompletableFuture();
+
+        assertThat(completion).isDone();
+    }
+
+    @Test
+    void default_message_export_holds_the_buffer_until_the_stage_completes() {
+        Message message = Message.builder()
+                .destination(Destination.create("/topic/test"))
+                .createdAt(Instant.now())
+                .producerId("producer")
+                .body("payload".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .build();
+
+        AtomicReference<Buffer> exported = new AtomicReference<>();
+        CompletableFuture<@Nullable Void> pending = new CompletableFuture<>();
+        DispatchExporter exporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
+                exported.set(payload);
+                return pending;
+            }
+        };
+
+        exporter.export(message.getGroup(), message.getDestination(), message);
+
+        // An exporter that is still writing reads this buffer, so export cannot release it on return.
+        assertThat(exported.get().byteBuf().refCnt()).isOne();
+
+        pending.complete(null);
+
+        assertThat(exported.get().byteBuf().refCnt()).isZero();
+    }
+
+    @Test
+    void stompFanoutExporter_writes_to_every_matching_subscriber() throws Exception {
         IOEventLoop loop = immediateEventLoop();
 
         StompServerSubscriptions subscriptions = new StompServerSubscriptions();
@@ -168,12 +249,10 @@ class DispatchExporterTest {
                 .build());
 
         StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
-        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
+        exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
 
-        assertThat(result.totalAttempted()).isEqualTo(2);
-        assertThat(result.done()).isEqualTo(2);
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.failed()).isEqualTo(1);
+        verify(successConn).send(any(StompFrame.class));
+        verify(failedConn).send(any(StompFrame.class));
     }
 
     @Test
@@ -197,13 +276,12 @@ class DispatchExporterTest {
 
         SlowConsumerMetrics metrics = new SlowConsumerMetrics();
         StompDispatchExporter exporter = new StompDispatchExporter(serverConnection, metrics);
-        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
+        CompletionStage<@Nullable Void> completion =
+                exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
 
         verify(connection, never()).send(any(StompFrame.class));
-        assertThat(result.isDone()).isTrue();
-        assertThat(result.succeeded()).isZero();
-        assertThat(result.failed()).isOne();
         assertThat(metrics.getSkippedMessages()).isOne();
+        assertThat(completion.toCompletableFuture()).isDone();
     }
 
     @Test
@@ -214,10 +292,9 @@ class DispatchExporterTest {
         when(vertxServer.isListening()).thenReturn(true);
         when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
         when(vertxServerHandler.getDestination(destination.path())).thenReturn(vertxDestination);
-        when(vertxDestination.numberOfSubscriptions()).thenReturn(1);
 
         VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, payload);
+        exporter.export(DestinationGroups.DEFAULT, destination, payload);
 
         ArgumentCaptor<Frame> frameCaptor = ArgumentCaptor.forClass(Frame.class);
         verify(vertxDestination).dispatch(isNull(), frameCaptor.capture());
@@ -229,13 +306,10 @@ class DispatchExporterTest {
         assertThat(frame.getHeader(Frame.MESSAGE_ID)).isNotBlank();
         assertThat(frame.getHeader(Frame.CONTENT_LENGTH)).isEqualTo(Integer.toString(payload.length()));
         assertThat(frame.getBodyAsString()).isEqualTo("hello");
-        assertThat(result.totalAttempted()).isEqualTo(1);
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.failed()).isZero();
     }
 
     @Test
-    void vertxStompDispatchExporter_completes_without_dispatch_when_destination_is_missing() {
+    void vertxStompDispatchExporter_returns_without_dispatch_when_destination_is_missing() {
         Destination destination = Destination.create("/topic/missing");
 
         when(vertxServer.isListening()).thenReturn(true);
@@ -243,15 +317,13 @@ class DispatchExporterTest {
         when(vertxServerHandler.getDestination(destination.path())).thenReturn(null);
 
         VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
+        exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
 
-        assertThat(result.totalAttempted()).isZero();
-        assertThat(result.succeeded()).isZero();
-        assertThat(result.failed()).isZero();
+        verify(vertxDestination, never()).dispatch(any(), any(Frame.class));
     }
 
     @Test
-    void tcpFanoutExporter_returns_completed_result_counts() {
+    void tcpFanoutExporter_keeps_writing_after_a_channel_fails() {
         when(inetServer.isStarted()).thenReturn(true);
 
         ChannelRegistry<NetChannel> registry = new ChannelRegistry<>();
@@ -271,12 +343,10 @@ class DispatchExporterTest {
         when(inetServer.childChannel()).thenReturn(registry.getChannels());
 
         TcpDispatchExporter exporter = new TcpDispatchExporter(inetServer);
-        AggregationResult result = exporter.export(DestinationGroups.DEFAULT, Destination.create("/topic/a"), Buffer.heap().alloc("p".getBytes()));
+        exporter.export(DestinationGroups.DEFAULT, Destination.create("/topic/a"), Buffer.heap().alloc("p".getBytes()));
 
-        assertThat(result.isDone()).isTrue();
-        assertThat(result.totalAttempted()).isEqualTo(2);
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.failed()).isEqualTo(1);
+        verify(channelOk).writeAndFlush(any(Buffer.class));
+        verify(channelFail).writeAndFlush(any(Buffer.class));
     }
 
     @Test
@@ -331,7 +401,7 @@ class DispatchExporterTest {
         subscriptions.register(subscription("market", destination, "sub-market", marketConn));
 
         StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
-        AggregationResult result = exporter.export("market", destination, Buffer.heap().alloc("hello".getBytes()));
+        exporter.export("market", destination, Buffer.heap().alloc("hello".getBytes()));
 
         ArgumentCaptor<StompFrame> sent = ArgumentCaptor.forClass(StompFrame.class);
         verify(marketConn).send(sent.capture());
@@ -339,7 +409,6 @@ class DispatchExporterTest {
         assertThat(sent.getValue().getCommand()).isEqualTo(StompCommand.MESSAGE);
         assertThat(sent.getValue().getHeader(Elements.GROUP)).isEqualTo("market");
         assertThat(sent.getValue().getHeader(Elements.SUBSCRIPTION)).isEqualTo("sub-market");
-        assertThat(result.totalAttempted()).isOne();
     }
 
     @Test

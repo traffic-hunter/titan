@@ -6,10 +6,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
@@ -106,10 +108,10 @@ class DispatchChainHandlerChainTest {
             }
 
             @Override
-            public AggregationResult export(String group, Destination destination, Buffer payload) {
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
                 assertThat(destination).isEqualTo(expected);
                 exported.countDown();
-                return AggregationResult.completed(List.of(destination), 0, 0, 0);
+                return CompletableFuture.completedFuture(null);
             }
         };
     }

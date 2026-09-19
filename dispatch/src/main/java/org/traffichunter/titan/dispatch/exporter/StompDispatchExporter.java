@@ -15,21 +15,23 @@
  */
 package org.traffichunter.titan.dispatch.exporter;
 
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
-import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.dispatch.AggregationResult;
 import org.traffichunter.titan.dispatch.SlowConsumerMetrics;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Dispatch exporter for STOMP subscriptions.
@@ -45,6 +47,12 @@ import java.util.List;
  * <p>Each outgoing frame receives a copied payload buffer because the same
  * logical message can be written to many clients. Sharing one buffer instance
  * across those writes would couple independent channel write lifecycles.</p>
+ *
+ * <p>Each write finishes on the event loop of the connection it went to, so the returned stage
+ * completes on whichever loop finishes last. A failed write counts as finished. A subscriber
+ * whose connection cannot take a write is skipped, and the stage does not wait for it.</p>
+ *
+ * @author yun
  */
 public class StompDispatchExporter implements DispatchExporter {
 
@@ -66,21 +74,16 @@ public class StompDispatchExporter implements DispatchExporter {
     }
 
     @Override
-    public AggregationResult export(String group, Destination destination, Buffer message) {
+    public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer message) {
         List<StompServerSubscription> subscriptions =
                 serverConnection.subscriptions().findByDestination(group, destination);
 
-        AggregationResult result = AggregationResult.create(
-                List.of(destination),
-                subscriptions.size()
-        );
-
-        subscriptions.forEach(subscription -> {
+        List<CompletableFuture<?>> writes = new ArrayList<>(subscriptions.size());
+        for (StompServerSubscription subscription : subscriptions) {
             StompClientChannel clientChannel = subscription.getConnection();
             if (!clientChannel.channel().isWritable()) {
                 slowConsumerMetrics.recordSkippedMessage();
-                result.fail();
-                return;
+                continue;
             }
 
             StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, message.getBytes());
@@ -91,16 +94,15 @@ public class StompDispatchExporter implements DispatchExporter {
                 frame.addHeader(StompHeaders.Elements.GROUP, group);
             }
 
-            Promise<StompFrame> sendPromise = clientChannel.send(frame);
-            sendPromise.addListener(sendFuture -> {
-                if (sendFuture.isSuccess()) {
-                    result.success();
-                } else {
-                    result.fail();
-                }
-            });
-        });
+            // allOf fails on its first failed input, and one unreachable subscriber must not
+            // fail the whole export.
+            CompletableFuture<Object> result = clientChannel.send(frame)
+                    .toCompletableFuture()
+                    .handle((ignored, ignoredError) -> null);
 
-        return result;
+            writes.add(result);
+        }
+
+        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
     }
 }

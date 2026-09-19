@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.LongAdder;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -26,7 +28,6 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
-import org.traffichunter.titan.dispatch.AggregationResult;
 import org.traffichunter.titan.dispatch.DispatchGateway;
 import org.traffichunter.titan.dispatch.DispatchMode;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
@@ -122,15 +123,15 @@ public class FanoutGatewayBenchmark {
         }
 
         @Override
-        public @Nullable AggregationResult export(String group, Destination destination, Buffer payload) {
+        public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
             count.increment();
-            return null;
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override
-        public @Nullable AggregationResult export(String group, Destination destination, Message payload) {
+        public CompletionStage<@Nullable Void> export(String group, Destination destination, Message payload) {
             count.increment();
-            return null;
+            return CompletableFuture.completedFuture(null);
         }
     }
 }

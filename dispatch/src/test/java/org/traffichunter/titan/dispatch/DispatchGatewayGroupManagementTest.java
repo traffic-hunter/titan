@@ -10,12 +10,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
+import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
@@ -256,9 +258,9 @@ class DispatchGatewayGroupManagementTest {
             }
 
             @Override
-            public AggregationResult export(String group, Destination destination, Buffer payload) {
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
                 exported.merge(group, 1, Integer::sum);
-                return AggregationResult.completed(List.of(destination), 0, 0, 0);
+                return CompletableFuture.completedFuture(null);
             }
         };
     }
