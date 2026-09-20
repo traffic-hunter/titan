@@ -317,7 +317,11 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 throw new ChannelException("Already channel is closed");
             }
 
+            boolean wasWritable = channelWriteBuffer.isWritable();
             channelWriteBuffer.append(buffer);
+            if (wasWritable != channelWriteBuffer.isWritable()) {
+                onWritabilityChanged(channelWriteBuffer.isWritable());
+            }
         }
 
         @Override
@@ -337,6 +341,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 throw new ChannelException("Already channel is closed");
             }
 
+            boolean wasWritable = channelWriteBuffer.isWritable();
             while (true) {
                 Buffer buffer = channelWriteBuffer.current();
                 if(buffer == null) {
@@ -352,7 +357,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 }
                 // socket buffer full
                 if(written == 0) {
-                    onWriteabilityChanged(true);
+                    setSignalWritability(true);
                     break;
                 }
 
@@ -360,43 +365,31 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             }
 
             if(channelWriteBuffer.isEmpty()) {
-                onWriteabilityChanged(false);
+                setSignalWritability(false);
+            }
+            if (wasWritable != channelWriteBuffer.isWritable()) {
+                onWritabilityChanged(channelWriteBuffer.isWritable());
             }
         }
 
         @Override
-        public void onWritabilityChanged(boolean active) {
+        public void onWritabilityChanged(boolean writable) {
             if (isClosed()) {
                 return;
             }
-
-            IOEventLoop ioEventLoop = eventLoop();
-            if (ioEventLoop.isShuttingDown()) {
+            IOEventLoop owner = eventLoop();
+            if (owner.isShuttingDown()) {
                 return;
             }
-            IOSelector ioSelector = ioEventLoop.ioSelector();
-
-            Runnable updateWritability = () -> {
-                try {
-                    if (active) {
-                        ioSelector.registerWrite(NewIONetChannel.this);
-                    } else {
-                        ioSelector.unregisterWrite(NewIONetChannel.this);
-                    }
-                } catch (IOException e) {
-                    throw new ChannelException("Failed to register write event", e);
-                }
-            };
-
-            if (ioEventLoop.inEventLoop()) {
-                updateWritability.run();
-                return;
-            }
-
             try {
-                ioEventLoop.execute(updateWritability);
+                // Always defer so handlers cannot re-enter the write/flush that raised the event.
+                owner.execute(() -> {
+                    if (!isClosed() && !owner.isShuttingDown()) {
+                        chain().processChannelWritabilityChanged(NewIONetChannel.this, writable);
+                    }
+                });
             } catch (RejectedExecutionException e) {
-                if (!isClosed() && !ioEventLoop.isShuttingDown()) {
+                if (!isClosed() && !owner.isShuttingDown()) {
                     throw e;
                 }
             }
@@ -427,10 +420,10 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             }
         }
 
-        private void onWriteabilityChanged(boolean isWritable) {
+        private void setSignalWritability(boolean enabled) {
             IOSelector ioSelector = eventLoop().ioSelector();
             try {
-                if (isWritable) {
+                if (enabled) {
                     ioSelector.registerWrite(NewIONetChannel.this);
                 } else {
                     ioSelector.unregisterWrite(NewIONetChannel.this);

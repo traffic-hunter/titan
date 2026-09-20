@@ -96,6 +96,11 @@ public final class ChannelInBoundHandlerChainImpl
     }
 
     @Override
+    public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
+        head().sparkChannelWritabilityChanged(channel, writable);
+    }
+
+    @Override
     public void sparkExceptionCaught(Throwable error) {
         head().sparkExceptionCaught(error);
     }
@@ -143,6 +148,14 @@ public final class ChannelInBoundHandlerChainImpl
                 return;
             }
             chain.handler.sparkChannelRead(channel, buffer, chain);
+        }
+
+        @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
+            Node chain = next;
+            if (chain != null) {
+                chain.handler.sparkChannelWritabilityChanged(channel, writable, chain);
+            }
         }
 
         @Override

@@ -407,6 +407,10 @@ class JdkTlsHandlerIntegrationTest {
         }
 
         @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
+        }
+
+        @Override
         public void sparkExceptionCaught(Throwable error) {
             throw new AssertionError("Unexpected TLS inbound failure", error);
         }

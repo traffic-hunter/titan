@@ -108,7 +108,9 @@ public interface NetChannel extends Channel {
         void flush();
 
         /**
-         * Updates write-readiness interest for the underlying transport.
+         * Schedules a write-buffer writability transition through the inbound handler chain.
+         * This is independent of selector write interest. Handlers must recheck writability
+         * before submitting a write; the event does not reserve capacity.
          */
         void onWritabilityChanged(boolean isWritable);
 

@@ -187,6 +187,18 @@ public class ChannelHandlerChain {
         }
     }
 
+    void processChannelWritabilityChanged(NetChannel channel, boolean writable) {
+        if (closed) {
+            return;
+        }
+        try {
+            inboundChain.sparkChannelWritabilityChanged(channel, writable);
+        } catch (Exception e) {
+            log.error("Failed to process writability change", e);
+            channel.close();
+        }
+    }
+
     void processChannelWrite(NetChannel channel, Buffer buffer) {
         try {
             outboundChain.sparkChannelWrite(channel, buffer);

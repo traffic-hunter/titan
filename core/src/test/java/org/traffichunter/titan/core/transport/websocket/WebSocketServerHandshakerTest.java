@@ -233,6 +233,10 @@ class WebSocketServerHandshakerTest {
         }
 
         @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
+        }
+
+        @Override
         public void sparkExceptionCaught(Throwable error) {
         }
     }

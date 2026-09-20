@@ -463,6 +463,10 @@ class StompChannelDecoderTest {
         }
 
         @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
+        }
+
+        @Override
         public void sparkExceptionCaught(@NonNull Throwable error) {}
     }
 
@@ -494,6 +498,10 @@ class StompChannelDecoderTest {
         @Override
         public void sparkChannelRead(@NonNull NetChannel channel, @NonNull Buffer buffer) {
             frames.add(buffer);
+        }
+
+        @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
         }
 
         @Override
