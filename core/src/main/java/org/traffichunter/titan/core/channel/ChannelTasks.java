@@ -56,7 +56,10 @@ final class ChannelTasks {
                     channel.internal().flush();
                 }
             } catch (Throwable error) {
-                result.fail(error);
+                // Admission already settled the promise on refusal; reaching here means the flush
+                // failed after admission, and how much went out is not known.
+                result.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.UNKNOWN, "Flush failed after the write was admitted", error));
             }
         };
 
@@ -67,7 +70,8 @@ final class ChannelTasks {
                 eventLoop.execute(operation);
             } catch (Throwable error) {
                 buffer.release();
-                result.fail(error);
+                result.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.NOT_SENT, "Event loop rejected the write", error));
             }
         }
         return result;

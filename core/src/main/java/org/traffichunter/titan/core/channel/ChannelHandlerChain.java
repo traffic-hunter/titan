@@ -205,7 +205,8 @@ public class ChannelHandlerChain {
             outboundChain.sparkChannelWrite(channel, buffer, promise);
         } catch (Exception e) {
             log.error("Failed to process write", e);
-            promise.fail(e);
+            promise.fail(new ChannelWriteException(
+                    ChannelWriteException.Reason.NOT_SENT, "Outbound handler failed before the write was admitted", e));
             channel.close();
         }
     }

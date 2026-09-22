@@ -22,6 +22,7 @@ import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.WorkerEventLoopGroup;
+import org.traffichunter.titan.core.channel.ChannelWriteException;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -197,7 +198,9 @@ class JdkTlsHandlerTest {
 
         verify(chain).sparkExceptionCaught(any(NetSecureException.class));
         verify(channel).close();
-        assertThat(write.error()).isInstanceOf(NetSecureException.class);
+        assertThat(write.error()).isInstanceOf(ChannelWriteException.class)
+                .hasCauseInstanceOf(NetSecureException.class);
+        assertThat(((ChannelWriteException) write.error()).reason()).isEqualTo(ChannelWriteException.Reason.NOT_SENT);
         assertThat(plainText.byteBuf().refCnt()).isZero();
     }
 

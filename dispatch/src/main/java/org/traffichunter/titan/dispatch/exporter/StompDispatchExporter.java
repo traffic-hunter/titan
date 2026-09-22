@@ -16,6 +16,7 @@
 package org.traffichunter.titan.dispatch.exporter;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Dispatch exporter for STOMP subscriptions.
@@ -48,9 +50,11 @@ import java.util.concurrent.CompletionStage;
  * logical message can be written to many clients. Sharing one buffer instance
  * across those writes would couple independent channel write lifecycles.</p>
  *
- * <p>Each write finishes on the event loop of the connection it went to, so the returned stage
- * completes on whichever loop finishes last. A failed write counts as finished. A subscriber
- * whose connection cannot take a write is skipped, and the stage does not wait for it.</p>
+ * <p>Whether a subscriber can take the write is decided on that connection's own event loop,
+ * right before the write, so no flush or other writer can change the answer in between. A
+ * subscriber that cannot take it is skipped. Each write finishes on the loop of the connection
+ * it went to, so the returned stage completes on whichever loop finishes last, and a failed or
+ * skipped write counts as finished.</p>
  *
  * @author yun
  */
@@ -78,15 +82,34 @@ public class StompDispatchExporter implements DispatchExporter {
         List<StompServerSubscription> subscriptions =
                 serverConnection.subscriptions().findByDestination(group, destination);
 
+        // The caller may release the message as soon as this returns, and the loop hops outlive it.
+        byte[] body = message.getBytes();
+
         List<CompletableFuture<?>> writes = new ArrayList<>(subscriptions.size());
         for (StompServerSubscription subscription : subscriptions) {
-            StompClientChannel clientChannel = subscription.getConnection();
-            if (!clientChannel.channel().isWritable()) {
+            writes.add(export(group, destination, subscription, body));
+        }
+
+        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+    }
+
+    private CompletableFuture<@Nullable Void> export(
+            String group,
+            Destination destination,
+            StompServerSubscription subscription,
+            byte[] body
+    ) {
+        StompClientChannel clientChannel = subscription.getConnection();
+        NetChannel channel = clientChannel.channel();
+        CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
+        Runnable attempt = () -> {
+            if (!channel.isWritable()) {
                 slowConsumerMetrics.recordSkippedMessage();
-                continue;
+                result.complete(null);
+                return;
             }
 
-            StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, message.getBytes());
+            StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, body);
             frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
             frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
             frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
@@ -94,15 +117,16 @@ public class StompDispatchExporter implements DispatchExporter {
                 frame.addHeader(StompHeaders.Elements.GROUP, group);
             }
 
-            // allOf fails on its first failed input, and one unreachable subscriber must not
-            // fail the whole export.
-            CompletableFuture<Object> result = clientChannel.send(frame)
-                    .toCompletableFuture()
-                    .handle((ignored, ignoredError) -> null);
+            // One unreachable subscriber must not fail the whole export.
+            clientChannel.send(frame).addListener(ignored -> result.complete(null));
+        };
 
-            writes.add(result);
+        try {
+            channel.eventLoop().execute(attempt);
+        } catch (RejectedExecutionException e) {
+            // The loop is shutting down, which leaves the subscriber as unreachable as a closed one.
+            result.complete(null);
         }
-
-        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+        return result;
     }
 }

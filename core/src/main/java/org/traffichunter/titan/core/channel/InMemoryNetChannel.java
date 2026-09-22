@@ -245,7 +245,8 @@ public final class InMemoryNetChannel implements NetChannel {
         while ((pending = pendingWrites.poll()) != null) {
             pending.buffer.release();
             if (pending.promise != null) {
-                pending.promise.fail(new ChannelException("Channel closed before the write started"));
+                pending.promise.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.NOT_SENT, "Channel closed before the write started"));
             }
         }
     }

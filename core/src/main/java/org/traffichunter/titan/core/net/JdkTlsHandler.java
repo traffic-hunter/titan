@@ -18,6 +18,7 @@ package org.traffichunter.titan.core.net;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.channel.ChannelWriteException;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
@@ -101,7 +102,8 @@ class JdkTlsHandler extends TlsHandler {
             }
         } catch (Throwable error) {
             records.forEach(Buffer::release);
-            promise.fail(error);
+            promise.fail(new ChannelWriteException(
+                    ChannelWriteException.Reason.NOT_SENT, "TLS handler refused the write", error));
             chain.sparkExceptionCaught(error);
             channel.close();
             return;
@@ -362,7 +364,11 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     private void write(NetChannel channel, Buffer buffer) {
-        channel.internal().write(buffer, ChannelPromise.newPromise(channel));
+        ChannelPromise admitted = ChannelPromise.newPromise(channel);
+        channel.internal().write(buffer, admitted);
+        if (admitted.isFailed()) {
+            throw new NetSecureException("Failed to write TLS record", admitted.error());
+        }
         channel.internal().flush();
     }
 

@@ -21,11 +21,12 @@ import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.util.List;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.traffichunter.titan.core.channel.ChannelWriteException.Reason.NOT_SENT;
+import static org.traffichunter.titan.core.channel.ChannelWriteException.Reason.UNKNOWN;
 
 /**
  * @author yun
@@ -33,25 +34,24 @@ import static org.mockito.Mockito.when;
 class ChannelWriteBufferTest {
 
     @Test
-    void reject_buffer_that_exceeds_maximum_pending_bytes() {
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(10, 8, 4);
-        Buffer accepted = Buffer.direct().alloc(new byte[8]);
-        Buffer rejected = Buffer.direct().alloc(new byte[3]);
+    void writes_past_the_high_watermark_are_still_accepted() {
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4);
+        Buffer first = Buffer.direct().alloc(new byte[9]);
+        Buffer second = Buffer.direct().alloc(new byte[8]);
+        ChannelPromise secondPromise = promise();
         try {
-            writeBuffer.append(accepted, promise());
+            writeBuffer.append(first, promise());
+            assertThat(writeBuffer.isWritable()).isFalse();
 
-            assertThatThrownBy(() -> writeBuffer.append(rejected, promise()))
-                    .isInstanceOf(ChannelException.class)
-                    .hasMessage("Channel write buffer is full");
+            writeBuffer.append(second, secondPromise);
 
-            assertThat(writeBuffer.maxPendingBytes()).isEqualTo(10);
-            assertThat(writeBuffer.pendingBytes()).isEqualTo(8);
-            assertThat(writeBuffer.current()).isSameAs(accepted);
-            assertThat(accepted.byteBuf().refCnt()).isOne();
-            assertThat(rejected.byteBuf().refCnt()).isZero();
+            assertThat(secondPromise.isDone()).isFalse();
+            assertThat(writeBuffer.pendingBytes()).isEqualTo(17);
+            assertThat(second.byteBuf().refCnt()).isOne();
         } finally {
             writeBuffer.close();
         }
+        assertThat(reasonOf(secondPromise)).isEqualTo(NOT_SENT);
     }
 
     @Test
@@ -72,7 +72,7 @@ class ChannelWriteBufferTest {
     @Test
     void expose_pending_bytes_and_watermark_state() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(Integer.MAX_VALUE, 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         Buffer first = Buffer.heap().alloc(new byte[5]);
         Buffer second = Buffer.heap().alloc(new byte[4]);
 
@@ -93,7 +93,7 @@ class ChannelWriteBufferTest {
     @Test
     void reduce_pending_bytes_as_socket_write_progresses() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(Integer.MAX_VALUE, 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         Buffer payload = Buffer.heap().alloc(new byte[9]);
         writeBuffer.append(payload, promise());
 
@@ -119,7 +119,7 @@ class ChannelWriteBufferTest {
     @Test
     void close_releases_remaining_metrics_once() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(Integer.MAX_VALUE, 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         writeBuffer.append(Buffer.heap().alloc(new byte[9]), promise());
 
         writeBuffer.close();
@@ -133,7 +133,7 @@ class ChannelWriteBufferTest {
     @Test
     void consume_releases_only_the_completed_buffer() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(Integer.MAX_VALUE, 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         Buffer first = Buffer.direct().alloc(new byte[5]);
         Buffer second = Buffer.direct().alloc(new byte[4]);
         try {
@@ -164,7 +164,7 @@ class ChannelWriteBufferTest {
     @Test
     void invalid_consume_does_not_change_buffers_or_metrics() {
         AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(Integer.MAX_VALUE, 8, 4, metrics);
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(8, 4, metrics);
         Buffer first = Buffer.direct().alloc(new byte[5]);
         Buffer second = Buffer.direct().alloc(new byte[4]);
         try {
@@ -262,28 +262,7 @@ class ChannelWriteBufferTest {
         }
     }
 
-    @Test
-    void rejected_buffer_fails_its_promise_with_the_thrown_exception() {
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(10, 8, 4);
-        Buffer accepted = Buffer.direct().alloc(new byte[8]);
-        Buffer rejected = Buffer.direct().alloc(new byte[3]);
-        ChannelPromise acceptedPromise = promise();
-        ChannelPromise rejectedPromise = promise();
-        try {
-            writeBuffer.append(accepted, acceptedPromise);
 
-            Throwable thrown = catchThrowable(() -> writeBuffer.append(rejected, rejectedPromise));
-
-            assertThat(thrown).isInstanceOf(ChannelException.class).hasMessage("Channel write buffer is full");
-            assertThat(rejectedPromise.isFailed()).isTrue();
-            assertThat(rejectedPromise.error()).isSameAs(thrown);
-            assertThat(rejected.byteBuf().refCnt()).isZero();
-            assertThat(acceptedPromise.isDone()).isFalse();
-            assertThat(writeBuffer.pendingBytes()).isEqualTo(8);
-        } finally {
-            writeBuffer.close();
-        }
-    }
 
     @Test
     void append_after_close_fails_the_promise_and_releases_the_buffer() {
@@ -292,10 +271,9 @@ class ChannelWriteBufferTest {
         Buffer payload = Buffer.direct().alloc(new byte[4]);
         ChannelPromise promise = promise();
 
-        Throwable thrown = catchThrowable(() -> writeBuffer.append(payload, promise));
+        writeBuffer.append(payload, promise);
 
-        assertThat(thrown).isInstanceOf(ChannelException.class).hasMessage("Channel write buffer is closed");
-        assertThat(promise.error()).isSameAs(thrown);
+        assertThat(reasonOf(promise)).isEqualTo(NOT_SENT);
         assertThat(payload.byteBuf().refCnt()).isZero();
     }
 
@@ -316,12 +294,9 @@ class ChannelWriteBufferTest {
 
         writeBuffer.close();
 
-        assertThat(first.error()).isInstanceOf(ChannelException.class)
-                .hasMessage("Channel closed while the write was in progress");
-        assertThat(secondPromise.error()).isInstanceOf(ChannelException.class)
-                .hasMessage("Channel closed before the write started");
-        assertThat(thirdPromise.error()).isInstanceOf(ChannelException.class)
-                .hasMessage("Channel closed before the write started");
+        assertThat(reasonOf(first)).isEqualTo(UNKNOWN);
+        assertThat(reasonOf(secondPromise)).isEqualTo(NOT_SENT);
+        assertThat(reasonOf(thirdPromise)).isEqualTo(NOT_SENT);
         assertThat(firstHead.byteBuf().refCnt()).isZero();
         assertThat(firstTail.byteBuf().refCnt()).isZero();
         assertThat(second.byteBuf().refCnt()).isZero();
@@ -338,7 +313,7 @@ class ChannelWriteBufferTest {
 
         writeBuffer.close();
 
-        assertThat(promise.error()).hasMessage("Channel closed before the write started");
+        assertThat(reasonOf(promise)).isEqualTo(NOT_SENT);
     }
 
     @Test
@@ -353,31 +328,9 @@ class ChannelWriteBufferTest {
 
         writeBuffer.close();
 
-        assertThat(pending.error()).hasMessage("Channel closed before the write started");
+        assertThat(reasonOf(pending)).isEqualTo(NOT_SENT);
     }
 
-    @Test
-    void multi_buffer_request_is_refused_whole_when_it_does_not_fit() {
-        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(10, 8, 4);
-        Buffer queued = Buffer.direct().alloc(new byte[4]);
-        Buffer fits = Buffer.direct().alloc(new byte[4]);
-        Buffer overflows = Buffer.direct().alloc(new byte[4]);
-        ChannelPromise promise = promise();
-        try {
-            writeBuffer.append(queued, promise());
-
-            Throwable thrown = catchThrowable(() -> writeBuffer.append(List.of(fits, overflows), promise));
-
-            assertThat(thrown).isInstanceOf(ChannelException.class).hasMessage("Channel write buffer is full");
-            assertThat(promise.error()).isSameAs(thrown);
-            assertThat(fits.byteBuf().refCnt()).isZero();
-            assertThat(overflows.byteBuf().refCnt()).isZero();
-            assertThat(writeBuffer.pendingBytes()).isEqualTo(4);
-            assertThat(writeBuffer.current()).isSameAs(queued);
-        } finally {
-            writeBuffer.close();
-        }
-    }
 
     @Test
     void empty_buffers_inside_a_request_are_dropped_and_the_promise_rides_on_the_last_readable_one() {
@@ -411,6 +364,11 @@ class ChannelWriteBufferTest {
         } finally {
             writeBuffer.close();
         }
+    }
+
+    private static ChannelWriteException.Reason reasonOf(ChannelPromise promise) {
+        assertThat(promise.error()).isInstanceOf(ChannelWriteException.class);
+        return ((ChannelWriteException) promise.error()).reason();
     }
 
     private static ChannelPromise promise() {

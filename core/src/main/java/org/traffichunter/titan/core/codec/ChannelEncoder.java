@@ -39,7 +39,8 @@ public abstract class ChannelEncoder implements ChannelOutBoundHandler {
     ) {
         Buffer encoded = encode(channel, buffer);
         if (encoded == null) {
-            promise.fail(new ChannelException(getClass().getSimpleName() + " dropped the write"));
+            promise.fail(new ChannelWriteException(
+                    ChannelWriteException.Reason.NOT_SENT, getClass().getSimpleName() + " dropped the write"));
             return;
         }
         chain.sparkChannelWrite(channel, encoded, promise);

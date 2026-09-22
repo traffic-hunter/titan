@@ -321,9 +321,9 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         public void write(List<Buffer> buffers, ChannelPromise promise) {
             if(isClosed()) {
                 buffers.forEach(Buffer::release);
-                ChannelException failure = new ChannelException("Already channel is closed");
-                promise.fail(failure);
-                throw failure;
+                promise.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.NOT_SENT, "Already channel is closed"));
+                return;
             }
 
             boolean wasWritable = channelWriteBuffer.isWritable();

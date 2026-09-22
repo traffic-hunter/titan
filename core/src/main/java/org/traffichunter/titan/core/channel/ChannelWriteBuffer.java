@@ -16,6 +16,7 @@
 package org.traffichunter.titan.core.channel;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.channel.ChannelWriteException.Reason;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
@@ -25,10 +26,12 @@ import java.util.List;
 import java.util.Queue;
 
 /**
- * Buffers outbound data that could not be written to a channel immediately, up to the configured
- * maximum pending bytes.
+ * Buffers outbound data that could not be written to a channel immediately.
  *
- * <p>Tracks pending bytes and controls channel writability through high and low watermarks.</p>
+ * <p>Tracks pending bytes and reports pressure through high and low watermarks. It never refuses
+ * a write for lack of space: the writer is expected to consult {@link #isWritable()} on the
+ * channel's event loop and hold back itself, so an unchecked writer grows this buffer without
+ * bound.</p>
  *
  * @author yun
  */
@@ -36,14 +39,12 @@ public final class ChannelWriteBuffer {
 
     private static final int DEFAULT_HIGH_WATERMARK = 64 * 1024;
     private static final int DEFAULT_LOW_WATERMARK = 32 * 1024;
-    private static final int DEFAULT_MAX_PENDING_BYTES = DEFAULT_HIGH_WATERMARK * 2;
 
     private final Queue<Entry> writeBuffer;
     private @Nullable AggregateChannelWriteBufferMetrics metrics;
 
     private int pendingBytes;
 
-    private final int maxPendingBytes;
     private final int highWatermarkBytes;
     private final int lowWatermarkBytes;
 
@@ -53,38 +54,25 @@ public final class ChannelWriteBuffer {
     private boolean headRequestStarted;
 
     public ChannelWriteBuffer() {
-        this(DEFAULT_MAX_PENDING_BYTES, DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK);
+        this(DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK);
     }
 
     public ChannelWriteBuffer(int highWatermarkBytes, int lowWatermarkBytes) {
-        this(defaultMaxPendingBytes(highWatermarkBytes), highWatermarkBytes, lowWatermarkBytes);
-    }
-
-    public ChannelWriteBuffer(int maxPendingBytes, int highWatermarkBytes, int lowWatermarkBytes) {
         Assert.checkArgument(highWatermarkBytes > lowWatermarkBytes, "highWatermark must be greater than lowerPoint");
         Assert.checkArgument(highWatermarkBytes > 0, "highWatermark must be greater than 0");
         Assert.checkArgument(lowWatermarkBytes > 0, "lowWatermark must be greater than 0");
-        Assert.checkArgument(maxPendingBytes > 0, "maxPendingBytes must be greater than 0");
-        Assert.checkArgument(maxPendingBytes >= highWatermarkBytes,
-                "maxPendingBytes must be greater than or equal to highWatermark");
 
         this.writeBuffer = new ArrayDeque<>();
-        this.maxPendingBytes = maxPendingBytes;
         this.highWatermarkBytes = highWatermarkBytes;
         this.lowWatermarkBytes = lowWatermarkBytes;
     }
 
     ChannelWriteBuffer(AggregateChannelWriteBufferMetrics metrics) {
-        this(DEFAULT_MAX_PENDING_BYTES, DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK, metrics);
+        this(DEFAULT_HIGH_WATERMARK, DEFAULT_LOW_WATERMARK, metrics);
     }
 
-    ChannelWriteBuffer(
-            int maxPendingBytes,
-            int highWatermarkBytes,
-            int lowWatermarkBytes,
-            AggregateChannelWriteBufferMetrics metrics
-    ) {
-        this(maxPendingBytes, highWatermarkBytes, lowWatermarkBytes);
+    ChannelWriteBuffer(int highWatermarkBytes, int lowWatermarkBytes, AggregateChannelWriteBufferMetrics metrics) {
+        this(highWatermarkBytes, lowWatermarkBytes);
         attachMetrics(metrics);
     }
 
@@ -100,18 +88,18 @@ public final class ChannelWriteBuffer {
     /**
      * Appends one request and takes ownership of every buffer in it.
      *
-     * <p>The request is admitted whole or not at all. The promise completes once the socket has
-     * taken every byte of every buffer, so it rides on the last non-empty one. Every path that
-     * refuses the request releases all of its buffers and settles the promise. The list itself
-     * is not retained.</p>
+     * <p>The promise completes once the socket has taken every byte of every buffer, so it rides
+     * on the last non-empty one. A write to a closed buffer has all of its buffers released and
+     * its promise failed with {@link ChannelWriteException.Reason#NOT_SENT}; nothing is thrown.
+     * The list itself is not retained.</p>
      *
      * @param buffers the request's buffers in wire order
      * @param promise completion for the whole request
      */
     public void append(List<Buffer> buffers, ChannelPromise promise) {
         if (isClosed) {
-            releaseAll(buffers);
-            throw failWith(promise, "Channel write buffer is closed");
+            refuse(buffers, promise, Reason.NOT_SENT, "Channel write buffer is closed");
+            return;
         }
 
         long contentLength = 0;
@@ -124,16 +112,11 @@ public final class ChannelWriteBuffer {
             }
         }
         if (lastReadable < 0) {
-            releaseAll(buffers);
+            buffers.forEach(Buffer::release);
             // Nothing to write, so the request is already through.
             promise.success();
             return;
         }
-        if (contentLength > maxPendingBytes - pendingBytes) {
-            releaseAll(buffers);
-            throw failWith(promise, "Channel write buffer is full");
-        }
-
         for (int i = 0; i < buffers.size(); i++) {
             Buffer buffer = buffers.get(i);
             if (!buffer.hasRemaining()) {
@@ -236,10 +219,6 @@ public final class ChannelWriteBuffer {
         return highWatermarkBytes;
     }
 
-    public int maxPendingBytes() {
-        return maxPendingBytes;
-    }
-
     public int lowWatermark() {
         return lowWatermarkBytes;
     }
@@ -288,32 +267,20 @@ public final class ChannelWriteBuffer {
         while ((entry = writeBuffer.poll()) != null) {
             entry.buffer.release();
             if (entry.promise != null) {
-                entry.promise.fail(new ChannelException(started
-                        ? "Channel closed while the write was in progress"
-                        : "Channel closed before the write started"));
+                entry.promise.fail(started
+                        ? new ChannelWriteException(Reason.UNKNOWN, "Channel closed while the write was in progress")
+                        : new ChannelWriteException(Reason.NOT_SENT, "Channel closed before the write started"));
                 started = false;
             }
         }
         headRequestStarted = false;
     }
 
-    /** Settles the promise of a refused request and returns the failure to throw. */
-    private static ChannelException failWith(ChannelPromise promise, String message) {
-        ChannelException failure = new ChannelException(message);
-        promise.fail(failure);
-        return failure;
-    }
-
-    private static void releaseAll(List<Buffer> buffers) {
+    private static void refuse(List<Buffer> buffers, ChannelPromise promise, Reason reason, String message) {
         buffers.forEach(Buffer::release);
+        promise.fail(new ChannelWriteException(reason, message));
     }
 
-    private static int defaultMaxPendingBytes(int highWatermarkBytes) {
-        if (highWatermarkBytes >= Integer.MAX_VALUE / 2) {
-            return Integer.MAX_VALUE;
-        }
-        return highWatermarkBytes * 2;
-    }
 
     /** One queued buffer. Only the last buffer of a request carries the request's promise. */
     static final class Entry {
