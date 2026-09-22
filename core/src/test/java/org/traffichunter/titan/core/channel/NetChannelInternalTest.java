@@ -70,10 +70,11 @@ class NetChannelInternalTest {
             public void sparkChannelWrite(
                     NetChannel writtenChannel,
                     Buffer buffer,
+                    ChannelPromise promise,
                     ChannelOutBoundHandlerChain chain
             ) {
                 pipelineWrites.incrementAndGet();
-                chain.sparkChannelWrite(writtenChannel, buffer);
+                chain.sparkChannelWrite(writtenChannel, buffer, promise);
             }
         });
 
@@ -92,9 +93,11 @@ class NetChannelInternalTest {
             release(channel.pollWritten());
 
             Buffer internalBuffer = Buffer.heap().alloc("internal");
-            channel.internal().writeAndFlush(internalBuffer);
+            ChannelPromise internalWrite = ChannelPromise.newPromise(channel);
+            channel.internal().writeAndFlush(internalBuffer, internalWrite);
             internalBuffer.release();
 
+            assertThat(internalWrite.isSuccess()).isTrue();
             assertThat(pipelineWrites).hasValue(1);
             release(channel.pollWritten());
         } finally {

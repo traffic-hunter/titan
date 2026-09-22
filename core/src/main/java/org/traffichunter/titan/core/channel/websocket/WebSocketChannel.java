@@ -106,23 +106,10 @@ public final class WebSocketChannel implements NetChannel {
 
     private void completeWrite(ChannelPromise result, Buffer encoded) {
         try {
-            writeEncoded(encoded);
-            result.success();
+            delegate.internal().write(encoded, result);
+            delegate.internal().flush();
         } catch (Throwable error) {
             result.fail(error);
-        }
-    }
-
-    private void writeEncoded(Buffer encoded) {
-        boolean accepted = false;
-        try {
-            delegate.internal().write(encoded);
-            accepted = true;
-            delegate.internal().flush();
-        } finally {
-            if (!accepted) {
-                encoded.release();
-            }
         }
     }
 

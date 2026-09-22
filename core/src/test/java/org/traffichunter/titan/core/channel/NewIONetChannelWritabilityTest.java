@@ -38,8 +38,8 @@ class NewIONetChannelWritabilityTest {
             }
         });
         try {
-            channel.internal().write(Buffer.heap().alloc(new byte[65 * 1024]));
-            channel.internal().write(Buffer.heap().alloc(new byte[1]));
+            channel.internal().write(Buffer.heap().alloc(new byte[65 * 1024]), ChannelPromise.newPromise(loop, channel));
+            channel.internal().write(Buffer.heap().alloc(new byte[1]), ChannelPromise.newPromise(loop, channel));
             assertThat(channel.isWritable()).isFalse();
             assertThat(transitions).isEmpty();
             events.remove().run();

@@ -38,14 +38,39 @@ final class ChannelTasks {
     }
 
     static ChannelPromise write(NetChannel channel, Buffer buffer) {
-        return execute(channel, () -> channel.chain().processChannelWrite(channel, buffer));
+        return write(channel, buffer, false);
     }
 
     static ChannelPromise writeAndFlush(NetChannel channel, Buffer buffer) {
-        return execute(channel, () -> {
-            channel.chain().processChannelWrite(channel, buffer);
-            channel.internal().flush();
-        });
+        return write(channel, buffer, true);
+    }
+
+    /** The promise settles when the socket has taken the buffer, not when the write is queued. */
+    private static ChannelPromise write(NetChannel channel, Buffer buffer, boolean flush) {
+        IOEventLoop eventLoop = channel.eventLoop();
+        ChannelPromise result = ChannelPromise.newPromise(eventLoop, channel);
+        Runnable operation = () -> {
+            try {
+                channel.chain().processChannelWrite(channel, buffer, result);
+                if (flush) {
+                    channel.internal().flush();
+                }
+            } catch (Throwable error) {
+                result.fail(error);
+            }
+        };
+
+        if (eventLoop.inEventLoop()) {
+            operation.run();
+        } else {
+            try {
+                eventLoop.execute(operation);
+            } catch (Throwable error) {
+                buffer.release();
+                result.fail(error);
+            }
+        }
+        return result;
     }
 
     static Promise<Void> bind(NetServerChannel channel, InetSocketAddress address) {

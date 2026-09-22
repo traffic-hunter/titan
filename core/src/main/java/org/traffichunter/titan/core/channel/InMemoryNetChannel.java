@@ -26,6 +26,7 @@ import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +42,7 @@ public final class InMemoryNetChannel implements NetChannel {
     private final String id = IdGenerator.uuid();
     private final Map<SocketOption<?>, Object> options = new ConcurrentHashMap<>();
     private final Queue<Buffer> inbound = new ArrayDeque<>();
-    private final Queue<Buffer> pendingWrites = new ArrayDeque<>();
+    private final Queue<PendingWrite> pendingWrites = new ArrayDeque<>();
     private final Queue<Buffer> flushedWrites = new ArrayDeque<>();
     private final Internal internal = new InMemoryInternal();
 
@@ -155,7 +156,7 @@ public final class InMemoryNetChannel implements NetChannel {
         active = false;
         connected = false;
         clearQueue(inbound);
-        clearQueue(pendingWrites);
+        failPendingWrites();
         clearQueue(flushedWrites);
         closeHandlerChain();
         closeHandler.handle(this);
@@ -239,6 +240,19 @@ public final class InMemoryNetChannel implements NetChannel {
         }
     }
 
+    private void failPendingWrites() {
+        PendingWrite pending;
+        while ((pending = pendingWrites.poll()) != null) {
+            pending.buffer.release();
+            if (pending.promise != null) {
+                pending.promise.fail(new ChannelException("Channel closed before the write started"));
+            }
+        }
+    }
+
+    private record PendingWrite(Buffer buffer, @Nullable ChannelPromise promise) {
+    }
+
     private final class InMemoryInternal implements Internal {
 
         @Override
@@ -254,20 +268,35 @@ public final class InMemoryNetChannel implements NetChannel {
         }
 
         @Override
-        public void write(Buffer buffer) {
-            pendingWrites.add(buffer.retain());
+        public void write(Buffer buffer, ChannelPromise promise) {
+            pendingWrites.add(new PendingWrite(buffer.retain(), promise));
         }
 
         @Override
-        public void writeAndFlush(Buffer buffer) {
-            write(buffer);
+        public void write(List<Buffer> buffers, ChannelPromise promise) {
+            for (int i = 0; i < buffers.size(); i++) {
+                boolean last = i == buffers.size() - 1;
+                pendingWrites.add(new PendingWrite(buffers.get(i).retain(), last ? promise : null));
+            }
+            if (buffers.isEmpty()) {
+                promise.success();
+            }
+        }
+
+        @Override
+        public void writeAndFlush(Buffer buffer, ChannelPromise promise) {
+            write(buffer, promise);
             flush();
         }
 
         @Override
         public void flush() {
-            while (!pendingWrites.isEmpty()) {
-                flushedWrites.add(pendingWrites.poll());
+            PendingWrite pending;
+            while ((pending = pendingWrites.poll()) != null) {
+                flushedWrites.add(pending.buffer);
+                if (pending.promise != null) {
+                    pending.promise.success();
+                }
             }
         }
 

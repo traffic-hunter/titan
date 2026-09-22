@@ -28,6 +28,8 @@ import org.traffichunter.titan.core.util.buffer.Buffers;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
+import java.util.List;
+import java.util.ArrayList;
 import java.nio.ByteBuffer;
 
 /**
@@ -82,22 +84,36 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer plainText, ChannelOutBoundHandlerChain chain) {
-        Buffer encrypted;
+    public void sparkChannelWrite(
+            NetChannel channel,
+            Buffer plainText,
+            ChannelPromise promise,
+            ChannelOutBoundHandlerChain chain
+    ) {
+        // One plaintext may become several records, which travel on as a single request.
+        List<Buffer> records = new ArrayList<>();
         try {
             if (!isCompletedHandshake() || sslEngine.isOutboundDone()) {
                 throw new NetSecureException("TLS channel is not in a valid state for writing");
             }
-
             while (plainText.isReadable()) {
-                encrypted = wrap(plainText);
-                chain.sparkChannelWrite(channel, encrypted);
+                records.add(wrap(plainText));
             }
+        } catch (Throwable error) {
+            records.forEach(Buffer::release);
+            promise.fail(error);
+            chain.sparkExceptionCaught(error);
+            channel.close();
+            return;
+        } finally {
+            plainText.release();
+        }
+
+        try {
+            chain.sparkChannelWrite(channel, records, promise);
         } catch (Throwable error) {
             chain.sparkExceptionCaught(error);
             channel.close();
-        } finally {
-            plainText.release();
         }
     }
 
@@ -346,16 +362,8 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     private void write(NetChannel channel, Buffer buffer) {
-        boolean accepted = false;
-        try {
-            channel.internal().write(buffer);
-            accepted = true;
-            channel.internal().flush();
-        } finally {
-            if (!accepted) {
-                buffer.release();
-            }
-        }
+        channel.internal().write(buffer, ChannelPromise.newPromise(channel));
+        channel.internal().flush();
     }
 
     private Buffer wrapCloseNotify() throws SSLException {

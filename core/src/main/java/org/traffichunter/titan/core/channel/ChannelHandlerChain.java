@@ -22,6 +22,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 /**
  * Owns the inbound and outbound handler chains for one channel.
@@ -199,11 +200,12 @@ public class ChannelHandlerChain {
         }
     }
 
-    void processChannelWrite(NetChannel channel, Buffer buffer) {
+    void processChannelWrite(NetChannel channel, Buffer buffer, ChannelPromise promise) {
         try {
-            outboundChain.sparkChannelWrite(channel, buffer);
+            outboundChain.sparkChannelWrite(channel, buffer, promise);
         } catch (Exception e) {
             log.error("Failed to process write", e);
+            promise.fail(e);
             channel.close();
         }
     }

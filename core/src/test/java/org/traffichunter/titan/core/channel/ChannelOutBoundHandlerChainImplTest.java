@@ -18,11 +18,14 @@ package org.traffichunter.titan.core.channel;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 
 /**
@@ -37,12 +40,15 @@ class ChannelOutBoundHandlerChainImplTest {
         InMemoryNetChannel channel = new InMemoryNetChannel();
         ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl();
 
-        chain.sparkChannelWrite(channel, buffer);
+        ChannelPromise promise = promise(channel);
+        chain.sparkChannelWrite(channel, buffer, promise);
+        assertThat(promise.isDone()).isFalse();
         channel.internal().flush();
 
         Buffer written = channel.pollWritten();
         assertThat(written).isNotNull();
         assertThat(written.getBytes()).containsExactly("data".getBytes());
+        assertThat(promise.isSuccess()).isTrue();
 
         written.release();
         buffer.release();
@@ -57,7 +63,7 @@ class ChannelOutBoundHandlerChainImplTest {
                 .addLast(new RecordingHandler("second", order))
                 .addFirst(new RecordingHandler("first", order));
 
-        chain.sparkChannelWrite(channel, buffer);
+        chain.sparkChannelWrite(channel, buffer, promise(channel));
         channel.internal().flush();
 
         assertThat(order).containsExactly("first", "second");
@@ -79,7 +85,7 @@ class ChannelOutBoundHandlerChainImplTest {
 
         assertThat(chain.remove(removed)).isTrue();
         chain.addLast(last);
-        chain.sparkChannelWrite(channel, buffer);
+        chain.sparkChannelWrite(channel, buffer, promise(channel));
         channel.internal().flush();
 
         assertThat(order).containsExactly("first", "last");
@@ -92,6 +98,12 @@ class ChannelOutBoundHandlerChainImplTest {
         ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl();
 
         assertThat(chain.remove(new RecordingHandler("unknown", new ArrayList<>()))).isFalse();
+    }
+
+    private static ChannelPromise promise(NetChannel channel) {
+        IOEventLoop eventLoop = mock(IOEventLoop.class);
+        when(eventLoop.inEventLoop()).thenReturn(true);
+        return ChannelPromise.newPromise(eventLoop, channel);
     }
 
     private static void releaseWritten(InMemoryNetChannel channel) {
@@ -109,10 +121,11 @@ class ChannelOutBoundHandlerChainImplTest {
         public void sparkChannelWrite(
                 NetChannel channel,
                 Buffer buffer,
+                ChannelPromise promise,
                 ChannelOutBoundHandlerChain chain
         ) {
             order.add(name);
-            chain.sparkChannelWrite(channel, buffer);
+            chain.sparkChannelWrite(channel, buffer, promise);
         }
     }
 }

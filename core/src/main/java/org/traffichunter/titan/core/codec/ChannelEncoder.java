@@ -18,23 +18,31 @@ package org.traffichunter.titan.core.codec;
 import org.traffichunter.titan.core.channel.*;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
 /**
  * Outbound channel handler that transforms buffers before they are written.
  *
  * <p>Subclasses implement {@link #encode(NetChannel, Buffer)} and return the encoded
- * buffer to forward. Returning {@code null} drops the outbound event.</p>
+ * buffer to forward. Returning {@code null} drops the outbound event and fails its promise.</p>
  *
  * @author yun
  */
 public abstract class ChannelEncoder implements ChannelOutBoundHandler {
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelOutBoundHandlerChain chain) {
+    public void sparkChannelWrite(
+            NetChannel channel,
+            Buffer buffer,
+            ChannelPromise promise,
+            ChannelOutBoundHandlerChain chain
+    ) {
         Buffer encoded = encode(channel, buffer);
-        if (encoded != null) {
-            chain.sparkChannelWrite(channel, encoded);
+        if (encoded == null) {
+            promise.fail(new ChannelException(getClass().getSimpleName() + " dropped the write"));
+            return;
         }
+        chain.sparkChannelWrite(channel, encoded, promise);
     }
 
     @Override

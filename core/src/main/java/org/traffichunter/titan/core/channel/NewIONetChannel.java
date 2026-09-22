@@ -29,6 +29,7 @@ import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -312,22 +313,30 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
 
         @Override
-        public void write(Buffer buffer) {
+        public void write(Buffer buffer, ChannelPromise promise) {
+            write(List.of(buffer), promise);
+        }
+
+        @Override
+        public void write(List<Buffer> buffers, ChannelPromise promise) {
             if(isClosed()) {
-                throw new ChannelException("Already channel is closed");
+                buffers.forEach(Buffer::release);
+                ChannelException failure = new ChannelException("Already channel is closed");
+                promise.fail(failure);
+                throw failure;
             }
 
             boolean wasWritable = channelWriteBuffer.isWritable();
-            channelWriteBuffer.append(buffer);
+            channelWriteBuffer.append(buffers, promise);
             if (wasWritable != channelWriteBuffer.isWritable()) {
                 onWritabilityChanged(channelWriteBuffer.isWritable());
             }
         }
 
         @Override
-        public void writeAndFlush(Buffer buffer) {
+        public void writeAndFlush(Buffer buffer, ChannelPromise promise) {
             try {
-                write(buffer);
+                write(buffer, promise);
                 flush();
             } catch (RuntimeException e) {
                 close();
@@ -408,6 +417,24 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 failConnect(e);
                 close();
                 throw e;
+            }
+        }
+
+        private long write0(ByteBuffer[] byteBuffers, int offset, int length) {
+            try {
+                return channel().write(byteBuffers, offset, length);
+            } catch (IOException e) {
+                log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                return -1;
+            }
+        }
+
+        private long write0(ByteBuffer[] byteBuffers) {
+            try {
+                return channel().write(byteBuffers);
+            } catch (IOException e) {
+                log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                return -1;
             }
         }
 
