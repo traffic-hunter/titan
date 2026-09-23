@@ -29,13 +29,13 @@ import static org.mockito.Mockito.when;
 /**
  * @author yun
  */
-class ChannelTasksTest {
+class ChannelIOTest {
 
     @Test
     void return_failed_promise_when_event_loop_rejects_channel_task() {
         IOEventLoop eventLoop = rejectingEventLoop();
 
-        Promise<Void> result = ChannelTasks.execute(eventLoop, () -> { });
+        Promise<Void> result = ChannelIO.execute(eventLoop, () -> { });
 
         assertRejected(result);
     }
@@ -46,7 +46,7 @@ class ChannelTasksTest {
         NetServerChannel channel = mock(NetServerChannel.class);
         when(channel.eventLoop()).thenReturn(eventLoop);
 
-        Promise<NetChannel> result = ChannelTasks.accept(channel);
+        Promise<NetChannel> result = ChannelIO.accept(channel);
 
         assertRejected(result);
     }

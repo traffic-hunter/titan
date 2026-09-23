@@ -26,6 +26,11 @@ public interface ChannelInBoundHandler {
     default void sparkChannelRead(NetChannel channel, Buffer buffer, ChannelInBoundHandlerChain chain) {
     }
 
+    /** Passes a write-buffer state transition onward. This does not reserve write capacity. */
+    default void sparkChannelWritabilityChanged(NetChannel channel, boolean writable, ChannelInBoundHandlerChain chain) {
+        chain.sparkChannelWritabilityChanged(channel, writable);
+    }
+
     default void sparkExceptionCaught(Throwable error, ChannelInBoundHandlerChain chain) {
     }
 }

@@ -46,6 +46,9 @@ public interface ChannelInBoundHandlerChain {
      */
     void sparkChannelRead(NetChannel channel, Buffer buffer);
 
+    /** Propagates a write-buffer state transition to the next handler. */
+    void sparkChannelWritabilityChanged(NetChannel channel, boolean writable);
+
     /** Propagates an inbound processing failure to the next interested handler. */
     void sparkExceptionCaught(Throwable error);
 }

@@ -27,6 +27,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -36,6 +37,7 @@ import java.util.function.BooleanSupplier;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -229,7 +231,11 @@ class JdkTlsHandlerIntegrationTest {
         doAnswer(invocation -> {
             encryptedRecords.add(invocation.getArgument(0));
             return null;
-        }).when(internal).write(any(Buffer.class));
+        }).when(internal).write(any(Buffer.class), any());
+        doAnswer(invocation -> {
+            encryptedRecords.addAll(invocation.<List<Buffer>>getArgument(0));
+            return null;
+        }).when(internal).write(anyList(), any());
 
         eventLoop.start();
         return new Endpoint(
@@ -353,7 +359,7 @@ class JdkTlsHandlerIntegrationTest {
         private void write(byte[] value) throws Exception {
             Promise<Void> result = eventLoop.submit(() -> {
                 ChannelOutBoundHandlerChainImpl chain = new ChannelOutBoundHandlerChainImpl();
-                handler.sparkChannelWrite(channel, Buffer.heap().alloc(value), chain);
+                handler.sparkChannelWrite(channel, Buffer.heap().alloc(value), ChannelPromise.newPromise(channel), chain);
                 channel.internal().flush();
             });
             result.get(2, TimeUnit.SECONDS);
@@ -404,6 +410,10 @@ class JdkTlsHandlerIntegrationTest {
         @Override
         public void sparkChannelRead(NetChannel channel, Buffer buffer) {
             plainTexts.add(buffer);
+        }
+
+        @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
         }
 
         @Override

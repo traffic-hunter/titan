@@ -19,7 +19,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.util.Noop;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -29,10 +31,9 @@ import java.util.function.Consumer;
  * continuation for the handler stored immediately after it. Forwarding resumes from the current
  * position without running earlier encoders again.</p>
  *
- * <p>At the terminal node, the resulting buffer is written through {@link NetChannel.Internal}.
- * Calling the public channel write API here would run the same outbound handlers again.
- * If the raw write fails synchronously before ownership is transferred,
- * the terminal node releases the buffer and rethrows the failure.</p>
+ * <p>At the terminal node, the resulting buffer is written through {@link NetChannel.Internal},
+ * which owns it from then on and releases it itself when the write is refused. Calling the
+ * public channel write API here would run the same outbound handlers again.</p>
  *
  * <p>This implementation is not synchronized. Registration and removal must happen before
  * concurrent use or on the channel's event-loop thread.</p>
@@ -76,8 +77,13 @@ public final class ChannelOutBoundHandlerChainImpl
 
     /** Starts write propagation from the sentinel head. */
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer buffer) {
-        head().sparkChannelWrite(channel, buffer);
+    public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelPromise promise) {
+        head().sparkChannelWrite(channel, buffer, promise);
+    }
+
+    @Override
+    public void sparkChannelWrite(NetChannel channel, List<Buffer> buffers, ChannelPromise promise) {
+        head().sparkChannelWrite(channel, buffers, promise);
     }
 
     @Override
@@ -105,18 +111,23 @@ public final class ChannelOutBoundHandlerChainImpl
         }
 
         @Override
-        public void sparkChannelWrite(NetChannel channel, Buffer buffer) {
+        public void sparkChannelWrite(NetChannel channel, Buffer buffer, ChannelPromise promise) {
             Node chain = next;
             if (chain == null) {
-                try {
-                    channel.internal().write(buffer);
-                } catch (RuntimeException e) {
-                    buffer.release();
-                    throw e;
-                }
+                channel.internal().write(buffer, promise);
                 return;
             }
-            chain.handler.sparkChannelWrite(channel, buffer, chain);
+            chain.handler.sparkChannelWrite(channel, buffer, promise, chain);
+        }
+
+        @Override
+        public void sparkChannelWrite(NetChannel channel, List<Buffer> buffers, ChannelPromise promise) {
+            Node chain = next;
+            if (chain == null) {
+                channel.internal().write(buffers, promise);
+                return;
+            }
+            chain.handler.sparkChannelWrite(channel, buffers, promise, chain);
         }
 
         @Override

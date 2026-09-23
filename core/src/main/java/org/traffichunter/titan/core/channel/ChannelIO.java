@@ -28,24 +28,50 @@ import java.util.concurrent.Callable;
  *
  * @author yun
  */
-final class ChannelTasks {
-
-    private ChannelTasks() {
-    }
+final class ChannelIO {
 
     static ChannelPromise disconnect(NetChannel channel) {
         return execute(channel, channel::close);
     }
 
     static ChannelPromise write(NetChannel channel, Buffer buffer) {
-        return execute(channel, () -> channel.chain().processChannelWrite(channel, buffer));
+        return write(channel, buffer, false);
     }
 
     static ChannelPromise writeAndFlush(NetChannel channel, Buffer buffer) {
-        return execute(channel, () -> {
-            channel.chain().processChannelWrite(channel, buffer);
-            channel.internal().flush();
-        });
+        return write(channel, buffer, true);
+    }
+
+    /** The promise settles when the socket has taken the buffer, not when the write is queued. */
+    private static ChannelPromise write(NetChannel channel, Buffer buffer, boolean flush) {
+        IOEventLoop eventLoop = channel.eventLoop();
+        ChannelPromise result = ChannelPromise.newPromise(eventLoop, channel);
+        Runnable operation = () -> {
+            try {
+                channel.chain().processChannelWrite(channel, buffer, result);
+                if (flush) {
+                    channel.internal().flush();
+                }
+            } catch (Throwable error) {
+                // Admission already settled the promise on refusal; reaching here means the flush
+                // failed after admission, and how much went out is not known.
+                result.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.UNKNOWN, "Flush failed after the write was admitted", error));
+            }
+        };
+
+        if (eventLoop.inEventLoop()) {
+            operation.run();
+        } else {
+            try {
+                eventLoop.execute(operation);
+            } catch (Throwable error) {
+                buffer.release();
+                result.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.NOT_SENT, "Event loop rejected the write", error));
+            }
+        }
+        return result;
     }
 
     static Promise<Void> bind(NetServerChannel channel, InetSocketAddress address) {
@@ -150,4 +176,6 @@ final class ChannelTasks {
         }
         return result;
     }
+
+    private ChannelIO() { }
 }

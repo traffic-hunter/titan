@@ -18,6 +18,7 @@ package org.traffichunter.titan.core.net;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.channel.ChannelWriteException;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandlerChain;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
@@ -28,6 +29,8 @@ import org.traffichunter.titan.core.util.buffer.Buffers;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
+import java.util.List;
+import java.util.ArrayList;
 import java.nio.ByteBuffer;
 
 /**
@@ -82,22 +85,37 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     @Override
-    public void sparkChannelWrite(NetChannel channel, Buffer plainText, ChannelOutBoundHandlerChain chain) {
-        Buffer encrypted;
+    public void sparkChannelWrite(
+            NetChannel channel,
+            Buffer plainText,
+            ChannelPromise promise,
+            ChannelOutBoundHandlerChain chain
+    ) {
+        // One plaintext may become several records, which travel on as a single request.
+        List<Buffer> records = new ArrayList<>();
         try {
             if (!isCompletedHandshake() || sslEngine.isOutboundDone()) {
                 throw new NetSecureException("TLS channel is not in a valid state for writing");
             }
-
             while (plainText.isReadable()) {
-                encrypted = wrap(plainText);
-                chain.sparkChannelWrite(channel, encrypted);
+                records.add(wrap(plainText));
             }
+        } catch (Throwable error) {
+            records.forEach(Buffer::release);
+            promise.fail(new ChannelWriteException(
+                    ChannelWriteException.Reason.NOT_SENT, "TLS handler refused the write", error));
+            chain.sparkExceptionCaught(error);
+            channel.close();
+            return;
+        } finally {
+            plainText.release();
+        }
+
+        try {
+            chain.sparkChannelWrite(channel, records, promise);
         } catch (Throwable error) {
             chain.sparkExceptionCaught(error);
             channel.close();
-        } finally {
-            plainText.release();
         }
     }
 
@@ -346,16 +364,12 @@ class JdkTlsHandler extends TlsHandler {
     }
 
     private void write(NetChannel channel, Buffer buffer) {
-        boolean accepted = false;
-        try {
-            channel.internal().write(buffer);
-            accepted = true;
-            channel.internal().flush();
-        } finally {
-            if (!accepted) {
-                buffer.release();
-            }
+        ChannelPromise admitted = ChannelPromise.newPromise(channel);
+        channel.internal().write(buffer, admitted);
+        if (admitted.isFailed()) {
+            throw new NetSecureException("Failed to write TLS record", admitted.error());
         }
+        channel.internal().flush();
     }
 
     private Buffer wrapCloseNotify() throws SSLException {

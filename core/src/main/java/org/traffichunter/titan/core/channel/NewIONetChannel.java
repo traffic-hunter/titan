@@ -29,6 +29,7 @@ import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -117,17 +118,17 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public ChannelPromise disconnect() {
-        return ChannelTasks.disconnect(this);
+        return ChannelIO.disconnect(this);
     }
 
     @Override
     public ChannelPromise write(Buffer buffer) {
-        return ChannelTasks.write(this, buffer);
+        return ChannelIO.write(this, buffer);
     }
 
     @Override
     public ChannelPromise writeAndFlush(Buffer buffer) {
-        return ChannelTasks.writeAndFlush(this, buffer);
+        return ChannelIO.writeAndFlush(this, buffer);
     }
 
     @Override
@@ -312,18 +313,30 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
         }
 
         @Override
-        public void write(Buffer buffer) {
-            if(isClosed()) {
-                throw new ChannelException("Already channel is closed");
-            }
-
-            channelWriteBuffer.append(buffer);
+        public void write(Buffer buffer, ChannelPromise promise) {
+            write(List.of(buffer), promise);
         }
 
         @Override
-        public void writeAndFlush(Buffer buffer) {
+        public void write(List<Buffer> buffers, ChannelPromise promise) {
+            if(isClosed()) {
+                buffers.forEach(Buffer::release);
+                promise.fail(new ChannelWriteException(
+                        ChannelWriteException.Reason.NOT_SENT, "Already channel is closed"));
+                return;
+            }
+
+            boolean wasWritable = channelWriteBuffer.isWritable();
+            channelWriteBuffer.append(buffers, promise);
+            if (wasWritable != channelWriteBuffer.isWritable()) {
+                onWritabilityChanged(channelWriteBuffer.isWritable());
+            }
+        }
+
+        @Override
+        public void writeAndFlush(Buffer buffer, ChannelPromise promise) {
             try {
-                write(buffer);
+                write(buffer, promise);
                 flush();
             } catch (RuntimeException e) {
                 close();
@@ -337,6 +350,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 throw new ChannelException("Already channel is closed");
             }
 
+            boolean wasWritable = channelWriteBuffer.isWritable();
             while (true) {
                 Buffer buffer = channelWriteBuffer.current();
                 if(buffer == null) {
@@ -352,7 +366,7 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
                 }
                 // socket buffer full
                 if(written == 0) {
-                    onWriteabilityChanged(true);
+                    setSignalWritability(true);
                     break;
                 }
 
@@ -360,43 +374,31 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             }
 
             if(channelWriteBuffer.isEmpty()) {
-                onWriteabilityChanged(false);
+                setSignalWritability(false);
+            }
+            if (wasWritable != channelWriteBuffer.isWritable()) {
+                onWritabilityChanged(channelWriteBuffer.isWritable());
             }
         }
 
         @Override
-        public void onWritabilityChanged(boolean active) {
+        public void onWritabilityChanged(boolean writable) {
             if (isClosed()) {
                 return;
             }
-
-            IOEventLoop ioEventLoop = eventLoop();
-            if (ioEventLoop.isShuttingDown()) {
+            IOEventLoop owner = eventLoop();
+            if (owner.isShuttingDown()) {
                 return;
             }
-            IOSelector ioSelector = ioEventLoop.ioSelector();
-
-            Runnable updateWritability = () -> {
-                try {
-                    if (active) {
-                        ioSelector.registerWrite(NewIONetChannel.this);
-                    } else {
-                        ioSelector.unregisterWrite(NewIONetChannel.this);
-                    }
-                } catch (IOException e) {
-                    throw new ChannelException("Failed to register write event", e);
-                }
-            };
-
-            if (ioEventLoop.inEventLoop()) {
-                updateWritability.run();
-                return;
-            }
-
             try {
-                ioEventLoop.execute(updateWritability);
+                // Always defer so handlers cannot re-enter the write/flush that raised the event.
+                owner.execute(() -> {
+                    if (!isClosed() && !owner.isShuttingDown()) {
+                        chain().processChannelWritabilityChanged(NewIONetChannel.this, writable);
+                    }
+                });
             } catch (RejectedExecutionException e) {
-                if (!isClosed() && !ioEventLoop.isShuttingDown()) {
+                if (!isClosed() && !owner.isShuttingDown()) {
                     throw e;
                 }
             }
@@ -418,6 +420,24 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             }
         }
 
+        private long write0(ByteBuffer[] byteBuffers, int offset, int length) {
+            try {
+                return channel().write(byteBuffers, offset, length);
+            } catch (IOException e) {
+                log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                return -1;
+            }
+        }
+
+        private long write0(ByteBuffer[] byteBuffers) {
+            try {
+                return channel().write(byteBuffers);
+            } catch (IOException e) {
+                log.warn("Failed to write to socket. channelId={}, remoteAddress={}", id(), remoteAddress(), e);
+                return -1;
+            }
+        }
+
         private int write0(ByteBuffer byteBuffer) {
             try {
                 return channel().write(byteBuffer);
@@ -427,10 +447,10 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
             }
         }
 
-        private void onWriteabilityChanged(boolean isWritable) {
+        private void setSignalWritability(boolean enabled) {
             IOSelector ioSelector = eventLoop().ioSelector();
             try {
-                if (isWritable) {
+                if (enabled) {
                     ioSelector.registerWrite(NewIONetChannel.this);
                 } else {
                     ioSelector.unregisterWrite(NewIONetChannel.this);

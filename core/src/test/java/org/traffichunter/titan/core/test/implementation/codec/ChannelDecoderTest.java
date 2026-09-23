@@ -205,6 +205,10 @@ class ChannelDecoderTest {
         }
 
         @Override
+        public void sparkChannelWritabilityChanged(NetChannel channel, boolean writable) {
+        }
+
+        @Override
         public void sparkExceptionCaught(@NonNull Throwable error) {
         }
     }

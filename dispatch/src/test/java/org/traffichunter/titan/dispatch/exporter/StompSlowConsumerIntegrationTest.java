@@ -120,12 +120,17 @@ class StompSlowConsumerIntegrationTest {
         byte[] payload = new byte[8 * 1024];
         for (int pressureCycle = 0; pressureCycle < 20 && metrics.getSkippedMessages() == 0; pressureCycle++) {
             for (int attempt = 0; attempt < 4096 && slowChannel.isWritable(); attempt++) {
-                slowChannel.writeAndFlush(Buffer.direct().alloc(payload)).get(5, TimeUnit.SECONDS);
+                // Wait for the write to be queued, not written: the slow consumer never drains its socket.
+                slowChannel.eventLoop()
+                        .submit(() -> slowChannel.writeAndFlush(Buffer.direct().alloc(payload)))
+                        .get(5, TimeUnit.SECONDS);
             }
             Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> !slowChannel.isWritable());
             Buffer message = Buffer.heap().alloc("message");
             try {
-                exporter.export(DestinationGroups.DEFAULT, destination, message);
+                // The skip is decided on the channel's loop, so wait for the export to settle.
+                exporter.export(DestinationGroups.DEFAULT, destination, message)
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
             } finally {
                 message.release();
             }

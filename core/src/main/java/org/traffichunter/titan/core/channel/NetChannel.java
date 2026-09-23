@@ -22,6 +22,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -69,6 +70,9 @@ public interface NetChannel extends Channel {
 
     /**
      * Queues the buffer and attempts to write queued bytes to the socket.
+     *
+     * <p>The promise completes once the socket has taken every byte, or fails if the write is
+     * refused, dropped by an outbound handler, or still pending when the channel closes.</p>
      */
     @CanIgnoreReturnValue
     ChannelPromise writeAndFlush(Buffer buffer);
@@ -94,13 +98,22 @@ public interface NetChannel extends Channel {
 
         /**
          * Queues transport-ready bytes without entering the outbound pipeline.
+         *
+         * <p>Takes ownership of the buffer on every path, including a refused write. The promise
+         * completes once the socket has taken every byte.</p>
          */
-        void write(Buffer buffer);
+        void write(Buffer buffer, ChannelPromise promise);
+
+        /**
+         * Queues one request made of several transport-ready buffers, admitted whole or not at
+         * all. Ownership and completion follow {@link #write(Buffer, ChannelPromise)}.
+         */
+        void write(List<Buffer> buffers, ChannelPromise promise);
 
         /**
          * Queues transport-ready bytes and attempts to flush them without entering the pipeline.
          */
-        void writeAndFlush(Buffer buffer);
+        void writeAndFlush(Buffer buffer, ChannelPromise promise);
 
         /**
          * Attempts to flush queued raw bytes to the underlying transport.
@@ -108,7 +121,9 @@ public interface NetChannel extends Channel {
         void flush();
 
         /**
-         * Updates write-readiness interest for the underlying transport.
+         * Schedules a write-buffer writability transition through the inbound handler chain.
+         * This is independent of selector write interest. Handlers must recheck writability
+         * before submitting a write; the event does not reserve capacity.
          */
         void onWritabilityChanged(boolean isWritable);
 

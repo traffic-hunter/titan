@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -221,6 +222,7 @@ class DispatchExporterTest {
         NetChannel successChannel = mock(NetChannel.class);
         when(successConn.session()).thenReturn("session-1");
         when(successConn.channel()).thenReturn(successChannel);
+        when(successChannel.eventLoop()).thenReturn(loop);
         when(successChannel.isWritable()).thenReturn(true);
         Promise<StompFrame> successPromise = Promise.newPromise(loop);
         successPromise.success(StompFrame.PING);
@@ -230,6 +232,7 @@ class DispatchExporterTest {
         NetChannel failedChannel = mock(NetChannel.class);
         when(failedConn.session()).thenReturn("session-2");
         when(failedConn.channel()).thenReturn(failedChannel);
+        when(failedChannel.eventLoop()).thenReturn(loop);
         when(failedChannel.isWritable()).thenReturn(true);
         Promise<StompFrame> failedPromise = Promise.newPromise(loop);
         failedPromise.fail(new IllegalStateException("send failed"));
@@ -257,6 +260,7 @@ class DispatchExporterTest {
 
     @Test
     void stompFanoutExporter_skips_non_writable_subscriber() {
+        IOEventLoop loop = immediateEventLoop();
         StompServerSubscriptions subscriptions = new StompServerSubscriptions();
         when(serverConnection.subscriptions()).thenReturn(subscriptions);
 
@@ -265,6 +269,7 @@ class DispatchExporterTest {
         NetChannel channel = mock(NetChannel.class);
         when(connection.session()).thenReturn("session-1");
         when(connection.channel()).thenReturn(channel);
+        when(channel.eventLoop()).thenReturn(loop);
         when(channel.isWritable()).thenReturn(false);
 
         subscriptions.register(StompServerSubscription.builder()
@@ -385,6 +390,10 @@ class DispatchExporterTest {
         IOEventLoop loop = mock(IOEventLoop.class);
         lenient().when(loop.inEventLoop(any(Thread.class))).thenReturn(true);
         lenient().when(loop.inEventLoop()).thenReturn(true);
+        lenient().doAnswer(call -> {
+            call.<Runnable>getArgument(0).run();
+            return null;
+        }).when(loop).execute(any(Runnable.class));
         return loop;
     }
 
@@ -439,6 +448,7 @@ class DispatchExporterTest {
         when(connection.session()).thenReturn(session);
         // The connection in the other group is filtered out before any of these are touched.
         lenient().when(connection.channel()).thenReturn(channel);
+        lenient().when(channel.eventLoop()).thenReturn(loop);
         lenient().when(channel.isWritable()).thenReturn(true);
         Promise<StompFrame> promise = Promise.newPromise(loop);
         promise.success(StompFrame.PING);

@@ -91,10 +91,13 @@ class WebSocketChannelTest {
         ChannelPromise write = channel.writeAndFlush(frame);
 
         ArgumentCaptor<Buffer> encoded = ArgumentCaptor.forClass(Buffer.class);
-        verify(internal).write(encoded.capture());
+        ArgumentCaptor<ChannelPromise> promise = ArgumentCaptor.forClass(ChannelPromise.class);
+        verify(internal).write(encoded.capture(), promise.capture());
         verify(internal).flush();
         assertThat(encoded.getValue().getBytes()).containsExactly((byte) 0x81, 0x02, 'O', 'K');
-        assertThat(write.isSuccess()).isTrue();
+        // The transport owns completion now, so the returned promise is the one handed down.
+        assertThat(promise.getValue()).isSameAs(write);
+        assertThat(write.isDone()).isFalse();
         assertThat(write.channel()).isSameAs(delegate);
 
         encoded.getValue().release();
