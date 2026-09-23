@@ -57,6 +57,6 @@ public record Destination(String path) {
 
     @Override
     public String toString() {
-        return "{ destination = " + path + " }";
+        return path;
     }
 }

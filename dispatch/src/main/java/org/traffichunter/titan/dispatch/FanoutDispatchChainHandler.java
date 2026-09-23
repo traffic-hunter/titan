@@ -140,7 +140,10 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     }
 
     private Consumer consume(ConsumerKey key) {
-        DispatcherQueue queue = dispatcher.getOrPut(key.group(), key.destination());
+        DispatcherQueue queue = dispatcher.get(key.group(), key.destination());
+        if (queue == null) {
+            throw new IllegalStateException("Queue for " + key + " was removed before its consumer started");
+        }
         log.info("Starting fanout consumer for group={} destination={}", key.group(), key.destination().path());
 
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
@@ -178,6 +181,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
     /** Queue identity as seen by fanout: a destination inside one group. */
     private record ConsumerKey(String group, Destination destination) {
+
+        @Override
+        public String toString() {
+            return group + ":" + destination;
+        }
     }
 
     /**
