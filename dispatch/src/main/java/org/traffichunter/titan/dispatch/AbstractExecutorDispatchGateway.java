@@ -132,17 +132,35 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     /**
      * Deletes a dispatcher queue and detaches its consumer.
      *
-     * <p>Deletion removes the queue from the dispatcher, unregisters its JMX
-     * Mbean, and marks the current queue instance as deleted so a running
-     * consumer can exit. Non-empty queues are rejected unless force deletion is
-     * requested.</p>
+     * <p>The queue is closed before it leaves the dispatcher, so a producer admitted in the
+     * meantime is refused outright rather than filling a queue this call is about to drop.
+     * Non-empty queues are rejected unless force deletion is requested.</p>
      */
     @Override
     public DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
-        if (closed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
+        DispatcherQueue queue = getQueue(group, destination);
+        if (queue == null) {
+            return DispatcherQueueDeleteResult.notFound();
         }
-        return fanoutHandler.deleteQueue(group, destination, force);
+
+        int size = queue.size();
+        if (size > 0 && !force) {
+            return DispatcherQueueDeleteResult.notEmpty(size);
+        }
+
+        // While the queue is still open and registered, its consumer is unambiguously its own.
+        fanoutHandler.detach(queue);
+        queue.close();
+
+        // Remove the queue this call looked up, never a replacement created since. The
+        // dispatcher unregisters the MBean of whatever it actually removed.
+        if (!dispatcher.remove(queue)) {
+            return DispatcherQueueDeleteResult.notFound();
+        }
+        if (force) {
+            queue.clear();
+        }
+        return DispatcherQueueDeleteResult.deleted(size);
     }
 
     /**
