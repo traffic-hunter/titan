@@ -101,17 +101,27 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     List<Message> snapshot();
 
     /**
-     * Blocks until a message is available.
+     * Blocks until a message is available and hands it out.
+     *
+     * <p>The message leaves the waiting line but its bytes stay reserved until
+     * {@link #complete(Message)}, so pending bytes cover the message being delivered as well
+     * as the ones behind it.</p>
      */
     Message dispatch() throws InterruptedException;
 
     /**
-     * Waits for a message until the timeout expires.
+     * Waits for a message until the timeout expires, then hands it out like {@link #dispatch()}.
      *
      * @return a message, or {@code null} when no message is available before
      * the timeout
      */
     @Nullable Message dispatch(long timeout, TimeUnit unit) throws InterruptedException;
+
+    /**
+     * Returns the bytes of a dispatched message once its delivery is over. Call it exactly once
+     * per dispatched message. A closed queue still returns the bytes.
+     */
+    void complete(Message message);
 
     void remove(Message message);
 

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -43,6 +44,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * channel it knows.</p>
  */
 public class TcpDispatchExporter implements DispatchExporter {
+    private static final long EXPORT_TIMEOUT_SECONDS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(TcpDispatchExporter.class);
 
@@ -83,6 +85,7 @@ public class TcpDispatchExporter implements DispatchExporter {
             }
         }
 
-        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))
+                .orTimeout(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 }

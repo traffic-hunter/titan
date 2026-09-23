@@ -32,9 +32,9 @@ import org.traffichunter.titan.core.util.Frame;
  * each of them. Subscribers of the same destination in another group must not
  * receive the payload.</p>
  *
- * <p>Returning does not mean the payload reached anyone. The returned stage completes when
- * every write this export started has finished, whether or not it succeeded, and it carries no
- * result. A consumer the exporter could not write to is not waited for.</p>
+ * <p>Returning does not mean the payload reached anyone. The returned stage completes once
+ * every consumer has either been handed the payload or been passed over, and it carries no
+ * result. Whether a consumer's socket then takes the bytes is that connection's own pace.</p>
  *
  * <p>Not every protocol can express a group. An implementation whose subscribers are resolved by
  * destination alone throws {@link UnsupportedOperationException} for a group other than

@@ -105,12 +105,20 @@ public class DispatcherBenchmark {
     @Benchmark
     public Message trieDispatchExactQueue() throws InterruptedException {
         trieExactQueue.enqueue(message);
-        return trieExactQueue.dispatch(1, TimeUnit.MILLISECONDS);
+        Message dispatched = trieExactQueue.dispatch(1, TimeUnit.MILLISECONDS);
+        if (dispatched != null) {
+            trieExactQueue.complete(dispatched);
+        }
+        return dispatched;
     }
 
     @Benchmark
     public Message mapDispatchExactQueue() throws InterruptedException {
         mapExactQueue.enqueue(message);
-        return mapExactQueue.dispatch(1, TimeUnit.MILLISECONDS);
+        Message dispatched = mapExactQueue.dispatch(1, TimeUnit.MILLISECONDS);
+        if (dispatched != null) {
+            mapExactQueue.complete(dispatched);
+        }
+        return dispatched;
     }
 }

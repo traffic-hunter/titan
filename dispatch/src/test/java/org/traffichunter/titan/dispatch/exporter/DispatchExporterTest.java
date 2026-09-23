@@ -33,6 +33,9 @@ import io.vertx.ext.stomp.StompServer;
 import io.vertx.ext.stomp.StompServerHandler;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -112,7 +115,7 @@ class DispatchExporterTest {
     }
 
     @Test
-    void export_stage_completes_only_after_every_subscriber_settles() {
+    void export_stage_completes_once_every_subscriber_has_been_handed_the_frame() {
         IOEventLoop loop = immediateEventLoop();
         StompServerSubscriptions subscriptions = new StompServerSubscriptions();
         when(serverConnection.subscriptions()).thenReturn(subscriptions);
@@ -120,6 +123,7 @@ class DispatchExporterTest {
 
         StompClientChannel settledConn = writableConnection(loop, "session-1");
         StompClientChannel pendingConn = writableConnection(loop, "session-2");
+        // This connection has taken the frame but its socket has not: the export is still done.
         Promise<StompFrame> pendingWrite = Promise.newPromise(loop);
         when(pendingConn.send(any(StompFrame.class))).thenReturn(pendingWrite);
 
@@ -131,11 +135,10 @@ class DispatchExporterTest {
                 .export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()))
                 .toCompletableFuture();
 
-        assertThat(completion).isNotDone();
-
-        pendingWrite.success(StompFrame.PING);
-
         assertThat(completion).isDone();
+        verify(settledConn).send(any(StompFrame.class));
+        verify(pendingConn).send(any(StompFrame.class));
+        assertThat(pendingWrite.isDone()).isFalse();
     }
 
     @Test
@@ -160,6 +163,59 @@ class DispatchExporterTest {
         // must not turn it into a failure.
         assertThat(completion).isCompleted();
         assertThat(completion).isNotCompletedExceptionally();
+    }
+
+    @Test
+    void export_stage_completes_when_a_subscriber_rejects_the_send_immediately() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel failingConn = writableConnection(loop, "session-1");
+        when(failingConn.send(any(StompFrame.class))).thenThrow(new IllegalStateException("send failed"));
+        subscriptions.register(subscription(null, destination, "sub-1", failingConn));
+
+        CompletableFuture<@Nullable Void> completion = new StompDispatchExporter(serverConnection)
+                .export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()))
+                .toCompletableFuture();
+
+        assertThat(completion).isCompleted();
+        assertThat(completion).isNotCompletedExceptionally();
+    }
+
+    @Test
+    void expired_stomp_export_does_not_send_when_the_event_loop_resumes() {
+        IOEventLoop loop = mock(IOEventLoop.class);
+        AtomicReference<Runnable> pendingAttempt = new AtomicReference<>();
+        doAnswer(call -> {
+            pendingAttempt.set(call.getArgument(0));
+            return null;
+        }).when(loop).execute(any(Runnable.class));
+
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/late");
+        StompClientChannel connection = writableConnection(loop, "session-1");
+        subscriptions.register(subscription(null, destination, "sub-1", connection));
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        Buffer payload = Buffer.heap().alloc("hello".getBytes());
+        try {
+            CompletableFuture<@Nullable Void> completion = exporter
+                    .export(DestinationGroups.DEFAULT, destination, payload)
+                    .toCompletableFuture();
+
+            assertThatThrownBy(() -> completion.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(TimeoutException.class);
+
+            assertThat(pendingAttempt.get()).isNotNull();
+            pendingAttempt.get().run();
+            verify(connection, never()).send(any(StompFrame.class));
+        } finally {
+            payload.release();
+        }
     }
 
     @Test

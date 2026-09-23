@@ -16,13 +16,13 @@
 package org.traffichunter.titan.dispatch;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
@@ -42,6 +42,7 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * @author yun
  */
 final class FanoutDispatchChainHandler implements DispatchChainHandler {
+    private static final long EXPORT_TIMEOUT_SECONDS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
 
@@ -68,7 +69,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         return chain.next(context);
     }
 
-    CompletableFuture<@Nullable Void> fanout(String group, Destination destination) {
+    void fanout(String group, Destination destination) {
         if (closed.get()) {
             throw new IllegalStateException("Fanout dispatch handler is closed");
         }
@@ -76,18 +77,18 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         ConsumerKey key = new ConsumerKey(group, destination);
         Consumer existing = consumers.get(key);
         if (existing != null && !existing.queue().isClosed()) {
-            return existing.task();
+            return;
         }
 
         // The registered consumer drains a queue that has since been deleted, and it only ever
         // drains the instance it was handed. Whatever queue the message just went into is a
         // different one and needs a consumer of its own, or it would sit there undelivered.
-        return consumers.compute(key, (ignored, current) -> {
+        consumers.compute(key, (ignored, current) -> {
             if (current != null && !current.queue().isClosed()) {
                 return current;
             }
             return consume(key);
-        }).task();
+        });
     }
 
     /**
@@ -120,37 +121,54 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         }
         log.info("Starting fanout consumer for group={} destination={}", key.group(), key.destination().path());
 
-        CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
         Future<?> handle = executor.submit(() -> {
             try {
                 while (!closed.get()
                         && !Thread.currentThread().isInterrupted()
                         && !queue.isClosed()) {
+                    Message message = null;
                     try {
-                        Message message = queue.dispatch(1, TimeUnit.SECONDS);
+                        message = queue.dispatch(1, TimeUnit.SECONDS);
                         if (message == null) {
                             continue;
                         }
-                        exporter.export(key.group(), key.destination(), message);
+
+                        exporter.export(key.group(), key.destination(), message)
+                                .toCompletableFuture()
+                                .get(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
                     } catch (Exception e) {
-                        log.error("Unexpected error while dispatching message", e);
+                        Throwable cause = e;
+                        if (e instanceof ExecutionException execution) {
+                            Throwable nested = execution.getCause();
+                            if (nested != null) {
+                                cause = nested;
+                            }
+                        }
+                        if (cause instanceof TimeoutException) {
+                            log.warn("Export timed out after {} s. group={}, destination={}",
+                                    EXPORT_TIMEOUT_SECONDS,
+                                    key.group(), key.destination().path());
+                        } else {
+                            log.error("Unexpected error while dispatching message", e);
+                        }
                         if (closed.get() || executor.isShutdown()) {
                             break;
                         }
+                    } finally {
+                        if (message != null) {
+                            queue.complete(message);
+                        }
                     }
                 }
-                result.complete(null);
-            } catch (Exception e) {
-                result.completeExceptionally(e);
             } finally {
                 consumers.computeIfPresent(key, (ignored, current) ->
                         current.queue() == queue ? null : current);
             }
         });
-        return new Consumer(queue, result, handle);
+        return new Consumer(queue, handle);
     }
 
     /** Queue identity as seen by fanout: a destination inside one group. */
@@ -169,16 +187,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
      * without the instance neither a delete nor a later message could tell a consumer that is
      * still serving the current queue from one left over from a deleted queue.</p>
      */
-    private record Consumer(
-            DispatcherQueue queue,
-            CompletableFuture<@Nullable Void> task,
-            Future<?> handle
-    ) {
+    private record Consumer(DispatcherQueue queue, Future<?> handle) {
 
-        /** Interrupts the parked thread. The executor runs the handle, not {@link #task()}. */
+        /** Interrupts the parked thread. */
         void cancel() {
             handle.cancel(true);
-            task.cancel(true);
         }
     }
 }

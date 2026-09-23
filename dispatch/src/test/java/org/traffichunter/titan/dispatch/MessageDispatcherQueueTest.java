@@ -66,6 +66,7 @@ class MessageDispatcherQueueTest {
         assertThat(metadata.isSaturated()).isTrue();
 
         assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(first);
+        queue.complete(first);
         assertThat(metadata.getPendingBytes()).isEqualTo(4);
         assertThat(metadata.isSaturated()).isFalse();
 
@@ -139,6 +140,7 @@ class MessageDispatcherQueueTest {
         assertThat(metadata.isPaused()).isTrue();
 
         assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(accepted);
+        queue.complete(accepted);
 
         assertThat(queue.isPaused()).isFalse();
         assertThat(metadata.isPaused()).isFalse();
@@ -166,10 +168,12 @@ class MessageDispatcherQueueTest {
         assertThat(queue.isPaused()).isTrue();
 
         assertThat(queue.dispatch()).isSameAs(first);
+        queue.complete(first);
         assertThat(metadata.getPendingBytes()).isEqualTo(8);
         assertThat(queue.isPaused()).isTrue();
 
         assertThat(queue.dispatch()).isSameAs(second);
+        queue.complete(second);
         assertThat(metadata.getPendingBytes()).isEqualTo(4);
         assertThat(queue.isPaused()).isFalse();
     }
@@ -293,7 +297,45 @@ class MessageDispatcherQueueTest {
         assertThat(pressure).containsExactly(first, second);
         assertThat(queue.size()).isEqualTo(2);
         assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(first);
+        queue.complete(first);
         assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(second);
+    }
+
+    @Test
+    void dispatched_message_keeps_its_bytes_until_completed() throws Exception {
+        Destination destination = Destination.create("/queue/in-flight");
+        DestinationQueueMetadata metadata = new DestinationQueueMetadata(destination.path(), Instant.now(), 8);
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(destination, metadata);
+        Message first = message("/queue/in-flight");
+        queue.enqueue(first);
+        queue.enqueue(message("/queue/in-flight"));
+
+        assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(first);
+        assertThat(queue.size()).isEqualTo(1);
+        // The message left the waiting line but is still delivering, so it still counts.
+        assertThat(metadata.getPendingBytes()).isEqualTo(8);
+        assertThat(queue.enqueue(message("/queue/in-flight"))).isNull();
+
+        queue.complete(first);
+
+        assertThat(metadata.getPendingBytes()).isEqualTo(4);
+    }
+
+    @Test
+    void closed_queue_still_returns_bytes_on_complete() throws Exception {
+        Destination destination = Destination.create("/queue/complete-after-close");
+        DestinationQueueMetadata metadata = new DestinationQueueMetadata(destination.path(), Instant.now(), 16);
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(destination, metadata);
+        Message first = message("/queue/complete-after-close");
+        queue.enqueue(first);
+        queue.enqueue(message("/queue/complete-after-close"));
+
+        assertThat(queue.dispatch(1, TimeUnit.SECONDS)).isSameAs(first);
+        queue.close();
+        queue.complete(first);
+
+        assertThat(metadata.getPendingBytes()).isEqualTo(4);
+        assertThat(queue.size()).isEqualTo(1);
     }
 
     private static Message message(String destination) {
