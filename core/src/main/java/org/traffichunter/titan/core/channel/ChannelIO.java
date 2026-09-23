@@ -28,10 +28,7 @@ import java.util.concurrent.Callable;
  *
  * @author yun
  */
-final class ChannelTasks {
-
-    private ChannelTasks() {
-    }
+final class ChannelIO {
 
     static ChannelPromise disconnect(NetChannel channel) {
         return execute(channel, channel::close);
@@ -179,4 +176,6 @@ final class ChannelTasks {
         }
         return result;
     }
+
+    private ChannelIO() { }
 }

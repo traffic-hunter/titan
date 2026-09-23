@@ -65,12 +65,12 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
 
     @Override
     public Promise<Void> bind(InetSocketAddress address) {
-        return ChannelTasks.bind(this, address);
+        return ChannelIO.bind(this, address);
     }
 
     @Override
     public Promise<NetChannel> accept() {
-        return ChannelTasks.accept(this);
+        return ChannelIO.accept(this);
     }
 
     @Override

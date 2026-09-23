@@ -188,7 +188,7 @@ public final class InMemoryNetChannel implements NetChannel {
 
     @Override
     public ChannelPromise connect(InetSocketAddress remote, long timeOut, TimeUnit timeUnit) {
-        return ChannelTasks.execute(this, () -> {
+        return ChannelIO.execute(this, () -> {
             chain.processChannelConnecting(this);
             remoteAddress = remote;
             connected = true;
@@ -199,17 +199,17 @@ public final class InMemoryNetChannel implements NetChannel {
 
     @Override
     public ChannelPromise disconnect() {
-        return ChannelTasks.disconnect(this);
+        return ChannelIO.disconnect(this);
     }
 
     @Override
     public ChannelPromise write(Buffer buffer) {
-        return ChannelTasks.write(this, buffer);
+        return ChannelIO.write(this, buffer);
     }
 
     @Override
     public ChannelPromise writeAndFlush(Buffer buffer) {
-        return ChannelTasks.writeAndFlush(this, buffer);
+        return ChannelIO.writeAndFlush(this, buffer);
     }
 
     @Override

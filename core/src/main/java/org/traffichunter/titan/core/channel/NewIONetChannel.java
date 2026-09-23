@@ -118,17 +118,17 @@ public class NewIONetChannel extends AbstractChannel implements NetChannel {
 
     @Override
     public ChannelPromise disconnect() {
-        return ChannelTasks.disconnect(this);
+        return ChannelIO.disconnect(this);
     }
 
     @Override
     public ChannelPromise write(Buffer buffer) {
-        return ChannelTasks.write(this, buffer);
+        return ChannelIO.write(this, buffer);
     }
 
     @Override
     public ChannelPromise writeAndFlush(Buffer buffer) {
-        return ChannelTasks.writeAndFlush(this, buffer);
+        return ChannelIO.writeAndFlush(this, buffer);
     }
 
     @Override
