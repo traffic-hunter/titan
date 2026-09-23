@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadFactory;
  *
  * @author yun
  */
+@Deprecated(since = "0.9.0")
 class ThreadPoolExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
 
     public ThreadPoolExecutorDispatchGateway(DispatchExporter exporter) {
