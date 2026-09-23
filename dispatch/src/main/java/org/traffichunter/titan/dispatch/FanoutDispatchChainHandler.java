@@ -181,6 +181,11 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
     /** Queue identity as seen by fanout: a destination inside one group. */
     private record ConsumerKey(String group, Destination destination) {
+
+        @Override
+        public String toString() {
+            return group + ":" + destination;
+        }
     }
 
     /**
