@@ -90,46 +90,20 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
         }).task();
     }
 
-    DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
-        if (closed.get()) {
-            throw new IllegalStateException("Fanout dispatch handler is closed");
-        }
-
-        DispatcherQueue queue = dispatcher.get(group, destination);
-        if (queue == null) {
-            return DispatcherQueueDeleteResult.notFound();
-        }
-
-        // Read before the queue leaves: a replacement would hide the consumer this call must stop.
+    /**
+     * Stops the consumer of this very queue, if it is the one registered.
+     *
+     * <p>A replacement queue registers a consumer of its own, and taking that one down would
+     * leave the new queue with nothing draining it. Call this while the queue is still open and
+     * registered, so the consumer found here is the queue's own.</p>
+     */
+    void detach(DispatcherQueue queue) {
         ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
         Consumer consumer = consumers.get(key);
-
-        int size = queue.size();
-        if (size > 0 && !force) {
-            return DispatcherQueueDeleteResult.notEmpty(size);
-        }
-
-        // Closed before it leaves the dispatcher. A producer admitted in the meantime is refused
-        // outright rather than filling a queue this call is about to drop, and a replacement
-        // created afterwards is open, which is how fanout tells the two apart.
-        queue.close();
-
-        // Remove the queue this call looked up, never a replacement created since. The
-        // dispatcher unregisters the MBean of whatever it actually removed.
-        if (!dispatcher.remove(queue)) {
-            return DispatcherQueueDeleteResult.notFound();
-        }
-        if (force) {
-            queue.clear();
-        }
-
-        // Cancel only the consumer of this very queue. A replacement registers one of its own,
-        // and taking that one down would leave the new queue with nothing draining it.
         if (consumer != null && consumer.queue() == queue) {
             consumers.remove(key, consumer);
             consumer.cancel();
         }
-        return DispatcherQueueDeleteResult.deleted(size);
     }
 
     void close() {
