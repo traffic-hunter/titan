@@ -1,12 +1,15 @@
 package org.traffichunter.titan.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.traffichunter.titan.core.util.DestinationGroups.DEFAULT;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -83,6 +86,23 @@ class DispatchGatewayQueueManagementTest {
         assertThat(customHandlerCalls).hasValue(1);
 
         gateway.close();
+    }
+
+    /** Hands every export back as an unfinished future so the test decides when a delivery ends. */
+    private static DispatchExporter heldExporter(BlockingQueue<CompletableFuture<@Nullable Void>> exports) {
+        return new DispatchExporter() {
+            @Override
+            public String name() {
+                return "held";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
+                CompletableFuture<@Nullable Void> export = new CompletableFuture<>();
+                exports.add(export);
+                return export;
+            }
+        };
     }
 
     private static DispatchExporter noopExporter() {
@@ -209,6 +229,70 @@ class DispatchGatewayQueueManagementTest {
         assertThat(received.get()).isSameAs(first);
 
         consumer.join(TimeUnit.SECONDS.toMillis(5));
+        gateway.close();
+    }
+
+    @Test
+    void consumer_holds_the_message_in_the_queue_until_the_export_completes() throws Exception {
+        BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+                heldExporter(exports),
+                new TrieDispatcher()
+        );
+        Destination destination = Destination.create("/queue/held-until-exported");
+        Message first = message(destination);
+        Message second = message(destination);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize() + second.getSize());
+
+        gateway.sparkDispatch(first).get(5, TimeUnit.SECONDS);
+        gateway.sparkDispatch(second).get(5, TimeUnit.SECONDS);
+
+        CompletableFuture<@Nullable Void> firstExport = exports.poll(5, TimeUnit.SECONDS);
+        assertThat(firstExport).isNotNull();
+        // One in flight, one waiting, both still counted: the queue is full for producers.
+        assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
+        assertThat(queue.size()).isEqualTo(1);
+        assertThat(queue.getPendingBytes()).isEqualTo(first.getSize() + second.getSize());
+        assertThat(queue.enqueue(message(destination))).isNull();
+
+        firstExport.complete(null);
+
+        CompletableFuture<@Nullable Void> secondExport = exports.poll(5, TimeUnit.SECONDS);
+        assertThat(secondExport).isNotNull();
+        assertThat(queue.getPendingBytes()).isEqualTo(second.getSize());
+        secondExport.complete(null);
+        await().atMost(5, TimeUnit.SECONDS).until(() -> queue.getPendingBytes() == 0);
+        gateway.close();
+    }
+
+    @Test
+    void force_delete_stops_a_consumer_waiting_on_an_export() throws Exception {
+        BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+                heldExporter(exports),
+                dispatcher
+        );
+        Destination destination = Destination.create("/queue/force-delete-in-flight");
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        Message first = message(destination);
+
+        gateway.sparkDispatch(first).get(5, TimeUnit.SECONDS);
+        CompletableFuture<@Nullable Void> firstExport = exports.poll(5, TimeUnit.SECONDS);
+        assertThat(firstExport).isNotNull();
+        queue.enqueue(message(destination));
+
+        assertThat(gateway.deleteQueue(DEFAULT, destination, true).isDeleted()).isTrue();
+        assertThat(dispatcher.get(destination)).isNull();
+
+        // The interrupt wakes the consumer out of get(); it returns the bytes without waiting
+        // for the export, and the waiting message went with clear().
+        await().atMost(5, TimeUnit.SECONDS).until(() -> queue.getPendingBytes() == 0);
+
+        firstExport.complete(null);
+
+        assertThat(queue.getPendingBytes()).isZero();
+        assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
         gateway.close();
     }
 

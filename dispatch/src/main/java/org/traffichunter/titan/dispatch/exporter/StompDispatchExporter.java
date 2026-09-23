@@ -16,6 +16,8 @@
 package org.traffichunter.titan.dispatch.exporter;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
@@ -51,14 +53,15 @@ import java.util.concurrent.RejectedExecutionException;
  * across those writes would couple independent channel write lifecycles.</p>
  *
  * <p>Whether a subscriber can take the write is decided on that connection's own event loop,
- * right before the write, so no flush or other writer can change the answer in between. A
- * subscriber that cannot take it is skipped. Each write finishes on the loop of the connection
- * it went to, so the returned stage completes on whichever loop finishes last, and a failed or
- * skipped write counts as finished.</p>
+ * right before the write, so no flush or other writer can change the answer in between. The
+ * returned stage completes when every subscriber has been handed a frame or skipped. Socket
+ * writes may finish later.</p>
  *
  * @author yun
  */
 public class StompDispatchExporter implements DispatchExporter {
+
+    private static final Logger log = LoggerFactory.getLogger(StompDispatchExporter.class);
 
     private final StompServerChannel serverConnection;
     private final SlowConsumerMetrics slowConsumerMetrics;
@@ -103,22 +106,28 @@ public class StompDispatchExporter implements DispatchExporter {
         NetChannel channel = clientChannel.channel();
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
         Runnable attempt = () -> {
-            if (!channel.isWritable()) {
-                slowConsumerMetrics.recordSkippedMessage();
+            try {
+                if (!channel.isWritable()) {
+                    slowConsumerMetrics.recordSkippedMessage();
+                    return;
+                }
+
+                StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, body);
+                frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
+                frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
+                frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
+                if (!DestinationGroups.isDefault(group)) {
+                    frame.addHeader(StompHeaders.Elements.GROUP, group);
+                }
+
+                // Socket drain is the connection's own pace and must not hold the next queue message.
+                clientChannel.send(frame);
+            } catch (RuntimeException error) {
+                log.warn("Failed to hand STOMP frame to subscriber. destination={}, subscription={}",
+                        destination.path(), subscription.id(), error);
+            } finally {
                 result.complete(null);
-                return;
             }
-
-            StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, body);
-            frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
-            frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
-            frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
-            if (!DestinationGroups.isDefault(group)) {
-                frame.addHeader(StompHeaders.Elements.GROUP, group);
-            }
-
-            // One unreachable subscriber must not fail the whole export.
-            clientChannel.send(frame).addListener(ignored -> result.complete(null));
         };
 
         try {

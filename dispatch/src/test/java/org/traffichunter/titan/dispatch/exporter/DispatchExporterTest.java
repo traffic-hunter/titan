@@ -112,7 +112,7 @@ class DispatchExporterTest {
     }
 
     @Test
-    void export_stage_completes_only_after_every_subscriber_settles() {
+    void export_stage_completes_once_every_subscriber_has_been_handed_the_frame() {
         IOEventLoop loop = immediateEventLoop();
         StompServerSubscriptions subscriptions = new StompServerSubscriptions();
         when(serverConnection.subscriptions()).thenReturn(subscriptions);
@@ -120,6 +120,7 @@ class DispatchExporterTest {
 
         StompClientChannel settledConn = writableConnection(loop, "session-1");
         StompClientChannel pendingConn = writableConnection(loop, "session-2");
+        // This connection has taken the frame but its socket has not: the export is still done.
         Promise<StompFrame> pendingWrite = Promise.newPromise(loop);
         when(pendingConn.send(any(StompFrame.class))).thenReturn(pendingWrite);
 
@@ -131,11 +132,10 @@ class DispatchExporterTest {
                 .export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()))
                 .toCompletableFuture();
 
-        assertThat(completion).isNotDone();
-
-        pendingWrite.success(StompFrame.PING);
-
         assertThat(completion).isDone();
+        verify(settledConn).send(any(StompFrame.class));
+        verify(pendingConn).send(any(StompFrame.class));
+        assertThat(pendingWrite.isDone()).isFalse();
     }
 
     @Test
@@ -158,6 +158,25 @@ class DispatchExporterTest {
 
         // Callers treat completion as the end of the export, so one unreachable subscriber
         // must not turn it into a failure.
+        assertThat(completion).isCompleted();
+        assertThat(completion).isNotCompletedExceptionally();
+    }
+
+    @Test
+    void export_stage_completes_when_a_subscriber_rejects_the_send_immediately() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel failingConn = writableConnection(loop, "session-1");
+        when(failingConn.send(any(StompFrame.class))).thenThrow(new IllegalStateException("send failed"));
+        subscriptions.register(subscription(null, destination, "sub-1", failingConn));
+
+        CompletableFuture<@Nullable Void> completion = new StompDispatchExporter(serverConnection)
+                .export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()))
+                .toCompletableFuture();
+
         assertThat(completion).isCompleted();
         assertThat(completion).isNotCompletedExceptionally();
     }

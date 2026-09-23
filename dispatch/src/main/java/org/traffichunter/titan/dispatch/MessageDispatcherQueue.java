@@ -209,10 +209,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
     @Override
     public Message dispatch() throws InterruptedException {
         awaitManualResume(NO_TIMEOUT);
-        Message message = queue.take();
-        metadata.release(message.getSize());
-        resumeAfterPressure();
-        return message;
+        return queue.take();
     }
 
     @Override
@@ -225,12 +222,13 @@ class MessageDispatcherQueue implements DispatcherQueue {
 
         long elapsedNanos = System.nanoTime() - startedAt;
         long remainingNanos = Math.max(0, timeoutNanos - elapsedNanos);
-        Message message = queue.poll(remainingNanos, TimeUnit.NANOSECONDS);
-        if (message != null) {
-            metadata.release(message.getSize());
-            resumeAfterPressure();
-        }
-        return message;
+        return queue.poll(remainingNanos, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    public void complete(Message message) {
+        metadata.release(message.getSize());
+        resumeAfterPressure();
     }
 
     @Override
