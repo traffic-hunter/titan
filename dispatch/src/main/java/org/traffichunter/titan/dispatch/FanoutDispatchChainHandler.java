@@ -17,9 +17,11 @@ package org.traffichunter.titan.dispatch;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,7 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * @author yun
  */
 final class FanoutDispatchChainHandler implements DispatchChainHandler {
+    private static final long EXPORT_TIMEOUT_SECONDS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
 
@@ -132,12 +135,25 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
                         exporter.export(key.group(), key.destination(), message)
                                 .toCompletableFuture()
-                                .get();
+                                .get(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
                     } catch (Exception e) {
-                        log.error("Unexpected error while dispatching message", e);
+                        Throwable cause = e;
+                        if (e instanceof ExecutionException execution) {
+                            Throwable nested = execution.getCause();
+                            if (nested != null) {
+                                cause = nested;
+                            }
+                        }
+                        if (cause instanceof TimeoutException) {
+                            log.warn("Export timed out after {} s. group={}, destination={}",
+                                    EXPORT_TIMEOUT_SECONDS,
+                                    key.group(), key.destination().path());
+                        } else {
+                            log.error("Unexpected error while dispatching message", e);
+                        }
                         if (closed.get() || executor.isShutdown()) {
                             break;
                         }

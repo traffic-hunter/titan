@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Dispatch exporter for STOMP subscriptions.
@@ -60,6 +61,7 @@ import java.util.concurrent.RejectedExecutionException;
  * @author yun
  */
 public class StompDispatchExporter implements DispatchExporter {
+    private static final long EXPORT_TIMEOUT_SECONDS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(StompDispatchExporter.class);
 
@@ -82,6 +84,8 @@ public class StompDispatchExporter implements DispatchExporter {
 
     @Override
     public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer message) {
+        long timeoutNanos = TimeUnit.SECONDS.toNanos(EXPORT_TIMEOUT_SECONDS);
+        long deadlineNanos = System.nanoTime() + timeoutNanos;
         List<StompServerSubscription> subscriptions =
                 serverConnection.subscriptions().findByDestination(group, destination);
 
@@ -90,23 +94,29 @@ public class StompDispatchExporter implements DispatchExporter {
 
         List<CompletableFuture<?>> writes = new ArrayList<>(subscriptions.size());
         for (StompServerSubscription subscription : subscriptions) {
-            writes.add(export(group, destination, subscription, body));
+            writes.add(export(group, destination, subscription, body, deadlineNanos));
         }
 
-        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))
+                .orTimeout(timeoutNanos, TimeUnit.NANOSECONDS);
     }
 
     private CompletableFuture<@Nullable Void> export(
             String group,
             Destination destination,
             StompServerSubscription subscription,
-            byte[] body
+            byte[] body,
+            long deadlineNanos
     ) {
         StompClientChannel clientChannel = subscription.getConnection();
         NetChannel channel = clientChannel.channel();
         CompletableFuture<@Nullable Void> result = new CompletableFuture<>();
         Runnable attempt = () -> {
             try {
+                if (System.nanoTime() - deadlineNanos >= 0) {
+                    slowConsumerMetrics.recordSkippedMessage();
+                    return;
+                }
                 if (!channel.isWritable()) {
                     slowConsumerMetrics.recordSkippedMessage();
                     return;
@@ -121,6 +131,10 @@ public class StompDispatchExporter implements DispatchExporter {
                 }
 
                 // Socket drain is the connection's own pace and must not hold the next queue message.
+                if (System.nanoTime() - deadlineNanos >= 0) {
+                    slowConsumerMetrics.recordSkippedMessage();
+                    return;
+                }
                 clientChannel.send(frame);
             } catch (RuntimeException error) {
                 log.warn("Failed to hand STOMP frame to subscriber. destination={}, subscription={}",

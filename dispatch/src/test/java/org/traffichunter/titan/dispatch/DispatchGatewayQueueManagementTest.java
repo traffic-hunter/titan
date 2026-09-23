@@ -266,6 +266,49 @@ class DispatchGatewayQueueManagementTest {
     }
 
     @Test
+    void consumer_moves_to_the_next_message_after_an_export_timeout() throws Exception {
+        BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        DispatchExporter stalledExporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "stalled";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
+                CompletableFuture<@Nullable Void> export = new CompletableFuture<>();
+                exports.add(export);
+                return export;
+            }
+        };
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+                stalledExporter,
+                new TrieDispatcher()
+        );
+        Destination destination = Destination.create("/queue/export-timeout");
+        Message first = message(destination);
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
+
+        try {
+            gateway.sparkDispatch(first).get(5, TimeUnit.SECONDS);
+            CompletableFuture<@Nullable Void> firstExport = exports.poll(5, TimeUnit.SECONDS);
+            assertThat(firstExport).isNotNull();
+
+            await().atMost(10, TimeUnit.SECONDS).until(() -> queue.getPendingBytes() == 0);
+            assertThat(firstExport).isNotDone();
+
+            gateway.sparkDispatch(message(destination)).get(5, TimeUnit.SECONDS);
+            CompletableFuture<@Nullable Void> secondExport = exports.poll(5, TimeUnit.SECONDS);
+            assertThat(secondExport).isNotNull();
+
+            firstExport.complete(null);
+            secondExport.complete(null);
+        } finally {
+            gateway.close();
+        }
+    }
+
+    @Test
     void force_delete_stops_a_consumer_waiting_on_an_export() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TrieDispatcher dispatcher = new TrieDispatcher();
