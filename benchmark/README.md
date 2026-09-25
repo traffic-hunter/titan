@@ -70,7 +70,7 @@ file is no evidence that any limit was in force.
 ```bash
 ./gradlew :benchmark:stability-fixture:shadowJar
 java -jar benchmark/stability-fixture/build/libs/titan-stability-fixture-*.jar \
-    --path dispatch --dispatch-mode virtual --transport tcp --manifest /tmp/fixture.json
+    --path dispatch --transport tcp --manifest /tmp/fixture.json
 ```
 
 It prints one `TITAN_STABILITY_FIXTURE={...}` line holding the port it bound and the settings it

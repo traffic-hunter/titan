@@ -50,7 +50,7 @@ class StabilityRunIntegrationTest {
     @Test
     @Timeout(120)
     void a_dispatch_run_over_tcp_accounts_for_every_message() throws Exception {
-        StabilityFixture fixture = start("--path", "dispatch", "--dispatch-mode", "platform");
+        StabilityFixture fixture = start("--path", "dispatch");
 
         PerfTestReport report = new StompPerfTest()
                 .run(options(fixture.port(), "--send-mode", "receipt", "--path-label", "dispatch"));
@@ -67,7 +67,6 @@ class StabilityRunIntegrationTest {
     void a_dispatch_run_over_websocket_accounts_for_every_message() throws Exception {
         StabilityFixture fixture = start(
                 "--path", "dispatch",
-                "--dispatch-mode", "virtual",
                 "--transport", "websocket",
                 "--websocket-path", "/stomp"
         );
@@ -101,7 +100,7 @@ class StabilityRunIntegrationTest {
     @Test
     @Timeout(120)
     void the_write_send_mode_claims_nothing_about_acceptance() throws Exception {
-        StabilityFixture fixture = start("--path", "dispatch", "--dispatch-mode", "platform");
+        StabilityFixture fixture = start("--path", "dispatch");
 
         PerfTestReport report = new StompPerfTest()
                 .run(options(fixture.port(), "--send-mode", "write", "--path-label", "dispatch"));

@@ -34,8 +34,8 @@ class DispatchGatewayGroupManagementTest {
 
     private final DestinationGroupRegistry registry = new DestinationGroupRegistry();
     private final Map<String, Integer> exported = new ConcurrentHashMap<>();
-    private final ThreadPoolExecutorDispatchGateway gateway =
-            new ThreadPoolExecutorDispatchGateway(recordingExporter(exported), registry);
+    private final VirtualThreadExecutorDispatchGateway gateway =
+            new VirtualThreadExecutorDispatchGateway(recordingExporter(exported), registry);
 
     @AfterEach
     void closeGateway() {
@@ -184,7 +184,7 @@ class DispatchGatewayGroupManagementTest {
     void a_message_that_arrives_while_a_delete_runs_still_gets_a_consumer() throws Exception {
         CountDownLatch removed = new CountDownLatch(1);
         CountDownLatch resumeDelete = new CountDownLatch(1);
-        ThreadPoolExecutorDispatchGateway hooked = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway hooked = new VirtualThreadExecutorDispatchGateway(
                 recordingExporter(exported),
                 pauseAfterRemove(registry, removed, resumeDelete)
         );

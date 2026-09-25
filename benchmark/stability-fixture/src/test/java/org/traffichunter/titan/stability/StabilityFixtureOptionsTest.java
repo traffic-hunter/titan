@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.stability.StabilityFixtureOptions.DeliveryPath;
-import org.traffichunter.titan.stability.StabilityFixtureOptions.DispatchModeName;
 import org.traffichunter.titan.stability.StabilityFixtureOptions.Transport;
 
 /**
@@ -35,7 +34,6 @@ class StabilityFixtureOptionsTest {
         assertThat(options.port()).isZero();
         assertThat(options.transport()).isEqualTo(Transport.TCP);
         assertThat(options.path()).isEqualTo(DeliveryPath.DISPATCH);
-        assertThat(options.dispatchMode()).isEqualTo(DispatchModeName.VIRTUAL);
     }
 
     @Test
@@ -56,7 +54,6 @@ class StabilityFixtureOptionsTest {
                 "--transport", "websocket",
                 "--websocket-path", "titan",
                 "--path", "direct",
-                "--dispatch-mode", "platform",
                 "--io-workers", "4",
                 "--max-frame-length", "2048",
                 "--queue-max-pending-bytes", "1024",
@@ -69,7 +66,6 @@ class StabilityFixtureOptionsTest {
         assertThat(options.transport()).isEqualTo(Transport.WEBSOCKET);
         assertThat(options.webSocketPath()).isEqualTo("/titan");
         assertThat(options.path()).isEqualTo(DeliveryPath.DIRECT);
-        assertThat(options.dispatchMode()).isEqualTo(DispatchModeName.PLATFORM);
         assertThat(options.ioWorkers()).isEqualTo(4);
         assertThat(options.maxFrameLength()).isEqualTo(2048);
         assertThat(options.queueMaxPendingBytes()).isEqualTo(1024);

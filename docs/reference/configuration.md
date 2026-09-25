@@ -38,7 +38,7 @@ format.
 | `max-frame-length` | Maximum STOMP frame size in bytes | `"1048576"` |
 | `heartbeat-x` | Outgoing heartbeat interval in milliseconds | `"1000"` |
 | `heartbeat-y` | Expected incoming heartbeat interval in milliseconds | `"1000"` |
-| `fanout-mode` | Optional fanout implementation | `"virtual"` |
+| `fanout-mode` | Enables dispatcher fanout; `virtual` is the only mode | `"virtual"` |
 
 Heartbeat values must be zero or greater. A zero value disables that heartbeat
 direction.

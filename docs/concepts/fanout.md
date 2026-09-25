@@ -24,8 +24,8 @@ titan:
 ```
 
 The `titan-dispatch` module supplies the gateway and exporter that connect STOMP
-`SEND` frames to matching subscriptions. The `virtual` mode uses virtual-thread
-based dispatch workers.
+`SEND` frames to matching subscriptions. Dispatch workers run on virtual threads,
+and `virtual` is the only mode.
 
 ## Operational boundary
 

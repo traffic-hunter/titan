@@ -34,7 +34,6 @@ public record StabilityFixtureOptions(
         Transport transport,
         String webSocketPath,
         DeliveryPath path,
-        DispatchModeName dispatchMode,
         int ioWorkers,
         int maxFrameLength,
         long queueMaxPendingBytes,
@@ -86,37 +85,12 @@ public record StabilityFixtureOptions(
         }
     }
 
-    /** Which executor the dispatch gateway runs on. */
-    public enum DispatchModeName {
-        PLATFORM("platform"),
-        VIRTUAL("virtual");
-
-        private final String label;
-
-        DispatchModeName(String label) {
-            this.label = label;
-        }
-
-        public static DispatchModeName parse(String value) {
-            return switch (value.toLowerCase(Locale.ROOT).trim()) {
-                case "platform", "fixed" -> PLATFORM;
-                case "virtual" -> VIRTUAL;
-                default -> throw new IllegalArgumentException("Invalid dispatch mode: " + value);
-            };
-        }
-
-        public String label() {
-            return label;
-        }
-    }
-
     public static StabilityFixtureOptions parse(String[] arguments) {
         String host = "127.0.0.1";
         int port = 0;
         Transport transport = Transport.TCP;
         String webSocketPath = DEFAULT_WEBSOCKET_PATH;
         DeliveryPath path = DeliveryPath.DISPATCH;
-        DispatchModeName dispatchMode = DispatchModeName.VIRTUAL;
         int ioWorkers = Runtime.getRuntime().availableProcessors();
         int maxFrameLength = DEFAULT_MAX_FRAME_LENGTH;
         long queueMaxPendingBytes = DEFAULT_QUEUE_MAX_PENDING_BYTES;
@@ -134,7 +108,6 @@ public record StabilityFixtureOptions(
                 case "--transport" -> transport = Transport.parse(value);
                 case "--websocket-path" -> webSocketPath = value;
                 case "--path" -> path = DeliveryPath.parse(value);
-                case "--dispatch-mode" -> dispatchMode = DispatchModeName.parse(value);
                 case "--io-workers" -> ioWorkers = positiveInt("io workers", value);
                 case "--max-frame-length" -> maxFrameLength = positiveInt("max frame length", value);
                 case "--queue-max-pending-bytes" -> queueMaxPendingBytes = positiveLong("queue max pending bytes", value);
@@ -161,7 +134,6 @@ public record StabilityFixtureOptions(
                 transport,
                 normalizeWebSocketPath(webSocketPath),
                 path,
-                dispatchMode,
                 ioWorkers,
                 maxFrameLength,
                 queueMaxPendingBytes,

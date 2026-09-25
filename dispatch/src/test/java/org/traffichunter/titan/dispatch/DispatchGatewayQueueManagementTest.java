@@ -29,7 +29,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void delete_queue_rejects_non_empty_queue_without_force() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -47,7 +47,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void delete_queue_with_force_removes_queue_and_allows_auto_create_later() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -71,7 +71,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void spark_dispatch_runs_custom_handler_between_route_and_fanout() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -122,7 +122,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void pause_queue_marks_queue_paused() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -139,7 +139,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void paused_queue_withholds_queued_messages_from_consumers() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -166,7 +166,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void pressure_paused_queue_still_lets_consumers_drain() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -188,7 +188,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void manual_resume_wakes_consumer_parked_while_pressure_pause_is_active() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -342,7 +342,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void paused_queue_holds_producers_until_resumed() throws Exception {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -376,7 +376,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void pause_queue_is_idempotent() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -394,7 +394,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void resume_queue_clears_manual_pause() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -412,7 +412,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void resume_queue_is_idempotent_on_running_queue() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -429,7 +429,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void resume_queue_keeps_pressure_pause_while_queue_is_over_limit() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -452,7 +452,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void purge_queue_keeps_queue_and_empties_pending_messages() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -472,7 +472,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void queue_state_actions_return_false_for_unknown_queue() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
@@ -499,7 +499,7 @@ class DispatchGatewayQueueManagementTest {
     void spark_dispatch_with_group_routes_to_group_queue() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 recordingExporter(exported),
                 registry
         );
@@ -519,7 +519,7 @@ class DispatchGatewayQueueManagementTest {
     void same_destination_in_two_groups_gets_two_consumers() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 recordingExporter(exported),
                 registry
         );
@@ -540,7 +540,7 @@ class DispatchGatewayQueueManagementTest {
     void message_without_group_uses_default_group() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 recordingExporter(exported),
                 registry
         );
@@ -593,7 +593,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void deleted_queue_refuses_messages_from_a_producer_holding_it() {
         TrieDispatcher dispatcher = new TrieDispatcher();
-        ThreadPoolExecutorDispatchGateway gateway = new ThreadPoolExecutorDispatchGateway(
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );

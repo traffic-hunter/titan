@@ -31,7 +31,6 @@ class StabilityFixtureTest {
     void a_started_fixture_reports_the_port_it_bound_and_the_limits_it_applied() throws Exception {
         StabilityFixtureOptions options = StabilityFixtureOptions.parse(new String[]{
                 "--path", "dispatch",
-                "--dispatch-mode", "platform",
                 "--queue-max-pending-bytes", "1048576",
                 "--queue-resume-pending-bytes", "524288"
         });
@@ -42,7 +41,6 @@ class StabilityFixtureTest {
             assertThat(fixture.port()).isGreaterThan(0);
             assertThat(manifest.port()).isEqualTo(fixture.port());
             assertThat(manifest.path()).isEqualTo("dispatch");
-            assertThat(manifest.dispatchMode()).isEqualTo("platform");
             assertThat(manifest.queueMaxPendingBytes()).isEqualTo(1_048_576);
             assertThat(manifest.queueResumePendingBytes()).isEqualTo(524_288);
             assertThat(manifest.queueLimitsApplied()).isTrue();
@@ -66,7 +64,6 @@ class StabilityFixtureTest {
             // control that is not in the run at all.
             assertThat(manifest.queueLimitsApplied()).isFalse();
             assertThat(manifest.queueMaxPendingBytes()).isZero();
-            assertThat(manifest.dispatchMode()).isEmpty();
         }
     }
 }

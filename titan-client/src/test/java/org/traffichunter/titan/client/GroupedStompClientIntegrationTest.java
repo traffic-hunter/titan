@@ -257,7 +257,7 @@ class GroupedStompClientIntegrationTest {
                 StompServerOption.builder().build()
         );
         server = webSocketPath.isEmpty() ? opened : opened.webSocket(webSocketPath);
-        gateway = DispatchGateway.ofThread(new StompDispatchExporter(server.connection()), registry);
+        gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), registry);
         server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(gateway)));
         server.start();
         server.listen("localhost", 0).get(5, SECONDS);

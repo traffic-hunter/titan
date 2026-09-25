@@ -35,19 +35,11 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  */
 public interface DispatchGateway extends Closeable, DispatcherQueueManager {
 
-    static DispatchGateway ofThread(DispatchExporter exporter) {
-        return new ThreadPoolExecutorDispatchGateway(exporter);
-    }
-
-    static DispatchGateway ofThread(DispatchExporter exporter, Dispatcher dispatcher) {
-        return new ThreadPoolExecutorDispatchGateway(exporter, dispatcher);
-    }
-
-    static DispatchGateway ofVirtual(DispatchExporter exporter) {
+    static DispatchGateway of(DispatchExporter exporter) {
         return new VirtualThreadExecutorDispatchGateway(exporter);
     }
 
-    static DispatchGateway ofVirtual(DispatchExporter exporter, Dispatcher dispatcher) {
+    static DispatchGateway of(DispatchExporter exporter, Dispatcher dispatcher) {
         return new VirtualThreadExecutorDispatchGateway(exporter, dispatcher);
     }
 
