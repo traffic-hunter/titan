@@ -31,11 +31,9 @@ import io.vertx.ext.stomp.Command;
 import io.vertx.ext.stomp.Frame;
 import io.vertx.ext.stomp.StompServer;
 import io.vertx.ext.stomp.StompServerHandler;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -199,19 +197,20 @@ class DispatchExporterTest {
         StompClientChannel connection = writableConnection(loop, "session-1");
         subscriptions.register(subscription(null, destination, "sub-1", connection));
 
-        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        // A zero timeout expires the attempt before the loop gets to run it.
+        StompDispatchExporter exporter = new StompDispatchExporter(
+                serverConnection, SlowConsumerMetrics.global(), Duration.ZERO);
         Buffer payload = Buffer.heap().alloc("hello".getBytes());
         try {
             CompletableFuture<@Nullable Void> completion = exporter
                     .export(DestinationGroups.DEFAULT, destination, payload)
                     .toCompletableFuture();
 
-            assertThatThrownBy(() -> completion.get(10, TimeUnit.SECONDS))
-                    .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(TimeoutException.class);
-
             assertThat(pendingAttempt.get()).isNotNull();
+            assertThat(completion).isNotDone();
             pendingAttempt.get().run();
+
+            assertThat(completion).isDone();
             verify(connection, never()).send(any(StompFrame.class));
         } finally {
             payload.release();

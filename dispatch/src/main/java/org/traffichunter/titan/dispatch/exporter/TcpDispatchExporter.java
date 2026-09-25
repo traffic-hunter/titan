@@ -15,11 +15,8 @@
  */
 package org.traffichunter.titan.dispatch.exporter;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -42,9 +39,11 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * <p>Raw TCP has no way to express a destination group, so this exporter serves the default
  * group only and refuses anything else rather than handing one group's messages to every
  * channel it knows.</p>
+ *
+ * <p>The returned stage completes once every channel has been handed the payload. How fast a
+ * socket then drains is that channel's own pace.</p>
  */
 public class TcpDispatchExporter implements DispatchExporter {
-    private static final long EXPORT_TIMEOUT_SECONDS = 5;
 
     private static final Logger log = LoggerFactory.getLogger(TcpDispatchExporter.class);
 
@@ -67,7 +66,6 @@ public class TcpDispatchExporter implements DispatchExporter {
                     "The inet exporter cannot keep destination group " + group + " to itself");
         }
 
-        List<CompletableFuture<?>> writes = new ArrayList<>();
         for (NetChannel channel : inetServer.childChannel().stream().toList()) {
             if (!channel.isActive() || channel.isClosed()) {
                 continue;
@@ -75,9 +73,7 @@ public class TcpDispatchExporter implements DispatchExporter {
 
             Buffer copiedPayload = payload.copy();
             try {
-                writes.add(channel.writeAndFlush(copiedPayload)
-                        .toCompletableFuture()
-                        .handle((ignored, ignoredError) -> null));
+                channel.writeAndFlush(copiedPayload);
             } catch (Exception e) {
                 // One unusable channel must not stop the fanout to the others.
                 copiedPayload.release();
@@ -85,7 +81,6 @@ public class TcpDispatchExporter implements DispatchExporter {
             }
         }
 
-        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))
-                .orTimeout(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        return CompletableFuture.completedFuture(null);
     }
 }

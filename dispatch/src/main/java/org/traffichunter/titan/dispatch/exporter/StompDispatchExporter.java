@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 /**
  * Dispatch exporter for STOMP subscriptions.
@@ -61,20 +61,32 @@ import java.util.concurrent.TimeUnit;
  * @author yun
  */
 public class StompDispatchExporter implements DispatchExporter {
-    private static final long EXPORT_TIMEOUT_SECONDS = 5;
+
+    /** An attempt that has waited longer than this for its event loop skips the send. */
+    private static final Duration EXPORT_TIMEOUT = Duration.ofSeconds(5);
 
     private static final Logger log = LoggerFactory.getLogger(StompDispatchExporter.class);
 
     private final StompServerChannel serverConnection;
     private final SlowConsumerMetrics slowConsumerMetrics;
+    private final long exportTimeoutNanos;
 
     public StompDispatchExporter(StompServerChannel serverConnection) {
         this(serverConnection, SlowConsumerMetrics.global());
     }
 
     StompDispatchExporter(StompServerChannel serverConnection, SlowConsumerMetrics slowConsumerMetrics) {
+        this(serverConnection, slowConsumerMetrics, EXPORT_TIMEOUT);
+    }
+
+    StompDispatchExporter(
+            StompServerChannel serverConnection,
+            SlowConsumerMetrics slowConsumerMetrics,
+            Duration exportTimeout
+    ) {
         this.serverConnection = serverConnection;
         this.slowConsumerMetrics = slowConsumerMetrics;
+        this.exportTimeoutNanos = exportTimeout.toNanos();
     }
 
     @Override
@@ -84,8 +96,7 @@ public class StompDispatchExporter implements DispatchExporter {
 
     @Override
     public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer message) {
-        long timeoutNanos = TimeUnit.SECONDS.toNanos(EXPORT_TIMEOUT_SECONDS);
-        long deadlineNanos = System.nanoTime() + timeoutNanos;
+        long deadlineNanos = System.nanoTime() + exportTimeoutNanos;
         List<StompServerSubscription> subscriptions =
                 serverConnection.subscriptions().findByDestination(group, destination);
 
@@ -97,8 +108,7 @@ public class StompDispatchExporter implements DispatchExporter {
             writes.add(export(group, destination, subscription, body, deadlineNanos));
         }
 
-        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))
-                .orTimeout(timeoutNanos, TimeUnit.NANOSECONDS);
+        return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
     }
 
     private CompletableFuture<@Nullable Void> export(
