@@ -29,7 +29,6 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.DispatchGateway;
-import org.traffichunter.titan.dispatch.DispatchMode;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 @State(Scope.Thread)
@@ -39,9 +38,6 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
 public class FanoutGatewayBenchmark {
-
-    @Param({"platform", "virtual"})
-    public String mode;
 
     @Param({"64", "256"})
     public int batchSize;
@@ -63,7 +59,7 @@ public class FanoutGatewayBenchmark {
                 .build();
         batchMessages = createBatchMessages(destination, batchSize);
 
-        gateway = DispatchMode.resolveMode(mode).dispatchGateway(new CountingNoopExporter(exportCount));
+        gateway = DispatchGateway.of(new CountingNoopExporter(exportCount));
         gateway.sparkDispatch(message).get(1, TimeUnit.SECONDS);
     }
 

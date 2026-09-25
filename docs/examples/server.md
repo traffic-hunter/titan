@@ -99,7 +99,7 @@ public class EmbeddedStompServerExample {
                         .build()
         );
 
-        DispatchGateway dispatchGateway = DispatchGateway.ofVirtual(
+        DispatchGateway dispatchGateway = DispatchGateway.of(
                 new StompDispatchExporter(server.connection())
         );
 

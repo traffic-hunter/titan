@@ -48,7 +48,7 @@ class GroupedStompFanoutIntegrationTest {
     void startServer() throws Exception {
         registry = new DestinationGroupRegistry();
         server = StompServer.open(EventLoopGroups.singleGroup(), StompServerOption.builder().build());
-        gateway = DispatchGateway.ofThread(new StompDispatchExporter(server.connection()), registry);
+        gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), registry);
         server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(gateway)));
         server.start();
         server.listen("localhost", 0).get(5, TimeUnit.SECONDS);

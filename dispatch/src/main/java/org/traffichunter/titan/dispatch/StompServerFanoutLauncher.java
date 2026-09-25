@@ -39,6 +39,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
     private static final Logger log = LoggerFactory.getLogger(StompServerFanoutLauncher.class);
 
     private static final String OPTION_FANOUT_MODE = "fanout-mode";
+    private static final String FANOUT_MODE_VIRTUAL = "virtual";
 
     @Override
     public boolean supports(
@@ -58,7 +59,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
             final Map<String, String> protocolOptions,
             final ManagedServer managedServer
     ) {
-        DispatchMode mode = resolveMode(protocolOptions);
+        checkFanoutMode(protocolOptions);
         ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
         if (adapter == null) {
             throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
@@ -78,7 +79,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                     long resumePendingBytes = flowControl.enabled() && queue.enabled()
                             ? queue.resumePendingBytes()
                             : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
-                    DispatchGateway gateway = mode.dispatchGateway(
+                    DispatchGateway gateway = DispatchGateway.of(
                             dispatchExporter,
                             Dispatcher.getDefault(maxPendingBytes, resumePendingBytes)
                     );
@@ -97,7 +98,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                     return gateway;
                 }
         );
-        log.info("Fanout launcher started fanout mode = {}, fanout server = {}", mode.getName(), managedServer.name());
+        log.info("Fanout launcher started fanout server = {}", managedServer.name());
     }
 
     @Override
@@ -125,9 +126,12 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
         return null;
     }
 
-    private static DispatchMode resolveMode(final Map<String, String> protocolOptions) {
-        String raw = protocolOptions.getOrDefault(OPTION_FANOUT_MODE, "virtual");
-        String normalized = raw.toLowerCase(Locale.ROOT).trim();
-        return DispatchMode.resolveMode(normalized);
+    /** Dispatch runs on virtual threads only; the option remains so existing configurations still load. */
+    private static void checkFanoutMode(final Map<String, String> protocolOptions) {
+        String raw = protocolOptions.getOrDefault(OPTION_FANOUT_MODE, FANOUT_MODE_VIRTUAL);
+        if (!FANOUT_MODE_VIRTUAL.equals(raw.toLowerCase(Locale.ROOT).trim())) {
+            throw new IllegalStateException(
+                    "Unsupported " + OPTION_FANOUT_MODE + "=" + raw + ". Only \"" + FANOUT_MODE_VIRTUAL + "\" is supported");
+        }
     }
 }
