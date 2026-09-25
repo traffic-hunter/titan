@@ -14,7 +14,7 @@ repositories {
 ```
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.8.3")
+implementation("org.traffichunter.titan:titan-spring-client:0.8.4")
 ```
 
 ## Enable Titan
