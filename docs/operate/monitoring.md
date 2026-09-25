@@ -46,7 +46,7 @@ find, except for creation, which brings the group into existence with the queue.
 Prebuilt releases include `titan-cli-<version>-<os>-<arch>.tar.gz` archives.
 
 ```bash
-tar -xzf titan-cli-0.8.3-linux-amd64.tar.gz
+tar -xzf titan-cli-0.8.4-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 ```
 

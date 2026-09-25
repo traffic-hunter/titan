@@ -13,7 +13,7 @@ repositories {
 ```
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-client:0.8.3")
+implementation("org.traffichunter.titan:titan-client:0.8.4")
 ```
 
 ## Connect, Subscribe, Send
