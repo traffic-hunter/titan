@@ -17,6 +17,8 @@ package org.traffichunter.titan.dispatch;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.message.DispatchRejectException;
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -45,11 +47,14 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
 
         DispatchResult result = dq.enqueue(message);
         if (result != DispatchResult.ACCEPTED) {
-            log.warn("Dispatcher queue refused the message. group={}, destination={}, reason={}",
-                    group, destination, result);
-            throw new IllegalStateException(
-                    "Dispatcher queue refused the message = " + group + ":" + destination.path()
-                            + ", reason=" + result);
+            log.warn("Dispatcher queue refused the message. group={}, destination={}, reason={}", group, destination, result);
+            throw new DispatchRejectException(
+                    result,
+                    "Dispatcher queue refused the message. group={}, destination={}, reason={}",
+                    group,
+                    destination.path(),
+                    result
+            );
         }
 
         return chain.next(context);

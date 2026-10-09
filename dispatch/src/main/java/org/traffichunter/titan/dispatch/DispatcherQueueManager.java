@@ -1,5 +1,6 @@
 package org.traffichunter.titan.dispatch;
 
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.util.Destination;
 
 /**

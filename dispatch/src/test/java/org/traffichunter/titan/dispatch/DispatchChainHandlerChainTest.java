@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.traffichunter.titan.core.message.DispatchRejectException;
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -108,9 +110,9 @@ class DispatchChainHandlerChainTest {
         CompletableFuture<Void> result = chain.sparkDispatch(new DispatchContext(message));
 
         assertThatThrownBy(result::join)
-                .hasCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("Dispatcher queue refused the message = "
-                        + message.getGroup() + ":" + message.getDestination().path() + ", reason=" + expected);
+                .hasCauseInstanceOf(DispatchRejectException.class)
+                .hasRootCauseMessage("Dispatcher queue refused the message. group="
+                        + message.getGroup() + ", destination=" + message.getDestination().path() + ", reason=" + expected);
         assertThat(laterCalls).hasValue(0);
         assertThat(queue.size()).isEqualTo(expected == DispatchResult.FULL ? 1 : 0);
         assertThat(queue.getPendingBytes()).isEqualTo(expected == DispatchResult.FULL ? message.getSize() : 0);
