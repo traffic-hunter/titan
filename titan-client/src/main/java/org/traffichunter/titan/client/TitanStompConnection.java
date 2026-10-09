@@ -233,9 +233,12 @@ final class TitanStompConnection implements StompConnection {
             exceptionHandler.handle(error);
         });
         connection.handler().errorHandler((event, context) -> {
-            errorHandler.handle(event.frame());
-            event.connection().failConnect(new StompException("Received ERROR frame from server"));
-            event.connection().error(event.frame());
+            try {
+                errorHandler.handle(event.frame());
+            } finally {
+                event.connection().failConnect(new StompException("Received ERROR frame from server"));
+                event.connection().close();
+            }
         });
         connection.handler().pingHandler((event, context) -> pingHandler.handle(this));
     }

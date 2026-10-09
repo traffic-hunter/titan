@@ -113,6 +113,34 @@ to fanout. Acceptance means the message entered the queue, not that subscribers
 received it. Titan does not provide durable retry or persistence for a refusal,
 so capacity and queue pressure must be monitored.
 
+On Titan's native STOMP transport, a confirmed queue refusal produces an `ERROR`
+frame with a numeric code in the standard `message` header:
+
+| Code | Queue refusal |
+| --- | --- |
+| `1000` | Insufficient pending-byte capacity or pressure pause |
+| `1001` | Manual pause |
+| `1002` | Message exceeds the queue byte limit |
+| `1003` | Queue is closed |
+
+If the SEND requested a receipt, the ERROR includes the same ID in `receipt-id`.
+The server closes the connection after the ERROR write completes or fails. A
+rejected request does not receive a success RECEIPT. Other dispatch failures use
+a descriptive `message` instead of a queue refusal code; they do not establish
+whether the message entered the queue.
+
+The native Titan client uses `receipt-id` to fail the matching request future
+with `DispatchRejectException` for a known queue refusal. Its `result()` exposes
+the shared `DispatchResult`, and `result().code()` provides the numeric code.
+Missing, malformed, unknown, and acceptance codes in an ERROR remain general
+STOMP failures. The original ERROR still reaches the application's
+`errorHandler` after the request is settled.
+
+Include a `receipt` header when the send future must reflect the server's
+response. Without one, the future completes after the socket write and a later
+refusal is reported through `errorHandler`. No failed message is automatically
+resent.
+
 ## One consumer per destination
 
 `DispatchGateway` keeps a concurrent map of group and destination to consumer

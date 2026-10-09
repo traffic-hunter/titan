@@ -152,6 +152,16 @@ public interface StompClientChannel extends StompChannel {
 
     void receipt(String receiptId);
 
+    /**
+     * Fails the request waiting for this receipt, leaving other requests untouched.
+     *
+     * <p>Call on the channel event loop. Unknown receipt IDs are ignored.</p>
+     *
+     * @param receiptId identifier of the failed request
+     * @param error failure reported by the server
+     */
+    void failReceipt(String receiptId, Throwable error);
+
     void connected();
 
     void failConnect(Throwable error);
