@@ -17,7 +17,6 @@ package org.traffichunter.titan.dispatch;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -27,9 +26,12 @@ import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
 import org.traffichunter.titan.core.channel.stomp.StompServerEvent;
 import org.traffichunter.titan.core.channel.stomp.StompServerHandlerContext;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
-import org.traffichunter.titan.core.codec.stomp.StompHeaders;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.message.DispatchRejectException;
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.Exceptions;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 
@@ -40,6 +42,10 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
  * converts the frame body to a Titan {@link Message}, and passes it to
  * {@link DispatchGateway} for routing. Exporters handle protocol-specific writes
  * to subscribers.</p>
+ *
+ * <p>Confirmed queue refusals use their numeric code in the ERROR message header. Errors
+ * retain the request's receipt ID when present, and the connection closes after the ERROR
+ * write finishes or fails. Dispatch completion does not guarantee subscriber delivery.</p>
  */
 public final class StompSendToFanoutHandler implements StompServerCommandHandler {
 
@@ -55,15 +61,15 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
     public void handle(StompServerEvent event, StompServerHandlerContext context) {
         StompFrame sf = event.frame();
         StompClientChannel connection = event.connection();
-        String destination = sf.getHeader(StompHeaders.Elements.DESTINATION);
+        String destination = sf.getHeader(Elements.DESTINATION);
         if (destination == null || destination.isBlank()) {
             log.warn("Rejected dispatch due to missing destination. session={}", connection.session());
-            connection.send(errorFrame("Wrong send.", "Wrong send destination id, Id is required."));
-            connection.close();
+            StompFrame response = errorFrame("Wrong send.", "Wrong send destination id, Id is required.");
+            context.sendErrorAndClose(sf, response, connection);
             return;
         }
 
-        String group = sf.getHeader(StompHeaders.Elements.GROUP);
+        String group = sf.getHeader(Elements.GROUP);
         Message message;
         try {
             message = Message.builder()
@@ -80,41 +86,39 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
                     group,
                     destination
             );
-            connection.send(errorFrame("Wrong send.", e.getMessage()));
-            connection.close();
+            String reason = e.getMessage();
+            StompFrame response = errorFrame("Wrong send.", reason == null ? "Invalid SEND headers." : reason);
+            context.sendErrorAndClose(sf, response, connection);
             return;
         }
 
+        CompletableFuture<@Nullable Void> dispatchResult;
         try {
-            CompletableFuture<@Nullable Void> dispatchResult = dispatchGateway.sparkDispatch(message);
-            dispatchResult.whenComplete((ignored, error) -> {
-                if (error != null) {
-                    handleDispatchFailure(connection, destination, unwrap(error));
-                    return;
-                }
+            dispatchResult = dispatchGateway.sparkDispatch(message);
+        } catch (Exception error) {
+            dispatchResult = CompletableFuture.failedFuture(error);
+        }
 
+        dispatchResult.whenComplete((ignored, error) -> {
+            if (error == null) {
                 context.receipt(sf, connection);
-            });
-        } catch (Exception e) {
-            handleDispatchFailure(connection, destination, e);
-        }
-    }
+                return;
+            }
 
-    private static void handleDispatchFailure(StompClientChannel connection, String destination, Throwable error) {
-        log.error(
-                "Failed to dispatch message. session={}, destination={}",
-                connection.session(),
-                destination,
-                error
-        );
-        connection.send(errorFrame("Failed to dispatch.", "Failed to dispatch inbound SEND frame."));
-        connection.close();
-    }
+            Throwable failure = Exceptions.unwrapCompletionException(error);
 
-    private static Throwable unwrap(Throwable error) {
-        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
-            return completionException.getCause();
-        }
-        return error;
+            DispatchResult result = failure instanceof DispatchRejectException rejected ? rejected.result() : null;
+            StompFrame response;
+            if (result != null) {
+                log.warn("Rejected dispatch. session={}, destination={}, code={}, reason={}", connection.session(), destination, result.code(), result);
+                String reason = failure.getMessage();
+                response = errorFrame(Integer.toString(result.code()), reason == null ? "Message rejected by destination queue." : reason);
+            } else {
+                log.error("Failed to dispatch message. session={}, destination={}", connection.session(), destination, failure);
+                response = errorFrame("Failed to dispatch.", "Failed to dispatch inbound SEND frame.");
+            }
+
+            context.sendErrorAndClose(sf, response, connection);
+        });
     }
 }

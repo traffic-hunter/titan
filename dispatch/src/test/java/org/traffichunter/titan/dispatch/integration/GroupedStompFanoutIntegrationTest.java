@@ -9,6 +9,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -19,18 +20,24 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.message.DispatchResult;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
 import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
 /**
  * Drives a real STOMP server over raw sockets and checks that the {@code group} header
- * isolates delivery per group.
+ * isolates delivery per group and that queue refusals reach the producer before disconnect.
  *
  * @author yun
  */
@@ -108,11 +115,64 @@ class GroupedStompFanoutIntegrationTest {
     void malformed_group_header_is_rejected_with_error_frame() throws Exception {
         RawStompClient producer = connect();
 
-        producer.send("bad/name", "x");
+        producer.write("SEND\ndestination:" + DESTINATION + "\ngroup:bad/name\nreceipt:send-invalid\n\nx");
 
         String error = producer.frames.poll(5, TimeUnit.SECONDS);
-        assertThat(error).startsWith("ERROR").contains("Invalid group name: bad/name");
+        assertThat(error).startsWith("ERROR")
+                .contains("Invalid group name: bad/name", "receipt-id:send-invalid");
         Awaitility.await().atMost(Duration.ofSeconds(5)).until(producer::isClosedByPeer);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DispatchResult.class, names = "ACCEPTED", mode = EnumSource.Mode.EXCLUDE)
+    @Timeout(20)
+    void refused_send_receives_numeric_error_and_disconnects(DispatchResult expected) throws Exception {
+        Destination destination = Destination.create(DESTINATION);
+        DispatcherQueue queue = gateway.createQueue(DestinationGroups.DEFAULT, destination,
+                expected == DispatchResult.TOO_LARGE ? 1 : 5);
+        switch (expected) {
+            case FULL -> assertThat(queue.enqueue(Message.builder()
+                    .destination(destination)
+                    .createdAt(Instant.now())
+                    .producerId("test")
+                    .body(new byte[5])
+                    .build())).isEqualTo(DispatchResult.ACCEPTED);
+            case PAUSED -> queue.pause();
+            case CLOSED -> queue.close();
+            default -> { }
+        }
+        RawStompClient producer = connect();
+
+        producer.write("SEND\ndestination:" + DESTINATION + "\nreceipt:send-rejected\n\nhello");
+
+        String error = producer.frames.poll(5, TimeUnit.SECONDS);
+        assertThat(error).startsWith("ERROR")
+                .contains("message:" + expected.code(), "receipt-id:send-rejected", "reason=" + expected)
+                .doesNotContain("\nreceipt:");
+        Awaitility.await().atMost(Duration.ofSeconds(5)).until(producer::isClosedByPeer);
+        assertThat(producer.frames).isEmpty();
+        assertThat(queue.size()).isEqualTo(expected == DispatchResult.FULL ? 1 : 0);
+    }
+
+    @Test
+    @Timeout(20)
+    void handler_failure_after_enqueue_is_not_reported_as_admission_refusal() throws Exception {
+        gateway.chainHandler(chain -> chain.add((context, continuation) -> {
+            throw new IllegalStateException("Handler failed after enqueue");
+        }));
+        RawStompClient producer = connect();
+
+        producer.write("SEND\ndestination:" + DESTINATION + "\nreceipt:send-unknown\n\nhello");
+
+        String error = producer.frames.poll(5, TimeUnit.SECONDS);
+        assertThat(error).startsWith("ERROR")
+                .contains("message:Failed to dispatch.", "receipt-id:send-unknown")
+                .doesNotContain("message:100");
+        Awaitility.await().atMost(Duration.ofSeconds(5)).until(producer::isClosedByPeer);
+        assertThat(producer.frames).isEmpty();
+        DispatcherQueue queue = registry.get(Destination.create(DESTINATION));
+        assertThat(queue).isNotNull();
+        assertThat(queue.size()).isOne();
     }
 
     private RawStompClient connect() throws Exception {
