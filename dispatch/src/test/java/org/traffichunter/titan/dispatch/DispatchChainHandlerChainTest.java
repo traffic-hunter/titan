@@ -1,6 +1,7 @@
 package org.traffichunter.titan.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -12,7 +13,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -78,6 +82,38 @@ class DispatchChainHandlerChainTest {
                 handler.close();
             }
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DispatchResult.class, names = "ACCEPTED", mode = EnumSource.Mode.EXCLUDE)
+    void route_handler_stops_chain_when_queue_refuses_message(DispatchResult expected) {
+        Message message = message("/queue/refused-" + expected.name());
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        DispatcherQueue queue = dispatcher.getOrPut(message.getDestination(),
+                expected == DispatchResult.TOO_LARGE ? message.getSize() - 1 : message.getSize());
+        switch (expected) {
+            case FULL -> assertThat(queue.enqueue(message)).isEqualTo(DispatchResult.ACCEPTED);
+            case PAUSED -> queue.pause();
+            case CLOSED -> queue.close();
+            default -> { }
+        }
+        AtomicInteger laterCalls = new AtomicInteger();
+        DispatchHandlerChain chain = DispatchHandlerChain.chain()
+                .add(new RouteDispatchChainHandler(dispatcher))
+                .add((context, continuation) -> {
+                    laterCalls.incrementAndGet();
+                    return continuation.next(context);
+                });
+
+        CompletableFuture<Void> result = chain.sparkDispatch(new DispatchContext(message));
+
+        assertThatThrownBy(result::join)
+                .hasCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage("Dispatcher queue refused the message = "
+                        + message.getGroup() + ":" + message.getDestination().path() + ", reason=" + expected);
+        assertThat(laterCalls).hasValue(0);
+        assertThat(queue.size()).isEqualTo(expected == DispatchResult.FULL ? 1 : 0);
+        assertThat(queue.getPendingBytes()).isEqualTo(expected == DispatchResult.FULL ? message.getSize() : 0);
     }
 
     @Test

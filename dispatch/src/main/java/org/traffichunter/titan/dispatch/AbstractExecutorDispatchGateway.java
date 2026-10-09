@@ -166,8 +166,8 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     /**
      * Manually pauses the queue without detaching its consumer.
      *
-     * <p>A manual pause blocks both enqueue and dispatch, so producers stop
-     * being admitted and queued messages stop being delivered. The consumer
+     * <p>A manual pause immediately refuses new messages with {@link DispatchResult#PAUSED}
+     * and stops delivering queued messages. The consumer
      * stays attached and waits until the queue is resumed. To discard the
      * queued messages instead, use {@link #purgeQueue(String, Destination)}.</p>
      */

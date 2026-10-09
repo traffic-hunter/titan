@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
@@ -253,7 +254,7 @@ class DispatchGatewayQueueManagementTest {
         assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
         assertThat(queue.size()).isEqualTo(1);
         assertThat(queue.getPendingBytes()).isEqualTo(first.getSize() + second.getSize());
-        assertThat(queue.enqueue(message(destination))).isNull();
+        assertThat(queue.enqueue(message(destination))).isEqualTo(DispatchResult.FULL);
 
         firstExport.complete(null);
 
@@ -340,36 +341,26 @@ class DispatchGatewayQueueManagementTest {
     }
 
     @Test
-    void paused_queue_holds_producers_until_resumed() throws Exception {
+    @Timeout(5)
+    void paused_queue_refuses_producers_until_resumed() {
         TrieDispatcher dispatcher = new TrieDispatcher();
         VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 noopExporter(),
                 dispatcher
         );
-        Destination destination = Destination.create("/queue/pause-blocks-producer");
+        Destination destination = Destination.create("/queue/pause-refuses-producer");
         DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
         gateway.pauseQueue(DEFAULT, destination);
 
-        CountDownLatch started = new CountDownLatch(1);
-        CountDownLatch enqueued = new CountDownLatch(1);
-        Thread producer = new Thread(() -> {
-            started.countDown();
-            queue.enqueue(message(destination));
-            enqueued.countDown();
-        }, "pause-producer-test");
-        producer.setDaemon(true);
-        producer.start();
-
-        assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
-        assertThat(enqueued.await(200, TimeUnit.MILLISECONDS)).isFalse();
+        assertThat(queue.enqueue(message(destination))).isEqualTo(DispatchResult.PAUSED);
         assertThat(queue.size()).isZero();
+        assertThat(queue.getPendingBytes()).isZero();
 
         gateway.resumeQueue(DEFAULT, destination);
 
-        assertThat(enqueued.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(queue.enqueue(message(destination))).isEqualTo(DispatchResult.ACCEPTED);
         assertThat(queue.size()).isEqualTo(1);
 
-        producer.join(TimeUnit.SECONDS.toMillis(5));
         gateway.close();
     }
 
@@ -605,7 +596,7 @@ class DispatchGatewayQueueManagementTest {
         // A producer that resolved the queue before the delete would otherwise write into
         // a queue nothing drains.
         assertThat(queue.isClosed()).isTrue();
-        assertThat(queue.enqueue(message(destination))).isNull();
+        assertThat(queue.enqueue(message(destination))).isEqualTo(DispatchResult.CLOSED);
         assertThat(queue.size()).isZero();
 
         gateway.close();

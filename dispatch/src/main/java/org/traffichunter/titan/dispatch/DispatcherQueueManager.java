@@ -50,9 +50,8 @@ public interface DispatcherQueueManager {
     /**
      * Manually pauses the queue for the destination.
      *
-     * <p>A manual pause blocks both enqueue and dispatch, so the queue stops
-     * admitting producers and stops delivering its backlog until it is
-     * resumed.</p>
+     * <p>A manual pause immediately refuses new messages with {@link DispatchResult#PAUSED}
+     * and stops delivering the backlog until the queue is resumed.</p>
      *
      * <p>Pausing is idempotent. An already paused queue stays paused and the
      * call still reports success. A manual pause is independent of the
