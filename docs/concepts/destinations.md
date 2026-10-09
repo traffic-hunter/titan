@@ -96,19 +96,22 @@ titan --addr http://localhost:7777 queue create /orders --max-pending-bytes 1048
 Queue creation is idempotent. If `/orders` already exists, a later create call
 returns that queue and does not replace its original capacity.
 
-The queue is a bounded FIFO `LinkedBlockingQueue` and is the handoff point
-between producers and the destination consumer:
+The queue uses a FIFO `LinkedBlockingQueue` with a separate pending-byte limit
+and is the handoff point between producers and the destination consumer:
 
 * enqueue preserves insertion order;
-* pause blocks new enqueue attempts until resume;
+* manual pause immediately refuses new enqueue attempts and suspends dispatch until resume;
+* pressure pause refuses new messages while consumers drain the queue to the resume threshold;
 * size and capacity are exposed through monitoring and JMX;
 * non-empty deletion is rejected unless force deletion is requested;
 * force deletion clears pending messages and stops the current consumer;
 * publishing after deletion creates a new queue instance.
 
-`enqueue` can refuse a message when a bounded queue is full. Titan's current
-fanout path does not provide durable retry or persistence for that refusal, so
-capacity and queue pressure must be monitored.
+`enqueue` returns `DispatchResult`: `ACCEPTED`, `FULL`, `PAUSED`, `TOO_LARGE`, or
+`CLOSED`. Refused messages do not wait for the queue to resume and do not proceed
+to fanout. Acceptance means the message entered the queue, not that subscribers
+received it. Titan does not provide durable retry or persistence for a refusal,
+so capacity and queue pressure must be monitored.
 
 ## One consumer per destination
 
