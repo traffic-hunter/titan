@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.traffichunter.titan.core.channel.ChannelWriteException.Reason.NOT_SENT;
 import static org.traffichunter.titan.core.channel.ChannelWriteException.Reason.UNKNOWN;
@@ -32,6 +33,121 @@ import static org.traffichunter.titan.core.channel.ChannelWriteException.Reason.
  * @author yun
  */
 class ChannelWriteBufferTest {
+
+    @Test
+    void request_larger_than_integer_range_preserves_accounting_until_fully_consumed() {
+        AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(64, 32, metrics);
+        // Only lengths are simulated; no multi-gigabyte storage is allocated.
+        Buffer first = mock(Buffer.class);
+        when(first.hasRemaining()).thenReturn(true);
+        when(first.length()).thenReturn(Integer.MAX_VALUE);
+        Buffer last = mock(Buffer.class);
+        when(last.hasRemaining()).thenReturn(true);
+        when(last.length()).thenReturn(16);
+        ChannelPromise request = promise();
+        try {
+            writeBuffer.append(List.of(first, last), request);
+
+            long total = (long) Integer.MAX_VALUE + 16;
+            assertThat(writeBuffer.pendingBytes()).isEqualTo(total);
+            assertThat(metrics.getPendingBytes()).isEqualTo(total);
+            assertThat(writeBuffer.isWritable()).isFalse();
+            assertThat(metrics.getNonWritableBuffers()).isOne();
+
+            writeBuffer.consume(Integer.MAX_VALUE);
+
+            assertThat(writeBuffer.pendingBytes()).isEqualTo(16);
+            assertThat(metrics.getPendingBytes()).isEqualTo(16);
+            assertThat(writeBuffer.isWritable()).isTrue();
+            assertThat(metrics.getNonWritableBuffers()).isZero();
+            assertThat(request.isDone()).isFalse();
+
+            writeBuffer.consume(16);
+
+            assertThat(writeBuffer.pendingBytes()).isZero();
+            assertThat(metrics.getPendingBytes()).isZero();
+            assertThat(writeBuffer.isEmpty()).isTrue();
+            assertThat(request.isSuccess()).isTrue();
+        } finally {
+            writeBuffer.close();
+        }
+        verify(first).release();
+        verify(last).release();
+    }
+
+    @Test
+    void separate_requests_above_integer_range_attach_and_close_metrics_without_truncation() {
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer();
+        Buffer first = mock(Buffer.class);
+        when(first.hasRemaining()).thenReturn(true);
+        when(first.length()).thenReturn(Integer.MAX_VALUE);
+        Buffer second = mock(Buffer.class);
+        when(second.hasRemaining()).thenReturn(true);
+        when(second.length()).thenReturn(Integer.MAX_VALUE);
+        ChannelPromise firstPromise = promise();
+        ChannelPromise secondPromise = promise();
+        AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
+        try {
+            writeBuffer.append(first, firstPromise);
+            writeBuffer.append(second, secondPromise);
+            writeBuffer.attachMetrics(metrics);
+
+            long total = 2L * Integer.MAX_VALUE;
+            assertThat(writeBuffer.pendingBytes()).isEqualTo(total);
+            assertThat(metrics.getPendingBytes()).isEqualTo(total);
+            assertThat(metrics.getActiveBuffers()).isOne();
+            assertThat(metrics.getNonWritableBuffers()).isOne();
+
+            writeBuffer.close();
+            writeBuffer.close();
+
+            assertThat(writeBuffer.pendingBytes()).isZero();
+            assertThat(writeBuffer.isEmpty()).isTrue();
+            assertThat(metrics.getPendingBytes()).isZero();
+            assertThat(metrics.getActiveBuffers()).isZero();
+            assertThat(metrics.getNonWritableBuffers()).isZero();
+            assertThat(reasonOf(firstPromise)).isEqualTo(NOT_SENT);
+            assertThat(reasonOf(secondPromise)).isEqualTo(NOT_SENT);
+        } finally {
+            writeBuffer.close();
+        }
+        verify(first).release();
+        verify(second).release();
+    }
+
+    @Test
+    void partial_write_above_integer_range_keeps_remaining_bytes_and_pressure() {
+        AggregateChannelWriteBufferMetrics metrics = new AggregateChannelWriteBufferMetrics();
+        ChannelWriteBuffer writeBuffer = new ChannelWriteBuffer(64, 32, metrics);
+        Buffer first = mock(Buffer.class);
+        when(first.hasRemaining()).thenReturn(true);
+        when(first.length()).thenReturn(Integer.MAX_VALUE);
+        when(first.isReadable()).thenReturn(true);
+        Buffer last = mock(Buffer.class);
+        when(last.hasRemaining()).thenReturn(true);
+        when(last.length()).thenReturn(64);
+        ChannelPromise request = promise();
+        try {
+            writeBuffer.append(List.of(first, last), request);
+            writeBuffer.consume(17);
+
+            long remaining = (long) Integer.MAX_VALUE + 64 - 17;
+            assertThat(writeBuffer.pendingBytes()).isEqualTo(remaining);
+            assertThat(metrics.getPendingBytes()).isEqualTo(remaining);
+            assertThat(writeBuffer.current()).isSameAs(first);
+            assertThat(writeBuffer.isWritable()).isFalse();
+            assertThat(metrics.getNonWritableBuffers()).isOne();
+            assertThat(request.isDone()).isFalse();
+            verify(first).skipBytes(17);
+        } finally {
+            writeBuffer.close();
+        }
+        assertThat(reasonOf(request)).isEqualTo(UNKNOWN);
+        assertThat(metrics.getPendingBytes()).isZero();
+        verify(first).release();
+        verify(last).release();
+    }
 
     @Test
     void writes_past_the_high_watermark_are_still_accepted() {
