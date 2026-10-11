@@ -8,42 +8,34 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.core.util.buffer.Buffer;
 
 class MessageDispatcherQueueTest {
 
     @Test
-    void enqueue_returns_null_when_interrupted_while_paused() throws Exception {
+    @Timeout(5)
+    void manual_pause_refuses_enqueue_until_resumed() {
         MessageDispatcherQueue queue = new MessageDispatcherQueue(Destination.create("/queue/paused"), 10);
-        CountDownLatch started = new CountDownLatch(1);
-        AtomicReference<Message> result = new AtomicReference<>();
-        AtomicBoolean interrupted = new AtomicBoolean();
+        Message message = message("/queue/paused");
 
         queue.pause();
 
         assertThat(queue.metadata().isPaused()).isTrue();
 
-        Thread producer = new Thread(() -> {
-            started.countDown();
-            result.set(queue.enqueue(message("/queue/paused")));
-            interrupted.set(Thread.currentThread().isInterrupted());
-        });
-
-        producer.start();
-        assertThat(started.await(1, TimeUnit.SECONDS)).isTrue();
-
-        producer.interrupt();
-        producer.join(TimeUnit.SECONDS.toMillis(1));
-
-        assertThat(producer.isAlive()).isFalse();
-        assertThat(result.get()).isNull();
-        assertThat(interrupted).isTrue();
+        assertThat(queue.enqueue(message)).isEqualTo(DispatchResult.PAUSED);
         assertThat(queue.size()).isZero();
+        assertThat(queue.getPendingBytes()).isZero();
+
+        queue.resume();
+
+        assertThat(queue.enqueue(message)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.contains(message)).isTrue();
+        assertThat(queue.getPendingBytes()).isEqualTo(message.getSize());
     }
 
     @Test
@@ -59,9 +51,9 @@ class MessageDispatcherQueueTest {
         Message second = message("/queue/metadata");
         Message rejected = message("/queue/metadata");
 
-        assertThat(queue.enqueue(first)).isSameAs(first);
-        assertThat(queue.enqueue(second)).isSameAs(second);
-        assertThat(queue.enqueue(rejected)).isNull();
+        assertThat(queue.enqueue(first)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(second)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(rejected)).isEqualTo(DispatchResult.FULL);
         assertThat(metadata.getPendingBytes()).isEqualTo(8);
         assertThat(metadata.isSaturated()).isTrue();
 
@@ -123,6 +115,58 @@ class MessageDispatcherQueueTest {
     }
 
     @Test
+    @Timeout(5)
+    void concurrent_enqueue_refuses_excess_messages_without_waiting() throws Exception {
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(
+                Destination.create("/queue/concurrent-enqueue"), 40);
+        CountDownLatch start = new CountDownLatch(1);
+        ConcurrentLinkedQueue<DispatchResult> results = new ConcurrentLinkedQueue<>();
+        List<Thread> publishers = java.util.stream.IntStream.range(0, 32)
+                .mapToObj(index -> Thread.ofPlatform().unstarted(() -> {
+                    try {
+                        start.await();
+                        results.add(queue.enqueue(message("/queue/concurrent-enqueue")));
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }))
+                .toList();
+
+        publishers.forEach(Thread::start);
+        start.countDown();
+        for (Thread publisher : publishers) {
+            publisher.join(TimeUnit.SECONDS.toMillis(1));
+            assertThat(publisher.isAlive()).isFalse();
+        }
+
+        assertThat(results).hasSize(32);
+        assertThat(results.stream().filter(result -> result == DispatchResult.ACCEPTED).count()).isEqualTo(10);
+        assertThat(results.stream().filter(result -> result == DispatchResult.FULL).count()).isEqualTo(22);
+        assertThat(queue.size()).isEqualTo(10);
+        assertThat(queue.getPendingBytes()).isEqualTo(40);
+    }
+
+    @Test
+    void rejected_message_does_not_leave_pressure_pause_below_resume_threshold() {
+        Destination destination = Destination.create("/queue/below-resume");
+        DestinationQueueMetadata metadata = new DestinationQueueMetadata(destination.path(), Instant.now(), 10, 6);
+        MessageDispatcherQueue queue = new MessageDispatcherQueue(destination, metadata);
+        Message larger = Message.builder()
+                .destination(destination)
+                .createdAt(Instant.now())
+                .producerId("test")
+                .body(new byte[8])
+                .build();
+
+        assertThat(queue.enqueue(message(destination.path()))).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(larger)).isEqualTo(DispatchResult.FULL);
+        assertThat(queue.isPaused()).isFalse();
+        assertThat(metadata.isPaused()).isFalse();
+        assertThat(queue.enqueue(message(destination.path()))).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.getPendingBytes()).isEqualTo(8);
+    }
+
+    @Test
     void queue_resumes_after_pending_bytes_are_released() throws Exception {
         Destination destination = Destination.create("/queue/pressure-resume");
         DestinationQueueMetadata metadata = new DestinationQueueMetadata(
@@ -134,8 +178,8 @@ class MessageDispatcherQueueTest {
         Message accepted = message("/queue/pressure-resume");
         Message rejected = message("/queue/pressure-resume");
 
-        assertThat(queue.enqueue(accepted)).isSameAs(accepted);
-        assertThat(queue.enqueue(rejected)).isNull();
+        assertThat(queue.enqueue(accepted)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(rejected)).isEqualTo(DispatchResult.FULL);
         assertThat(queue.isPaused()).isTrue();
         assertThat(metadata.isPaused()).isTrue();
 
@@ -144,10 +188,11 @@ class MessageDispatcherQueueTest {
 
         assertThat(queue.isPaused()).isFalse();
         assertThat(metadata.isPaused()).isFalse();
-        assertThat(queue.enqueue(rejected)).isSameAs(rejected);
+        assertThat(queue.enqueue(rejected)).isEqualTo(DispatchResult.ACCEPTED);
     }
 
     @Test
+    @Timeout(5)
     void queue_remains_paused_until_pending_bytes_reach_resume_threshold() throws Exception {
         Destination destination = Destination.create("/queue/low-watermark");
         DestinationQueueMetadata metadata = new DestinationQueueMetadata(
@@ -161,21 +206,24 @@ class MessageDispatcherQueueTest {
         Message second = message("/queue/low-watermark");
         Message third = message("/queue/low-watermark");
 
-        assertThat(queue.enqueue(first)).isSameAs(first);
-        assertThat(queue.enqueue(second)).isSameAs(second);
-        assertThat(queue.enqueue(third)).isSameAs(third);
-        assertThat(queue.enqueue(message("/queue/low-watermark"))).isNull();
+        assertThat(queue.enqueue(first)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(second)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(third)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(message("/queue/low-watermark"))).isEqualTo(DispatchResult.FULL);
         assertThat(queue.isPaused()).isTrue();
 
         assertThat(queue.dispatch()).isSameAs(first);
         queue.complete(first);
         assertThat(metadata.getPendingBytes()).isEqualTo(8);
         assertThat(queue.isPaused()).isTrue();
+        assertThat(queue.enqueue(message("/queue/low-watermark"))).isEqualTo(DispatchResult.FULL);
+        assertThat(metadata.getPendingBytes()).isEqualTo(8);
 
         assertThat(queue.dispatch()).isSameAs(second);
         queue.complete(second);
         assertThat(metadata.getPendingBytes()).isEqualTo(4);
         assertThat(queue.isPaused()).isFalse();
+        assertThat(queue.enqueue(message("/queue/low-watermark"))).isEqualTo(DispatchResult.ACCEPTED);
     }
 
     @Test
@@ -188,9 +236,11 @@ class MessageDispatcherQueueTest {
         );
         MessageDispatcherQueue queue = new MessageDispatcherQueue(destination, metadata);
 
-        assertThat(queue.enqueue(message("/queue/oversized"))).isNull();
+        assertThat(queue.enqueue(message("/queue/oversized"))).isEqualTo(DispatchResult.TOO_LARGE);
         assertThat(queue.isPaused()).isFalse();
         assertThat(metadata.isPaused()).isFalse();
+        assertThat(queue.getPendingBytes()).isZero();
+        assertThat(queue.size()).isZero();
     }
 
     @Test
@@ -204,8 +254,8 @@ class MessageDispatcherQueueTest {
         MessageDispatcherQueue queue = new MessageDispatcherQueue(destination, metadata);
         Message accepted = message("/queue/manual-pause");
 
-        assertThat(queue.enqueue(accepted)).isSameAs(accepted);
-        assertThat(queue.enqueue(message("/queue/manual-pause"))).isNull();
+        assertThat(queue.enqueue(accepted)).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(message("/queue/manual-pause"))).isEqualTo(DispatchResult.FULL);
         queue.pause();
 
         queue.clear();
@@ -314,7 +364,7 @@ class MessageDispatcherQueueTest {
         assertThat(queue.size()).isEqualTo(1);
         // The message left the waiting line but is still delivering, so it still counts.
         assertThat(metadata.getPendingBytes()).isEqualTo(8);
-        assertThat(queue.enqueue(message("/queue/in-flight"))).isNull();
+        assertThat(queue.enqueue(message("/queue/in-flight"))).isEqualTo(DispatchResult.FULL);
 
         queue.complete(first);
 
@@ -354,27 +404,32 @@ class MessageDispatcherQueueTest {
         queue.close();
 
         assertThat(queue.isClosed()).isTrue();
-        assertThat(queue.enqueue(message("/queue/closed"))).isNull();
+        assertThat(queue.enqueue(message("/queue/closed"))).isEqualTo(DispatchResult.CLOSED);
         assertThat(queue.size()).isZero();
+        assertThat(queue.getPendingBytes()).isZero();
     }
 
     @Test
-    void closing_wakes_a_producer_waiting_on_a_pause() throws Exception {
+    void closed_queue_takes_precedence_over_manual_pause() {
         DispatcherQueue queue = new MessageDispatcherQueue(Destination.create("/queue/closed-while-paused"));
         queue.pause();
-        AtomicReference<Message> enqueued = new AtomicReference<>();
-        CountDownLatch started = new CountDownLatch(1);
-        Thread producer = new Thread(() -> {
-            started.countDown();
-            enqueued.set(queue.enqueue(message("/queue/closed-while-paused")));
-        });
-        producer.start();
-        started.await(5, TimeUnit.SECONDS);
+        queue.close();
+
+        assertThat(queue.enqueue(message("/queue/closed-while-paused"))).isEqualTo(DispatchResult.CLOSED);
+        assertThat(queue.size()).isZero();
+        assertThat(queue.getPendingBytes()).isZero();
+    }
+
+    @Test
+    void closed_queue_takes_precedence_over_pressure_pause() {
+        DispatcherQueue queue = new MessageDispatcherQueue(Destination.create("/queue/closed-while-full"), 4);
+        assertThat(queue.enqueue(message("/queue/closed-while-full"))).isEqualTo(DispatchResult.ACCEPTED);
+        assertThat(queue.enqueue(message("/queue/closed-while-full"))).isEqualTo(DispatchResult.FULL);
 
         queue.close();
-        producer.join(5_000);
 
-        assertThat(producer.isAlive()).isFalse();
-        assertThat(enqueued.get()).isNull();
+        assertThat(queue.enqueue(message("/queue/closed-while-full"))).isEqualTo(DispatchResult.CLOSED);
+        assertThat(queue.size()).isOne();
+        assertThat(queue.getPendingBytes()).isEqualTo(4);
     }
 }

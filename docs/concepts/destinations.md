@@ -96,19 +96,50 @@ titan --addr http://localhost:7777 queue create /orders --max-pending-bytes 1048
 Queue creation is idempotent. If `/orders` already exists, a later create call
 returns that queue and does not replace its original capacity.
 
-The queue is a bounded FIFO `LinkedBlockingQueue` and is the handoff point
-between producers and the destination consumer:
+The queue uses a FIFO `LinkedBlockingQueue` with a separate pending-byte limit
+and is the handoff point between producers and the destination consumer:
 
 * enqueue preserves insertion order;
-* pause blocks new enqueue attempts until resume;
+* manual pause immediately refuses new enqueue attempts and suspends dispatch until resume;
+* pressure pause refuses new messages while consumers drain the queue to the resume threshold;
 * size and capacity are exposed through monitoring and JMX;
 * non-empty deletion is rejected unless force deletion is requested;
 * force deletion clears pending messages and stops the current consumer;
 * publishing after deletion creates a new queue instance.
 
-`enqueue` can refuse a message when a bounded queue is full. Titan's current
-fanout path does not provide durable retry or persistence for that refusal, so
-capacity and queue pressure must be monitored.
+`enqueue` returns `DispatchResult`: `ACCEPTED`, `FULL`, `PAUSED`, `TOO_LARGE`, or
+`CLOSED`. Refused messages do not wait for the queue to resume and do not proceed
+to fanout. Acceptance means the message entered the queue, not that subscribers
+received it. Titan does not provide durable retry or persistence for a refusal,
+so capacity and queue pressure must be monitored.
+
+On Titan's native STOMP transport, a confirmed queue refusal produces an `ERROR`
+frame with a numeric code in the standard `message` header:
+
+| Code | Queue refusal |
+| --- | --- |
+| `1000` | Insufficient pending-byte capacity or pressure pause |
+| `1001` | Manual pause |
+| `1002` | Message exceeds the queue byte limit |
+| `1003` | Queue is closed |
+
+If the SEND requested a receipt, the ERROR includes the same ID in `receipt-id`.
+The server closes the connection after the ERROR write completes or fails. A
+rejected request does not receive a success RECEIPT. Other dispatch failures use
+a descriptive `message` instead of a queue refusal code; they do not establish
+whether the message entered the queue.
+
+The native Titan client uses `receipt-id` to fail the matching request future
+with `DispatchRejectException` for a known queue refusal. Its `result()` exposes
+the shared `DispatchResult`, and `result().code()` provides the numeric code.
+Missing, malformed, unknown, and acceptance codes in an ERROR remain general
+STOMP failures. The original ERROR still reaches the application's
+`errorHandler` after the request is settled.
+
+Include a `receipt` header when the send future must reflect the server's
+response. Without one, the future completes after the socket write and a later
+refusal is reported through `errorHandler`. No failed message is automatically
+resent.
 
 ## One consumer per destination
 

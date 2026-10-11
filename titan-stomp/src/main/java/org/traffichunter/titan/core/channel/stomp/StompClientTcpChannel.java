@@ -367,6 +367,17 @@ public class StompClientTcpChannel implements StompClientChannel {
     }
 
     @Override
+    public void failReceipt(String receiptId, Throwable error) {
+        if (receiptId.isBlank()) {
+            return;
+        }
+        Promise<Void> resultPromise = receiptMap.remove(receiptId);
+        if (resultPromise != null) {
+            resultPromise.fail(error);
+        }
+    }
+
+    @Override
     public void connected() {
         if(netChannel.isConnected() && !stompConnected) {
             stompConnected = true;
@@ -456,7 +467,9 @@ public class StompClientTcpChannel implements StompClientChannel {
                     if (future.isSuccess()) {
                         receiptPromise.success(frame);
                     } else {
-                        receiptPromise.fail(new StompNetChannelException("Failed to receive receipt"));
+                        Throwable error = future.error();
+                        receiptPromise.fail(error == null
+                                ? new StompNetChannelException("Failed to receive receipt") : error);
                     }
                 });
                 receiptMap.put(receiptId, resultPromise);

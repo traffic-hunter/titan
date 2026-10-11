@@ -2,29 +2,49 @@ package org.traffichunter.titan.client;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.codec.stomp.StompCommand;
+import org.traffichunter.titan.core.codec.stomp.StompException;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.channel.stomp.StompNetChannelException;
+import org.traffichunter.titan.core.channel.stomp.StompServerCommandHandler;
+import org.traffichunter.titan.core.message.DispatchRejectException;
+import org.traffichunter.titan.core.message.DispatchResult;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
 import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -250,7 +270,152 @@ class GroupedStompClientIntegrationTest {
         assertThat(plain.poll(500, TimeUnit.MILLISECONDS)).isNull();
     }
 
+    @ParameterizedTest
+    @EnumSource(value = DispatchResult.class, names = "ACCEPTED", mode = EnumSource.Mode.EXCLUDE)
+    @Timeout(value = 30, unit = SECONDS)
+    void queue_refusal_fails_the_send_future_and_preserves_error_callback(DispatchResult expected) throws Exception {
+        int port = startDispatchingServer("");
+        Destination destination = Destination.create(DESTINATION);
+        DispatcherQueue queue = gateway.createQueue("market", destination,
+                expected == DispatchResult.TOO_LARGE ? 1 : 5);
+        switch (expected) {
+            case FULL -> assertThat(queue.enqueue(Message.builder()
+                    .group("market")
+                    .destination(destination)
+                    .createdAt(Instant.now())
+                    .producerId("test")
+                    .body(new byte[5])
+                    .build())).isEqualTo(DispatchResult.ACCEPTED);
+            case PAUSED -> queue.pause();
+            case CLOSED -> queue.close();
+            default -> { }
+        }
+        DefaultTitanClient client = connect(port, "");
+        BlockingQueue<StompFrames> errors = new LinkedBlockingQueue<>();
+        client.errorHandler(errors::add);
+
+        CompletableFuture<StompFrames> sent = client.send(DESTINATION, Buffer.heap().alloc("hello"),
+                Map.of(Elements.GROUP, "market", Elements.RECEIPT, "send:" + expected.code()));
+
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> sent.get(5, SECONDS));
+        assertThat(failure.getCause()).isInstanceOfSatisfying(DispatchRejectException.class, rejection -> {
+            assertThat(rejection.result()).isEqualTo(expected);
+            assertThat(rejection.getMessage()).contains("group=market", "destination=" + DESTINATION);
+        });
+        StompFrames error = errors.poll(5, SECONDS);
+        assertThat(error).isNotNull();
+        assertThat(error.getHeader(Elements.MESSAGE)).isEqualTo(Integer.toString(expected.code()));
+        assertThat(error.getHeader(Elements.RECEIPT_ID)).isEqualTo("send:" + expected.code());
+    }
+
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void websocket_send_future_preserves_queue_refusal() throws Exception {
+        int port = startDispatchingServer("/stomp");
+        DispatcherQueue queue = gateway.createQueue(DestinationGroups.DEFAULT, Destination.create(DESTINATION), 1024);
+        queue.pause();
+        DefaultTitanClient client = connect(port, "/stomp");
+
+        CompletableFuture<StompFrames> sent = client.send(DESTINATION, Buffer.heap().alloc("hello"),
+                Map.of(Elements.RECEIPT, "ws-send"));
+
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> sent.get(5, SECONDS));
+        assertThat(failure.getCause()).isInstanceOfSatisfying(DispatchRejectException.class,
+                rejection -> assertThat(rejection.result()).isEqualTo(DispatchResult.PAUSED));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "9999", "Wrong send.", "2147483648"})
+    @Timeout(value = 30, unit = SECONDS)
+    void unrecognized_error_code_fails_request_without_claiming_admission_refusal(@Nullable String code)
+            throws Exception {
+        int port = startDispatchingServer("", (event, context) -> {
+            StompFrame response = StompFrame.create(StompHeaders.create(), StompCommand.ERROR,
+                    "Server rejected the request".getBytes(StandardCharsets.UTF_8));
+            if (code != null) {
+                response.addHeader(Elements.MESSAGE, code);
+            }
+            context.sendErrorAndClose(event.frame(), response, event.connection());
+        });
+        DefaultTitanClient client = connect(port, "");
+
+        CompletableFuture<StompFrames> sent = client.send(DESTINATION, Buffer.heap().alloc("hello"),
+                Map.of(Elements.RECEIPT, "send-unknown"));
+
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> sent.get(5, SECONDS));
+        assertThat(failure.getCause()).isInstanceOf(StompException.class)
+                .isNotInstanceOf(DispatchRejectException.class)
+                .hasMessage("Server rejected the request");
+    }
+
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void error_receipt_identifies_only_the_rejected_request() throws Exception {
+        int port = startDispatchingServer("", (event, context) -> {
+            if ("second".equals(event.frame().getHeader(Elements.RECEIPT))) {
+                context.sendErrorAndClose(event.frame(), StompFrame.errorFrame("1000", "Queue is full"),
+                        event.connection());
+            }
+        });
+        DefaultTitanClient client = connect(port, "");
+
+        CompletableFuture<StompFrames> first = client.send(DESTINATION, Buffer.heap().alloc("first"),
+                Map.of(Elements.RECEIPT, "first"));
+        CompletableFuture<StompFrames> second = client.send(DESTINATION, Buffer.heap().alloc("second"),
+                Map.of(Elements.RECEIPT, "second"));
+
+        ExecutionException rejected = assertThrows(ExecutionException.class, () -> second.get(5, SECONDS));
+        assertThat(rejected.getCause()).isInstanceOfSatisfying(DispatchRejectException.class,
+                error -> assertThat(error.result()).isEqualTo(DispatchResult.FULL));
+        ExecutionException unconfirmed = assertThrows(ExecutionException.class, () -> first.get(5, SECONDS));
+        assertThat(unconfirmed.getCause()).isInstanceOf(StompNetChannelException.class)
+                .isNotInstanceOf(DispatchRejectException.class);
+    }
+
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void send_without_receipt_reports_refusal_through_error_callback() throws Exception {
+        int port = startDispatchingServer("");
+        gateway.createQueue(DestinationGroups.DEFAULT, Destination.create(DESTINATION), 1024).pause();
+        DefaultTitanClient client = connect(port, "");
+        BlockingQueue<StompFrames> errors = new LinkedBlockingQueue<>();
+        client.errorHandler(errors::add);
+
+        client.send(DESTINATION, Buffer.heap().alloc("hello")).get(5, SECONDS);
+
+        StompFrames error = errors.poll(5, SECONDS);
+        assertThat(error).isNotNull();
+        assertThat(error.getHeader(Elements.MESSAGE)).isEqualTo("1001");
+        assertThat(error.getHeader(Elements.RECEIPT_ID)).isNull();
+    }
+
+    @Test
+    @Timeout(value = 30, unit = SECONDS)
+    void failure_after_enqueue_is_not_exposed_as_a_queue_refusal() throws Exception {
+        int port = startDispatchingServer("");
+        gateway.chainHandler(chain -> chain.add((context, continuation) -> {
+            throw new IllegalStateException("Handler failed after enqueue");
+        }));
+        DefaultTitanClient client = connect(port, "");
+
+        CompletableFuture<StompFrames> sent = client.send(DESTINATION, Buffer.heap().alloc("hello"),
+                Map.of(Elements.RECEIPT, "send-unconfirmed"));
+
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> sent.get(5, SECONDS));
+        assertThat(failure.getCause()).isInstanceOf(StompException.class)
+                .isNotInstanceOf(DispatchRejectException.class);
+        DispatcherQueue queue = registry.get(Destination.create(DESTINATION));
+        assertThat(queue).isNotNull();
+        assertThat(queue.size()).isOne();
+    }
+
     private int startDispatchingServer(String webSocketPath) throws Exception {
+        return startDispatchingServer(webSocketPath, null);
+    }
+
+    private int startDispatchingServer(String webSocketPath, @Nullable StompServerCommandHandler sendHandler)
+            throws Exception {
         registry = new DestinationGroupRegistry();
         StompServer opened = StompServer.open(
                 EventLoopGroups.group(1, 1),
@@ -258,7 +423,8 @@ class GroupedStompClientIntegrationTest {
         );
         server = webSocketPath.isEmpty() ? opened : opened.webSocket(webSocketPath);
         gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), registry);
-        server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(gateway)));
+        server.onStomp(handler -> handler.sendHandler(
+                sendHandler == null ? new StompSendToFanoutHandler(gateway) : sendHandler));
         server.start();
         server.listen("localhost", 0).get(5, SECONDS);
         return ((InetSocketAddress) server.connection().channel().localAddress()).getPort();

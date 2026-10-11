@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.concurrent.Pausable;
@@ -32,8 +33,8 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
  * Queue of messages for one destination.
  *
  * <p>The queue is the handoff point between producers and destination consumers. A manual pause
- * stops both sides of that handoff, while an automatic pressure pause stops producers and lets
- * consumers continue draining queued messages.</p>
+ * refuses new messages and stops dispatch, while an automatic pressure pause refuses new
+ * messages and lets consumers continue draining queued messages.</p>
  *
  * <p>A queue that leaves its dispatcher is closed and refuses further messages, so a producer
  * holding a stale reference fails instead of writing into a queue nothing drains.</p>
@@ -86,10 +87,12 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     boolean equalsTo(Destination key);
 
     /**
-     * Enqueues a message, returning {@code null} when the queue refuses it.
+     * Attempts to enqueue a message without waiting for the queue to resume.
+     *
+     * @return {@link DispatchResult#ACCEPTED} when enqueued, or the reason for refusal
      */
     @CanIgnoreReturnValue
-    @Nullable Message enqueue(Message message);
+    DispatchResult enqueue(Message message);
 
     boolean contains(Message message);
 
@@ -129,7 +132,7 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
      * Refuses further messages.
      *
      * <p>Called once the queue has left its dispatcher. {@link #enqueue(Message)} then returns
-     * {@code null} and any producer waiting on a pause wakes up and sees the same answer. A
+     * {@link DispatchResult#CLOSED}, even if the queue is paused. A
      * message accepted just before the close is still queued, so a caller that must not lose
      * one checks {@link #size()} afterwards. Closing is one way.</p>
      */

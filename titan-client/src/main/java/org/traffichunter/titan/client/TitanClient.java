@@ -103,6 +103,11 @@ public interface TitanClient {
      * <p>This overload follows the same ownership-transfer contract as
      * {@link #send(String, Buffer)}.</p>
      *
+     * <p>With the native client, supplying a {@code receipt} header makes the future wait for
+     * the server's response. A confirmed queue refusal fails it with
+     * {@link org.traffichunter.titan.core.message.DispatchRejectException}. Without a receipt,
+     * success only confirms the socket write; a later server ERROR reaches {@link #errorHandler}.</p>
+     *
      * @param destination target STOMP destination
      * @param payload message payload whose ownership is transferred to the client
      * @param headers additional STOMP headers
@@ -278,6 +283,10 @@ public interface TitanClient {
 
     /**
      * Registers the handler for STOMP ERROR frames.
+     *
+     * <p>The native client settles any request identified by {@code receipt-id} before invoking
+     * this handler. Errors without a receipt ID are also delivered here, but cannot identify a
+     * pending request. Registering a handler does not replace receipt failure processing.</p>
      *
      * @param handler handler to invoke for ERROR frames
      * @return this client

@@ -26,6 +26,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -33,8 +34,8 @@ import org.traffichunter.titan.core.util.Destination;
  * FIFO queue implementation for one dispatcher destination.
  *
  * <p>Messages are dispatched in insertion order through {@link LinkedBlockingQueue}. A manual
- * pause blocks both enqueue and dispatch operations. A pressure pause blocks only enqueue
- * operations so consumers can drain the queue until it reaches the resume threshold. A closed
+ * pause refuses new messages and blocks dispatch operations. A pressure pause refuses new
+ * messages while consumers drain the queue until it reaches the resume threshold. A closed
  * queue refuses every message, and the refusal outranks both pauses.</p>
  *
  * @author yungwang-o
@@ -123,34 +124,39 @@ class MessageDispatcherQueue implements DispatcherQueue {
     }
 
     @Override
-    public @Nullable Message enqueue(final Message message) {
-        if (closed) {
-            return null;
-        }
-
-        if(isPaused()) {
-            log.info("Waiting for queue to be resumed");
-            if (!awaitResume()) {
-                return null;
+    public DispatchResult enqueue(final Message message) {
+        pauseLock.lock();
+        try {
+            if (closed) {
+                return DispatchResult.CLOSED;
             }
-        }
+            if (manuallyPaused) {
+                return DispatchResult.PAUSED;
+            }
+            long messageSize = message.getSize();
+            if (messageSize > metadata.getMaxPendingBytes()) {
+                return DispatchResult.TOO_LARGE;
+            }
+            if (pressurePaused) {
+                return DispatchResult.FULL;
+            }
+            if (!metadata.tryReserve(messageSize)) {
+                pauseForPressure();
+                return DispatchResult.FULL;
+            }
 
-        long messageSize = message.getSize();
-        if (messageSize > metadata.getMaxPendingBytes()) {
-            return null;
+            boolean accepted = false;
+            try {
+                accepted = queue.offer(message);
+                return accepted ? DispatchResult.ACCEPTED : DispatchResult.FULL;
+            } finally {
+                if (!accepted) {
+                    metadata.release(messageSize);
+                }
+            }
+        } finally {
+            pauseLock.unlock();
         }
-
-        if (!metadata.tryReserve(messageSize)) {
-            pauseForPressure();
-            return null;
-        }
-
-        if(queue.offer(message)) {
-            return message;
-        }
-
-        metadata.release(messageSize);
-        return null;
     }
 
     @Override
@@ -283,7 +289,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
         pauseLock.lock();
         try {
             closed = true;
-            // Producers parked on a pause have to wake up and read the refusal.
             pauseCondition.signalAll();
         } finally {
             pauseLock.unlock();
@@ -293,21 +298,6 @@ class MessageDispatcherQueue implements DispatcherQueue {
     @Override
     public boolean isClosed() {
         return closed;
-    }
-
-    private boolean awaitResume() {
-        pauseLock.lock();
-        try {
-            while (isPaused() && !closed) {
-                pauseCondition.await();
-            }
-            return !closed;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } finally {
-            pauseLock.unlock();
-        }
     }
 
     /**
@@ -342,6 +332,11 @@ class MessageDispatcherQueue implements DispatcherQueue {
         try {
             if (!pressurePaused) {
                 pressurePaused = true;
+                // A consumer may have released bytes since the reservation failed.
+                if (metadata.canResume()) {
+                    pressurePaused = false;
+                    return;
+                }
                 metadata.paused(true);
                 log.info("Pausing queue due to pending bytes. destination={}", destination.path());
             }
@@ -373,8 +368,7 @@ class MessageDispatcherQueue implements DispatcherQueue {
             log.info("Resuming queue. destination={}", destination.path());
         }
 
-        // Producers and consumers wait on different conditions, so signal both and
-        // let each re-check. Signalling only when fully resumed deadlocks the drain.
+        // A manual resume must wake consumers even if pressure still blocks new messages.
         pauseCondition.signalAll();
     }
 }

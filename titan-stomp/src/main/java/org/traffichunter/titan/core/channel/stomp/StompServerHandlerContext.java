@@ -17,6 +17,8 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.create;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
@@ -26,6 +28,8 @@ import org.traffichunter.titan.core.util.secure.auth.authentication.Authenticati
 import org.traffichunter.titan.core.util.secure.auth.authentication.AuthenticationImpl;
 
 public final class StompServerHandlerContext {
+
+    private static final Logger log = LoggerFactory.getLogger(StompServerHandlerContext.class);
 
     private final StompServerChannel serverConnection;
     private final StompServerOption option;
@@ -64,5 +68,19 @@ public final class StompServerHandlerContext {
 
             connection.send(receiptFrame);
         }
+    }
+
+    public void sendErrorAndClose(StompFrame sf, StompFrame response, StompClientChannel connection) {
+        String receiptId = sf.getHeader(Elements.RECEIPT);
+        if (receiptId != null) {
+            response.addHeader(Elements.RECEIPT_ID, receiptId);
+        }
+        response.addHeader(Elements.CONTENT_LENGTH, Integer.toString(response.body().length));
+        connection.send(response)
+                .onSuccess(sent -> connection.close())
+                .onFailure(sendError -> {
+                    log.warn("Failed to send STOMP ERROR. session={}", connection.session(), sendError);
+                    connection.close();
+                });
     }
 }

@@ -43,7 +43,7 @@ public final class ChannelWriteBuffer {
     private final Queue<Entry> writeBuffer;
     private @Nullable AggregateChannelWriteBufferMetrics metrics;
 
-    private int pendingBytes;
+    private long pendingBytes;
 
     private final int highWatermarkBytes;
     private final int lowWatermarkBytes;
@@ -98,7 +98,8 @@ public final class ChannelWriteBuffer {
      */
     public void append(List<Buffer> buffers, ChannelPromise promise) {
         if (isClosed) {
-            refuse(buffers, promise, Reason.NOT_SENT, "Channel write buffer is closed");
+            buffers.forEach(Buffer::release);
+            promise.fail(new ChannelWriteException(Reason.NOT_SENT, "Channel write buffer is closed"));
             return;
         }
 
@@ -125,11 +126,11 @@ public final class ChannelWriteBuffer {
             }
             writeBuffer.add(new Entry(i == lastReadable ? promise : null, buffer));
         }
-        pendingBytes += (int) contentLength;
+        pendingBytes += contentLength;
 
         AggregateChannelWriteBufferMetrics currentMetrics = metrics;
         if (currentMetrics != null) {
-            currentMetrics.addPendingBytes((int) contentLength);
+            currentMetrics.addPendingBytes(contentLength);
         }
         if(isWritable && pendingBytes > highWatermarkBytes) {
             isWritable = false;
@@ -211,7 +212,8 @@ public final class ChannelWriteBuffer {
         return isWritable;
     }
 
-    public int pendingBytes() {
+    /** Returns the total number of bytes waiting to be written across queued buffers. */
+    public long pendingBytes() {
         return pendingBytes;
     }
 
@@ -230,7 +232,7 @@ public final class ChannelWriteBuffer {
         isClosed = true;
 
         discardPendingWrites();
-        int remainingBytes = pendingBytes;
+        long remainingBytes = pendingBytes;
         pendingBytes = 0;
         AggregateChannelWriteBufferMetrics currentMetrics = metrics;
         if (currentMetrics != null) {
@@ -275,12 +277,6 @@ public final class ChannelWriteBuffer {
         }
         headRequestStarted = false;
     }
-
-    private static void refuse(List<Buffer> buffers, ChannelPromise promise, Reason reason, String message) {
-        buffers.forEach(Buffer::release);
-        promise.fail(new ChannelWriteException(reason, message));
-    }
-
 
     /** One queued buffer. Only the last buffer of a request carries the request's promise. */
     static final class Entry {

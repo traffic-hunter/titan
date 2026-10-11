@@ -16,6 +16,7 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import org.traffichunter.titan.core.codec.stomp.StompException;
+import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.util.Handler;
@@ -35,6 +36,9 @@ public final class StompClientHandlerImpl implements StompClientHandler {
     public void handle(StompFrame sf, StompClientChannel sc) {
         sc.setLastActivatedAt();
         StompClientEvent event = new StompClientEvent(sf, sc);
+        if (sf.getCommand() == StompCommand.ERROR) {
+            context.failReceipt(sf, sc);
+        }
         receivedFrameHandler.handle(event);
 
         switch (sf.getCommand()) {
@@ -135,7 +139,7 @@ public final class StompClientHandlerImpl implements StompClientHandler {
             public void handle(StompClientEvent event, StompClientHandlerContext context) {
                 StompClientChannel connection = event.connection();
                 connection.failConnect(new StompException("Received ERROR frame from server"));
-                connection.error(event.frame());
+                connection.close();
             }
         }
 
