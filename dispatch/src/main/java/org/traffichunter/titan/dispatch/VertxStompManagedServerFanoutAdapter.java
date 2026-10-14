@@ -61,7 +61,7 @@ public final class VertxStompManagedServerFanoutAdapter implements ManagedServer
         DispatchGateway dispatchGateway = gatewayFactory.apply(
                 new VertxStompDispatchExporter(vertxStompManagedServer.server())
         );
-        SHUTDOWN_HOOK.addShutdownCallback(() -> {
+        SHUTDOWN_HOOK.addShutdownCallback(GlobalShutdownHook.DISPATCH_ORDER, () -> {
             try {
                 dispatchGateway.close();
             } catch (Exception e) {
