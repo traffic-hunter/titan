@@ -60,7 +60,7 @@ public final class TitanStompManagedServerFanoutAdapter implements ManagedServer
         DispatchGateway dispatchGateway = gatewayFactory.apply(
                 new StompDispatchExporter(stompManagedServer.server().connection())
         );
-        SHUTDOWN_HOOK.addShutdownCallback(() -> {
+        SHUTDOWN_HOOK.addShutdownCallback(GlobalShutdownHook.DISPATCH_ORDER, () -> {
             try {
                 dispatchGateway.close();
             } catch (Exception e) {

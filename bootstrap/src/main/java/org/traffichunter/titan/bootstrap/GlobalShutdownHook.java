@@ -26,6 +26,10 @@ package org.traffichunter.titan.bootstrap;
 public enum GlobalShutdownHook {
     INSTANCE;
 
+    public static final int DISPATCH_ORDER = 0;
+    public static final int SERVER_ORDER = 100;
+    public static final int RUNTIME_ORDER = 200;
+
     private final TitanShutdownHook shutdownHook = new TitanShutdownHook();
 
     public void enableShutdownHook() {
@@ -41,8 +45,12 @@ public enum GlobalShutdownHook {
     }
 
     public void addShutdownCallback(final Runnable runnable) {
+        addShutdownCallback(Integer.MAX_VALUE, runnable);
+    }
+
+    public void addShutdownCallback(int order, Runnable runnable) {
         if (shutdownHook.isEnabled()) {
-            shutdownHook.addShutdownCallback(runnable);
+            shutdownHook.addShutdownCallback(order, runnable);
         }
     }
 }

@@ -104,11 +104,12 @@ public class TitanApplication implements ApplicationStarter {
 
         RuntimeLauncher.load().forEach(launcher ->
                 launcher.start(settings, List.copyOf(managedServers))
-                        .forEach(closeable -> SHUTDOWN_HOOK.addShutdownCallback(() -> closeQuietly(closeable)))
+                        .forEach(closeable -> SHUTDOWN_HOOK.addShutdownCallback(
+                                GlobalShutdownHook.RUNTIME_ORDER, () -> closeQuietly(closeable)))
         );
 
         managedServers.forEach(managedServer ->
-                SHUTDOWN_HOOK.addShutdownCallback(managedServer::stop)
+                SHUTDOWN_HOOK.addShutdownCallback(GlobalShutdownHook.SERVER_ORDER, managedServer::stop)
         );
     }
 

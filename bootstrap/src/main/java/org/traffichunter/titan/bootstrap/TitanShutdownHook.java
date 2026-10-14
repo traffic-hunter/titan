@@ -16,8 +16,10 @@
 package org.traffichunter.titan.bootstrap;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +36,7 @@ public class TitanShutdownHook implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(TitanShutdownHook.class);
 
-    private final Set<Runnable> shutdownCallbacks = ConcurrentHashMap.newKeySet();
+    private final List<ShutdownCallback> shutdownCallbacks = new ArrayList<>();
 
     private final AtomicBoolean registered = new AtomicBoolean();
 
@@ -58,23 +60,47 @@ public class TitanShutdownHook implements Runnable {
 
     @CanIgnoreReturnValue
     public TitanShutdownHook addShutdownCallback(final Runnable callback) {
-        shutdownCallbacks.add(callback);
+        return addShutdownCallback(Integer.MAX_VALUE, callback);
+    }
+
+    @CanIgnoreReturnValue
+    public synchronized TitanShutdownHook addShutdownCallback(int order, Runnable callback) {
+        shutdownCallbacks.add(new ShutdownCallback(order, Objects.requireNonNull(callback, "callback")));
         return this;
     }
 
     @Override
     public void run() {
 
-        if(!enabledShutdown) {
+        if (!enabledShutdown) {
             return;
         }
 
-        for (Runnable callback : shutdownCallbacks) {
+        List<ShutdownCallback> callbacks;
+        synchronized (this) {
+            callbacks = new ArrayList<>(shutdownCallbacks);
+        }
+        callbacks.sort(Comparator.comparingInt(Ordered::getOrder));
+
+        for (ShutdownCallback callback : callbacks) {
             try {
                 callback.run();
             } catch (Exception e) {
                 log.warn("Failed to run Titan shutdown callback", e);
             }
+        }
+    }
+
+    private record ShutdownCallback(int order, Runnable action) implements Ordered, Runnable {
+
+        @Override
+        public int getOrder() {
+            return order;
+        }
+
+        @Override
+        public void run() {
+            action.run();
         }
     }
 }
