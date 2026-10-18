@@ -1,5 +1,10 @@
 /*
+ * Copyright 2012 The Netty Project
  * Copyright 2025 traffic-hunter
+ *
+ * Portions of start() are based on Netty's SingleThreadEventExecutor.startThread().
+ * Modified by traffic-hunter: uses Titan's EventLoopStatus and ThreadPoolExecutor lifecycle.
+ * See NOTICE for the Netty attribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

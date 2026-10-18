@@ -1,0 +1,20 @@
+Titan
+Copyright 2025 traffic-hunter
+
+This project uses Netty libraries and includes portions of networking and
+concurrency code based on The Netty Project.
+
+The Netty Project
+Copyright 2014 The Netty Project
+https://netty.io/
+
+Netty is licensed under the Apache License, Version 2.0. The license text is
+included in the source distribution's LICENSE file and Titan JARs at
+META-INF/titan/LICENSE. The affected Titan source files retain the relevant
+Netty copyright notices and describe Titan's changes. See
+docs/netty-provenance.md in the source distribution, or
+META-INF/titan/netty-provenance.md in Titan JARs, for a file-by-file account.
+
+This notice covers the Netty attribution relevant to the portions used here.
+The full Netty distribution NOTICE is available at
+https://github.com/netty/netty/blob/netty-4.2.15.Final/NOTICE.txt.

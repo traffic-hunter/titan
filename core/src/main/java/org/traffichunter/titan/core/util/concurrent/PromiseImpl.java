@@ -1,5 +1,10 @@
 /*
+ * Copyright 2013 The Netty Project
  * Copyright 2025 traffic-hunter
+ *
+ * Portions of await() and listener notification are based on Netty's DefaultPromise.
+ * Modified by traffic-hunter: uses Titan's completion state, listener storage, and
+ * EventExecutorService. See NOTICE.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

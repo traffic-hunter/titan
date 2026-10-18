@@ -1,5 +1,10 @@
 /*
+ * Copyright 2012 The Netty Project
  * Copyright 2025 traffic-hunter
+ *
+ * The connect0() success/finally cleanup pattern is based on Netty's
+ * NioSocketChannel.doConnect(). Modified by traffic-hunter: uses Titan's channel,
+ * event-loop registration, and error handling. See NOTICE.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

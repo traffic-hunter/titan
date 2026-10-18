@@ -1,5 +1,10 @@
 /*
+ * Copyright 2015 The Netty Project
  * Copyright 2025 traffic-hunter
+ *
+ * Portions of the scheduled-task queue transfer and deadline checks are based on
+ * Netty's AbstractScheduledEventExecutor. Modified by traffic-hunter: uses Titan's
+ * ScheduledPromise, task queues, shutdown policy, and time source. See NOTICE.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
