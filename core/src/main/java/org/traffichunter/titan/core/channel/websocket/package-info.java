@@ -1,4 +1,6 @@
 /**
+ * WebSocket channel wrappers and control-frame handling.
+ *
  * @author yun
  */
 @NullMarked

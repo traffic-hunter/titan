@@ -1,4 +1,6 @@
 /**
+ * Spring STOMP smoke-test package.
+ *
  * @author yun
  */
 @NullMarked

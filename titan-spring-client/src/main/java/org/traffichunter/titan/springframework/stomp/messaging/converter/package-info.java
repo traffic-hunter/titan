@@ -1,4 +1,6 @@
 /**
+ * Access to STOMP frames carried in Spring messages.
+ *
  * @author yun
  */
 @NullMarked

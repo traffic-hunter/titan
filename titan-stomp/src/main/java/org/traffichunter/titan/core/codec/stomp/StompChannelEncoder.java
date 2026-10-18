@@ -21,6 +21,10 @@ import org.traffichunter.titan.core.codec.ChannelEncoder;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
+ * Forwards serialized STOMP bytes through the outbound channel chain.
+ *
+ * <p>{@link StompFrame#toBuffer()} serializes the frame before this handler runs.</p>
+ *
  * @author yun
  */
 public class StompChannelEncoder extends ChannelEncoder {

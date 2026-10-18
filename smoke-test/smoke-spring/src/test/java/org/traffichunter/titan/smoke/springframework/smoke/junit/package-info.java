@@ -1,4 +1,6 @@
 /**
+ * JUnit support for smoke tests that start a Titan broker.
+ *
  * @author yun
  */
 @NullMarked

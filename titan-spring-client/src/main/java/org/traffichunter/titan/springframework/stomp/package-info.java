@@ -1,4 +1,6 @@
 /**
+ * Spring configuration properties for Titan STOMP clients.
+ *
  * @author yun
  */
 @NullMarked

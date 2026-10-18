@@ -1,4 +1,6 @@
 /**
+ * Socket and write-buffer options for TCP clients and servers.
+ *
  * @author yun
  */
 @NullMarked

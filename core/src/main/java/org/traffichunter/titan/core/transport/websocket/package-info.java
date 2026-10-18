@@ -1,4 +1,6 @@
 /**
+ * WebSocket upgrade handling for TCP clients and servers.
+ *
  * @author yun
  */
 @NullMarked

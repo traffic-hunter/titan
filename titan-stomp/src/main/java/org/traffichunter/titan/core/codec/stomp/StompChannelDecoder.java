@@ -34,6 +34,11 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 
 /**
+ * Parses STOMP frames from a channel's inbound byte stream.
+ *
+ * <p>Incomplete frames remain buffered. The frame-length limit applies while waiting for the
+ * rest of a frame as well as when parsing a complete one.</p>
+ *
  * @author yun, gkdbssla97
  */
 public class StompChannelDecoder extends ChannelDecoder {
@@ -54,6 +59,14 @@ public class StompChannelDecoder extends ChannelDecoder {
         this(DEFAULT_MAX_LENGTH, stompChannel, handler);
     }
 
+    /**
+     * Creates a decoder with a per-frame byte limit.
+     *
+     * @param maxFrameLength maximum frame length in bytes, excluding the final NUL delimiter
+     * @param stompChannel connection associated with decoded frames
+     * @param handler recipient of complete frames
+     * @throws IllegalArgumentException if {@code maxFrameLength} is not positive
+     */
     public StompChannelDecoder(int maxFrameLength, StompClientChannel stompChannel, StompHandler handler) {
         if (maxFrameLength <= 0) {
             throw new IllegalArgumentException("STOMP decoder limit must be greater than zero");

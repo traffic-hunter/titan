@@ -23,6 +23,10 @@ import org.traffichunter.titan.core.codec.frame.Headers;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 
 /**
+ * Stores STOMP headers and applies command-specific escaping to header values.
+ *
+ * <p>{@link Elements} names the known headers. {@link #toMap()} returns an immutable copy.</p>
+ *
  * @author yungwang-o
  */
 public final class StompHeaders extends Headers<StompHeaders.Elements, String, StompHeaders> {

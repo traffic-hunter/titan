@@ -1,4 +1,6 @@
 /**
+ * HTTP endpoints for monitor snapshots, health, and queue management.
+ *
  * @author yun
  */
 @NullMarked

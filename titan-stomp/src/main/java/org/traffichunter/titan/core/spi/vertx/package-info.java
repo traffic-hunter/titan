@@ -1,4 +1,6 @@
 /**
+ * Vert.x STOMP server providers discovered through the network engine SPI.
+ *
  * @author yun
  */
 @NullMarked

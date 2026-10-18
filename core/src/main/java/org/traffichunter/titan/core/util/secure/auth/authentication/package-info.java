@@ -1,4 +1,6 @@
 /**
+ * Authentication contracts and credential types.
+ *
  * @author yun
  */
 @NullMarked

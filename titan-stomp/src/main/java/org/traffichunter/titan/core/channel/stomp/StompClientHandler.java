@@ -18,6 +18,11 @@ package org.traffichunter.titan.core.channel.stomp;
 import org.traffichunter.titan.core.util.Handler;
 
 /**
+ * Handles STOMP frames received by a client.
+ *
+ * <p>{@link #create()} provides the default handler. It calls the received-frame callback before
+ * the handler for the frame's command.</p>
+ *
  * @author yun
  */
 public interface StompClientHandler extends StompHandler {
