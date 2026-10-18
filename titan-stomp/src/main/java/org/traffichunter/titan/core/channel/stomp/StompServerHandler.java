@@ -18,6 +18,11 @@ package org.traffichunter.titan.core.channel.stomp;
 import org.traffichunter.titan.core.util.Handler;
 
 /**
+ * Handles STOMP commands sent to the server.
+ *
+ * <p>The server configures one handler at startup. Command callbacks receive the frame and its
+ * client connection.</p>
+ *
  * @author yun
  */
 public interface StompServerHandler extends StompHandler {

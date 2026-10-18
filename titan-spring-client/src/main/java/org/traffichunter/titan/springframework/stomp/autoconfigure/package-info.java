@@ -1,4 +1,6 @@
 /**
+ * Spring Boot auto-configuration for the Titan client and listener support.
+ *
  * @author yun
  */
 @NullMarked

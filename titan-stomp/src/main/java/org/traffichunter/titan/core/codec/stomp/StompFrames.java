@@ -23,6 +23,11 @@ import java.util.Map;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 /**
+ * Common view of native and Vert.x STOMP frames.
+ *
+ * <p>A frame exposes its command, headers, and body. Delivery confirmation is outside this
+ * interface.</p>
+ *
  * @author yun
  */
 public interface StompFrames {
@@ -35,14 +40,32 @@ public interface StompFrames {
         return frame;
     }
 
+    /**
+     * The command in this frame.
+     *
+     * @return the frame command
+     */
     StompCommand command();
 
+    /**
+     * Looks up a known header.
+     *
+     * @param key header to look up
+     * @return the value, or {@code null} when the header is absent
+     */
     @Nullable String getHeader(final Elements key);
 
     /**
-     * These headers are read-only.
+     * An unmodifiable snapshot of the known headers.
+     *
+     * @return frame headers keyed by their STOMP elements
      */
     Map<Elements, String> headers();
 
+    /**
+     * The frame body as bytes.
+     *
+     * @return body bytes, or an empty array for a frame without a body
+     */
     byte[] body();
 }

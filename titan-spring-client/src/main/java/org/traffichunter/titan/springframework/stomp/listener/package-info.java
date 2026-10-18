@@ -1,4 +1,6 @@
 /**
+ * Listener endpoints, containers, and their registration with Spring.
+ *
  * @author yun
  */
 @NullMarked

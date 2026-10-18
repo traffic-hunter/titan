@@ -1,4 +1,6 @@
 /**
+ * Shared types and helpers used across Titan modules.
+ *
  * @author yun
  */
 @NullMarked

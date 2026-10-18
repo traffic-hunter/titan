@@ -1,4 +1,6 @@
 /**
+ * TCP client and server transports built on Titan channels.
+ *
  * @author yun
  */
 @NullMarked

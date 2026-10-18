@@ -41,6 +41,13 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.Protocol;
 
 /**
+ * Runs STOMP over Titan's network transport.
+ *
+ * <p>Use {@link #open(EventLoopGroups, StompServerOption)} to create the server, configure command
+ * callbacks with {@link #onStomp(Handler)}, then call {@link #start()} and
+ * {@link #listen(String, int)}. Call {@link #webSocket(String)} before startup to accept WebSocket
+ * connections.</p>
+ *
  * @author yun
  */
 public final class StompServer {

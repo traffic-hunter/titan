@@ -1,4 +1,6 @@
 /**
+ * WebSocket frame headers, encoding, and decoding.
+ *
  * @author yun
  */
 @NullMarked

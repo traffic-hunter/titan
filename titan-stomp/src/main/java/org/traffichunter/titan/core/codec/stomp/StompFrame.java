@@ -33,6 +33,11 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.Frame;
 
 /**
+ * STOMP command, headers, and body for Titan's native transport.
+ *
+ * <p>The factories copy byte-array bodies. The {@code Buffer} factory reads and releases its
+ * input. {@link #body()} returns a copy, and {@link #toBuffer()} writes the frame to a buffer.</p>
+ *
  * @author yungwang-o
  */
 public final class StompFrame implements Frame<Elements, String>, StompFrames {

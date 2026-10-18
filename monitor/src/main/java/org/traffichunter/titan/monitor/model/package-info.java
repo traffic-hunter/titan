@@ -1,4 +1,6 @@
 /**
+ * Snapshot data returned by the monitor service.
+ *
  * @author yun
  */
 @NullMarked
