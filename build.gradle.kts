@@ -1,5 +1,6 @@
 import com.github.jengelman.gradle.plugins.shadow.ShadowExtension
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
+import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
     id("java")
@@ -128,6 +129,18 @@ val publishedArtifacts = mapOf(
 
 configure(publishedArtifacts.keys.map { project(":$it") }) {
     apply(plugin = "com.vanniktech.maven.publish")
+
+    tasks.named<ProcessResources>("processResources") {
+        from(rootProject.file("LICENSE")) {
+            into("META-INF/titan")
+        }
+        from(rootProject.file("NOTICE")) {
+            into("META-INF/titan")
+        }
+        from(rootProject.file("docs/netty-provenance.md")) {
+            into("META-INF/titan")
+        }
+    }
 
     pluginManager.withPlugin("com.gradleup.shadow") {
         extensions.configure<ShadowExtension>("shadow") {

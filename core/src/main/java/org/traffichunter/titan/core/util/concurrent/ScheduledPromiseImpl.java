@@ -1,5 +1,10 @@
 /*
+ * Copyright 2013 The Netty Project
  * Copyright 2025 traffic-hunter
+ *
+ * Portions of compareTo(), periodic rescheduling, cancellation, and priority-queue
+ * bookkeeping are based on Netty's ScheduledFutureTask. Modified by traffic-hunter:
+ * integrates Titan's Promise, EventLoop, and clock. See NOTICE.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
