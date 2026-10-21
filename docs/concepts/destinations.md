@@ -155,7 +155,8 @@ gateway executor.
 
 The `publish()` future represents completion of the dispatch handler chain and
 consumer-start request. It does **not** mean that every remote subscriber has
-received or acknowledged the message.
+received or acknowledged the message. See [Delivery guarantees](delivery-guarantees.md)
+for the complete send, admission, fanout, and reconnect contract.
 
 ## How subscriptions match
 

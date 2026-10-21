@@ -107,6 +107,12 @@ before using Titan for reliability-sensitive workloads.
   <td><a href="concepts/fanout.md">fanout</a></td>
 </tr>
 <tr>
+  <td><h3><i class="fa-shield-check" style="color:$primary;">:shield-check:</i></h3></td>
+  <td><strong>Delivery guarantees</strong></td>
+  <td>Know what send, receipt, queue admission, and acknowledgement confirm.</td>
+  <td><a href="concepts/delivery-guarantees.md">delivery contract</a></td>
+</tr>
+<tr>
   <td><h3><i class="fa-wave-pulse" style="color:$primary;">:wave-pulse:</i></h3></td>
   <td><strong>Monitoring and CLI</strong></td>
   <td>See node health and dispatcher pressure without leaving the terminal.</td>

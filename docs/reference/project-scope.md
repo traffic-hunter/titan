@@ -25,7 +25,8 @@ Titan does not currently promise:
 
 These boundaries are intentional documentation, not hidden caveats. Evaluate
 delivery and recovery requirements before placing Titan on a critical message
-path.
+path. The current runtime contract is described in
+[Delivery guarantees](../concepts/delivery-guarantees.md).
 
 ## Compatibility baseline
 

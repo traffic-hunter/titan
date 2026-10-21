@@ -32,4 +32,5 @@ and `virtual` is the only mode.
 Fanout is live delivery, not durable retention. A subscriber that is offline
 does not gain replay from its destination name. If consumers must recover
 historical events after reconnecting, provide persistence outside Titan or
-choose a durable messaging system.
+choose a durable messaging system. Titan's at-most-once attempt model and the
+meaning of SEND receipts are detailed in [Delivery guarantees](delivery-guarantees.md).

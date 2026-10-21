@@ -11,7 +11,9 @@
 Titan is a lightweight message dispatch platform for real-time STOMP messaging
 over TCP, WebSocket, and TLS. It provides an in-memory destination queue,
 fanout delivery, reconnecting Java clients, Spring Boot integration, and local
-runtime monitoring in a standalone JVM process.
+runtime monitoring in a standalone JVM process. Titan uses an at-most-once
+delivery attempt model: each accepted message gets one live delivery attempt
+per matching subscription, without durable retry or replay.
 
 Use Titan for notifications, chat-style messaging, telemetry fanout, and live
 interaction backends where messages can be handled in memory. Titan is not an
@@ -210,6 +212,7 @@ authentication, and platform-specific archives.
 
 - [Quickstart](./docs/quickstart.md)
 - [How Titan works](./docs/concepts/how-titan-works.md)
+- [Delivery guarantees](./docs/concepts/delivery-guarantees.md)
 - [Java client](./docs/examples/client.md)
 - [Spring Boot client](./docs/examples/spring-client.md)
 - [Server embedding](./docs/examples/server.md)
@@ -233,6 +236,8 @@ authentication, and platform-specific archives.
 - Monitoring focuses on local JVM, channel, and destination queue visibility.
 - Durable storage, clustering, and replicated delivery are not current runtime
   guarantees.
+- Delivery uses an at-most-once attempt model. A SEND receipt confirms queue
+  admission, not subscriber processing. See [Delivery guarantees](./docs/concepts/delivery-guarantees.md).
 
 ## Development
 
