@@ -11,7 +11,9 @@
 Titan is a lightweight message dispatch platform for real-time STOMP messaging
 over TCP, WebSocket, and TLS. It provides an in-memory destination queue,
 fanout delivery, reconnecting Java clients, Spring Boot integration, and local
-runtime monitoring in a standalone JVM process.
+runtime monitoring in a standalone JVM process. Titan uses an at-most-once
+delivery attempt model: each accepted message gets one live delivery attempt
+per matching subscription, without durable retry or replay.
 
 Use Titan for notifications, chat-style messaging, telemetry fanout, and live
 interaction backends where messages can be handled in memory. Titan is not an
