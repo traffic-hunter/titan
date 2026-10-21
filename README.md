@@ -210,6 +210,7 @@ authentication, and platform-specific archives.
 
 - [Quickstart](./docs/quickstart.md)
 - [How Titan works](./docs/concepts/how-titan-works.md)
+- [Delivery guarantees](./docs/concepts/delivery-guarantees.md)
 - [Java client](./docs/examples/client.md)
 - [Spring Boot client](./docs/examples/spring-client.md)
 - [Server embedding](./docs/examples/server.md)
@@ -233,6 +234,8 @@ authentication, and platform-specific archives.
 - Monitoring focuses on local JVM, channel, and destination queue visibility.
 - Durable storage, clustering, and replicated delivery are not current runtime
   guarantees.
+- Delivery uses an at-most-once attempt model. A SEND receipt confirms queue
+  admission, not subscriber processing. See [Delivery guarantees](./docs/concepts/delivery-guarantees.md).
 
 ## Development
 
