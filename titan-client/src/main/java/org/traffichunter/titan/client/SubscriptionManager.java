@@ -30,12 +30,12 @@ import org.jspecify.annotations.Nullable;
  *
  * @author yun
  */
-public final class SubscriptionManager {
+final class SubscriptionManager {
 
     private final Map<String, Subscription> subscriptions = new ConcurrentHashMap<>();
 
     /** Creates an empty logical subscription registry. */
-    public SubscriptionManager() {
+    SubscriptionManager() {
     }
 
     /**
@@ -43,7 +43,7 @@ public final class SubscriptionManager {
      *
      * @param subscription logical subscription metadata
      */
-    public void add(Subscription subscription) {
+    void add(Subscription subscription) {
         subscriptions.put(subscription.id(), subscription);
     }
 
@@ -53,7 +53,7 @@ public final class SubscriptionManager {
      * @param subscriptionId subscription identifier
      * @return matching subscription, or {@code null} when absent
      */
-    public @Nullable Subscription get(String subscriptionId) {
+    @Nullable Subscription get(String subscriptionId) {
         return subscriptions.get(subscriptionId);
     }
 
@@ -62,7 +62,7 @@ public final class SubscriptionManager {
      *
      * @return immutable list snapshot of current subscriptions
      */
-    public List<Subscription> subscriptions() {
+    List<Subscription> subscriptions() {
         return List.copyOf(subscriptions.values());
     }
 
@@ -71,7 +71,7 @@ public final class SubscriptionManager {
      *
      * @param subscriptionId subscription identifier
      */
-    public void remove(String subscriptionId) {
+    void remove(String subscriptionId) {
         subscriptions.remove(subscriptionId);
     }
 
@@ -80,7 +80,7 @@ public final class SubscriptionManager {
      *
      * @return {@code true} when empty
      */
-    public boolean isEmpty() {
+    boolean isEmpty() {
         return subscriptions.isEmpty();
     }
 
@@ -89,12 +89,12 @@ public final class SubscriptionManager {
      *
      * @return subscription count
      */
-    public int size() {
+    int size() {
         return subscriptions.size();
     }
 
     /** Removes all logical subscriptions during disconnect or shutdown. */
-    public void clear() {
+    void clear() {
         subscriptions.clear();
     }
 }

@@ -15,7 +15,9 @@
  */
 package org.traffichunter.titan.client;
 
+import java.lang.reflect.Modifier;
 import java.time.Duration;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.net.TlsContext;
@@ -31,6 +33,28 @@ import static org.mockito.Mockito.when;
  * @author yun
  */
 class TitanClientBuilderTest {
+
+    @Test
+    void keeps_transport_and_state_implementations_out_of_the_public_api() {
+        List<Class<?>> implementationTypes = List.of(
+                ClientDriver.class,
+                StompClientDriver.class,
+                Worker.class,
+                StompConnection.class,
+                ClientConfiguration.class,
+                Subscription.class,
+                SubscriptionManager.class,
+                DefaultTitanClient.class,
+                TitanStompClientDriver.class,
+                VertxStompClientDriver.class
+        );
+
+        assertThat(implementationTypes).allSatisfy(type ->
+                assertThat(Modifier.isPublic(type.getModifiers()))
+                        .as(type.getSimpleName())
+                        .isFalse()
+        );
+    }
 
     @Test
     void builds_native_client_with_session_and_runtime_configuration() {

@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author yun
  */
-public interface ClientDriver {
+interface ClientDriver {
 
     /**
      * Returns the stable implementation name reported by the client.

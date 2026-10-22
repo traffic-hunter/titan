@@ -58,7 +58,7 @@ import java.util.concurrent.TimeoutException;
  * @author yun
  */
 @Deprecated(since = "0.9.0")
-public final class VertxStompClientDriver implements StompClientDriver {
+final class VertxStompClientDriver implements StompClientDriver {
 
     private final ClientConfiguration configuration;
     private final boolean managedVertx;
@@ -75,7 +75,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
      *
      * @param configuration immutable client and protocol configuration
      */
-    public VertxStompClientDriver(ClientConfiguration configuration) {
+    VertxStompClientDriver(ClientConfiguration configuration) {
         this(Vertx.vertx(), null, configuration, true);
     }
 
@@ -85,7 +85,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
      * @param vertx runtime used for connections and callbacks
      * @param configuration immutable client and protocol configuration
      */
-    public VertxStompClientDriver(Vertx vertx, ClientConfiguration configuration) {
+    VertxStompClientDriver(Vertx vertx, ClientConfiguration configuration) {
         this(vertx, null, configuration, false);
     }
 
@@ -113,7 +113,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
      * @param configuration configuration used by the common facade
      * @return a started driver around {@code client}
      */
-    public static VertxStompClientDriver wrap(StompClient client, ClientConfiguration configuration) {
+    static VertxStompClientDriver wrap(StompClient client, ClientConfiguration configuration) {
         return new VertxStompClientDriver(client.vertx(), client, configuration, false);
     }
 
@@ -214,7 +214,7 @@ public final class VertxStompClientDriver implements StompClientDriver {
      *
      * @return driver runtime
      */
-    public Vertx vertx() {
+    Vertx vertx() {
         return vertx;
     }
 

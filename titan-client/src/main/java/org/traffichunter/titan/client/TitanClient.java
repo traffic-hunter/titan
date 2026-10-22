@@ -35,9 +35,9 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  * Public messaging API shared by Titan client implementations.
  *
  * <p>Use the nested builder to configure a client without depending on its networking
- * implementation. Integrations that supply their own {@link StompClientDriver} can pass it
- * directly to {@link DefaultTitanClient}. Application code normally uses this interface and
- * transport-neutral {@link StompFrames} values.</p>
+ * implementation. Native and legacy transport details remain behind this facade, while
+ * application code works with this interface and transport-neutral {@link StompFrames}
+ * values.</p>
  *
  * @author yun
  */

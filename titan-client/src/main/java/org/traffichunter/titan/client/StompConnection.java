@@ -35,7 +35,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
  *
  * @author yun
  */
-public interface StompConnection {
+interface StompConnection {
 
     /**
      * Sends a message using the connection's default headers.

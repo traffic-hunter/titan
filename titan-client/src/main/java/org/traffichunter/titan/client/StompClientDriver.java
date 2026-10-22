@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author yun
  */
-public interface StompClientDriver extends ClientDriver {
+interface StompClientDriver extends ClientDriver {
 
     /**
      * Returns the implementation name exposed by the client facade.

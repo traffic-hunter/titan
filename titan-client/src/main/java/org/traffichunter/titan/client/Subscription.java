@@ -36,7 +36,7 @@ import org.traffichunter.titan.core.util.Handler;
  *
  * @author yun
  */
-public record Subscription(
+record Subscription(
         String id,
         Destination destination,
         StompHeaders stompHeaders,

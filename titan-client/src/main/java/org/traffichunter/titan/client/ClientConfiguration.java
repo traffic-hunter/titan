@@ -26,11 +26,11 @@ import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
 /**
- * Immutable configuration shared by a {@link TitanClient} and its driver.
+ * Immutable configuration shared by a {@link TitanClient} and its internal driver.
  *
- * <p>Use {@link TitanClient.Builder} to configure a client. Drivers and integrations can also
- * construct this record directly. Its compact constructor supplies defaults for omitted
- * optional values and checks that the configuration is valid for a connection attempt.</p>
+ * <p>The {@link TitanClient.Builder} assembles this value for the selected driver. Its compact
+ * constructor supplies defaults for omitted optional values and checks that the configuration is
+ * valid for a connection attempt.</p>
  *
  * @param host remote server host used by the transport
  * @param port remote server port
@@ -44,7 +44,7 @@ import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
  *
  * @author yun
  */
-public record ClientConfiguration(
+record ClientConfiguration(
         String host,
         int port,
         StompSessionOption session,
@@ -71,7 +71,7 @@ public record ClientConfiguration(
     }
 
     /** Validates connection values after the record components have been initialized. */
-    public ClientConfiguration {
+    ClientConfiguration {
         if (host.isBlank()) {
             throw new IllegalArgumentException("host cannot be blank");
         }

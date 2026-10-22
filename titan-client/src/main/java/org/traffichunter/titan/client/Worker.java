@@ -33,7 +33,7 @@ import java.util.concurrent.Executor;
  *
  * @author yun
  */
-public interface Worker extends Executor, AutoCloseable {
+interface Worker extends Executor, AutoCloseable {
 
     /**
      * Schedules a task on this worker.
