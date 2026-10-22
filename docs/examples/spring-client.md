@@ -172,8 +172,8 @@ later reconnect does not bring it back.
 ## Lifecycle And Acknowledgement
 
 `spring.titan.client` selects the STOMP client implementation. `titan` uses the
-native Titan client, while `vertx` uses the Vert.x STOMP client adapter. Both are
-exposed through the same Spring API.
+native Titan client and is the supported default. The deprecated `vertx` value
+remains available for migration through the same Spring API.
 
 When `auto-start` is enabled, the Spring context starts the configured client.
 When `auto-connect` is enabled, the manager connects during startup. If a caller

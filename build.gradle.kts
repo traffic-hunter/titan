@@ -1,11 +1,15 @@
 import com.github.jengelman.gradle.plugins.shadow.ShadowExtension
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
+import me.champeau.gradle.japicmp.JapicmpTask
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.jvm.tasks.Jar
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
     id("java")
     id("com.vanniktech.maven.publish") version "0.36.0" apply false
     id("com.gradleup.shadow") version "9.4.1" apply false
+    id("me.champeau.gradle.japicmp") version "0.4.6" apply false
 }
 
 group = "org.traffichunter.titan"
@@ -127,6 +131,15 @@ val publishedArtifacts = mapOf(
     "monitor" to "titan-monitor",
 )
 
+val apiBaselineVersion = providers.gradleProperty("apiBaselineVersion").orElse("0.9.0")
+val apiCompatibilityStrict = providers.gradleProperty("apiCompatibilityStrict")
+    .map(String::toBoolean)
+    .orElse(false)
+val checkApiCompatibility = tasks.register("checkApiCompatibility") {
+    group = "verification"
+    description = "Reports changes in published modules against the public API baseline."
+}
+
 configure(publishedArtifacts.keys.map { project(":$it") }) {
     apply(plugin = "com.vanniktech.maven.publish")
 
@@ -150,6 +163,47 @@ configure(publishedArtifacts.keys.map { project(":$it") }) {
 
     val artifact = publishedArtifacts[name]!!
     val publicationVersion = rootProject.version.toString()
+    val apiBaseline = configurations.create("apiBaseline") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+        description = "Released $artifact API used as the compatibility baseline."
+    }
+
+    dependencies.add(
+        apiBaseline.name,
+        "org.traffichunter.titan:$artifact:${apiBaselineVersion.get()}"
+    )
+
+    val baselineArchive = apiBaseline.incoming.artifactView {
+        componentFilter { component ->
+            component is ModuleComponentIdentifier
+                    && component.group == "org.traffichunter.titan"
+                    && component.module == artifact
+        }
+    }.files
+
+    val moduleApiCompatibility = tasks.register<JapicmpTask>("checkApiCompatibility") {
+        group = "verification"
+        description = "Checks $artifact against version ${apiBaselineVersion.get()}."
+        dependsOn(tasks.named("jar"))
+
+        oldArchives.from(baselineArchive)
+        newArchives.from(tasks.named<Jar>("jar"))
+        oldClasspath.from(apiBaseline)
+        newClasspath.from(configurations.named("runtimeClasspath"), tasks.named<Jar>("jar"))
+
+        onlyModified = true
+        failOnModification = apiCompatibilityStrict.get()
+        failOnSourceIncompatibility = apiCompatibilityStrict.get()
+        ignoreMissingClasses = false
+        accessModifier = "public"
+        htmlOutputFile = layout.buildDirectory.file("reports/japicmp/api-compatibility.html").get().asFile
+        txtOutputFile = layout.buildDirectory.file("reports/japicmp/api-compatibility.txt").get().asFile
+    }
+
+    checkApiCompatibility.configure {
+        dependsOn(moduleApiCompatibility)
+    }
 
     val titanGitAddress = "https://github.com/traffic-hunter/titan"
     val scmConnection = "scm:git:https://github.com/traffic-hunter/titan.git"

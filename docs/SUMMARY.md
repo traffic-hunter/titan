@@ -27,5 +27,6 @@
 
 * [Configuration](reference/configuration.md)
 * [Modules](reference/modules.md)
+* [API compatibility](reference/api-compatibility.md)
 * [Project scope](reference/project-scope.md)
 * [Contributing](guide/CONTRIBUTING.md)

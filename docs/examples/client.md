@@ -107,10 +107,11 @@ The deprecated Vert.x **server** transport does not support groups and answers a
 `group` header with an `ERROR` frame. Both client implementations send the header,
 so a grouped send against that server fails instead of quietly going to `default`.
 
-## Select An Implementation
+## Legacy Vert.x Adapter
 
-The native implementation is selected by default. Applications can select the
-Vert.x driver without exposing a different client type:
+The native implementation is selected by default and should be used for new
+applications. The deprecated Vert.x driver remains available while existing
+applications migrate:
 
 ```java
 TitanClient client = TitanClient.builder()

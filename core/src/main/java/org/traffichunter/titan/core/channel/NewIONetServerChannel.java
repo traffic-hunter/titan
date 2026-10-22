@@ -102,8 +102,8 @@ public class NewIONetServerChannel extends AbstractChannel implements NetServerC
     }
 
     @Override
-    public SocketAddress remoteAddress() {
-        throw new UnsupportedOperationException("Not supported!!");
+    public @Nullable SocketAddress remoteAddress() {
+        return null;
     }
 
     private ServerSocketChannel channel() {
