@@ -62,8 +62,16 @@ public final class IdGenerator {
         return Configurations.name();
     }
 
+    /**
+     * Returns the current Unix epoch time in milliseconds as a decimal string.
+     *
+     * <p>This value records time only and is not guaranteed to be unique. Use {@link #uuid()} or
+     * {@link #randomId16(String)} when an identifier is required.
+     *
+     * @return current epoch milliseconds
+     */
     public static String timestamp() {
-        throw new UnsupportedOperationException();
+        return Long.toString(System.currentTimeMillis());
     }
 
     private IdGenerator() { }

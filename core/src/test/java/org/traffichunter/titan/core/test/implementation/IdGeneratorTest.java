@@ -45,4 +45,11 @@ class IdGeneratorTest {
 
         assertThat(Base64.getDecoder().decode(randomId)).hasSize(16);
     }
+
+    @Test
+    void generate_epoch_millisecond_timestamp_test() {
+        long timestamp = Long.parseLong(IdGenerator.timestamp());
+
+        assertThat(timestamp).isPositive();
+    }
 }

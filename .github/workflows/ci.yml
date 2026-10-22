@@ -45,6 +45,9 @@ jobs:
       - name: Build
         run: ./gradlew --no-daemon build --stacktrace
 
+      - name: Check public API compatibility
+        run: ./gradlew --no-daemon checkApiCompatibility --stacktrace
+
       - name: Test Go CLI
         working-directory: titan-cli
         run: go test ./...
@@ -57,6 +60,7 @@ jobs:
           path: |
             **/build/reports/tests/test/
             **/build/test-results/test/
+            **/build/reports/japicmp/
 
   container:
     name: Build and run container

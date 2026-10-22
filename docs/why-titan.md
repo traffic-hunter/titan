@@ -12,7 +12,7 @@ Titan is a good fit when your system needs:
 * Exact destination matching backed by a FIFO dispatcher queue
 * Publish-subscribe fanout
 * Java or Spring Boot integration
-* One `TitanClient` API for the native and Vert.x client implementations
+* One `TitanClient` API centered on Titan's native transport
 * Reconnection with active subscription recovery
 * Local operational visibility from HTTP or a terminal
 * An embeddable runtime with pluggable protocol and transport engines
@@ -39,8 +39,8 @@ observable real-time dispatch.
 2. **The hot path stays small.** NIO event loops, channels, and pipelines move
    frames without hiding the transport lifecycle.
 3. **Public APIs hide transport details.** Applications use `TitanClient` and
-   transport-neutral STOMP frames while native and Vert.x drivers remain behind
-   the facade.
+   transport-neutral STOMP frames without depending on channel internals. The
+   deprecated Vert.x adapter remains behind the same facade for migration.
 4. **Optional features remain optional.** Dispatch and monitoring attach as
    runtime modules instead of defining the core.
 5. **Operations are part of the product.** Health and queue state are available

@@ -71,8 +71,33 @@ Common validation commands:
 ./gradlew :core:test
 ./gradlew :titan-stomp:test
 ./gradlew :titan-spring-client:test
+./gradlew checkApiCompatibility
 cd titan-cli && go test ./...
 ```
+
+## API Compatibility
+
+Titan compares every Maven-published module with the configured released API
+baseline, which defaults to `0.9.0`. The check covers public and protected
+bytecode and source signatures in `titan-bootstrap`, `titan-core`, `titan-stomp`,
+`titan-client`, `titan-spring-client`, `titan-dispatch`, and `titan-monitor`.
+
+Run the check before changing a public type, constructor, method, field, or
+implemented interface:
+
+```bash
+./gradlew checkApiCompatibility
+```
+
+Reports are written to `<module>/build/reports/japicmp/`. A different released
+version can be inspected locally with
+`-PapiBaselineVersion=<version>`. Update the repository baseline only after a
+release becomes the accepted compatibility reference; do not advance it merely
+to hide a failing change.
+
+The bytecode check does not cover YAML keys or documented runtime behavior.
+Treat changes to `titan-env.yml`, `spring.titan`, delivery semantics, and default
+values as public contract changes and include migration notes when they change.
 
 Open pull requests as drafts while the design is still changing.
 Mark the pull request ready only after the implementation, tests, and documentation are aligned.

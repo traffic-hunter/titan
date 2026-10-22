@@ -19,39 +19,79 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
+ * Applies flow-control operations to a collection of dampers.
+ *
+ * <p>The composite remains open only while every registered damper is open. Regulation is
+ * applied to every damper so each one can refresh its state from the resource it observes.
+ * An empty composite is open.
+ *
  * @author yun
  */
 public class CompositeDamper implements Damper {
 
     private final CopyOnWriteArrayList<Damper> dampers = new CopyOnWriteArrayList<>();
 
+    /**
+     * Adds a damper unless the same instance is already registered.
+     *
+     * @param damper damper to add
+     * @return this composite
+     */
     public CompositeDamper add(Damper damper) {
         dampers.addIfAbsent(damper);
         return this;
     }
 
+    /**
+     * Adds each damper that is not already registered.
+     *
+     * @param dampers dampers to add
+     * @return this composite
+     */
     public CompositeDamper addAll(Damper... dampers) {
         this.dampers.addAllAbsent(List.of(dampers));
         return this;
     }
 
+    /**
+     * Removes a registered damper.
+     *
+     * @param damper damper to remove
+     * @return this composite
+     */
     public CompositeDamper remove(Damper damper) {
         dampers.remove(damper);
         return this;
     }
 
+    /**
+     * Removes every registered damper.
+     *
+     * @return this composite
+     */
     public CompositeDamper clear() {
         dampers.clear();
         return this;
     }
 
+    /**
+     * Returns an immutable snapshot of the registered dampers.
+     *
+     * @return registered dampers in invocation order
+     */
     public List<Damper> dampers() {
         return List.copyOf(dampers);
     }
 
     @Override
     public DamperStatus regulate() {
-        throw new UnsupportedOperationException("Not supported");
+        DamperStatus status = DamperStatus.OPEN;
+        for (Damper damper : dampers) {
+            if (damper.regulate() == DamperStatus.CLOSED) {
+                status = DamperStatus.CLOSED;
+            }
+        }
+        return status;
     }
 
     @Override
@@ -66,6 +106,11 @@ public class CompositeDamper implements Damper {
 
     @Override
     public DamperStatus getStatus() {
-        throw new UnsupportedOperationException("Not supported");
+        for (Damper damper : dampers) {
+            if (damper.isClosed()) {
+                return DamperStatus.CLOSED;
+            }
+        }
+        return DamperStatus.OPEN;
     }
 }
