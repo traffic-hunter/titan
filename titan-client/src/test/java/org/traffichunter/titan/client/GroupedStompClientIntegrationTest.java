@@ -250,26 +250,6 @@ class GroupedStompClientIntegrationTest {
         assertThat(delivered.getHeader(Elements.GROUP)).isEqualTo("market");
     }
 
-    @Test
-    @Timeout(value = 30, unit = SECONDS)
-    void the_vertx_client_carries_the_group_as_well() throws Exception {
-        int port = startDispatchingServer("");
-        DefaultTitanClient client = connectVertx(port);
-
-        BlockingQueue<StompFrames> market = new LinkedBlockingQueue<>();
-        BlockingQueue<StompFrames> plain = new LinkedBlockingQueue<>();
-        String marketId = client.subscribe("market", DESTINATION, market::add).get(5, SECONDS);
-        client.subscribe("default", DESTINATION, plain::add).get(5, SECONDS);
-
-        client.send("market", DESTINATION, "m1").get(5, SECONDS);
-
-        StompFrames delivered = market.poll(10, SECONDS);
-        assertThat(delivered).isNotNull();
-        assertThat(new String(delivered.body(), StandardCharsets.UTF_8)).isEqualTo("m1");
-        assertThat(delivered.getHeader(Elements.SUBSCRIPTION)).isEqualTo(marketId);
-        assertThat(plain.poll(500, TimeUnit.MILLISECONDS)).isNull();
-    }
-
     @ParameterizedTest
     @EnumSource(value = DispatchResult.class, names = "ACCEPTED", mode = EnumSource.Mode.EXCLUDE)
     @Timeout(value = 30, unit = SECONDS)
@@ -441,18 +421,6 @@ class GroupedStompClientIntegrationTest {
         DefaultTitanClient client = new DefaultTitanClient(
                 new TitanStompClientDriver(EventLoopGroups.singleGroup(), configuration.build())
         );
-        clients.add(client);
-        client.start();
-        client.connect().get(5, SECONDS);
-        return client;
-    }
-
-    private DefaultTitanClient connectVertx(int port) throws Exception {
-        ClientConfiguration configuration = ClientConfiguration.builder()
-                .host("localhost")
-                .port(port)
-                .build();
-        DefaultTitanClient client = new DefaultTitanClient(new VertxStompClientDriver(configuration));
         clients.add(client);
         client.start();
         client.connect().get(5, SECONDS);

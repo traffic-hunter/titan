@@ -16,14 +16,12 @@
 package org.traffichunter.titan.core.codec.stomp;
 
 import org.jspecify.annotations.Nullable;
-import org.traffichunter.titan.core.codec.stomp.vertx.VertxStompFrame;
-
 import java.util.Map;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 
 /**
- * Common view of native and Vert.x STOMP frames.
+ * Public view of a STOMP frame.
  *
  * <p>A frame exposes its command, headers, and body. Delivery confirmation is outside this
  * interface.</p>
@@ -33,10 +31,6 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 public interface StompFrames {
 
     static StompFrames from(StompFrame frame) {
-        return frame;
-    }
-
-    static StompFrames from(VertxStompFrame frame) {
         return frame;
     }
 

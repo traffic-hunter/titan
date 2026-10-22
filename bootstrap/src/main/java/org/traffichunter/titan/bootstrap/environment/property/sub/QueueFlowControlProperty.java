@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
+package org.traffichunter.titan.bootstrap.environment.property.sub;
 
-/** Mutable YAML DTO for heap-pressure hysteresis thresholds. */
-public final class HeapFlowControlProperty {
+/** Mutable YAML DTO for destination queue byte limits. */
+public final class QueueFlowControlProperty {
 
     private boolean enabled = true;
-    private double highWatermark = 0.90;
-    private double lowWatermark = 0.70;
+    private long maxPendingBytes = 64L * 1024 * 1024;
+    private long resumePendingBytes = 48L * 1024 * 1024;
 
     public boolean isEnabled() {
         return enabled;
@@ -30,19 +30,19 @@ public final class HeapFlowControlProperty {
         this.enabled = enabled;
     }
 
-    public double getHighWatermark() {
-        return highWatermark;
+    public long getMaxPendingBytes() {
+        return maxPendingBytes;
     }
 
-    public void setHighWatermark(double highWatermark) {
-        this.highWatermark = highWatermark;
+    public void setMaxPendingBytes(long maxPendingBytes) {
+        this.maxPendingBytes = maxPendingBytes;
     }
 
-    public double getLowWatermark() {
-        return lowWatermark;
+    public long getResumePendingBytes() {
+        return resumePendingBytes;
     }
 
-    public void setLowWatermark(double lowWatermark) {
-        this.lowWatermark = lowWatermark;
+    public void setResumePendingBytes(long resumePendingBytes) {
+        this.resumePendingBytes = resumePendingBytes;
     }
 }

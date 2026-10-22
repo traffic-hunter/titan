@@ -56,7 +56,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
  *
  * @author yun
  */
-public final class TitanStompClientDriver implements StompClientDriver {
+final class TitanStompClientDriver implements StompClientDriver {
 
     private static final Logger log = LoggerFactory.getLogger(TitanStompClientDriver.class);
 
@@ -72,7 +72,7 @@ public final class TitanStompClientDriver implements StompClientDriver {
      * @param groups event-loop groups used by the native transport
      * @param configuration immutable client and protocol configuration
      */
-    public TitanStompClientDriver(EventLoopGroups groups, ClientConfiguration configuration) {
+    TitanStompClientDriver(EventLoopGroups groups, ClientConfiguration configuration) {
         this(groups, null, configuration);
     }
 

@@ -59,9 +59,9 @@ public class TitanClientExample {
 }
 ```
 
-The builder is the public configuration surface for both Titan's native client
-and the Vert.x implementation. Keep one client for its full application
-lifecycle and shut it down when it is no longer needed.
+The builder is the public configuration surface for Titan's native client.
+Keep one client for its full application lifecycle and shut it down when it is
+no longer needed.
 
 ## Destination Groups
 
@@ -102,28 +102,6 @@ The older `subscribe(destination, headers, handler)` overload predates groups an
 still falls back to the destination as the subscription identifier. Subscribing to
 one destination in two groups through that overload needs an explicit `ID` header
 for each; the group overloads take care of it.
-
-The deprecated Vert.x **server** transport does not support groups and answers a
-`group` header with an `ERROR` frame. Both client implementations send the header,
-so a grouped send against that server fails instead of quietly going to `default`.
-
-## Legacy Vert.x Adapter
-
-The native implementation is selected by default and should be used for new
-applications. The deprecated Vert.x driver remains available while existing
-applications migrate:
-
-```java
-TitanClient client = TitanClient.builder()
-        .implementation(TitanClient.Implementation.VERTX)
-        .host("127.0.0.1")
-        .port(61613)
-        .build();
-```
-
-All send, subscribe, acknowledgement, and lifecycle operations remain on
-`TitanClient`. Titan's `TlsContext` is currently supported only by the native
-implementation.
 
 ## Configure Reconnection
 

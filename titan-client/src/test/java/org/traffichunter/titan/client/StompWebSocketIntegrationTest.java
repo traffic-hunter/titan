@@ -69,44 +69,6 @@ class StompWebSocketIntegrationTest {
 
     @Test
     @Timeout(10)
-    void connect_vertx_stomp_client_over_websocket() throws Exception {
-        StompServer server = StompServer.open(
-                EventLoopGroups.group(1, 1),
-                StompServerOption.builder().build()
-        ).webSocket("/stomp");
-        try {
-            server.start();
-            server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
-            int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
-            ClientConfiguration configuration = ClientConfiguration.builder()
-                    .host("localhost")
-                    .port(port)
-                    .webSocket("/stomp")
-                    .build();
-            VertxStompClientDriver driver = new VertxStompClientDriver(configuration);
-            DefaultTitanClient client = new DefaultTitanClient(driver);
-
-            try {
-                client.start();
-                client.connect().get(5, TimeUnit.SECONDS);
-
-                assertThat(client.isConnected()).isTrue();
-                assertThat(driver.channel().isConnected()).isTrue();
-                assertThat(server.connection().connections()).hasSize(1);
-            } finally {
-                if (!client.isShutdown()) {
-                    client.shutdown(5, TimeUnit.SECONDS);
-                }
-            }
-        } finally {
-            if (!server.isShutdown()) {
-                server.shutdown();
-            }
-        }
-    }
-
-    @Test
-    @Timeout(10)
     void reject_client_using_different_websocket_path() throws Exception {
         StompServer server = StompServer.open(
                 EventLoopGroups.group(1, 1),

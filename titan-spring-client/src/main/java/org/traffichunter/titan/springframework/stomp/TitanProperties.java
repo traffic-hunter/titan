@@ -21,8 +21,6 @@ public final class TitanProperties {
 
     private boolean autoConnect = true;
 
-    private Client client = Client.TITAN;
-
     private @Nullable String endpoint;
 
     private Transport transport = Transport.TCP;
@@ -199,14 +197,6 @@ public final class TitanProperties {
         this.bypassHostHeader = bypassHostHeader;
     }
 
-    public Client getClient() {
-        return client;
-    }
-
-    public void setClient(Client client) {
-        this.client = client;
-    }
-
     public @Nullable String getEndpoint() {
         return endpoint;
     }
@@ -262,26 +252,6 @@ public final class TitanProperties {
 
         public void setVerifyHostname(boolean verifyHostname) {
             this.verifyHostname = verifyHostname;
-        }
-    }
-
-    public enum Client {
-        TITAN("titan"),
-        /**
-         * @deprecated use {@link #TITAN}; Vert.x compatibility is retained only for migration
-         */
-        @Deprecated(since = "0.9.0")
-        VERTX("vertx"),
-        ;
-
-        private final String name;
-
-        Client(String name) {
-            this.name = name;
-        }
-
-        public String getName() {
-            return name;
         }
     }
 

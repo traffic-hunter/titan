@@ -23,9 +23,8 @@ in-process event bus or a durable broker replacement.
 
 - **STOMP without a large broker stack.** Run a standalone JAR and connect using
   TCP or WebSocket.
-- **One client API.** `TitanClient` provides the messaging contract while the
-  native transport handles new development. The Vert.x adapter remains as a
-  deprecated migration path.
+- **One client API.** `TitanClient` provides the messaging contract while
+  Titan's native transport handles TCP, WebSocket, and TLS connections.
 - **Connection recovery.** The client reconnects after an unexpected disconnect
   and restores active subscriptions.
 - **Spring-native usage.** Send with `TitanTemplate` and receive with
@@ -172,9 +171,8 @@ Low-level server and extension artifacts:
 | `titan-bootstrap` | Standalone runtime bootstrap |
 | `titan-core` | Core transport and runtime primitives |
 
-Use the same `0.9.0` version for each artifact. The native client is selected
-by default. The Vert.x adapter remains available for migration but has been
-deprecated since `0.9.0`.
+Use the same `0.9.0` version for each artifact. `TitanClient` uses Titan's
+native event-loop and channel implementation.
 
 ## Basic Commands
 

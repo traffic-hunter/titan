@@ -32,12 +32,11 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Public messaging API shared by Titan client implementations.
+ * Public messaging API for Titan's native client.
  *
  * <p>Use the nested builder to configure a client without depending on its networking
- * implementation. Integrations that supply their own {@link StompClientDriver} can pass it
- * directly to {@link DefaultTitanClient}. Application code normally uses this interface and
- * transport-neutral {@link StompFrames} values.</p>
+ * implementation. Application code works with this interface and transport-neutral
+ * {@link StompFrames} values.</p>
  *
  * @author yun
  */
@@ -53,7 +52,7 @@ public interface TitanClient {
     }
 
     /**
-     * Returns the selected client implementation name, such as {@code titan} or {@code vertx}.
+     * Returns the client implementation name.
      *
      * @return stable implementation name
      */
@@ -359,38 +358,14 @@ public interface TitanClient {
      */
     void shutdown(long timeout, TimeUnit unit);
 
-    /** Selects the hidden networking implementation used by the facade. */
-    enum Implementation {
-        /** Titan's native channel and event-loop implementation. */
-        TITAN,
-        /**
-         * Vert.x STOMP client adapter.
-         *
-         * @deprecated use {@link #TITAN}; Vert.x compatibility is retained only for migration
-         */
-        @Deprecated(since = "0.9.0")
-        VERTX
-    }
-
     /**
-     * Builds a transport-neutral {@link TitanClient} while keeping implementation options internal.
+     * Builds a {@link TitanClient} while keeping transport implementation details internal.
      */
     interface Builder {
-
         /**
-         * Selects the client implementation. The default is {@link Implementation#TITAN}.
+         * Sets the number of secondary I/O event loops owned by the client.
          *
-         * @param implementation networking implementation to use
-         * @return this builder
-         */
-        @CanIgnoreReturnValue
-        Builder implementation(Implementation implementation);
-
-        /**
-         * Sets the number of secondary I/O event loops owned by the native client.
-         *
-         * <p>The value must be greater than zero. Vert.x manages its own event loops, so this
-         * setting is ignored when {@link Implementation#VERTX} is selected.</p>
+         * <p>The value must be greater than zero.</p>
          *
          * @param workers number of native I/O workers
          * @return this builder
@@ -454,7 +429,7 @@ public interface TitanClient {
         Builder reconnect(RetryPolicy policy, RetryListener listener);
 
         /**
-         * Configures native socket options and corresponding Vert.x socket settings.
+         * Configures native socket and transport settings.
          *
          * @param option socket and transport settings
          * @return this builder
@@ -476,7 +451,6 @@ public interface TitanClient {
          *
          * @param context initialized client-side TLS context
          * @return this builder
-         * @throws UnsupportedOperationException when the Vert.x implementation is selected
          */
         @CanIgnoreReturnValue
         Builder tls(TlsContext context);

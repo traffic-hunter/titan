@@ -1,7 +1,7 @@
 package org.traffichunter.titan.client;
 
 /**
- * Internal lifecycle states shared by Titan client implementations.
+ * Internal lifecycle states of a Titan client.
  *
  * <p>Connection loss moves an active client back through {@link #CONNECTING}; reconnect does not
  * introduce a separate public state. Shutdown states are terminal for the client instance.</p>
@@ -11,7 +11,7 @@ package org.traffichunter.titan.client;
 enum Status {
     /** Runtime resources have not been started. */
     INITIALIZED,
-    /** Event loops or Vert.x resources are starting. */
+    /** Event-loop resources are starting. */
     STARTING,
     /** Runtime is available but no STOMP connection is active. */
     STARTED,

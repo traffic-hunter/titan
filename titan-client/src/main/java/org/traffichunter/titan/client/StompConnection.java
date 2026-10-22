@@ -28,14 +28,14 @@ import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 /**
  * Transport-neutral view of one active physical STOMP connection.
  *
- * <p>Titan-native and Vert.x adapters implement this contract so {@link DefaultTitanClient} can
- * delegate messaging operations without exposing transport-specific frame or connection types.
- * A reconnect creates a new instance, after which the facade installs its current handlers on
- * that instance before publishing it as the active connection.</p>
+ * <p>The native driver implements this contract so {@link DefaultTitanClient} can delegate
+ * messaging operations without exposing transport-specific frame or connection types. A
+ * reconnect creates a new instance, after which the facade installs its current handlers on that
+ * instance before publishing it as the active connection.</p>
  *
  * @author yun
  */
-public interface StompConnection {
+interface StompConnection {
 
     /**
      * Sends a message using the connection's default headers.

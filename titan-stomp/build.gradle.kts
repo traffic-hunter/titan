@@ -9,5 +9,4 @@ dependencies {
     api(project(":bootstrap"))
     api(project(":core"))
 
-    implementation(project.libs.vertx.stomp)
 }

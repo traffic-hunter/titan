@@ -16,7 +16,6 @@ class TitanPropertiesTest {
         assertTrue(properties.isEnabled());
         assertTrue(properties.isAutoStart());
         assertTrue(properties.isAutoConnect());
-        assertEquals(TitanProperties.Client.TITAN, properties.getClient());
         assertNull(properties.getEndpoint());
         assertEquals(TitanProperties.Transport.TCP, properties.getTransport());
         assertEquals("/", properties.getWebsocketPath());

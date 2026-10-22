@@ -52,7 +52,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
  *
  * @author yun
  */
-public final class DefaultTitanClient implements TitanClient {
+final class DefaultTitanClient implements TitanClient {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultTitanClient.class);
 
@@ -83,7 +83,7 @@ public final class DefaultTitanClient implements TitanClient {
      * @param driver driver responsible for physical STOMP connections
      * @param worker serial context used for client state and callbacks
      */
-    public DefaultTitanClient(StompClientDriver driver, Worker worker) {
+    DefaultTitanClient(StompClientDriver driver, Worker worker) {
         this.driver = driver;
         this.configuration = driver.clientConfiguration();
         this.reconnectExecutor = RetryExecutors.eventLoopRetryExecutor(
@@ -98,7 +98,7 @@ public final class DefaultTitanClient implements TitanClient {
      *
      * @param driver driver responsible for runtime, worker, and physical connections
      */
-    public DefaultTitanClient(StompClientDriver driver) {
+    DefaultTitanClient(StompClientDriver driver) {
         this(driver, driver.worker());
     }
 

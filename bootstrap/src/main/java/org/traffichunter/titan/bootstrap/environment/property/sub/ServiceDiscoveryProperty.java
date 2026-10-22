@@ -13,48 +13,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.traffichunter.titan.bootstrap.environment.proprerty;
+package org.traffichunter.titan.bootstrap.environment.property.sub;
 
 import java.util.Objects;
 
 /**
- * Root object used only for YAML binding.
- *
- * <p>The expected top-level document shape is {@code titan: ...}. Runtime code
- * should not depend on this DTO directly; it is mapped to {@code Settings}
- * after parsing.</p>
+ * YAML DTO for service discovery configuration.
  */
-public class RootYamlProperty {
+public class ServiceDiscoveryProperty {
 
-    private TitanSubProperty titan;
+    private String struct;
 
-    public RootYamlProperty() {
+    public ServiceDiscoveryProperty() {
     }
 
-    public RootYamlProperty(TitanSubProperty titan) {
-        this.titan = titan;
+    public ServiceDiscoveryProperty(String struct) {
+        this.struct = struct;
     }
 
-    public TitanSubProperty getTitan() {
-        return titan;
+    public String getStruct() {
+        return struct;
     }
 
-    public void setTitan(TitanSubProperty titan) {
-        this.titan = titan;
+    public void setStruct(String struct) {
+        this.struct = struct;
     }
 
     @Override
     public boolean equals(Object obj) {
-        return this == obj || obj instanceof RootYamlProperty other && Objects.equals(titan, other.titan);
+        return this == obj || obj instanceof ServiceDiscoveryProperty other
+                && Objects.equals(struct, other.struct);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(titan);
+        return Objects.hash(struct);
     }
 
     @Override
     public String toString() {
-        return "RootYamlProperty{titan=" + titan + '}';
+        return "ServiceDiscoveryProperty{struct='" + struct + "'}";
     }
 }

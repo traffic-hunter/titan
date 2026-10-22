@@ -39,8 +39,7 @@ observable real-time dispatch.
 2. **The hot path stays small.** NIO event loops, channels, and pipelines move
    frames without hiding the transport lifecycle.
 3. **Public APIs hide transport details.** Applications use `TitanClient` and
-   transport-neutral STOMP frames without depending on channel internals. The
-   deprecated Vert.x adapter remains behind the same facade for migration.
+   transport-neutral STOMP frames without depending on channel internals.
 4. **Optional features remain optional.** Dispatch and monitoring attach as
    runtime modules instead of defining the core.
 5. **Operations are part of the product.** Health and queue state are available

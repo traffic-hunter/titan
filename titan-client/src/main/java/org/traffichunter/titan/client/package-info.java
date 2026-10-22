@@ -1,11 +1,10 @@
 /**
- * Public Titan client facade, transport drivers, and STOMP connection adapters.
+ * Public Titan client facade and endpoint configuration.
  *
  * <p>{@link org.traffichunter.titan.client.TitanClient} is the application-facing entry point.
- * {@link org.traffichunter.titan.client.StompClientDriver} is the extension point for networking
- * implementations, while package-private connection adapters isolate their native APIs from the
- * facade. Spring and other integrations can therefore depend on {@code TitanClient} without
- * branching on Titan-native or Vert.x connection types.</p>
+ * Transport drivers, workers, subscription state, and physical STOMP connection adapters remain
+ * package-private. Spring and other integrations can therefore depend on {@code TitanClient}
+ * without depending on transport implementation details.</p>
  *
  * @author yun
  */

@@ -18,7 +18,6 @@ package org.traffichunter.titan.dispatch.exporter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -27,10 +26,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.vertx.ext.stomp.Command;
-import io.vertx.ext.stomp.Frame;
-import io.vertx.ext.stomp.StompServer;
-import io.vertx.ext.stomp.StompServerHandler;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -73,15 +68,6 @@ class DispatchExporterTest {
 
     @Mock
     private InetServer inetServer;
-
-    @Mock
-    private StompServer vertxServer;
-
-    @Mock
-    private StompServerHandler vertxServerHandler;
-
-    @Mock
-    private io.vertx.ext.stomp.Destination vertxDestination;
 
     @Test
     void default_message_export_releases_temporary_buffer() {
@@ -345,44 +331,6 @@ class DispatchExporterTest {
     }
 
     @Test
-    void vertxStompDispatchExporter_dispatches_message_frame_to_subscribers() {
-        Destination destination = Destination.create("/topic/orders");
-        Buffer payload = Buffer.heap().alloc("hello".getBytes());
-
-        when(vertxServer.isListening()).thenReturn(true);
-        when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
-        when(vertxServerHandler.getDestination(destination.path())).thenReturn(vertxDestination);
-
-        VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        exporter.export(DestinationGroups.DEFAULT, destination, payload);
-
-        ArgumentCaptor<Frame> frameCaptor = ArgumentCaptor.forClass(Frame.class);
-        verify(vertxDestination).dispatch(isNull(), frameCaptor.capture());
-        Frame frame = frameCaptor.getValue();
-
-        assertThat(frame.getCommand()).isEqualTo(Command.MESSAGE);
-        assertThat(frame.getDestination()).isEqualTo(destination.path());
-        assertThat(frame.getHeader(Frame.DESTINATION)).isEqualTo(destination.path());
-        assertThat(frame.getHeader(Frame.MESSAGE_ID)).isNotBlank();
-        assertThat(frame.getHeader(Frame.CONTENT_LENGTH)).isEqualTo(Integer.toString(payload.length()));
-        assertThat(frame.getBodyAsString()).isEqualTo("hello");
-    }
-
-    @Test
-    void vertxStompDispatchExporter_returns_without_dispatch_when_destination_is_missing() {
-        Destination destination = Destination.create("/topic/missing");
-
-        when(vertxServer.isListening()).thenReturn(true);
-        when(vertxServer.stompHandler()).thenReturn(vertxServerHandler);
-        when(vertxServerHandler.getDestination(destination.path())).thenReturn(null);
-
-        VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-        exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("hello".getBytes()));
-
-        verify(vertxDestination, never()).dispatch(any(), any(Frame.class));
-    }
-
-    @Test
     void tcpFanoutExporter_keeps_writing_after_a_channel_fails() {
         when(inetServer.isStarted()).thenReturn(true);
 
@@ -407,23 +355,6 @@ class DispatchExporterTest {
 
         verify(channelOk).writeAndFlush(any(Buffer.class));
         verify(channelFail).writeAndFlush(any(Buffer.class));
-    }
-
-    @Test
-    void vertxStompDispatchExporter_refuses_a_group_it_cannot_keep_to_itself() {
-        when(vertxServer.isListening()).thenReturn(true);
-
-        VertxStompDispatchExporter exporter = new VertxStompDispatchExporter(vertxServer);
-
-        // Vert.x resolves subscribers by path, so delivering here would hand a market message to
-        // every subscriber of the destination, default group included.
-        assertThatThrownBy(() -> exporter.export(
-                "market",
-                Destination.create("/topic/orders"),
-                Buffer.heap().alloc("hello".getBytes())
-        )).isInstanceOf(UnsupportedOperationException.class).hasMessageContaining("market");
-
-        verify(vertxServer, never()).stompHandler();
     }
 
     @Test
