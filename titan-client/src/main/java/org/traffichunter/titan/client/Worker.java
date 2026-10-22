@@ -24,9 +24,8 @@ import java.util.concurrent.Executor;
 /**
  * Executes client state changes serially, regardless of the transport implementation.
  *
- * <p>A worker runs submitted tasks in order on the same execution context: an {@code EventLoop}
- * for Titan or a fixed {@code Context} for Vert.x. Reconnect and subscription state use this
- * shared execution contract; neither runtime appears in the public client API.</p>
+ * <p>A worker runs submitted tasks in order on one event loop. Reconnect and subscription state
+ * use this shared execution contract without exposing the event loop in the public client API.</p>
  *
  * <p>Closing a worker prevents further submissions. Ownership of the underlying runtime remains
  * with the driver that supplied the worker.</p>

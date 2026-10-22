@@ -35,7 +35,7 @@ import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
  * @param host remote server host used by the transport
  * @param port remote server port
  * @param session STOMP framing, headers, version, and heartbeat settings
- * @param inet native socket settings or their Vert.x equivalents
+ * @param inet native socket settings
  * @param connectTimeout maximum duration of one connection attempt
  * @param reconnectPolicy delay and attempt policy used after connection loss
  * @param reconnectListener observer notified about reconnect attempts
@@ -111,7 +111,7 @@ record ClientConfiguration(
         return session.autoComputeContentLength();
     }
 
-    /** Returns whether the Vert.x adapter should use its STOMP frame write path. */
+    /** Returns whether outbound messages should use the complete STOMP frame write path. */
     boolean useStompFrame() {
         return session.useStompFrame();
     }
@@ -146,7 +146,7 @@ record ClientConfiguration(
         return session.version();
     }
 
-    /** Returns socket options consumed by the selected client implementation. */
+    /** Returns socket options consumed by the native client. */
     InetClientOption inetClientOption() {
         return inet;
     }

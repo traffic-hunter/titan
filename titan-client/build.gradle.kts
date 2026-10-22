@@ -9,6 +9,5 @@ dependencies {
     api(project(":core"))
     api(project(":titan-stomp"))
 
-    implementation(project.libs.vertx.stomp)
     testImplementation(project(":dispatch"))
 }

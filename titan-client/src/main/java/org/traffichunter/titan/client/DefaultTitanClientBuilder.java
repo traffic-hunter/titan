@@ -30,16 +30,14 @@ import org.traffichunter.titan.core.util.Assert;
 /**
  * Default builder hidden behind {@link TitanClient#builder()}.
  *
- * <p>The builder stores values only. Native event loops are allocated by {@link #build()} after
- * the implementation has been selected, which prevents a Vert.x client from allocating unused
- * Titan selectors. Protocol values are assembled into {@link StompSessionOption}; connection and
- * reconnect values are assembled into {@link ClientConfiguration}.</p>
+ * <p>The builder stores values only. Native event loops are allocated by {@link #build()}.
+ * Protocol values are assembled into {@link StompSessionOption}; connection and reconnect values
+ * are assembled into {@link ClientConfiguration}.</p>
  *
  * @author yun
  */
 final class DefaultTitanClientBuilder implements TitanClient.Builder {
 
-    private TitanClient.Implementation implementation = TitanClient.Implementation.TITAN;
     private int workers = 1;
     private String host = ClientConfiguration.DEFAULT_HOST;
     private int port = ClientConfiguration.DEFAULT_PORT;
@@ -50,12 +48,6 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
     private InetClientOption inetOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
     private @Nullable String webSocketPath;
     private @Nullable TlsContext tlsContext;
-
-    @Override
-    public TitanClient.Builder implementation(TitanClient.Implementation implementation) {
-        this.implementation = implementation;
-        return this;
-    }
 
     @Override
     public TitanClient.Builder worker(int workers) {
@@ -122,9 +114,6 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
     @Override
     public TitanClient build() {
         TlsContext context = tlsContext;
-        if (context != null && implementation == TitanClient.Implementation.VERTX) {
-            throw new UnsupportedOperationException("Vert.x client TLS is not supported by Titan's TLS context");
-        }
         if (context != null && context.side() != TlsSide.CLIENT) {
             throw new IllegalArgumentException("TitanClient requires a client-side TLS context");
         }
@@ -141,14 +130,7 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
                 webSocketPath
         );
 
-        StompClientDriver driver;
-        if (implementation == TitanClient.Implementation.VERTX) {
-            driver = new VertxStompClientDriver(option);
-        } else {
-            // A client only needs I/O loops; it never accepts inbound connections.
-            driver = new TitanStompClientDriver(EventLoopGroups.group(workers), option);
-        }
-
-        return new DefaultTitanClient(driver);
+        // A client only needs I/O loops; it never accepts inbound connections.
+        return new DefaultTitanClient(new TitanStompClientDriver(EventLoopGroups.group(workers), option));
     }
 }

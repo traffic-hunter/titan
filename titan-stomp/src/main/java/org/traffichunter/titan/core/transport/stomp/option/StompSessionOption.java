@@ -27,7 +27,7 @@ import org.traffichunter.titan.core.codec.stomp.StompVersion;
  * @param login optional CONNECT login header
  * @param passcode optional CONNECT passcode header
  * @param autoComputeContentLength whether outbound frames calculate {@code content-length}
- * @param useStompFrame whether adapters may use their native STOMP frame representation
+ * @param useStompFrame whether the client opens a session with {@code STOMP} instead of {@code CONNECT}
  * @param bypassHostHeader whether the CONNECT host header is omitted
  * @param heartbeatX outgoing heartbeat capability in milliseconds
  * @param heartbeatY requested incoming heartbeat interval in milliseconds

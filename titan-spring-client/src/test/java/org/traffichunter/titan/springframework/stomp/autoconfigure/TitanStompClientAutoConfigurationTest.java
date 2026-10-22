@@ -44,10 +44,9 @@ class TitanStompClientAutoConfigurationTest {
     Path directory;
 
     @Test
-    void creates_titan_client_from_titan_client() {
+    void creates_titan_client() {
         TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
         TitanProperties properties = new TitanProperties();
-        properties.setClient(TitanProperties.Client.TITAN);
 
         TitanClient client = configuration.titanStompClient(
                 properties,
@@ -55,20 +54,6 @@ class TitanStompClientAutoConfigurationTest {
         );
 
         assertThat(client.name()).isEqualTo("titan");
-    }
-
-    @Test
-    void creates_vertx_client_from_vertx_client() {
-        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        TitanProperties properties = new TitanProperties();
-        properties.setClient(TitanProperties.Client.VERTX);
-
-        TitanClient client = configuration.titanStompClient(
-                properties,
-                noSslBundles()
-        );
-
-        assertThat(client.name()).isEqualTo("vertx");
     }
 
     @Test
@@ -139,21 +124,6 @@ class TitanStompClientAutoConfigurationTest {
     }
 
     @Test
-    void configures_websocket_transport_for_vertx_client() {
-        TitanStompClientAutoConfiguration configuration = new TitanStompClientAutoConfiguration();
-        TitanProperties properties = new TitanProperties();
-        properties.setClient(TitanProperties.Client.VERTX);
-        properties.setTransport(TitanProperties.Transport.WEBSOCKET);
-        properties.setWebsocketPath("/titan");
-        TitanClient client = configuration.titanStompClient(
-                properties,
-                noSslBundles()
-        );
-
-        assertThat(client.name()).isEqualTo("vertx");
-    }
-
-    @Test
     void lifecycle_starts_and_connects_client_when_auto_start_and_auto_connect_are_enabled() {
         TitanClient client = lifecycleClient();
 
@@ -209,23 +179,6 @@ class TitanStompClientAutoConfigurationTest {
                     assertThat(context).hasBean("titanTemplate");
                     assertThat(context.getBean("titanTemplate"))
                             .isInstanceOf(TitanTemplate.class);
-                });
-    }
-
-    @Test
-    void binds_client_property_to_client_enum() {
-        TitanClient client = lifecycleClient();
-
-        contextRunner
-                .withBean(TitanClient.class, () -> client)
-                .withPropertyValues(
-                        "spring.titan.auto-start=false",
-                        "spring.titan.client=vertx"
-                )
-                .run(context -> {
-                    TitanProperties properties = context.getBean(TitanProperties.class);
-
-                    assertThat(properties.getClient()).isEqualTo(TitanProperties.Client.VERTX);
                 });
     }
 

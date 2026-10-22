@@ -27,9 +27,9 @@ the core event loop and channel primitives to a single protocol.
 
 Applications connect through `TitanClient`. The facade owns lifecycle,
 connection recovery, and logical subscriptions while a hidden driver performs
-native Titan or Vert.x transport work. This keeps application code independent
-from the selected networking implementation and allows active subscriptions to
-be restored after an unexpected disconnect.
+native transport work. This keeps application code independent from channel
+internals and allows active subscriptions to be restored after an unexpected
+disconnect.
 
 ## Message path
 

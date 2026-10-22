@@ -76,9 +76,8 @@ buffer ownership rules as public contracts. Before 1.0, changes need tests,
 documentation, and release notes. Compatibility guidance becomes mandatory
 after the stable contract has been published.
 
-## Vert.x compatibility
+## Transport compatibility
 
-The Vert.x client and server adapters have been deprecated since `0.9.0`. New
-features target Titan's native transport, which is the default. Whether the
-adapters remain in 1.0 must be decided before the first release candidate. If
-they are included in 1.0, removing them later requires a new major version.
+Titan 1.0 exposes its native TCP, WebSocket, and TLS transports. Transport
+implementation details remain outside the supported application API; clients
+configure them through `TitanClient.Builder` and Spring properties.

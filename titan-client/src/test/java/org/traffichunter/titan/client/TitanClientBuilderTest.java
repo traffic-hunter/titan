@@ -45,8 +45,7 @@ class TitanClientBuilderTest {
                 Subscription.class,
                 SubscriptionManager.class,
                 DefaultTitanClient.class,
-                TitanStompClientDriver.class,
-                VertxStompClientDriver.class
+                TitanStompClientDriver.class
         );
 
         assertThat(implementationTypes).allSatisfy(type ->
@@ -89,19 +88,6 @@ class TitanClientBuilderTest {
     }
 
     @Test
-    void builds_vertx_client_without_native_event_loop_groups() {
-        TitanClient client = TitanClient.builder()
-                .implementation(TitanClient.Implementation.VERTX)
-                .build();
-
-        try {
-            assertThat(client.name()).isEqualTo("vertx");
-        } finally {
-            client.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
-        }
-    }
-
-    @Test
     void rejects_non_positive_worker_count() {
         assertThatThrownBy(() -> TitanClient.builder().worker(0))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -122,18 +108,6 @@ class TitanClientBuilderTest {
         } finally {
             client.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
         }
-    }
-
-    @Test
-    void rejects_titan_tls_context_for_vertx_client() {
-        TlsContext tlsContext = mock(TlsContext.class);
-
-        assertThatThrownBy(() -> TitanClient.builder()
-                .implementation(TitanClient.Implementation.VERTX)
-                .tls(tlsContext)
-                .build())
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessage("Vert.x client TLS is not supported by Titan's TLS context");
     }
 
     @Test

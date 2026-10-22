@@ -41,7 +41,6 @@ spring:
   titan:
     auto-start: true
     auto-connect: true
-    client: titan # titan or vertx
     endpoint: ws://127.0.0.1:8080/stomp
     login: guest
     passcode: guest
@@ -171,10 +170,6 @@ later reconnect does not bring it back.
 
 ## Lifecycle And Acknowledgement
 
-`spring.titan.client` selects the STOMP client implementation. `titan` uses the
-native Titan client and is the supported default. The deprecated `vertx` value
-remains available for migration through the same Spring API.
-
 When `auto-start` is enabled, the Spring context starts the configured client.
 When `auto-connect` is enabled, the manager connects during startup. If a caller
 uses `TitanTemplate` or a listener before a connection exists, the manager starts
@@ -198,7 +193,6 @@ remain in Spring Boot's standard SSL configuration.
 ```yaml
 spring:
   titan:
-    client: titan
     endpoint: wss://localhost:8443/stomp
     ssl:
       bundle: titan-client
@@ -214,5 +208,4 @@ spring:
 ```
 
 Providing the bundle for a TCP endpoint enables TLS directly over that TCP
-connection. Spring SSL bundles are currently supported by the native Titan
-client; the Vert.x client adapter remains available for non-TLS connections.
+connection.

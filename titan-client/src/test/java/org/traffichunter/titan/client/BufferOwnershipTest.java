@@ -15,8 +15,6 @@
  */
 package org.traffichunter.titan.client;
 
-import io.vertx.ext.stomp.Frame;
-import io.vertx.ext.stomp.StompClientConnection;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompClientHandler;
@@ -28,11 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -83,55 +77,4 @@ class BufferOwnershipTest {
         assertThat(payload.byteBuf().refCnt()).isZero();
     }
 
-    @Test
-    void vertx_connection_copies_and_consumes_payload() {
-        StompClientConnection nativeConnection = mock(StompClientConnection.class);
-        Frame response = mock(Frame.class);
-        when(nativeConnection.send(eq("/queue/test"), any(io.vertx.core.buffer.Buffer.class)))
-                .thenReturn(io.vertx.core.Future.succeededFuture(response));
-        VertxStompConnection connection = new VertxStompConnection(nativeConnection);
-        Buffer payload = Buffer.heap().alloc("message");
-
-        connection.send("/queue/test", payload).join();
-
-        assertThat(payload.byteBuf().refCnt()).isZero();
-        verify(nativeConnection).send(eq("/queue/test"), any(io.vertx.core.buffer.Buffer.class));
-    }
-
-    @Test
-    void vertx_connection_copies_and_consumes_payload_with_headers() {
-        StompClientConnection nativeConnection = mock(StompClientConnection.class);
-        Frame response = mock(Frame.class);
-        when(nativeConnection.send(
-                eq("/queue/test"),
-                anyMap(),
-                any(io.vertx.core.buffer.Buffer.class)
-        )).thenReturn(io.vertx.core.Future.succeededFuture(response));
-        VertxStompConnection connection = new VertxStompConnection(nativeConnection);
-        Buffer payload = Buffer.heap().alloc("message");
-
-        connection.send(
-                "/queue/test",
-                payload,
-                Map.of(Elements.RECEIPT, "send-1")
-        ).join();
-
-        assertThat(payload.byteBuf().refCnt()).isZero();
-        verify(nativeConnection).send(
-                eq("/queue/test"),
-                anyMap(),
-                any(io.vertx.core.buffer.Buffer.class)
-        );
-    }
-
-    @Test
-    void vertx_connection_consumes_payload_when_destination_is_invalid() {
-        StompClientConnection nativeConnection = mock(StompClientConnection.class);
-        VertxStompConnection connection = new VertxStompConnection(nativeConnection);
-        Buffer payload = Buffer.heap().alloc("message");
-
-        assertThatThrownBy(() -> connection.send("/queue/invalid destination", payload))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThat(payload.byteBuf().refCnt()).isZero();
-    }
 }

@@ -198,42 +198,6 @@ class StompReconnectIntegrationTest {
 
     @Test
     @Timeout(value = 30, unit = SECONDS)
-    void vertx_client_restores_subscription_after_server_restart(
-            StompTestServer testServer
-    ) throws Exception {
-        ClientConfiguration configuration = reconnectConfiguration(testServer);
-        DefaultTitanClient client = new DefaultTitanClient(new VertxStompClientDriver(configuration));
-        BlockingQueue<StompFrames> received = new LinkedBlockingQueue<>();
-        String destination = "/queue/vertx-reconnect";
-
-        try {
-            client.start();
-            client.connect().get(3, SECONDS);
-            client.subscribe(
-                    destination,
-                    Map.of(Elements.ID, "vertx-subscription"),
-                    received::add
-            ).get(3, SECONDS);
-
-            testServer.stop();
-            await().atMost(10, SECONDS)
-                    .untilAsserted(() -> assertThat(client.isConnected()).isFalse());
-            testServer.restart();
-            await().atMost(10, SECONDS)
-                    .untilAsserted(() -> assertThat(client.isConnected()).isTrue());
-
-            client.send(destination, Buffer.heap().alloc("vertx-restored")).get(3, SECONDS);
-            StompFrames restored = received.poll(3, SECONDS);
-            assertThat(restored).isNotNull();
-            assertThat(restored.body()).asString(StandardCharsets.UTF_8).isEqualTo("vertx-restored");
-            assertThat(restored.getHeader(Elements.SUBSCRIPTION)).isEqualTo("vertx-subscription");
-        } finally {
-            client.shutdown(SHUTDOWN_TIMEOUT_SECONDS, SECONDS);
-        }
-    }
-
-    @Test
-    @Timeout(value = 30, unit = SECONDS)
     void client_retries_the_whole_connection_after_partial_subscription_restore_failure(
             StompTestServer testServer
     ) throws Exception {

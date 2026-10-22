@@ -220,12 +220,10 @@ Rules:
 - Subscriptions match on group **and** exact destination. A `market` subscriber
   of `/orders` never receives a `default` or `notification` message for
   `/orders`.
-- The deprecated Vert.x STOMP transport does not support groups. A `SEND` with
-  a `group` header on that transport is refused with an `ERROR` frame.
 - An exporter that resolves its subscribers by destination alone cannot keep a
-  group to itself. The raw TCP exporter and the Vert.x STOMP exporter therefore
-  serve the `default` group only and refuse a message from any other, rather
-  than handing it to every subscriber they know.
+  group to itself. The raw TCP exporter therefore serves the `default` group
+  only and refuses a message from any other, rather than handing it to every
+  subscriber it knows.
 
 The Java client and the Spring integration take the group as the first argument
 of their send and subscribe methods. See

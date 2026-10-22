@@ -10,8 +10,6 @@ dependencies {
     implementation(project.libs.jetty.servlet)
     implementation(project.libs.jetty.http)
 
-    // vertx
-    implementation(project.libs.vertx.core)
 
     // netty
     implementation(project.libs.netty.transport)
