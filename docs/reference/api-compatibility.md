@@ -1,6 +1,6 @@
 # API compatibility
 
-Titan treats the following entry points as its 1.0 application API candidates:
+The following entry points are being reviewed for Titan's 1.0 application API:
 
 - `TitanClient` and `TitanClient.Builder`
 - Spring Boot configuration under `spring.titan`
@@ -32,9 +32,19 @@ Use a different released baseline when investigating an older version:
 Reports are written to `<module>/build/reports/japicmp/`. CI runs the same check
 and uploads these reports when a comparison fails.
 
-The check is deliberately strict. Adding a public method is still an API
-change, even when it is binary compatible. Make such changes intentionally and
-document how users should adopt them.
+Titan does not guarantee compatibility between `0.x` releases. Before 1.0, the
+task records API changes but does not fail the build. This keeps the remaining
+API cleanup visible without preserving an interface that has not reached a
+stable release.
+
+Strict mode is available once a stable baseline has been accepted:
+
+```bash
+./gradlew checkApiCompatibility -PapiCompatibilityStrict=true
+```
+
+In strict mode, adding a public method still counts as an API change even when
+it is binary compatible.
 
 ## Configuration compatibility
 
@@ -45,8 +55,7 @@ tests, documentation, and migration notes.
 
 ## Vert.x compatibility
 
-The Vert.x client and server adapters have been deprecated since `0.9.0`. They
-remain available in the 1.0 API candidate as a migration path, but new features
-target Titan's native transport. New applications should use the native client,
-which is the default. Removing the Vert.x adapters after 1.0 requires a new
-major version.
+The Vert.x client and server adapters have been deprecated since `0.9.0`. New
+features target Titan's native transport, which is the default. Whether the
+adapters remain in 1.0 must be decided before the first release candidate. If
+they are included in 1.0, removing them later requires a new major version.

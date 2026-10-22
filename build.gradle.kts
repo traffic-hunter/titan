@@ -132,9 +132,12 @@ val publishedArtifacts = mapOf(
 )
 
 val apiBaselineVersion = providers.gradleProperty("apiBaselineVersion").orElse("0.9.0")
+val apiCompatibilityStrict = providers.gradleProperty("apiCompatibilityStrict")
+    .map(String::toBoolean)
+    .orElse(false)
 val checkApiCompatibility = tasks.register("checkApiCompatibility") {
     group = "verification"
-    description = "Checks published modules against the public API baseline."
+    description = "Reports changes in published modules against the public API baseline."
 }
 
 configure(publishedArtifacts.keys.map { project(":$it") }) {
@@ -190,8 +193,8 @@ configure(publishedArtifacts.keys.map { project(":$it") }) {
         newClasspath.from(configurations.named("runtimeClasspath"), tasks.named<Jar>("jar"))
 
         onlyModified = true
-        failOnModification = true
-        failOnSourceIncompatibility = true
+        failOnModification = apiCompatibilityStrict.get()
+        failOnSourceIncompatibility = apiCompatibilityStrict.get()
         ignoreMissingClasses = false
         accessModifier = "public"
         htmlOutputFile = layout.buildDirectory.file("reports/japicmp/api-compatibility.html").get().asFile

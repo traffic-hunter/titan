@@ -78,7 +78,7 @@ cd titan-cli && go test ./...
 ## API Compatibility
 
 Titan compares every Maven-published module with the configured released API
-baseline, which defaults to `0.9.0`. The check covers public and protected
+baseline, which defaults to `0.9.0`. The report covers public and protected
 bytecode and source signatures in `titan-bootstrap`, `titan-core`, `titan-stomp`,
 `titan-client`, `titan-spring-client`, `titan-dispatch`, and `titan-monitor`.
 
@@ -91,9 +91,15 @@ implemented interface:
 
 Reports are written to `<module>/build/reports/japicmp/`. A different released
 version can be inspected locally with
-`-PapiBaselineVersion=<version>`. Update the repository baseline only after a
-release becomes the accepted compatibility reference; do not advance it merely
-to hide a failing change.
+`-PapiBaselineVersion=<version>`.
+
+Titan does not guarantee compatibility between `0.x` releases. Before 1.0, the
+task reports API changes without failing the build. Use strict mode only when
+checking a compatibility promise against an accepted stable baseline:
+
+```bash
+./gradlew checkApiCompatibility -PapiCompatibilityStrict=true
+```
 
 The bytecode check does not cover YAML keys or documented runtime behavior.
 Treat changes to `titan-env.yml`, `spring.titan`, delivery semantics, and default

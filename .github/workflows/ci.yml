@@ -45,7 +45,7 @@ jobs:
       - name: Build
         run: ./gradlew --no-daemon build --stacktrace
 
-      - name: Check public API compatibility
+      - name: Report public API changes
         run: ./gradlew --no-daemon checkApiCompatibility --stacktrace
 
       - name: Test Go CLI
