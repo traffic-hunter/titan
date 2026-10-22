@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.traffichunter.titan.bootstrap.environment.proprerty;
+package org.traffichunter.titan.bootstrap.environment.property;
 
 import java.util.List;
 import java.util.Objects;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.BackupProperty;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.FlowControlProperty;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.HttpServerProperty;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.MonitorProperty;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServerProperty;
-import org.traffichunter.titan.bootstrap.environment.proprerty.sub.ServiceDiscoveryProperty;
+import org.traffichunter.titan.bootstrap.environment.property.sub.BackupProperty;
+import org.traffichunter.titan.bootstrap.environment.property.sub.FlowControlProperty;
+import org.traffichunter.titan.bootstrap.environment.property.sub.HttpServerProperty;
+import org.traffichunter.titan.bootstrap.environment.property.sub.MonitorProperty;
+import org.traffichunter.titan.bootstrap.environment.property.sub.ServerProperty;
+import org.traffichunter.titan.bootstrap.environment.property.sub.ServiceDiscoveryProperty;
 
 /**
  * YAML binding object for properties nested below the {@code titan} key.

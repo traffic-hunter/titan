@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
+package org.traffichunter.titan.bootstrap.environment.property.sub;
 
-/** Mutable YAML DTO for destination queue byte limits. */
-public final class QueueFlowControlProperty {
+/** Mutable YAML DTO for process-wide flow-control settings. */
+public final class FlowControlProperty {
 
-    private boolean enabled = true;
-    private long maxPendingBytes = 64L * 1024 * 1024;
-    private long resumePendingBytes = 48L * 1024 * 1024;
+    private boolean enabled;
+    private HeapFlowControlProperty heap;
+    private QueueFlowControlProperty queue;
 
     public boolean isEnabled() {
         return enabled;
@@ -30,19 +30,19 @@ public final class QueueFlowControlProperty {
         this.enabled = enabled;
     }
 
-    public long getMaxPendingBytes() {
-        return maxPendingBytes;
+    public HeapFlowControlProperty getHeap() {
+        return heap;
     }
 
-    public void setMaxPendingBytes(long maxPendingBytes) {
-        this.maxPendingBytes = maxPendingBytes;
+    public void setHeap(HeapFlowControlProperty heap) {
+        this.heap = heap;
     }
 
-    public long getResumePendingBytes() {
-        return resumePendingBytes;
+    public QueueFlowControlProperty getQueue() {
+        return queue;
     }
 
-    public void setResumePendingBytes(long resumePendingBytes) {
-        this.resumePendingBytes = resumePendingBytes;
+    public void setQueue(QueueFlowControlProperty queue) {
+        this.queue = queue;
     }
 }

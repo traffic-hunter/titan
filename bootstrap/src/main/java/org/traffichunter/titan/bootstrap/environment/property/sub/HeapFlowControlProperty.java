@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.traffichunter.titan.bootstrap.environment.proprerty.sub;
+package org.traffichunter.titan.bootstrap.environment.property.sub;
 
-/** Mutable YAML DTO for process-wide flow-control settings. */
-public final class FlowControlProperty {
+/** Mutable YAML DTO for heap-pressure hysteresis thresholds. */
+public final class HeapFlowControlProperty {
 
-    private boolean enabled;
-    private HeapFlowControlProperty heap;
-    private QueueFlowControlProperty queue;
+    private boolean enabled = true;
+    private double highWatermark = 0.90;
+    private double lowWatermark = 0.70;
 
     public boolean isEnabled() {
         return enabled;
@@ -30,19 +30,19 @@ public final class FlowControlProperty {
         this.enabled = enabled;
     }
 
-    public HeapFlowControlProperty getHeap() {
-        return heap;
+    public double getHighWatermark() {
+        return highWatermark;
     }
 
-    public void setHeap(HeapFlowControlProperty heap) {
-        this.heap = heap;
+    public void setHighWatermark(double highWatermark) {
+        this.highWatermark = highWatermark;
     }
 
-    public QueueFlowControlProperty getQueue() {
-        return queue;
+    public double getLowWatermark() {
+        return lowWatermark;
     }
 
-    public void setQueue(QueueFlowControlProperty queue) {
-        this.queue = queue;
+    public void setLowWatermark(double lowWatermark) {
+        this.lowWatermark = lowWatermark;
     }
 }
