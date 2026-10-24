@@ -89,7 +89,7 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
             }
             if (websocketFrame.isControlFrame()) {
                 WebSocketContext webSocketContext = new WebSocketContext(
-                        new WebSocketChannel(channel, websocketFrame.subProtocol()),
+                        new WebSocketChannel(channel, side, websocketFrame.subProtocol()),
                         websocketFrame,
                         side
                 );
@@ -118,7 +118,7 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
 
             WebSocketFrame close = WebSocketFrames.close(closeStatus, "", side, subProtocol);
             try {
-                new WebSocketChannel(channel, subProtocol)
+                new WebSocketChannel(channel, side, subProtocol)
                         .writeAndFlush(close)
                         .addListener(result -> channel.close());
             } catch (RuntimeException writeError) {

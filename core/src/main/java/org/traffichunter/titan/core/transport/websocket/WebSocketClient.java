@@ -20,6 +20,7 @@ import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameException;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrameHeader;
+import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.jspecify.annotations.Nullable;
@@ -95,7 +96,7 @@ public final class WebSocketClient {
                     return handshake;
                 })
                 .map(channel -> {
-                    WebSocketChannel webSocketChannel = new WebSocketChannel(channel, subProtocol);
+                    WebSocketChannel webSocketChannel = new WebSocketChannel(channel, WebSocketSide.CLIENT, subProtocol);
                     channels.addChannel(webSocketChannel);
                     return webSocketChannel;
                 });
