@@ -33,6 +33,7 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
@@ -182,7 +183,7 @@ class StompWebSocketIntegrationTest {
 
     @Test
     @Timeout(20)
-    void accept_jdk_websocket_client() throws Exception {
+    void accept_fragmented_message_from_jdk_websocket_client() throws Exception {
         StompServer server = StompServer.open(
                 EventLoopGroups.group(1, 1),
                 StompServerOption.builder().build()
@@ -219,8 +220,9 @@ class StompWebSocketIntegrationTest {
                     })
                     .get(5, TimeUnit.SECONDS);
 
-            webSocket.sendText("CONNECT\naccept-version:1.2\nhost:localhost\n\n\0", true)
-                    .get(5, TimeUnit.SECONDS);
+            webSocket.sendText("CONNECT\naccept-version:1.2\n", false).get(5, TimeUnit.SECONDS);
+            webSocket.sendPing(ByteBuffer.wrap(new byte[]{'P'})).get(5, TimeUnit.SECONDS);
+            webSocket.sendText("host:localhost\n\n\0", true).get(5, TimeUnit.SECONDS);
             assertThat(connected.get(5, TimeUnit.SECONDS)).startsWith("CONNECTED");
 
             webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").get(5, TimeUnit.SECONDS);

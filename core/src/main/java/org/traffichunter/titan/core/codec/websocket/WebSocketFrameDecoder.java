@@ -72,9 +72,9 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
     /**
      * Decodes WebSocket frames and forwards data payload bytes as soon as they arrive.
      *
-     * <p>A data frame payload may be forwarded in several chunks, so the next decoder must treat
-     * its input as a byte stream. Invalid frames are answered with a close frame before the
-     * channel closes.</p>
+     * <p>A message may be forwarded in several chunks, split by reads or by fragmentation, so the
+     * next decoder must treat its input as a byte stream. Invalid frames are answered with a close
+     * frame before the channel closes.</p>
      */
     @Override
     protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
@@ -152,6 +152,8 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
         // Header of the data frame whose payload is still arriving.
         private @Nullable WebSocketFrameHeader header;
         private long remaining;
+        // A data frame with FIN=0 arrived and the final CONTINUATION frame has not.
+        private boolean messageOpen;
 
         private WebSocketFrameParser(WebSocketSide side, Protocol subProtocol) {
             this.side = side;
@@ -163,6 +165,9 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
                 header = parseHeader(buffer);
                 if (header == null) {
                     return null;
+                }
+                if (!isControlFrame(header.getOpCode())) {
+                    messageOpen = !header.isFin();
                 }
                 remaining = header.getPayloadLength();
             }
@@ -257,8 +262,16 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
         }
 
         private void validate(OpCode opcode, boolean fin, boolean masked, long payloadLength) {
-            if (!fin || opcode == OpCode.CONTINUATION) {
-                throw new WebSocketFrameException("Fragmented WebSocket messages are not supported");
+            if (isControlFrame(opcode)) {
+                if (!fin) {
+                    throw new WebSocketFrameException("Control frames must not be fragmented");
+                }
+            } else if (opcode == OpCode.CONTINUATION) {
+                if (!messageOpen) {
+                    throw new WebSocketFrameException("Continuation frame without a fragmented message");
+                }
+            } else if (messageOpen) {
+                throw new WebSocketFrameException("New data frame before the fragmented message ended");
             }
             if (side == WebSocketSide.SERVER && !masked) {
                 throw new WebSocketFrameException("Client frames must be masked");
