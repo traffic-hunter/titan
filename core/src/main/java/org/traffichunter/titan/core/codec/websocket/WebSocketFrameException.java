@@ -22,7 +22,24 @@ import org.traffichunter.titan.core.codec.CodecException;
  */
 public class WebSocketFrameException extends CodecException {
 
+    static final int PROTOCOL_ERROR = 1002;
+    static final int MESSAGE_TOO_BIG = 1009;
+
+    private final int closeStatus;
+
     public WebSocketFrameException(String message) {
+        this(PROTOCOL_ERROR, message);
+    }
+
+    WebSocketFrameException(int closeStatus, String message) {
         super(message);
+        this.closeStatus = closeStatus;
+    }
+
+    /**
+     * Returns the RFC 6455 close status that reports this failure to the peer.
+     */
+    public int closeStatus() {
+        return closeStatus;
     }
 }

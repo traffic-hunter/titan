@@ -80,9 +80,16 @@ public class WebSocketFrameHeader {
         return SECURE_RANDOM.nextInt();
     }
 
-    static Buffer unmask(Buffer payload, int maskingKey) {
+    /**
+     * Unmasks a payload chunk that starts {@code position} bytes into its frame payload.
+     */
+    static Buffer unmask(Buffer payload, int maskingKey, int position) {
         try {
-            return Buffer.heap().alloc(unmask(payload.getBytes(), maskingKey));
+            byte[] bytes = payload.getBytes();
+            for (int i = 0; i < bytes.length; i++) {
+                bytes[i] = (byte) (bytes[i] ^ maskByte(maskingKey, (position + i) & 3));
+            }
+            return Buffer.heap().alloc(bytes);
         } finally {
             payload.release();
         }
