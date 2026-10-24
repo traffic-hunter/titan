@@ -61,7 +61,8 @@ public final class WebSocketControlFrameHandlerImpl implements WebSocketControlF
                     context.side(),
                     frame.subProtocol()
             );
-            write(context.channel(), close).addListener(result -> context.channel().close());
+            // The close frame is the reply, so close the socket without sending another one.
+            write(context.channel(), close).addListener(result -> context.channel().unwrap().close());
         } catch (RuntimeException e) {
             closePayload.release();
             throw e;

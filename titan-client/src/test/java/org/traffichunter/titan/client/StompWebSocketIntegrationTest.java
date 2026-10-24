@@ -35,8 +35,10 @@ import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,16 +146,7 @@ class StompWebSocketIntegrationTest {
             OutputStream out = socket.getOutputStream();
             InputStream in = socket.getInputStream();
 
-            out.write(("GET / HTTP/1.1\r\n"
-                    + "Host: localhost\r\n"
-                    + "Upgrade: websocket\r\n"
-                    + "Connection: Upgrade\r\n"
-                    + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
-                    + "Sec-WebSocket-Version: 13\r\n"
-                    + "Sec-WebSocket-Protocol: v12.stomp\r\n"
-                    + "\r\n").getBytes(StandardCharsets.US_ASCII));
-            out.flush();
-            assertThat(readHttpHead(in)).startsWith("HTTP/1.1 101");
+            upgradeToWebSocket(out, in, "/");
 
             // Declare a 2 GiB text frame with a zero masking key, then send far less than that.
             out.write(new byte[]{
@@ -236,6 +229,135 @@ class StompWebSocketIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(20)
+    void send_normal_closure_after_disconnect() throws Exception {
+        StompServer server = startWebSocketServer();
+        HttpClient httpClient = HttpClient.newHttpClient();
+        RecordingListener listener = new RecordingListener();
+        WebSocket webSocket = null;
+
+        try {
+            webSocket = openJdkClient(httpClient, server, listener);
+            webSocket.sendText("CONNECT\naccept-version:1.2\nhost:localhost\n\n\0", true).get(5, TimeUnit.SECONDS);
+            assertThat(listener.messages.poll(5, TimeUnit.SECONDS)).startsWith("CONNECTED");
+
+            webSocket.sendText("DISCONNECT\nreceipt:77\n\n\0", true).get(5, TimeUnit.SECONDS);
+
+            assertThat(listener.messages.poll(5, TimeUnit.SECONDS)).startsWith("RECEIPT");
+            assertThat(listener.closed.get(5, TimeUnit.SECONDS)).isEqualTo(WebSocket.NORMAL_CLOSURE);
+        } finally {
+            close(webSocket, httpClient, server);
+        }
+    }
+
+    @Test
+    @Timeout(20)
+    void send_error_before_normal_closure_when_connect_is_rejected() throws Exception {
+        StompServer server = startWebSocketServer();
+        HttpClient httpClient = HttpClient.newHttpClient();
+        RecordingListener listener = new RecordingListener();
+        WebSocket webSocket = null;
+
+        try {
+            webSocket = openJdkClient(httpClient, server, listener);
+            webSocket.sendText("CONNECT\naccept-version:1.0\nhost:localhost\n\n\0", true).get(5, TimeUnit.SECONDS);
+
+            assertThat(listener.messages.poll(5, TimeUnit.SECONDS)).startsWith("ERROR");
+            assertThat(listener.closed.get(5, TimeUnit.SECONDS)).isEqualTo(WebSocket.NORMAL_CLOSURE);
+        } finally {
+            close(webSocket, httpClient, server);
+        }
+    }
+
+    @Test
+    @Timeout(20)
+    void send_normal_closure_when_server_shuts_down() throws Exception {
+        StompServer server = startWebSocketServer();
+        HttpClient httpClient = HttpClient.newHttpClient();
+        RecordingListener listener = new RecordingListener();
+        WebSocket webSocket = null;
+
+        try {
+            webSocket = openJdkClient(httpClient, server, listener);
+            webSocket.sendText("CONNECT\naccept-version:1.2\nhost:localhost\n\n\0", true).get(5, TimeUnit.SECONDS);
+            assertThat(listener.messages.poll(5, TimeUnit.SECONDS)).startsWith("CONNECTED");
+
+            server.shutdown();
+
+            assertThat(listener.closed.get(5, TimeUnit.SECONDS)).isEqualTo(WebSocket.NORMAL_CLOSURE);
+        } finally {
+            close(webSocket, httpClient, server);
+        }
+    }
+
+    @Test
+    @Timeout(20)
+    void reply_to_client_close_with_one_close_frame() throws Exception {
+        StompServer server = startWebSocketServer();
+
+        try (Socket socket = new Socket()) {
+            int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
+            socket.connect(new InetSocketAddress("localhost", port), 5_000);
+            socket.setSoTimeout(5_000);
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+            upgradeToWebSocket(out, in, "/stomp");
+
+            // Masked close frame with status 1000 and a zero masking key.
+            out.write(new byte[]{(byte) 0x88, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, 0x03, (byte) 0xE8});
+            out.flush();
+
+            assertThat(in.readAllBytes()).containsExactly((byte) 0x88, 0x02, 0x03, (byte) 0xE8);
+        } finally {
+            if (!server.isShutdown()) {
+                server.shutdown();
+            }
+        }
+    }
+
+    private static StompServer startWebSocketServer() throws Exception {
+        StompServer server = StompServer.open(
+                EventLoopGroups.group(1, 1),
+                StompServerOption.builder().build()
+        ).webSocket("/stomp");
+        server.start();
+        server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
+        return server;
+    }
+
+    private static WebSocket openJdkClient(HttpClient httpClient, StompServer server, RecordingListener listener)
+            throws Exception {
+        int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
+        return httpClient.newWebSocketBuilder()
+                .subprotocols("v12.stomp")
+                .buildAsync(URI.create("ws://localhost:" + port + "/stomp"), listener)
+                .get(5, TimeUnit.SECONDS);
+    }
+
+    private static void close(WebSocket webSocket, HttpClient httpClient, StompServer server) {
+        if (webSocket != null) {
+            webSocket.abort();
+        }
+        httpClient.shutdownNow();
+        if (!server.isShutdown()) {
+            server.shutdown();
+        }
+    }
+
+    private static void upgradeToWebSocket(OutputStream out, InputStream in, String path) throws IOException {
+        out.write(("GET " + path + " HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Upgrade: websocket\r\n"
+                + "Connection: Upgrade\r\n"
+                + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+                + "Sec-WebSocket-Version: 13\r\n"
+                + "Sec-WebSocket-Protocol: v12.stomp\r\n"
+                + "\r\n").getBytes(StandardCharsets.US_ASCII));
+        out.flush();
+        assertThat(readHttpHead(in)).startsWith("HTTP/1.1 101");
+    }
+
     private static String readHttpHead(InputStream in) throws IOException {
         StringBuilder head = new StringBuilder();
         while (head.indexOf("\r\n\r\n") < 0) {
@@ -262,4 +384,30 @@ class StompWebSocketIntegrationTest {
         }
     }
 
+    /**
+     * Collects complete text messages and the close status received by a JDK WebSocket client.
+     */
+    private static final class RecordingListener implements WebSocket.Listener {
+
+        private final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
+        private final CompletableFuture<Integer> closed = new CompletableFuture<>();
+        private final StringBuilder partial = new StringBuilder();
+
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            partial.append(data);
+            if (last) {
+                messages.add(partial.toString());
+                partial.setLength(0);
+            }
+            webSocket.request(1);
+            return null;
+        }
+
+        @Override
+        public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+            closed.complete(statusCode);
+            return null;
+        }
+    }
 }

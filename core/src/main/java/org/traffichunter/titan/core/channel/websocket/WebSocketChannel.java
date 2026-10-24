@@ -22,7 +22,10 @@ import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.codec.websocket.WebSocketFrame;
+import org.traffichunter.titan.core.codec.websocket.WebSocketFrames;
+import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.util.Protocol;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
@@ -31,17 +34,24 @@ import java.net.SocketAddress;
 import java.net.SocketOption;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author yun
  */
 public final class WebSocketChannel implements NetChannel {
 
-    private final NetChannel delegate;
-    private final Protocol subProtocol;
+    private static final int NORMAL_CLOSURE = 1000;
+    private static final long CLOSE_TIMEOUT_SECONDS = 5;
 
-    public WebSocketChannel(NetChannel delegate, Protocol subProtocol) {
+    private final NetChannel delegate;
+    private final WebSocketSide side;
+    private final Protocol subProtocol;
+    private final AtomicBoolean closing = new AtomicBoolean();
+
+    public WebSocketChannel(NetChannel delegate, WebSocketSide side, Protocol subProtocol) {
         this.delegate = delegate;
+        this.side = side;
         this.subProtocol = subProtocol;
     }
 
@@ -206,8 +216,31 @@ public final class WebSocketChannel implements NetChannel {
         return delegate.isClosed();
     }
 
+    /**
+     * Sends a normal closure frame and closes the underlying channel once it is written, or after
+     * {@value #CLOSE_TIMEOUT_SECONDS} seconds if the write does not complete.
+     */
     @Override
     public void close() {
-        delegate.close();
+        if (!delegate.isActive()) {
+            delegate.close();
+            return;
+        }
+        if (!closing.compareAndSet(false, true)) {
+            return;
+        }
+
+        WebSocketFrame close = WebSocketFrames.close(NORMAL_CLOSURE, "", side, subProtocol);
+        try {
+            ScheduledPromise<?> timeout = eventLoop().schedule(delegate::close, CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            writeAndFlush(close).addListener(result -> {
+                timeout.cancel();
+                delegate.close();
+            });
+        } catch (RuntimeException error) {
+            delegate.close();
+        } finally {
+            close.payload().release();
+        }
     }
 }

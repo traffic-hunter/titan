@@ -27,6 +27,7 @@ import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.*;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
+import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.codec.stomp.StompChannelDecoder;
 import org.traffichunter.titan.core.codec.stomp.StompException;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
@@ -160,7 +161,7 @@ public final class StompServer {
 
                     StompClientChannel stompConnection;
                     if (webSocketPath != null) {
-                        WebSocketChannel webSocketChannel = new WebSocketChannel(netChannel, Protocol.STOMP);
+                        WebSocketChannel webSocketChannel = new WebSocketChannel(netChannel, WebSocketSide.SERVER, Protocol.STOMP);
                         stompConnection = StompClientChannel.wrap(webSocketChannel, stompClientOption);
                     } else {
                         stompConnection = StompClientChannel.wrap(netChannel, stompClientOption);

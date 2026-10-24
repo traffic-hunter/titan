@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
+import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Protocol;
 
@@ -35,7 +36,7 @@ class StompClientWebSocketChannelTest {
     void wrap_websocket_channel_as_stomp_client_channel() {
         NetChannel delegate = mock(NetChannel.class);
         when(delegate.eventLoop()).thenReturn(mock(IOEventLoop.class));
-        WebSocketChannel webSocketChannel = new WebSocketChannel(delegate, Protocol.STOMP);
+        WebSocketChannel webSocketChannel = new WebSocketChannel(delegate, WebSocketSide.SERVER, Protocol.STOMP);
 
         StompClientChannel channel = StompClientChannel.wrap(
                 webSocketChannel,
