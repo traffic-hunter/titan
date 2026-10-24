@@ -37,9 +37,14 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketFrameDecoder.class);
 
+    private static final int INTERNAL_ERROR = 1011;
+
     private final WebSocketFrameParser parser;
     private final WebSocketSide side;
+    private final Protocol subProtocol;
     private final WebSocketControlFrameHandler controlFrameHandler;
+
+    private boolean failed;
 
     public WebSocketFrameDecoder() {
         this(WebSocketSide.SERVER, Protocol.STOMP);
@@ -59,12 +64,24 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
             WebSocketControlFrameHandler controlFrameHandler
     ) {
         this.side = side;
+        this.subProtocol = subProtocol;
         this.controlFrameHandler = controlFrameHandler;
-        this.parser = new WebSocketFrameParser(subProtocol);
+        this.parser = new WebSocketFrameParser(side, subProtocol);
     }
 
+    /**
+     * Decodes WebSocket frames and forwards data payload bytes as soon as they arrive.
+     *
+     * <p>A data frame payload may be forwarded in several chunks, so the next decoder must treat
+     * its input as a byte stream. Invalid frames are answered with a close frame before the
+     * channel closes.</p>
+     */
     @Override
     protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
+        if (failed) {
+            discard(buffer);
+            return null;
+        }
         try {
             WebSocketFrame websocketFrame = parser.parse(buffer);
             if (websocketFrame == null) {
@@ -81,16 +98,34 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
                 return null;
             }
 
-            return websocketFrame.payload();
-        } catch (WebSocketFrameException e) {
-            log.warn("Rejected invalid websocket frame. reason={}", e.getMessage());
-            discard(buffer);
-            channel.close();
-            return null;
+            Buffer payload = websocketFrame.payload();
+            if (!payload.isReadable()) {
+                payload.release();
+                return null;
+            }
+            return payload;
         } catch (Exception e) {
-            log.error("Failed to parse websocket frame", e);
+            int closeStatus;
+            if (e instanceof WebSocketFrameException frameException) {
+                log.warn("Rejected invalid websocket frame. reason={}", e.getMessage());
+                closeStatus = frameException.closeStatus();
+            } else {
+                log.error("Failed to parse websocket frame", e);
+                closeStatus = INTERNAL_ERROR;
+            }
+            failed = true;
             discard(buffer);
-            channel.close();
+
+            WebSocketFrame close = WebSocketFrames.close(closeStatus, "", side, subProtocol);
+            try {
+                new WebSocketChannel(channel, subProtocol)
+                        .writeAndFlush(close)
+                        .addListener(result -> channel.close());
+            } catch (RuntimeException writeError) {
+                channel.close();
+            } finally {
+                close.payload().release();
+            }
             return null;
         }
     }
@@ -111,13 +146,45 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
         private static final int SHORT_PAYLOAD_LENGTH_MARKER = 126;
         private static final int CONTROL_FRAME_MAX_PAYLOAD_LENGTH = 125;
 
+        private final WebSocketSide side;
         private final Protocol subProtocol;
 
-        private WebSocketFrameParser(Protocol subProtocol) {
+        // Header of the data frame whose payload is still arriving.
+        private @Nullable WebSocketFrameHeader header;
+        private long remaining;
+
+        private WebSocketFrameParser(WebSocketSide side, Protocol subProtocol) {
+            this.side = side;
             this.subProtocol = subProtocol;
         }
 
         @Nullable WebSocketFrame parse(Buffer buffer) {
+            if (header == null) {
+                header = parseHeader(buffer);
+                if (header == null) {
+                    return null;
+                }
+                remaining = header.getPayloadLength();
+            }
+
+            WebSocketFrameHeader currentHeader = header;
+            int position = (int) (currentHeader.getPayloadLength() - remaining);
+            int length = (int) Math.min(remaining, buffer.length());
+            Buffer payload = buffer.readRetainedSlice(length);
+            if (currentHeader.isMasked()) {
+                payload = WebSocketFrameHeader.unmask(payload, currentHeader.getMaskingKey(), position);
+            }
+            remaining -= length;
+            if (remaining == 0) {
+                header = null;
+            }
+            return new WebSocketFrame(currentHeader, payload, subProtocol);
+        }
+
+        /**
+         * Reads and validates a frame header, or returns {@code null} when more bytes are needed.
+         */
+        private @Nullable WebSocketFrameHeader parseHeader(Buffer buffer) {
             if (!buffer.isReadable()) {
                 return null;
             }
@@ -162,9 +229,9 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
                 }
             }
 
-            validate(opcode, fin, payloadLength);
-
             boolean isMasked = (secondByte & MASK_BIT) != 0;
+            validate(opcode, fin, isMasked, payloadLength);
+
             int maskingKey = 0;
             if (isMasked) {
                 if (readableBytes < headerLength + Integer.BYTES) {
@@ -174,36 +241,42 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
                 headerLength += Integer.BYTES;
             }
 
-            if (readableBytes < headerLength + payloadLength) {
+            // Control frame handlers need the whole payload. Data payloads are streamed.
+            if (isControlFrame(opcode) && readableBytes < headerLength + payloadLength) {
                 return null;
             }
 
             buffer.skipBytes(headerLength);
-            Buffer payload = buffer.readRetainedSlice((int) payloadLength);
-            if (isMasked) {
-                payload = WebSocketFrameHeader.unmask(payload, maskingKey);
-            }
-
             WebSocketFrameHeader.Builder headerBuilder = WebSocketFrameHeader.builder()
                     .op(opcode, fin)
                     .payloadLength(payloadLength);
             if (isMasked) {
                 headerBuilder.masked(maskingKey);
             }
-            WebSocketFrameHeader header = headerBuilder.build();
-
-            return new WebSocketFrame(header, payload, subProtocol);
+            return headerBuilder.build();
         }
 
-        private static void validate(OpCode opcode, boolean fin, long payloadLength) {
+        private void validate(OpCode opcode, boolean fin, boolean masked, long payloadLength) {
             if (!fin || opcode == OpCode.CONTINUATION) {
                 throw new WebSocketFrameException("Fragmented WebSocket messages are not supported");
+            }
+            if (side == WebSocketSide.SERVER && !masked) {
+                throw new WebSocketFrameException("Client frames must be masked");
+            }
+            if (side == WebSocketSide.CLIENT && masked) {
+                throw new WebSocketFrameException("Server frames must not be masked");
             }
             if (isControlFrame(opcode) && payloadLength > CONTROL_FRAME_MAX_PAYLOAD_LENGTH) {
                 throw new WebSocketFrameException("Control frame payload must be less than 126 bytes");
             }
-            if (payloadLength < 0 || payloadLength > Integer.MAX_VALUE) {
+            if (payloadLength < 0) {
                 throw new WebSocketFrameException("Invalid WebSocket payload length: " + payloadLength);
+            }
+            if (payloadLength > Integer.MAX_VALUE) {
+                throw new WebSocketFrameException(
+                        WebSocketFrameException.MESSAGE_TOO_BIG,
+                        "WebSocket payload length exceeds " + Integer.MAX_VALUE + ": " + payloadLength
+                );
             }
         }
     }
