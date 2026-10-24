@@ -24,6 +24,8 @@ import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.net.HttpRequest;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
+import java.util.Base64;
+
 /**
  * Performs the server side of the WebSocket HTTP upgrade handshake.
  *
@@ -37,6 +39,7 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
     private static final String METHOD_GET = "GET";
     private static final String SWITCHING_PROTOCOLS_RESPONSE = "HTTP/1.1 101 Switching Protocols";
 
+    private static final String HOST = "Host";
     private static final String SEC_WEBSOCKET_KEY = "Sec-WebSocket-Key";
     private static final String SEC_WEBSOCKET_VERSION = "Sec-WebSocket-Version";
     private static final String SEC_WEBSOCKET_PROTOCOL = "Sec-WebSocket-Protocol";
@@ -58,14 +61,27 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
         this.path = WebSocketPaths.normalize(path);
     }
 
+    /**
+     * Installs the upgrade handler on the channel.
+     *
+     * <p>An invalid request is answered with an HTTP error response before the returned promise
+     * fails. The caller closes the channel when the promise fails.</p>
+     */
     @Override
     public Promise<NetChannel> handshake(NetChannel channel) {
         Promise<NetChannel> upgradeResult = Promise.newPromise(channel.eventLoop());
+        Promise<NetChannel> requestResult = Promise.newPromise(channel.eventLoop());
         try {
-            channel.chain().add(new WebSocketUpgradeHandler(this, upgradeResult));
+            channel.chain().add(new WebSocketUpgradeHandler(this, requestResult));
         } catch (RuntimeException error) {
             upgradeResult.fail(error);
+            return upgradeResult;
         }
+
+        requestResult
+                .onSuccess(upgradeResult::success)
+                .onFailure(error -> channel.writeAndFlush(Buffer.heap().alloc(errorResponse(error)))
+                        .addListener(result -> upgradeResult.fail(error)));
         return upgradeResult;
     }
 
@@ -79,7 +95,10 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
 
         validateRequest(upgradeRequest);
         if (!path.equals(upgradeRequest.uri())) {
-            throw new WebSocketHandshakeException("Unexpected WebSocket path: " + upgradeRequest.uri());
+            throw new WebSocketHandshakeException(
+                    WebSocketHandshakeException.NOT_FOUND,
+                    "Unexpected WebSocket path: " + upgradeRequest.uri()
+            );
         }
         return upgradeRequest;
     }
@@ -106,9 +125,30 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
         return response.append(CRLF).toString();
     }
 
+    String errorResponse(Throwable error) {
+        int status = error instanceof WebSocketHandshakeException handshakeError
+                ? handshakeError.status()
+                : WebSocketHandshakeException.BAD_REQUEST;
+        StringBuilder response = new StringBuilder()
+                .append("HTTP/1.1 ").append(status).append(' ').append(reasonPhrase(status)).append(CRLF);
+        if (status == WebSocketHandshakeException.UPGRADE_REQUIRED) {
+            response.append(SEC_WEBSOCKET_VERSION).append(": ").append(VERSION).append(CRLF)
+                    .append(UPGRADE).append(": ").append(WEBSOCKET).append(CRLF);
+        }
+        return response
+                .append(CONNECTION).append(": close").append(CRLF)
+                .append("Content-Length: 0").append(CRLF)
+                .append(CRLF)
+                .toString();
+    }
+
     private void validateRequest(HttpRequest request) {
         if (!METHOD_GET.equals(request.method())) {
             throw new WebSocketHandshakeException("Invalid WebSocket upgrade method: " + request.method());
+        }
+        String host = request.header(HOST);
+        if (host == null || host.isBlank()) {
+            throw new WebSocketHandshakeException("Missing Host header");
         }
         if (!WEBSOCKET.equalsIgnoreCase(request.header(UPGRADE))) {
             throw new WebSocketHandshakeException("Invalid WebSocket Upgrade header");
@@ -117,17 +157,40 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
             throw new WebSocketHandshakeException("Invalid WebSocket Connection header");
         }
         if (!VERSION.equals(request.header(SEC_WEBSOCKET_VERSION))) {
-            throw new WebSocketHandshakeException("Invalid WebSocket version");
+            throw new WebSocketHandshakeException(
+                    WebSocketHandshakeException.UPGRADE_REQUIRED,
+                    "Invalid WebSocket version"
+            );
         }
         String key = key(request);
         if (key == null || key.isBlank()) {
             throw new WebSocketHandshakeException("Missing Sec-WebSocket-Key header");
+        }
+        if (!isValidKey(key)) {
+            throw new WebSocketHandshakeException("Sec-WebSocket-Key must be a base64-encoded 16-byte value");
         }
 
         String protocol = protocol(request);
         if (protocol != null && !containsToken(protocol, STOMP_SUB_PROTOCOL)) {
             throw new WebSocketHandshakeException("Unsupported WebSocket subprotocol: " + protocol);
         }
+    }
+
+    private static boolean isValidKey(String key) {
+        try {
+            return Base64.getDecoder().decode(key).length == 16;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private static String reasonPhrase(int status) {
+        return switch (status) {
+            case WebSocketHandshakeException.NOT_FOUND -> "Not Found";
+            case WebSocketHandshakeException.UPGRADE_REQUIRED -> "Upgrade Required";
+            case WebSocketHandshakeException.REQUEST_HEADER_FIELDS_TOO_LARGE -> "Request Header Fields Too Large";
+            default -> "Bad Request";
+        };
     }
 
     private static @Nullable String key(HttpRequest request) {
