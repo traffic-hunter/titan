@@ -283,8 +283,122 @@ class WebSocketFrameDecoderTest {
     }
 
     @Test
-    void close_with_protocol_error_when_fragmented_frame_is_received() {
-        byte[] payload = {0x01, (byte) 0x80, 0x00, 0x00, 0x00, 0x00};
+    void forward_fragmented_message_payloads() {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        byte[] first = mask(new byte[]{'O', 'K'}, 0x01020304);
+        byte[] last = mask(new byte[]{'A', 'Y', '!'}, 0x05060708);
+        Buffer buffer = Buffer.heap().alloc(new byte[]{
+                0x01, (byte) 0x82, 0x01, 0x02, 0x03, 0x04, first[0], first[1],
+                (byte) 0x80, (byte) 0x83, 0x05, 0x06, 0x07, 0x08, last[0], last[1], last[2]
+        });
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
+        Buffer firstPayload = decoder.decode(channel, buffer);
+        Buffer lastPayload = decoder.decode(channel, buffer);
+
+        assertThat(firstPayload).isNotNull();
+        assertThat(firstPayload.toString()).isEqualTo("OK");
+        assertThat(lastPayload).isNotNull();
+        assertThat(lastPayload.toString()).isEqualTo("AY!");
+        assertThat(buffer.isReadable()).isFalse();
+        assertThat(channel.isClosed()).isFalse();
+
+        firstPayload.release();
+        lastPayload.release();
+        buffer.release();
+    }
+
+    @Test
+    void forward_unmasked_fragmented_message_payloads_on_client() {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        Buffer buffer = Buffer.heap().alloc(new byte[]{
+                0x02, 0x02, 'O', 'K',
+                0x00, 0x01, '!',
+                (byte) 0x80, 0x00
+        });
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder(WebSocketSide.CLIENT, Protocol.STOMP);
+        Buffer firstPayload = decoder.decode(channel, buffer);
+        Buffer secondPayload = decoder.decode(channel, buffer);
+        Buffer emptyLastPayload = decoder.decode(channel, buffer);
+
+        assertThat(firstPayload).isNotNull();
+        assertThat(firstPayload.toString()).isEqualTo("OK");
+        assertThat(secondPayload).isNotNull();
+        assertThat(secondPayload.toString()).isEqualTo("!");
+        assertThat(emptyLastPayload).isNull();
+        assertThat(buffer.isReadable()).isFalse();
+        assertThat(channel.isClosed()).isFalse();
+
+        firstPayload.release();
+        secondPayload.release();
+        buffer.release();
+    }
+
+    @Test
+    void handle_ping_between_message_fragments() {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        Buffer buffer = Buffer.heap().alloc(new byte[]{
+                0x01, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, 'O', 'K',
+                (byte) 0x89, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, 'P',
+                (byte) 0x80, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, '!'
+        });
+        AtomicReference<WebSocketContext> received = new AtomicReference<>();
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder(
+                WebSocketSide.SERVER,
+                Protocol.STOMP,
+                received::set
+        );
+        Buffer firstPayload = decoder.decode(channel, buffer);
+        Buffer pingPayload = decoder.decode(channel, buffer);
+        Buffer lastPayload = decoder.decode(channel, buffer);
+
+        assertThat(firstPayload).isNotNull();
+        assertThat(firstPayload.toString()).isEqualTo("OK");
+        assertThat(pingPayload).isNull();
+        assertThat(received.get().frame().header().getOpCode()).isEqualTo(WebSocketFrameHeader.OpCode.PING);
+        assertThat(lastPayload).isNotNull();
+        assertThat(lastPayload.toString()).isEqualTo("!");
+        assertThat(buffer.isReadable()).isFalse();
+        assertThat(channel.isClosed()).isFalse();
+
+        firstPayload.release();
+        lastPayload.release();
+        received.get().frame().payload().release();
+        buffer.release();
+    }
+
+    @Test
+    void close_with_protocol_error_when_continuation_has_no_message() {
+        byte[] payload = {(byte) 0x80, (byte) 0x80, 0x00, 0x00, 0x00, 0x00};
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1002);
+    }
+
+    @Test
+    void close_with_protocol_error_when_new_message_starts_before_fragmented_message_ends() {
+        byte[] payload = {
+                0x01, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, 'O', 'K',
+                (byte) 0x81, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, '!'
+        };
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1002);
+    }
+
+    @Test
+    void close_with_protocol_error_when_control_frame_is_fragmented() {
+        byte[] payload = {0x09, (byte) 0x80, 0x00, 0x00, 0x00, 0x00};
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1002);
+    }
+
+    @Test
+    void close_with_protocol_error_when_server_receives_unmasked_continuation() {
+        byte[] payload = {
+                0x01, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, 'O', 'K',
+                (byte) 0x80, 0x01, '!'
+        };
 
         assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1002);
     }
@@ -415,7 +529,11 @@ class WebSocketFrameDecoderTest {
         Buffer buffer = Buffer.heap().alloc(bytes);
 
         WebSocketFrameDecoder decoder = new WebSocketFrameDecoder(side, Protocol.STOMP);
-        Buffer payload = decoder.decode(channel, buffer);
+        Buffer payload;
+        // Valid frames before the invalid one forward their payloads first.
+        while ((payload = decoder.decode(channel, buffer)) != null) {
+            payload.release();
+        }
 
         ArgumentCaptor<Buffer> written = ArgumentCaptor.forClass(Buffer.class);
         verify(channel.internal()).write(written.capture(), any(ChannelPromise.class));
