@@ -19,6 +19,11 @@ Use Titan for notifications, chat-style messaging, telemetry fanout, and live
 interaction backends where messages can be handled in memory. Titan is not an
 in-process event bus or a durable broker replacement.
 
+> **Pre-release:** Titan `0.x.x` versions are pre-releases. Public APIs,
+> configuration keys, and runtime behavior may change between any `0.x`
+> versions without a compatibility guarantee. The stable compatibility contract
+> starts with `1.0.0`.
+
 ## Why Titan?
 
 - **STOMP without a large broker stack.** Run a standalone JAR and connect using
