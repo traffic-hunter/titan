@@ -60,39 +60,59 @@ abstract class AbstractWebSocketHandshaker {
         private static final byte LF = '\n';
         private static final byte CR = '\r';
 
+        private static final int MAX_HEAD_LENGTH = 8192;
+
         private final Promise<NetChannel> upgradeResult;
         private boolean upgraded;
+        private boolean failed;
 
         HttpUpgradeHandler(Promise<NetChannel> upgradeResult) {
             this.upgradeResult = upgradeResult;
         }
 
+        /**
+         * Reads the HTTP head and fails the upgrade promise on an invalid or oversized head.
+         * The owner of the promise closes the channel.
+         */
         @Override
         protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
+            if (failed) {
+                discard(buffer);
+                return null;
+            }
             if (upgraded) {
                 return buffer.isReadable() ? buffer.readRetainedSlice(buffer.length()) : null;
             }
 
-            int headEnd = findEndOfHead(buffer);
-            if (headEnd < 0) {
-                return null;
-            }
-
-            int readerIndex = buffer.byteBuf().readerIndex();
-            Buffer head = buffer.readRetainedSlice(headEnd - readerIndex);
             try {
-                handleHead(channel, head.toString(ISO_8859_1));
+                int headEnd = findEndOfHead(buffer);
+                int headLength = headEnd < 0 ? buffer.length() : headEnd - buffer.byteBuf().readerIndex();
+                if (headLength > MAX_HEAD_LENGTH) {
+                    throw new WebSocketHandshakeException(
+                            WebSocketHandshakeException.REQUEST_HEADER_FIELDS_TOO_LARGE,
+                            "HTTP upgrade head exceeds " + MAX_HEAD_LENGTH + " bytes"
+                    );
+                }
+                if (headEnd < 0) {
+                    return null;
+                }
+
+                Buffer head = buffer.readRetainedSlice(headLength);
+                try {
+                    handleHead(channel, head.toString(ISO_8859_1));
+                } finally {
+                    head.release();
+                }
                 upgraded = true;
                 upgradeResult.success(channel);
                 onSuccess(channel);
                 return buffer.isReadable() ? buffer.readRetainedSlice(buffer.length()) : null;
             } catch (Exception e) {
+                failed = true;
+                discard(buffer);
+                log.warn("Failed to upgrade WebSocket connection. reason={}", e.getMessage());
                 upgradeResult.fail(e);
-                channel.close();
-                log.error("Failed to upgrade WebSocket connection", e);
                 return null;
-            } finally {
-                head.release();
             }
         }
 
@@ -109,6 +129,12 @@ abstract class AbstractWebSocketHandshaker {
             channel.chain()
                     .addFirst(new WebSocketFrameEncoder(side, subProtocol))
                     .addLast(new WebSocketFrameDecoder(side, Protocol.subProtocol(subProtocol)));
+        }
+
+        private static void discard(Buffer buffer) {
+            if (buffer.isReadable()) {
+                buffer.skipBytes(buffer.length());
+            }
         }
 
         private static int findEndOfHead(Buffer buffer) {

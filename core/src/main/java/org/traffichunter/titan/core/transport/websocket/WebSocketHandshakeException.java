@@ -20,11 +20,31 @@ package org.traffichunter.titan.core.transport.websocket;
  */
 public class WebSocketHandshakeException extends RuntimeException {
 
+    static final int BAD_REQUEST = 400;
+    static final int NOT_FOUND = 404;
+    static final int UPGRADE_REQUIRED = 426;
+    static final int REQUEST_HEADER_FIELDS_TOO_LARGE = 431;
+
+    private final int status;
+
     public WebSocketHandshakeException(String message) {
-        super(message);
+        this(BAD_REQUEST, message);
     }
 
     public WebSocketHandshakeException(String message, Throwable cause) {
         super(message, cause);
+        this.status = BAD_REQUEST;
+    }
+
+    WebSocketHandshakeException(int status, String message) {
+        super(message);
+        this.status = status;
+    }
+
+    /**
+     * Returns the HTTP status a server answers this failure with.
+     */
+    public int status() {
+        return status;
     }
 }
