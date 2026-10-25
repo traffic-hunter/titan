@@ -18,6 +18,8 @@ package org.traffichunter.titan.core.transport.websocket;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandlerChain;
 import org.traffichunter.titan.core.channel.ChannelSecondaryIOEventLoop;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
@@ -93,6 +95,28 @@ class WebSocketServerHandshakerTest {
                 + "Sec-WebSocket-Accept: " + ACCEPT + "\r\n"
                 + "Sec-WebSocket-Protocol: v12.stomp\r\n"
                 + "\r\n");
+    }
+
+    @Test
+    void create_response_selects_stomp_from_offered_subprotocols() {
+        WebSocketServerHandshaker handshaker = new WebSocketServerHandshaker();
+        HttpRequest request = handshaker.parseRequest(
+                REQUEST.replace("Sec-WebSocket-Protocol: v12.stomp", "Sec-WebSocket-Protocol: foo, v12.stomp"));
+
+        assertThat(handshaker.createResponse(request)).contains("Sec-WebSocket-Protocol: v12.stomp\r\n");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Sec-WebSocket-Protocol: foo\r\n", "Sec-WebSocket-Protocol: V12.STOMP\r\n", ""})
+    void create_response_omits_subprotocol_when_stomp_is_not_offered(String protocolHeader) {
+        WebSocketServerHandshaker handshaker = new WebSocketServerHandshaker();
+        HttpRequest request = handshaker.parseRequest(
+                REQUEST.replace("Sec-WebSocket-Protocol: v12.stomp\r\n", protocolHeader));
+
+        String response = handshaker.createResponse(request);
+
+        assertThat(response).startsWith("HTTP/1.1 101 Switching Protocols");
+        assertThat(response).doesNotContain("Sec-WebSocket-Protocol");
     }
 
     @Test
@@ -206,7 +230,6 @@ class WebSocketServerHandshakerTest {
         assertThat(statusOf(handshaker, request.replace("Connection: keep-alive, Upgrade", "Connection: keep-alive")))
                 .isEqualTo(400);
         assertThat(statusOf(handshaker, request.replace(KEY, "c2hvcnQ="))).isEqualTo(400);
-        assertThat(statusOf(handshaker, request.replace("v12.stomp", "mqtt"))).isEqualTo(400);
         assertThat(statusOf(handshaker, request.replace("Sec-WebSocket-Version: 13", "Sec-WebSocket-Version: 8")))
                 .isEqualTo(426);
         assertThat(statusOf(handshaker, request.replace("Sec-WebSocket-Version: 13\r\n", ""))).isEqualTo(426);

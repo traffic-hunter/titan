@@ -169,11 +169,6 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
         if (!isValidKey(key)) {
             throw new WebSocketHandshakeException("Sec-WebSocket-Key must be a base64-encoded 16-byte value");
         }
-
-        String protocol = protocol(request);
-        if (protocol != null && !containsToken(protocol, STOMP_SUB_PROTOCOL)) {
-            throw new WebSocketHandshakeException("Unsupported WebSocket subprotocol: " + protocol);
-        }
     }
 
     private static boolean isValidKey(String key) {
@@ -197,12 +192,21 @@ public final class WebSocketServerHandshaker extends AbstractWebSocketHandshaker
         return request.header(SEC_WEBSOCKET_KEY);
     }
 
-    private @Nullable String protocol(HttpRequest request) {
+    /**
+     * Returns {@code v12.stomp} when the client offered it, or {@code null} to answer without a
+     * subprotocol. Clients compare the selected value exactly, so the match is case-sensitive.
+     */
+    private static @Nullable String protocol(HttpRequest request) {
         String protocol = request.header(SEC_WEBSOCKET_PROTOCOL);
         if (protocol == null) {
             return null;
         }
-        return containsToken(protocol, STOMP_SUB_PROTOCOL) ? STOMP_SUB_PROTOCOL : protocol;
+        for (String token : protocol.split(",")) {
+            if (STOMP_SUB_PROTOCOL.equals(token.trim())) {
+                return STOMP_SUB_PROTOCOL;
+            }
+        }
+        return null;
     }
 
     private static boolean containsToken(@Nullable String header, String expected) {
