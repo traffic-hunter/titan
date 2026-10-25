@@ -382,10 +382,34 @@ class StompWebSocketIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(20)
+    void close_websocket_that_does_not_connect_in_time() throws Exception {
+        StompServer server = startWebSocketServer(StompServerOption.builder().connectTimeoutMillis(200L).build());
+
+        try (Socket socket = new Socket()) {
+            int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
+            socket.connect(new InetSocketAddress("localhost", port), 5_000);
+            socket.setSoTimeout(5_000);
+            upgradeToWebSocket(socket.getOutputStream(), socket.getInputStream(), "/stomp");
+
+            String received = new String(socket.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertThat(received).contains("ERROR").contains("message:CONNECT timeout");
+        } finally {
+            if (!server.isShutdown()) {
+                server.shutdown();
+            }
+        }
+    }
+
     private static StompServer startWebSocketServer() throws Exception {
+        return startWebSocketServer(StompServerOption.builder().build());
+    }
+
+    private static StompServer startWebSocketServer(StompServerOption option) throws Exception {
         StompServer server = StompServer.open(
                 EventLoopGroups.group(1, 1),
-                StompServerOption.builder().build()
+                option
         ).webSocket("/stomp");
         server.start();
         server.listen("localhost", 0).get(5, TimeUnit.SECONDS);

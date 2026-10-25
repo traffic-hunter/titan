@@ -30,6 +30,7 @@ import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
 import org.traffichunter.titan.core.codec.websocket.WebSocketSide;
 import org.traffichunter.titan.core.codec.stomp.StompChannelDecoder;
 import org.traffichunter.titan.core.codec.stomp.StompException;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
@@ -170,6 +171,7 @@ public final class StompServer {
 
                     netChannel.chain().add(new StompChannelDecoder(
                             option.maxFrameLength(), stompConnection, stompServerHandler));
+                    scheduleConnectTimeout(stompConnection);
 
                     channelHandler.handle(stompConnection.channel());
                 });
@@ -253,6 +255,28 @@ public final class StompServer {
                         resultPromise.fail(new StompException("Failed to listen on address " + address, listenFuture.error()));
                     }
                 });
+    }
+
+    /**
+     * Closes a connection that has not completed CONNECT in time. Heart-beats only start after
+     * CONNECT, so nothing else would notice a connection that never sends it.
+     */
+    private void scheduleConnectTimeout(StompClientChannel connection) {
+        long timeout = option.connectTimeoutMillis();
+        if (timeout == 0) {
+            return;
+        }
+
+        connection.channel().eventLoop().schedule(() -> {
+            if (connection.isConnected() || connection.channel().isClosed()) {
+                return;
+            }
+            log.warn("Closing STOMP connection that did not CONNECT in time. session={}, timeoutMillis={}",
+                    connection.session(), timeout);
+            connection.send(StompFrame.errorFrame("CONNECT timeout",
+                    "CONNECT was not received within " + timeout + " ms."));
+            connection.close();
+        }, timeout, TimeUnit.MILLISECONDS);
     }
 
     private static StompSessionOption serverChildSessionOption(StompServerOption option, StompSessionOption childOption) {

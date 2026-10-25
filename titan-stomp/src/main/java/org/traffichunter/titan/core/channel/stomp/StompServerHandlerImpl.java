@@ -32,8 +32,8 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.create;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.formatString;
 import static org.traffichunter.titan.core.codec.stomp.StompVersion.STOMP_1_0;
-public final class StompServerHandlerImpl implements StompServerHandler {
 
+public final class StompServerHandlerImpl implements StompServerHandler {
 
     private static final Logger log = LoggerFactory.getLogger(StompServerHandlerImpl.class);
 
@@ -58,6 +58,10 @@ public final class StompServerHandlerImpl implements StompServerHandler {
 
     @Override
     public void handle(final StompFrame frame, final StompClientChannel connection) {
+        if (validateConnect(frame, connection)) {
+            return;
+        }
+
         connection.setLastActivatedAt();
         StompServerEvent event = new StompServerEvent(frame, connection);
         receivedFrameHandler.handle(event);
@@ -637,5 +641,27 @@ public final class StompServerHandlerImpl implements StompServerHandler {
         }
 
         private DefaultStompServerHandlers() { }
+    }
+
+    private static boolean validateConnect(StompFrame frame, StompClientChannel connection) {
+        StompCommand command = frame.getCommand();
+        if (command == StompCommand.CONNECT || command == StompCommand.STOMP) {
+            if (connection.isConnected()) {
+                log.warn("Rejected STOMP CONNECT on a connected session. session={}", connection.session());
+                connection.send(errorFrame("Already connected", "CONNECT was already accepted on this connection."));
+                connection.close();
+                return true;
+            }
+        } else if (!connection.isConnected()) {
+            // A heart-beat EOL before CONNECT carries nothing to reject.
+            if (command == StompCommand.PING) {
+                return true;
+            }
+            log.warn("Rejected STOMP frame before CONNECT. session={}, command={}", connection.session(), command);
+            connection.send(errorFrame("Not connected", "CONNECT must be the first frame."));
+            connection.close();
+            return true;
+        }
+        return false;
     }
 }

@@ -38,6 +38,7 @@ format.
 | `max-frame-length` | Maximum STOMP frame size in bytes | `"1048576"` |
 | `heartbeat-x` | Outgoing heartbeat interval in milliseconds | `"1000"` |
 | `heartbeat-y` | Expected incoming heartbeat interval in milliseconds | `"1000"` |
+| `connect-timeout-millis` | Time an accepted connection has to send `CONNECT` before it is closed; `"0"` disables it | `"10000"` |
 | `fanout-mode` | Enables dispatcher fanout; `virtual` is the only mode | `"virtual"` |
 
 Heartbeat values must be zero or greater. A zero value disables that heartbeat

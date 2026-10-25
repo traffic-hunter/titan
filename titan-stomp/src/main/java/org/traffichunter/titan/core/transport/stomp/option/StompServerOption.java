@@ -28,6 +28,7 @@ public record StompServerOption(
         int timeFactor,
         long heartbeatX,
         long heartbeatY,
+        long connectTimeoutMillis,
         int transactionChunkSize,
         int maxSubscriptionsByClient,
         StompVersion stompVersion,
@@ -38,6 +39,7 @@ public record StompServerOption(
     public static final int DEFAULT_MAX_FRAME_IN_TRANSACTION = 1000;
     public static final int DEFAULT_TRANSACTION_CHUNK_SIZE = 1000;
     public static final int DEFAULT_MAX_SUBSCRIPTIONS_BY_CLIENT = 1000;
+    public static final long DEFAULT_CONNECT_TIMEOUT_MILLIS = 10_000L;
 
     public static final String SUPPORTED_VERSION = "1.2";
 
@@ -50,6 +52,9 @@ public record StompServerOption(
         }
         if (ackTimeoutMillis <= 0 || timeFactor <= 0 || heartbeatX < 0 || heartbeatY < 0) {
             throw new IllegalArgumentException("Timeout/time/heartbeat values are invalid");
+        }
+        if (connectTimeoutMillis < 0) {
+            throw new IllegalArgumentException("connectTimeoutMillis must be zero or greater");
         }
         if (supportedVersions.isBlank()) {
             throw new IllegalArgumentException("supportedVersions cannot be blank");
@@ -69,6 +74,7 @@ public record StompServerOption(
             Integer timeFactor,
             Long heartbeatX,
             Long heartbeatY,
+            Long connectTimeoutMillis,
             Integer transactionChunkSize,
             Integer maxSubscriptionsByClient,
             InetServerOption inetServerOption
@@ -83,6 +89,7 @@ public record StompServerOption(
                 timeFactor == null ? 1 : timeFactor,
                 heartbeatX == null ? 1000L : heartbeatX,
                 heartbeatY == null ? 1000L : heartbeatY,
+                connectTimeoutMillis == null ? DEFAULT_CONNECT_TIMEOUT_MILLIS : connectTimeoutMillis,
                 transactionChunkSize == null ? DEFAULT_TRANSACTION_CHUNK_SIZE : transactionChunkSize,
                 maxSubscriptionsByClient == null ? DEFAULT_MAX_SUBSCRIPTIONS_BY_CLIENT : maxSubscriptionsByClient,
                 StompVersion.STOMP_1_2,
@@ -105,6 +112,7 @@ public record StompServerOption(
         private Integer timeFactor;
         private Long heartbeatX;
         private Long heartbeatY;
+        private Long connectTimeoutMillis;
         private Integer transactionChunkSize;
         private Integer maxSubscriptionsByClient;
         private InetServerOption inetServerOption;
@@ -157,6 +165,11 @@ public record StompServerOption(
             return this;
         }
 
+        public StompServerOptionBuilder connectTimeoutMillis(Long value) {
+            this.connectTimeoutMillis = value;
+            return this;
+        }
+
         public StompServerOptionBuilder transactionChunkSize(Integer value) {
             this.transactionChunkSize = value;
             return this;
@@ -183,6 +196,7 @@ public record StompServerOption(
                     timeFactor,
                     heartbeatX,
                     heartbeatY,
+                    connectTimeoutMillis,
                     transactionChunkSize,
                     maxSubscriptionsByClient,
                     inetServerOption

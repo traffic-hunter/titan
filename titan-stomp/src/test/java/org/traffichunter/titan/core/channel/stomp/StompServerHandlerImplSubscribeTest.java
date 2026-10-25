@@ -37,6 +37,7 @@ class StompServerHandlerImplSubscribeTest {
 
         client = mock(StompClientChannel.class);
         when(client.session()).thenReturn("session-1");
+        when(client.isConnected()).thenReturn(true);
     }
 
     @Test
