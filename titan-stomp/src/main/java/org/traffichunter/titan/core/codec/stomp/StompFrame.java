@@ -257,9 +257,10 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     }
 
     public static StompFrame errorFrame(final StompHeaders headers, final String message, final String body) {
-        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, body.getBytes(StandardCharsets.UTF_8));
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        StompFrame errorFrame = new StompFrame(headers, StompCommand.ERROR, bytes);
         errorFrame.addHeader(Elements.MESSAGE, message);
-        errorFrame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length()));
+        errorFrame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(bytes.length));
         errorFrame.addHeader(Elements.CONTENT_TYPE, MediaType.TEXT_PLAIN);
 
         return errorFrame;

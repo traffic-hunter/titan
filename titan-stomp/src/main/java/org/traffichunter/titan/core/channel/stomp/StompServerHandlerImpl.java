@@ -25,6 +25,7 @@ import org.traffichunter.titan.core.util.IdGenerator;
 import org.traffichunter.titan.core.util.secure.auth.authentication.AuthenticationImpl;
 import org.traffichunter.titan.core.util.secure.auth.authentication.UsernamePasswordCredentials;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.create;
@@ -160,14 +161,17 @@ public final class StompServerHandlerImpl implements StompServerHandler {
                 String accept = Optional.ofNullable(sf.getHeader(StompHeaders.Elements.ACCEPT_VERSION))
                         .orElse(STOMP_1_0.getVersion());
 
-                if(!accept.equals(sc.version())) {
+                // accept-version lists every version the client speaks, e.g. "1.2,1.1,1.0".
+                if(Arrays.stream(accept.split(",")).map(String::trim).noneMatch(sc.version()::equals)) {
                     log.warn(
                             "Rejected STOMP CONNECT due to version mismatch. session={}, clientVersion={}, serverVersion={}",
                             sc.session(),
                             accept,
                             sc.version()
                     );
-                    sc.send(errorFrame("Not match stomp version...", formatString("Not match stomp version... client version = {}", accept)));
+                    StompFrame error = errorFrame("Not match stomp version...", formatString("Not match stomp version... client version = {}", accept));
+                    error.addHeader(StompHeaders.Elements.VERSION, sc.version());
+                    sc.send(error);
                     sc.close();
                     return;
                 }

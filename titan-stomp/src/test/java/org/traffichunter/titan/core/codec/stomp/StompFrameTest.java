@@ -98,4 +98,14 @@ class StompFrameTest {
 
         assertEquals("market", parsed.getHeader(Elements.GROUP));
     }
+
+    @Test
+    void error_frame_content_length_counts_utf8_bytes() {
+        StompFrame frame = StompFrame.errorFrame("Failed to send.", "destination = /topic/주문");
+
+        assertEquals(
+                String.valueOf("destination = /topic/주문".getBytes(StandardCharsets.UTF_8).length),
+                frame.getHeader(Elements.CONTENT_LENGTH)
+        );
+    }
 }
