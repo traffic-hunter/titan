@@ -162,7 +162,7 @@ class WebSocketServerHandshakerTest {
     }
 
     @Test
-    void upgrade_handler_fails_promise_and_closes_channel_when_request_is_invalid() {
+    void upgrade_handler_fails_promise_when_request_is_invalid() {
         UpgradeHarness harness = new UpgradeHarness();
 
         harness.read(REQUEST.replace("Sec-WebSocket-Version: 13", "Sec-WebSocket-Version: 12"));
@@ -171,7 +171,83 @@ class WebSocketServerHandshakerTest {
         assertThat(harness.promise.error())
                 .isInstanceOf(WebSocketHandshakeException.class)
                 .hasMessageContaining("Invalid WebSocket version");
-        assertThat(harness.channel.isClosed()).isTrue();
+        assertThat(harness.channel.writtenCount()).isZero();
+    }
+
+    @Test
+    void upgrade_handler_ignores_input_after_failure() {
+        UpgradeHarness harness = new UpgradeHarness();
+
+        harness.read(REQUEST.replace("Upgrade: websocket", "Upgrade: h2c") + REQUEST);
+        harness.read(REQUEST);
+
+        assertThat(harness.promise.isFailed()).isTrue();
+        assertThat(harness.channel.writtenCount()).isZero();
+        assertThat(harness.chain.reads).isEmpty();
+    }
+
+    @Test
+    void upgrade_handler_rejects_head_longer_than_limit() {
+        UpgradeHarness harness = new UpgradeHarness();
+
+        harness.read("GET / HTTP/1.1\r\nX-Padding: " + "a".repeat(8192) + "\r\n");
+
+        assertThat(harness.promise.isFailed()).isTrue();
+        assertThat(status(harness.promise.error())).isEqualTo(431);
+    }
+
+    @Test
+    void parse_request_maps_failures_to_http_status() {
+        WebSocketServerHandshaker handshaker = new WebSocketServerHandshaker("/stomp");
+        String request = REQUEST.replace("GET / ", "GET /stomp ");
+
+        assertThat(statusOf(handshaker, request.replace("GET /stomp ", "POST /stomp "))).isEqualTo(400);
+        assertThat(statusOf(handshaker, request.replace("Host: localhost:8080\r\n", ""))).isEqualTo(400);
+        assertThat(statusOf(handshaker, request.replace("Connection: keep-alive, Upgrade", "Connection: keep-alive")))
+                .isEqualTo(400);
+        assertThat(statusOf(handshaker, request.replace(KEY, "c2hvcnQ="))).isEqualTo(400);
+        assertThat(statusOf(handshaker, request.replace("v12.stomp", "mqtt"))).isEqualTo(400);
+        assertThat(statusOf(handshaker, request.replace("Sec-WebSocket-Version: 13", "Sec-WebSocket-Version: 8")))
+                .isEqualTo(426);
+        assertThat(statusOf(handshaker, request.replace("Sec-WebSocket-Version: 13\r\n", ""))).isEqualTo(426);
+        assertThat(statusOf(handshaker, REQUEST)).isEqualTo(404);
+    }
+
+    @Test
+    void error_response_advertises_supported_version_for_upgrade_required() {
+        String response = new WebSocketServerHandshaker()
+                .errorResponse(new WebSocketHandshakeException(426, "Invalid WebSocket version"));
+
+        assertThat(response).isEqualTo("HTTP/1.1 426 Upgrade Required\r\n"
+                + "Sec-WebSocket-Version: 13\r\n"
+                + "Upgrade: websocket\r\n"
+                + "Connection: close\r\n"
+                + "Content-Length: 0\r\n"
+                + "\r\n");
+    }
+
+    @Test
+    void error_response_uses_bad_request_for_unexpected_failures() {
+        String response = new WebSocketServerHandshaker().errorResponse(new IllegalStateException("boom"));
+
+        assertThat(response).isEqualTo("HTTP/1.1 400 Bad Request\r\n"
+                + "Connection: close\r\n"
+                + "Content-Length: 0\r\n"
+                + "\r\n");
+    }
+
+    private static int statusOf(WebSocketServerHandshaker handshaker, String request) {
+        try {
+            handshaker.parseRequest(request);
+        } catch (WebSocketHandshakeException e) {
+            return e.status();
+        }
+        throw new AssertionError("Expected the request to be rejected");
+    }
+
+    private static int status(Throwable error) {
+        assertThat(error).isInstanceOf(WebSocketHandshakeException.class);
+        return ((WebSocketHandshakeException) error).status();
     }
 
     private static final class UpgradeHarness {

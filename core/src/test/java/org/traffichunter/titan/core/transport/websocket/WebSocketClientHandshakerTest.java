@@ -170,7 +170,6 @@ class WebSocketClientHandshakerTest {
         assertThat(harness.promise.error())
                 .isInstanceOf(WebSocketHandshakeException.class)
                 .hasMessageContaining("Invalid Sec-WebSocket-Accept");
-        assertThat(harness.channel.isClosed()).isTrue();
     }
 
     private static final class UpgradeHarness {
