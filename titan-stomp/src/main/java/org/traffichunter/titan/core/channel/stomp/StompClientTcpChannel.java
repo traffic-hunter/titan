@@ -475,6 +475,12 @@ public class StompClientTcpChannel implements StompClientChannel {
                 receiptMap.put(receiptId, resultPromise);
             }
 
+            // On the server side the session counts as connected once CONNECTED goes out, whichever
+            // connect handler sent it.
+            if (frame.getCommand() == StompCommand.CONNECTED) {
+                connected();
+            }
+
             Promise<Void> write = netChannel.writeAndFlush(frame.toBuffer());
             write.onFailure(error -> {
                 if (receiptId != null && !receiptId.isBlank()) {

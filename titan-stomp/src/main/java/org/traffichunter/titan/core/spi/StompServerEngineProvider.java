@@ -111,6 +111,7 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
                 .supportedVersions(stringOption(options, "supported-versions"))
                 .heartbeatX(longOption(options, "heartbeat-x"))
                 .heartbeatY(longOption(options, "heartbeat-y"))
+                .connectTimeoutMillis(longOption(options, "connect-timeout-millis"))
                 .secured(booleanOption(options, "secured"))
                 .sendErrorOnNoSubscriptions(booleanOption(options, "send-error-on-no-subscriptions"))
                 .ackTimeoutMillis(longOption(options, "ack-timeout-millis"))
