@@ -146,6 +146,8 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
         private static final int SHORT_PAYLOAD_LENGTH_MARKER = 126;
         private static final int CONTROL_FRAME_MAX_PAYLOAD_LENGTH = 125;
 
+        private @Nullable Utf8Validator utf8Validator;
+
         private final WebSocketSide side;
         private final Protocol subProtocol;
 
@@ -169,6 +171,11 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
                 if (!isControlFrame(header.getOpCode())) {
                     messageOpen = !header.isFin();
                 }
+
+                if (header.getOpCode() == OpCode.TEXT) {
+                    utf8Validator = new Utf8Validator();
+                }
+
                 remaining = header.getPayloadLength();
             }
 
@@ -183,7 +190,62 @@ public class WebSocketFrameDecoder extends ChannelDecoder {
             if (remaining == 0) {
                 header = null;
             }
+
+            try {
+                if (currentHeader.getOpCode() == OpCode.CLOSE) {
+                    validateClose(payload);
+                } else if (!isControlFrame(currentHeader.getOpCode()) && utf8Validator != null) {
+                    if (!utf8Validator.update(payload, payload.byteBuf().readerIndex(), payload.length())) {
+                        throw new WebSocketFrameException(
+                                WebSocketFrameException.INVALID_PAYLOAD_DATA,
+                                "Payload is not valid UTF-8"
+                        );
+                    }
+                    if (currentHeader.isFin() && remaining == 0) {
+                        if (!utf8Validator.isComplete()) {
+                            throw new WebSocketFrameException(
+                                    WebSocketFrameException.INVALID_PAYLOAD_DATA,
+                                    "Payload is not valid UTF-8"
+                            );
+                        }
+                        utf8Validator = null;
+                    }
+                }
+            } catch (WebSocketFrameException e) {
+                payload.release();
+                throw e;
+            }
             return new WebSocketFrame(currentHeader, payload, subProtocol);
+        }
+
+        /**
+         * Checks that a close payload is empty, or carries a status code allowed on the wire and a
+         * UTF-8 reason.
+         */
+        private static void validateClose(Buffer payload) {
+            int length = payload.length();
+            if (length == 0) {
+                return;
+            }
+            if (length == 1) {
+                throw new WebSocketFrameException("Close frame payload must not be 1 byte");
+            }
+
+            int readerIndex = payload.byteBuf().readerIndex();
+            int status = payload.getUnsignedShort(readerIndex);
+            boolean valid = (status >= 1000 && status <= 1003)
+                    || (status >= 1007 && status <= 1014)
+                    || (status >= 3000 && status <= 4999);
+            if (!valid) {
+                throw new WebSocketFrameException("Invalid close status code: " + status);
+            }
+
+            if (!Utf8Validator.isValid(payload, readerIndex + Short.BYTES, length - Short.BYTES)) {
+                throw new WebSocketFrameException(
+                        WebSocketFrameException.INVALID_PAYLOAD_DATA,
+                        "Payload is not valid UTF-8"
+                );
+            }
         }
 
         /**

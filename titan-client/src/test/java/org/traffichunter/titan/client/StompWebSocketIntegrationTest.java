@@ -357,6 +357,31 @@ class StompWebSocketIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(20)
+    void close_with_invalid_payload_data_when_text_is_not_utf8() throws Exception {
+        StompServer server = startWebSocketServer();
+
+        try (Socket socket = new Socket()) {
+            int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
+            socket.connect(new InetSocketAddress("localhost", port), 5_000);
+            socket.setSoTimeout(5_000);
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+            upgradeToWebSocket(out, in, "/stomp");
+
+            // Masked text frame carrying 0xFF, which never appears in UTF-8.
+            out.write(new byte[]{(byte) 0x81, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, (byte) 0xFF});
+            out.flush();
+
+            assertThat(in.readAllBytes()).containsExactly((byte) 0x88, 0x02, 0x03, (byte) 0xEF);
+        } finally {
+            if (!server.isShutdown()) {
+                server.shutdown();
+            }
+        }
+    }
+
     private static StompServer startWebSocketServer() throws Exception {
         StompServer server = StompServer.open(
                 EventLoopGroups.group(1, 1),
