@@ -23,6 +23,7 @@ import org.traffichunter.titan.core.codec.CodecException;
 public class WebSocketFrameException extends CodecException {
 
     static final int PROTOCOL_ERROR = 1002;
+    static final int INVALID_PAYLOAD_DATA = 1007;
     static final int MESSAGE_TOO_BIG = 1009;
 
     private final int closeStatus;

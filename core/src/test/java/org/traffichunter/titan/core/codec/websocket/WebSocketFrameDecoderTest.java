@@ -1,6 +1,8 @@
 package org.traffichunter.titan.core.codec.websocket;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.InMemoryNetChannel;
@@ -524,6 +526,141 @@ class WebSocketFrameDecoderTest {
         buffer.release();
     }
 
+    @Test
+    void forward_utf8_character_split_across_reads() {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        // U+1F600 is F0 9F 98 80 in UTF-8.
+        Buffer first = Buffer.heap().alloc(new byte[]{
+                (byte) 0x81, (byte) 0x84, 0x00, 0x00, 0x00, 0x00, (byte) 0xF0, (byte) 0x9F
+        });
+        Buffer second = Buffer.heap().alloc(new byte[]{(byte) 0x98, (byte) 0x80});
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
+        Buffer firstPayload = decoder.decode(channel, first);
+        Buffer secondPayload = decoder.decode(channel, second);
+
+        assertThat(firstPayload).isNotNull();
+        assertThat(firstPayload.length()).isEqualTo(2);
+        assertThat(secondPayload).isNotNull();
+        assertThat(secondPayload.length()).isEqualTo(2);
+        assertThat(channel.isClosed()).isFalse();
+
+        firstPayload.release();
+        secondPayload.release();
+        first.release();
+        second.release();
+    }
+
+    @Test
+    void forward_utf8_character_split_across_fragments() {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        // U+D55C is ED 95 9C in UTF-8.
+        Buffer buffer = Buffer.heap().alloc(new byte[]{
+                0x01, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, (byte) 0xED, (byte) 0x95,
+                (byte) 0x80, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, (byte) 0x9C
+        });
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
+        Buffer firstPayload = decoder.decode(channel, buffer);
+        Buffer lastPayload = decoder.decode(channel, buffer);
+
+        assertThat(firstPayload).isNotNull();
+        assertThat(lastPayload).isNotNull();
+        assertThat(channel.isClosed()).isFalse();
+
+        firstPayload.release();
+        lastPayload.release();
+        buffer.release();
+    }
+
+    @Test
+    void forward_binary_message_without_utf8_validation() {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        Buffer buffer = Buffer.heap().alloc(new byte[]{(byte) 0x82, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, (byte) 0xFF});
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder();
+        Buffer payload = decoder.decode(channel, buffer);
+
+        assertThat(payload).isNotNull();
+        assertThat(channel.isClosed()).isFalse();
+
+        payload.release();
+        buffer.release();
+    }
+
+    @Test
+    void close_with_invalid_payload_data_when_text_has_invalid_byte() {
+        byte[] payload = {(byte) 0x81, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, (byte) 0xFF};
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1007);
+    }
+
+    @Test
+    void close_with_invalid_payload_data_when_text_has_overlong_encoding() {
+        byte[] payload = {(byte) 0x81, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, (byte) 0xC0, (byte) 0xAF};
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1007);
+    }
+
+    @Test
+    void close_with_invalid_payload_data_when_text_has_surrogate_across_fragments() {
+        byte[] payload = {
+                0x01, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, (byte) 0xED,
+                (byte) 0x80, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, (byte) 0xA0, (byte) 0x80
+        };
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1007);
+    }
+
+    @Test
+    void close_with_invalid_payload_data_when_text_message_ends_inside_character() {
+        byte[] payload = {
+                0x01, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, 'O',
+                (byte) 0x80, (byte) 0x82, 0x00, 0x00, 0x00, 0x00, (byte) 0xED, (byte) 0x95
+        };
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1007);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1000, 1003, 1007, 1014, 3000, 4999})
+    void pass_close_frame_with_allowed_status_to_handler(int status) {
+        InMemoryNetChannel channel = new InMemoryNetChannel();
+        Buffer buffer = Buffer.heap().alloc(closeFrame(status));
+        AtomicReference<WebSocketContext> received = new AtomicReference<>();
+
+        WebSocketFrameDecoder decoder = new WebSocketFrameDecoder(
+                WebSocketSide.SERVER,
+                Protocol.STOMP,
+                received::set
+        );
+        decoder.decode(channel, buffer);
+
+        assertThat(received.get().frame().header().getOpCode()).isEqualTo(WebSocketFrameHeader.OpCode.CLOSE);
+        assertThat(channel.isClosed()).isFalse();
+
+        received.get().frame().payload().release();
+        buffer.release();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {999, 1004, 1005, 1006, 1015, 2999, 5000})
+    void close_with_protocol_error_when_close_status_is_not_allowed(int status) {
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, closeFrame(status), 1002);
+    }
+
+    @Test
+    void close_with_protocol_error_when_close_payload_is_one_byte() {
+        byte[] payload = {(byte) 0x88, (byte) 0x81, 0x00, 0x00, 0x00, 0x00, 0x03};
+
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, payload, 1002);
+    }
+
+    @Test
+    void close_with_invalid_payload_data_when_close_reason_is_not_utf8() {
+        assertInvalidFrameClosesChannel(WebSocketSide.SERVER, closeFrame(1000, (byte) 0xFF), 1007);
+    }
+
     private static void assertInvalidFrameClosesChannel(WebSocketSide side, byte[] bytes, int closeStatus) {
         NetChannel channel = writableChannel();
         Buffer buffer = Buffer.heap().alloc(bytes);
@@ -573,6 +710,19 @@ class WebSocketFrameDecoderTest {
             status = Arrays.copyOfRange(bytes, 2, 4);
         }
         return ((status[0] & 0xFF) << 8) | (status[1] & 0xFF);
+    }
+
+    /**
+     * Builds a masked close frame with a zero masking key.
+     */
+    private static byte[] closeFrame(int status, byte... reason) {
+        byte[] frame = new byte[8 + reason.length];
+        frame[0] = (byte) 0x88;
+        frame[1] = (byte) (0x80 | (2 + reason.length));
+        frame[6] = (byte) (status >> 8);
+        frame[7] = (byte) status;
+        System.arraycopy(reason, 0, frame, 8, reason.length);
+        return frame;
     }
 
     private static byte[] repeated(char value, int count) {
