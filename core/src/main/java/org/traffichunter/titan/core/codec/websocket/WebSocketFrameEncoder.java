@@ -74,7 +74,7 @@ public class WebSocketFrameEncoder extends ChannelEncoder {
 
         WebSocketFrame parse(Buffer payload) {
             WebSocketFrameHeader.Builder webSocketFrameHeaderBuilder = WebSocketFrameHeader.builder()
-                    .op(opCode(subProtocol), true)
+                    .op(opCode(subProtocol, payload), true)
                     .payloadLength(payload.length());
 
             if(side == WebSocketSide.CLIENT) {
@@ -107,9 +107,12 @@ public class WebSocketFrameEncoder extends ChannelEncoder {
             }
         }
 
-        private static WebSocketFrameHeader.OpCode opCode(Protocol subProtocol) {
+        private static WebSocketFrameHeader.OpCode opCode(Protocol subProtocol, Buffer payload) {
             return switch (subProtocol) {
-                case STOMP -> WebSocketFrameHeader.OpCode.TEXT;
+                // A STOMP body may hold any bytes, but a TEXT frame must be UTF-8.
+                case STOMP -> Utf8Validator.isValid(payload, payload.byteBuf().readerIndex(), payload.length())
+                        ? WebSocketFrameHeader.OpCode.TEXT
+                        : WebSocketFrameHeader.OpCode.BINARY;
                 case MQTT -> WebSocketFrameHeader.OpCode.BINARY;
             };
         }

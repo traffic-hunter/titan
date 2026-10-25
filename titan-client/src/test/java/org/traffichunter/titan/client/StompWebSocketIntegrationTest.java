@@ -23,6 +23,7 @@ import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.transport.websocket.WebSocketHandshakeException;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -318,6 +319,44 @@ class StompWebSocketIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(20)
+    void deliver_non_utf8_body_to_websocket_subscriber_as_binary() throws Exception {
+        StompServer server = startWebSocketServer();
+        HttpClient httpClient = HttpClient.newHttpClient();
+        RecordingListener subscriberListener = new RecordingListener();
+        RecordingListener publisherListener = new RecordingListener();
+        WebSocket subscriber = null;
+        WebSocket publisher = null;
+
+        try {
+            subscriber = openJdkClient(httpClient, server, subscriberListener);
+            subscriber.sendText("CONNECT\naccept-version:1.2\nhost:localhost\n\n\0", true).get(5, TimeUnit.SECONDS);
+            assertThat(subscriberListener.messages.poll(5, TimeUnit.SECONDS)).startsWith("CONNECTED");
+            subscriber.sendText("SUBSCRIBE\nid:0\ndestination:/topic/binary\nreceipt:1\n\n\0", true)
+                    .get(5, TimeUnit.SECONDS);
+            assertThat(subscriberListener.messages.poll(5, TimeUnit.SECONDS)).startsWith("RECEIPT");
+
+            publisher = openJdkClient(httpClient, server, publisherListener);
+            publisher.sendText("CONNECT\naccept-version:1.2\nhost:localhost\n\n\0", true).get(5, TimeUnit.SECONDS);
+            assertThat(publisherListener.messages.poll(5, TimeUnit.SECONDS)).startsWith("CONNECTED");
+            ByteArrayOutputStream send = new ByteArrayOutputStream();
+            send.writeBytes("SEND\ndestination:/topic/binary\ncontent-length:1\n\n".getBytes(StandardCharsets.UTF_8));
+            send.write(0xFF);
+            send.write(0x00);
+            publisher.sendBinary(ByteBuffer.wrap(send.toByteArray()), true).get(5, TimeUnit.SECONDS);
+
+            byte[] message = subscriberListener.binaries.poll(5, TimeUnit.SECONDS);
+            assertThat(message).isNotNull();
+            assertThat(new String(message, StandardCharsets.ISO_8859_1)).startsWith("MESSAGE").endsWith("\n\u00FF\0");
+        } finally {
+            if (publisher != null) {
+                publisher.abort();
+            }
+            close(subscriber, httpClient, server);
+        }
+    }
+
     private static StompServer startWebSocketServer() throws Exception {
         StompServer server = StompServer.open(
                 EventLoopGroups.group(1, 1),
@@ -392,8 +431,10 @@ class StompWebSocketIntegrationTest {
     private static final class RecordingListener implements WebSocket.Listener {
 
         private final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
+        private final BlockingQueue<byte[]> binaries = new LinkedBlockingQueue<>();
         private final CompletableFuture<Integer> closed = new CompletableFuture<>();
         private final StringBuilder partial = new StringBuilder();
+        private final ByteArrayOutputStream partialBinary = new ByteArrayOutputStream();
 
         @Override
         public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
@@ -401,6 +442,19 @@ class StompWebSocketIntegrationTest {
             if (last) {
                 messages.add(partial.toString());
                 partial.setLength(0);
+            }
+            webSocket.request(1);
+            return null;
+        }
+
+        @Override
+        public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
+            byte[] bytes = new byte[data.remaining()];
+            data.get(bytes);
+            partialBinary.writeBytes(bytes);
+            if (last) {
+                binaries.add(partialBinary.toByteArray());
+                partialBinary.reset();
             }
             webSocket.request(1);
             return null;
