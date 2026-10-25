@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
@@ -44,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
@@ -147,6 +149,73 @@ class WebSocketTransportIntegrationTest {
         } finally {
             httpClient.shutdownNow();
         }
+    }
+
+    @Test
+    @Timeout(10)
+    void close_connection_that_does_not_finish_upgrade_in_time() throws Exception {
+        int port = startServer(200);
+
+        try (Socket socket = openSocket(port)) {
+            socket.getOutputStream().write("GET /stomp HTTP/1.1\r\nHost: localhost\r\n".getBytes(US_ASCII));
+            socket.getOutputStream().flush();
+
+            assertThat(socket.getInputStream().read()).isEqualTo(-1);
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void keep_upgraded_connection_open_after_handshake_timeout() throws Exception {
+        LinkedBlockingQueue<String> serverMessages = new LinkedBlockingQueue<>();
+        server = InetServer.open(EventLoopGroups.group(1, 1))
+                .upgradeWebSocket("/stomp")
+                .handshakeTimeout(200, TimeUnit.MILLISECONDS)
+                .onChannel(channel -> channel.chain().add(echo(serverMessages)));
+        server.start();
+        server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
+
+        int port = ((InetSocketAddress) server.localAddress()).getPort();
+        client = InetClient.open(EventLoopGroups.group(1))
+                .upgradeWebSocket(Protocol.STOMP, "/stomp");
+        client.start();
+        client.connect("localhost", port, 5, TimeUnit.SECONDS).get(5, TimeUnit.SECONDS);
+
+        Thread.sleep(500);
+        client.send(Buffer.heap().alloc("still open")).get(5, TimeUnit.SECONDS);
+
+        assertThat(serverMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("still open");
+    }
+
+    @Test
+    @Timeout(10)
+    void keep_unfinished_upgrade_open_when_handshake_timeout_is_disabled() throws Exception {
+        int port = startServer(0);
+
+        try (Socket socket = openSocket(port)) {
+            socket.getOutputStream().write("GET /stomp HTTP/1.1\r\nHost: localhost\r\n".getBytes(US_ASCII));
+            socket.getOutputStream().flush();
+            socket.setSoTimeout(500);
+
+            assertThatThrownBy(() -> socket.getInputStream().read()).isInstanceOf(SocketTimeoutException.class);
+        }
+    }
+
+    private int startServer(long handshakeTimeoutMillis) throws Exception {
+        server = InetServer.open(EventLoopGroups.group(1, 1))
+                .upgradeWebSocket("/stomp")
+                .handshakeTimeout(handshakeTimeoutMillis, TimeUnit.MILLISECONDS)
+                .onChannel(channel -> { });
+        server.start();
+        server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
+        return ((InetSocketAddress) server.localAddress()).getPort();
+    }
+
+    private static Socket openSocket(int port) throws Exception {
+        Socket socket = new Socket();
+        socket.connect(new InetSocketAddress("localhost", port), 5_000);
+        socket.setSoTimeout(5_000);
+        return socket;
     }
 
     private int startServer() throws Exception {

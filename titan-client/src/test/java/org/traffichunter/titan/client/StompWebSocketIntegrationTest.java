@@ -402,6 +402,26 @@ class StompWebSocketIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(20)
+    void close_websocket_that_does_not_finish_upgrade_in_time() throws Exception {
+        StompServer server = startWebSocketServer(StompServerOption.builder().connectTimeoutMillis(200L).build());
+
+        try (Socket socket = new Socket()) {
+            int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
+            socket.connect(new InetSocketAddress("localhost", port), 5_000);
+            socket.setSoTimeout(5_000);
+            socket.getOutputStream().write("GET /stomp HTTP/1.1\r\nHost: localhost\r\n".getBytes(StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+
+            assertThat(socket.getInputStream().read()).isEqualTo(-1);
+        } finally {
+            if (!server.isShutdown()) {
+                server.shutdown();
+            }
+        }
+    }
+
     private static StompServer startWebSocketServer() throws Exception {
         return startWebSocketServer(StompServerOption.builder().build());
     }

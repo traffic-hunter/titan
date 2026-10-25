@@ -34,6 +34,7 @@ import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.transport.option.InetClientOption;
 import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.concurrent.Promise;
+import org.traffichunter.titan.core.util.concurrent.ScheduledPromise;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.websocket.WebSocketServerHandshaker;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -50,6 +51,8 @@ import org.traffichunter.titan.core.channel.ChannelRegistry;
 public class InetServer extends AbstractTransport<NetServerChannel> {
 
     private static final Logger log = LoggerFactory.getLogger(InetServer.class);
+
+    public static final long DEFAULT_HANDSHAKE_TIMEOUT_MILLIS = 10_000L;
 
     private final NetServerChannel channel;
     private final ChannelRegistry<NetChannel> childChannels;
@@ -143,6 +146,25 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         }
 
         this.acceptor.enableWebSocketUpgrade(path);
+        return this;
+    }
+
+    /**
+     * Sets how long an accepted connection may take to finish the TLS handshake and the WebSocket
+     * upgrade. A connection that has not finished in time is closed. Zero disables the limit.
+     *
+     * <p>This setting must be applied before {@link #start()}.</p>
+     */
+    @CanIgnoreReturnValue
+    public InetServer handshakeTimeout(long timeout, TimeUnit unit) {
+        if (isStarted()) {
+            throw new IllegalStateException("Cannot configure handshake timeout after server start");
+        }
+        if (timeout < 0) {
+            throw new IllegalArgumentException("Handshake timeout must be zero or greater");
+        }
+
+        this.acceptor.setHandshakeTimeoutMillis(unit.toMillis(timeout));
         return this;
     }
 
@@ -316,6 +338,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
         private volatile boolean webSocketUpgrade;
         private volatile WebSocketServerHandshaker webSocketHandshaker = new WebSocketServerHandshaker();
         private volatile @Nullable TlsContext tlsContext;
+        private volatile long handshakeTimeoutMillis = DEFAULT_HANDSHAKE_TIMEOUT_MILLIS;
 
         ServerChannelAcceptor(
                 ChannelEventLoopGroup<ChannelSecondaryIOEventLoop> secondaryGroup,
@@ -342,6 +365,10 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             this.tlsContext = tlsContext;
         }
 
+        void setHandshakeTimeoutMillis(long handshakeTimeoutMillis) {
+            this.handshakeTimeoutMillis = handshakeTimeoutMillis;
+        }
+
         @SuppressWarnings("unchecked")
         @Override
         public void accept(Channel channel) {
@@ -362,8 +389,9 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     channelRegistry.addChannel(netChannel);
 
                     TlsContext tlsCtx = this.tlsContext;
+                    ScheduledPromise<?> handshakeTimeout = scheduleHandshakeTimeout(netChannel, tlsCtx);
                     if (tlsCtx == null) {
-                        runTasks(netChannel);
+                        runTasks(netChannel, handshakeTimeout);
                         return;
                     }
 
@@ -378,7 +406,7 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                     tlsHandler.handshake(netChannel)
                             .onSuccess(ignored -> {
                                 log.info("Successfully TLS connected to {}:{}", addr.getHostString(), addr.getPort());
-                                runTasks(netChannel);
+                                runTasks(netChannel, handshakeTimeout);
                             }).onFailure(error -> {
                                 log.error("Failed to handshake", error);
                                 closeChild(netChannel, error);
@@ -390,9 +418,32 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
             });
         }
 
-        private void runTasks(NetChannel channel) {
+        /**
+         * Closes the channel if it has not reached the child handler in time. Plain TCP without
+         * TLS has no handshake, so it gets no timer.
+         */
+        private @Nullable ScheduledPromise<?> scheduleHandshakeTimeout(NetChannel channel, @Nullable TlsContext tlsCtx) {
+            long timeout = handshakeTimeoutMillis;
+            if (timeout == 0 || (tlsCtx == null && !webSocketUpgrade)) {
+                return null;
+            }
+
+            return channel.eventLoop().schedule(() -> {
+                if (channel.isClosed()) {
+                    return;
+                }
+                log.warn("Closing child channel that did not finish its handshake in time. channel={}, timeoutMillis={}",
+                        channel.id(), timeout);
+                closeChild(channel, null);
+            }, timeout, TimeUnit.MILLISECONDS);
+        }
+
+        private void runTasks(NetChannel channel, @Nullable ScheduledPromise<?> handshakeTimeout) {
             if (webSocketUpgrade) {
                 webSocketHandshaker.handshake(channel).addListener(result -> {
+                    if (handshakeTimeout != null) {
+                        handshakeTimeout.cancel();
+                    }
                     if (result.isSuccess()) {
                         childHandler.handle(channel);
                     } else {
@@ -402,6 +453,9 @@ public class InetServer extends AbstractTransport<NetServerChannel> {
                 return;
             }
 
+            if (handshakeTimeout != null) {
+                handshakeTimeout.cancel();
+            }
             childHandler.handle(channel);
         }
 
