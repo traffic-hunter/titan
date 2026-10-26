@@ -38,6 +38,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -198,6 +199,25 @@ class TlsTransportIntegrationTest {
 
         assertThat(serverMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("secure websocket");
         assertThat(clientMessages.poll(5, TimeUnit.SECONDS)).isEqualTo("echo:secure websocket");
+    }
+
+    @Test
+    @Timeout(10)
+    void close_connection_that_does_not_finish_tls_handshake_in_time() throws Exception {
+        server = InetServer.open(EventLoopGroups.group(1, 1))
+                .tls(context(TlsSide.SERVER, testKeyStore()))
+                .handshakeTimeout(200, TimeUnit.MILLISECONDS)
+                .onChannel(channel -> { });
+        server.start();
+        server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
+        int port = ((InetSocketAddress) server.localAddress()).getPort();
+
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5_000);
+            socket.setSoTimeout(5_000);
+
+            assertThat(socket.getInputStream().read()).isEqualTo(-1);
+        }
     }
 
     private static JdkTlsContext context(TlsSide side, Path keyStore) {

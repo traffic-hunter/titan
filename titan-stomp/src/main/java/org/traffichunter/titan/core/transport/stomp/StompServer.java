@@ -155,6 +155,7 @@ public final class StompServer {
 
         inetServer.option(option.inetServerOption())
                 .childOption(childInetOption)
+                .handshakeTimeout(option.connectTimeoutMillis(), TimeUnit.MILLISECONDS)
                 .onChannel(channel -> {
                     if (!(channel instanceof NetChannel netChannel)) {
                         throw new IllegalArgumentException("Unsupported channel: " + channel);
