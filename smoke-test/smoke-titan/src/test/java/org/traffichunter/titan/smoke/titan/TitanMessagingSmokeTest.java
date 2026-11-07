@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.CONTENT_LENGTH;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.RECEIPT;
 
 /**
  * Exercises packaged Titan messaging through TCP and WebSocket transports.
@@ -134,13 +135,14 @@ class TitanMessagingSmokeTest {
         ConcurrentLinkedQueue<String> removed = new ConcurrentLinkedQueue<>();
         TitanClient subscriber = runtime.client();
         TitanClient producer = runtime.client();
-        subscriber.subscribe(destination, Map.of(ID, "active"), frame ->
+        // The producer has its own connection, so wait for the server's receipt before sending.
+        subscriber.subscribe(destination, Map.of(ID, "active", RECEIPT, "subscribe-active"), frame ->
                 active.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
-        subscriber.subscribe(destination, Map.of(ID, "removed"), frame ->
+        subscriber.subscribe(destination, Map.of(ID, "removed", RECEIPT, "subscribe-removed"), frame ->
                 removed.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
         producer.send(destination, "before").get(10, TimeUnit.SECONDS);
         await().atMost(10, TimeUnit.SECONDS).until(() -> active.contains("before") && removed.contains("before"));
-        subscriber.unsubscribe("removed").get(10, TimeUnit.SECONDS);
+        subscriber.unsubscribe("removed", Map.of(RECEIPT, "unsubscribe-removed")).get(10, TimeUnit.SECONDS);
 
         AtomicBoolean loading = new AtomicBoolean(true);
         Thread load = Thread.ofVirtual().start(() -> {
