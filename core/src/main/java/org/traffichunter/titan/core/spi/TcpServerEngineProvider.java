@@ -17,10 +17,8 @@ package org.traffichunter.titan.core.spi;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
@@ -29,6 +27,7 @@ import org.traffichunter.titan.core.codec.LineFrameChannelDecoder;
 import org.traffichunter.titan.core.net.TlsContextFactory;
 import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
+import org.traffichunter.titan.core.util.OptionKey;
 
 /**
  * Built-in provider for plain TCP line-frame servers.
@@ -64,9 +63,14 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
     }
 
     @Override
+    public List<OptionKey<?>> optionKeys() {
+        return InetServerOptionKeys.ALL;
+    }
+
+    @Override
     public ManagedServer create(final ServerSettings settings) {
+        InetServerOption inetOption = InetServerOptionKeys.inetServerOption(settings.resolvedTransportOptions());
         EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
-        InetServerOption inetOption = buildOption(settings.resolvedTransportOptions());
         InetServer server = InetServer.open(groups).option(inetOption);
         if (settings.tls().enabled()) {
             server.tls(TlsContextFactory.create(settings.tls()));
@@ -103,39 +107,5 @@ public final class TcpServerEngineProvider implements NetworkServerEngineProvide
                 server.shutdown();
             }
         };
-    }
-
-    private static InetServerOption buildOption(final Map<String, String> options) {
-        InetServerOption.Builder builder = InetServerOption.builder()
-                .reuseAddress(booleanOption(options, "reuse-address", true))
-                .childTcpNoDelay(booleanOption(options, "child-tcp-no-delay", true))
-                .childKeepAlive(booleanOption(options, "child-keep-alive", false))
-                .childReuseAddress(booleanOption(options, "child-reuse-address", true));
-
-        Integer receiveBufferSize = intOption(options, "receive-buffer-size");
-        Integer childSendBufferSize = intOption(options, "child-send-buffer-size");
-        Integer childReceiveBufferSize = intOption(options, "child-receive-buffer-size");
-
-        if (receiveBufferSize != null) {
-            builder.receiveBufferSize(receiveBufferSize);
-        }
-        if (childSendBufferSize != null) {
-            builder.childSendBufferSize(childSendBufferSize);
-        }
-        if (childReceiveBufferSize != null) {
-            builder.childReceiveBufferSize(childReceiveBufferSize);
-        }
-
-        return builder.build();
-    }
-
-    private static @Nullable Integer intOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Integer.parseInt(value);
-    }
-
-    private static boolean booleanOption(final Map<String, String> options, final String key, final boolean defaultValue) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? defaultValue : Boolean.parseBoolean(value);
     }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import org.traffichunter.titan.bootstrap.Settings;
+import org.traffichunter.titan.core.util.OptionKey;
 
 /**
  * Hook for optional module integrations, such as fanout.
@@ -25,6 +26,11 @@ public interface FanoutLauncher {
 
     default int order() {
         return 0;
+    }
+
+    /** Keys this launcher reads from protocol options. */
+    default List<OptionKey<?>> optionKeys() {
+        return List.of();
     }
 
     default boolean supports(

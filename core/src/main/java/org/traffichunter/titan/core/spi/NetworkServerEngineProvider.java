@@ -19,6 +19,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
+import org.traffichunter.titan.core.util.OptionKey;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -86,6 +87,12 @@ public interface NetworkServerEngineProvider {
      * Protocol name, for example {@code stomp}.
      */
     String protocol();
+
+    /**
+     * Keys this provider reads from transport and protocol options. Keys outside every provider
+     * and launcher declaration are rejected at startup.
+     */
+    List<OptionKey<?>> optionKeys();
 
     @CanIgnoreReturnValue
     NetworkServerEngineProvider setInboundHandler(ChannelInBoundHandler channelInBoundHandler);

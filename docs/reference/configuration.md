@@ -30,6 +30,10 @@ java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.9.1.jar
 Configuration option values are represented as strings in the current YAML
 format.
 
+Titan stops at startup when an option key is unknown or a value cannot be
+parsed. Boolean options accept only `true` or `false`, and a blank value counts
+as unset.
+
 ## Common protocol options
 
 | Key | Purpose | Example |

@@ -19,7 +19,10 @@ import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Normalized configuration for one managed server.
@@ -104,6 +107,22 @@ public record ServerSettings(
 
     public Map<String, String> resolvedProtocolOptions() {
         return merge(options, protocolOptions);
+    }
+
+    /**
+     * Rejects option keys outside {@code knownKeys}, so a misspelled key fails instead of being ignored.
+     */
+    public void checkOptionKeys(final Set<String> knownKeys) {
+        List<String> unknown = Stream.of(options, transportOptions, protocolOptions)
+                .flatMap(values -> values.keySet().stream())
+                .filter(key -> !knownKeys.contains(key))
+                .distinct()
+                .sorted()
+                .toList();
+        if (!unknown.isEmpty()) {
+            throw new IllegalArgumentException("Unknown options for server " + serverName() + ": " + unknown
+                    + ". Known options: " + knownKeys.stream().sorted().toList());
+        }
     }
 
     private static Map<String, String> merge(Map<String, String> base, Map<String, String> overrides) {

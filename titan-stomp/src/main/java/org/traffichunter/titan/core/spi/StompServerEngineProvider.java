@@ -18,9 +18,9 @@ package org.traffichunter.titan.core.spi;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.channel.ChannelInBoundHandler;
 import org.traffichunter.titan.core.channel.ChannelOutBoundHandler;
@@ -30,6 +30,7 @@ import org.traffichunter.titan.core.transport.InetServer;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
+import org.traffichunter.titan.core.util.OptionKey;
 
 /**
  * Service provider for STOMP-over-TCP server engines.
@@ -39,6 +40,41 @@ import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
  * channel handlers on accepted STOMP child channels.</p>
  */
 public class StompServerEngineProvider implements NetworkServerEngineProvider {
+
+    private static final OptionKey<String> PATH = OptionKey.stringKey("path");
+    private static final OptionKey<Integer> MAX_FRAME_LENGTH = OptionKey.intKey("max-frame-length");
+    private static final OptionKey<Integer> MAX_FRAME_IN_TRANSACTION = OptionKey.intKey("max-frame-in-transaction");
+    private static final OptionKey<String> SUPPORTED_VERSIONS = OptionKey.stringKey("supported-versions");
+    private static final OptionKey<Long> HEARTBEAT_X = OptionKey.longKey("heartbeat-x");
+    private static final OptionKey<Long> HEARTBEAT_Y = OptionKey.longKey("heartbeat-y");
+    private static final OptionKey<Long> CONNECT_TIMEOUT_MILLIS = OptionKey.longKey("connect-timeout-millis");
+    private static final OptionKey<Boolean> SECURED = OptionKey.booleanKey("secured");
+    private static final OptionKey<Boolean> SEND_ERROR_ON_NO_SUBSCRIPTIONS =
+            OptionKey.booleanKey("send-error-on-no-subscriptions");
+    private static final OptionKey<Long> ACK_TIMEOUT_MILLIS = OptionKey.longKey("ack-timeout-millis");
+    private static final OptionKey<Integer> TIME_FACTOR = OptionKey.intKey("time-factor");
+    private static final OptionKey<Integer> TRANSACTION_CHUNK_SIZE = OptionKey.intKey("transaction-chunk-size");
+    private static final OptionKey<Integer> MAX_SUBSCRIPTIONS_BY_CLIENT =
+            OptionKey.intKey("max-subscriptions-by-client");
+
+    private static final List<OptionKey<?>> OPTION_KEYS = Stream.concat(
+            Stream.of(
+                    PATH,
+                    MAX_FRAME_LENGTH,
+                    MAX_FRAME_IN_TRANSACTION,
+                    SUPPORTED_VERSIONS,
+                    HEARTBEAT_X,
+                    HEARTBEAT_Y,
+                    CONNECT_TIMEOUT_MILLIS,
+                    SECURED,
+                    SEND_ERROR_ON_NO_SUBSCRIPTIONS,
+                    ACK_TIMEOUT_MILLIS,
+                    TIME_FACTOR,
+                    TRANSACTION_CHUNK_SIZE,
+                    MAX_SUBSCRIPTIONS_BY_CLIENT
+            ),
+            InetServerOptionKeys.ALL.stream()
+    ).toList();
 
     private final boolean webSocket;
 
@@ -68,12 +104,18 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
     }
 
     @Override
-    public ManagedServer create(final ServerSettings settings) {
-        EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
-        InetServerOption inetOption = buildInetOption(settings.resolvedTransportOptions());
-        StompServerOption stompServerOption = buildOption(settings.resolvedProtocolOptions(), inetOption);
+    public List<OptionKey<?>> optionKeys() {
+        return OPTION_KEYS;
+    }
 
-        String path = settings.resolvedTransportOptions().getOrDefault("path", "/");
+    @Override
+    public ManagedServer create(final ServerSettings settings) {
+        Map<String, String> transportOptions = settings.resolvedTransportOptions();
+        InetServerOption inetOption = InetServerOptionKeys.inetServerOption(transportOptions);
+        StompServerOption stompServerOption = buildOption(settings.resolvedProtocolOptions(), inetOption);
+        String path = PATH.get(transportOptions, "/");
+
+        EventLoopGroups groups = EventLoopGroups.group(settings.primaryThreads(), settings.secondaryThreads());
         InetServer inetServer = InetServer.open(groups);
         if (settings.tls().enabled()) {
             inetServer.tls(TlsContextFactory.create(settings.tls()));
@@ -106,68 +148,19 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
 
     private static StompServerOption buildOption(final Map<String, String> options, final InetServerOption inetOption) {
         return StompServerOption.builder()
-                .maxFrameLength(intOption(options, "max-frame-length"))
-                .maxFrameInTransaction(intOption(options, "max-frame-in-transaction"))
-                .supportedVersions(stringOption(options, "supported-versions"))
-                .heartbeatX(longOption(options, "heartbeat-x"))
-                .heartbeatY(longOption(options, "heartbeat-y"))
-                .connectTimeoutMillis(longOption(options, "connect-timeout-millis"))
-                .secured(booleanOption(options, "secured"))
-                .sendErrorOnNoSubscriptions(booleanOption(options, "send-error-on-no-subscriptions"))
-                .ackTimeoutMillis(longOption(options, "ack-timeout-millis"))
-                .timeFactor(intOption(options, "time-factor"))
-                .transactionChunkSize(intOption(options, "transaction-chunk-size"))
-                .maxSubscriptionsByClient(intOption(options, "max-subscriptions-by-client"))
+                .maxFrameLength(MAX_FRAME_LENGTH.get(options))
+                .maxFrameInTransaction(MAX_FRAME_IN_TRANSACTION.get(options))
+                .supportedVersions(SUPPORTED_VERSIONS.get(options))
+                .heartbeatX(HEARTBEAT_X.get(options))
+                .heartbeatY(HEARTBEAT_Y.get(options))
+                .connectTimeoutMillis(CONNECT_TIMEOUT_MILLIS.get(options))
+                .secured(SECURED.get(options))
+                .sendErrorOnNoSubscriptions(SEND_ERROR_ON_NO_SUBSCRIPTIONS.get(options))
+                .ackTimeoutMillis(ACK_TIMEOUT_MILLIS.get(options))
+                .timeFactor(TIME_FACTOR.get(options))
+                .transactionChunkSize(TRANSACTION_CHUNK_SIZE.get(options))
+                .maxSubscriptionsByClient(MAX_SUBSCRIPTIONS_BY_CLIENT.get(options))
                 .inetServerOption(inetOption)
                 .build();
-    }
-
-    private static InetServerOption buildInetOption(final Map<String, String> options) {
-        InetServerOption.Builder builder = InetServerOption.builder()
-                .reuseAddress(booleanOption(options, "reuse-address", true))
-                .childTcpNoDelay(booleanOption(options, "child-tcp-no-delay", true))
-                .childKeepAlive(booleanOption(options, "child-keep-alive", false))
-                .childReuseAddress(booleanOption(options, "child-reuse-address", true));
-
-        Integer receiveBufferSize = intOption(options, "receive-buffer-size");
-        Integer childSendBufferSize = intOption(options, "child-send-buffer-size");
-        Integer childReceiveBufferSize = intOption(options, "child-receive-buffer-size");
-
-        if (receiveBufferSize != null) {
-            builder.receiveBufferSize(receiveBufferSize);
-        }
-        if (childSendBufferSize != null) {
-            builder.childSendBufferSize(childSendBufferSize);
-        }
-        if (childReceiveBufferSize != null) {
-            builder.childReceiveBufferSize(childReceiveBufferSize);
-        }
-
-        return builder.build();
-    }
-
-    private static @Nullable Integer intOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Integer.parseInt(value);
-    }
-
-    private static @Nullable Long longOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Long.parseLong(value);
-    }
-
-    private static @Nullable Boolean booleanOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : Boolean.parseBoolean(value);
-    }
-
-    private static boolean booleanOption(final Map<String, String> options, final String key, final boolean defaultValue) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? defaultValue : Boolean.parseBoolean(value);
-    }
-
-    private static @Nullable String stringOption(final Map<String, String> options, final String key) {
-        String value = options.get(key);
-        return value == null || value.isBlank() ? null : value;
     }
 }
