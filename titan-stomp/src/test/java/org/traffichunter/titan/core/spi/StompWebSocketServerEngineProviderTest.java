@@ -16,10 +16,14 @@
 package org.traffichunter.titan.core.spi;
 
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.core.util.OptionKey;
 
+import java.util.Map;
 import java.util.ServiceLoader;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * @author yun
@@ -38,5 +42,25 @@ class StompWebSocketServerEngineProviderTest {
     void discover_websocket_provider_with_service_loader() {
         assertThat(ServiceLoader.load(NetworkServerEngineProvider.class))
                 .anyMatch(provider -> provider instanceof StompWebSocketServerEngineProvider);
+    }
+
+    @Test
+    void declare_stomp_and_socket_option_keys() {
+        assertThat(new StompWebSocketServerEngineProvider().optionKeys())
+                .extracting(OptionKey::name)
+                .contains("path", "max-frame-length", "heartbeat-x", "secured", "reuse-address", "child-tcp-no-delay")
+                .doesNotHaveDuplicates();
+    }
+
+    @Test
+    void reject_boolean_option_other_than_true_or_false() {
+        ServerSettings settings = new ServerSettings(
+                "stomp-websocket", "websocket", "stomp", "localhost", 61613, 1, 1,
+                Map.of(), Map.of(), Map.of("secured", "yes"), null
+        );
+
+        assertThatThrownBy(() -> new StompWebSocketServerEngineProvider().create(settings))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid value for secured: yes");
     }
 }

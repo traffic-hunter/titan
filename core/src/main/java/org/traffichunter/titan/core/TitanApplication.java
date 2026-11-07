@@ -29,6 +29,7 @@ import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.FanoutLauncher;
 import org.traffichunter.titan.core.spi.NetworkServerEngineProvider;
 import org.traffichunter.titan.core.spi.RuntimeLauncher;
+import org.traffichunter.titan.core.util.OptionKey;
 
 /**
  * Core runtime entry point invoked by {@link org.traffichunter.titan.bootstrap.TitanBootstrap}.
@@ -72,6 +73,9 @@ public class TitanApplication implements ApplicationStarter {
     public void start(final Settings settings) {
         List<ManagedServer> managedServers = new ArrayList<>();
         List<FanoutLauncher> fanoutLaunchers = FanoutLauncher.load();
+        NetworkServerEngineProvider.load().forEach(provider -> OptionKey.register(provider.optionKeys()));
+        fanoutLaunchers.forEach(launcher -> OptionKey.register(launcher.optionKeys()));
+        settings.servers().forEach(serverSettings -> serverSettings.checkOptionKeys(OptionKey.names()));
 
         settings.servers().forEach(serverSettings -> {
             ManagedServer server = NetworkServerEngineProvider

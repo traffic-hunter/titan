@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.bootstrap.Settings;
@@ -244,5 +245,34 @@ class ConfigurationInitializerTest {
         assertThat(settings.monitor().port()).isEqualTo(7777);
         assertThat(settings.backup().enabled()).isFalse();
         assertThat(settings.flowControl().enabled()).isFalse();
+    }
+
+    @Test
+    void reject_unknown_option_keys_in_every_section() {
+        String yaml = """
+                titan:
+                  servers:
+                    - name: typo-stomp
+                      protocol: stomp
+                      port: 61613
+                      options:
+                        reuse-adress: "true"
+                      transport-options:
+                        reuse-address: "true"
+                      protocol-options:
+                        max-frame-lenght: "1024"
+                        heartbeat-x: "0"
+                """;
+
+        ServerSettings server = ConfigurationInitializer.getDefault("unused")
+                .load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)))
+                .servers()
+                .getFirst();
+
+        assertThatThrownBy(() -> server.checkOptionKeys(Set.of("reuse-address", "heartbeat-x")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Unknown options for server typo-stomp: [max-frame-lenght, reuse-adress]."
+                        + " Known options: [heartbeat-x, reuse-address]");
+        server.checkOptionKeys(Set.of("reuse-address", "reuse-adress", "heartbeat-x", "max-frame-lenght"));
     }
 }

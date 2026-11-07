@@ -1,5 +1,6 @@
 package org.traffichunter.titan.dispatch;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -10,6 +11,7 @@ import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.core.resilience.flowcontrol.FlowControlConfiguration;
 import org.traffichunter.titan.core.resilience.flowcontrol.MemoryPressureDamper;
 import org.traffichunter.titan.core.spi.*;
+import org.traffichunter.titan.core.util.OptionKey;
 
 /**
  * SPI launcher that installs fanout behavior into a managed STOMP server.
@@ -38,8 +40,13 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
 
     private static final Logger log = LoggerFactory.getLogger(StompServerFanoutLauncher.class);
 
-    private static final String OPTION_FANOUT_MODE = "fanout-mode";
+    private static final OptionKey<String> FANOUT_MODE = OptionKey.stringKey("fanout-mode");
     private static final String FANOUT_MODE_VIRTUAL = "virtual";
+
+    @Override
+    public List<OptionKey<?>> optionKeys() {
+        return List.of(FANOUT_MODE);
+    }
 
     @Override
     public boolean supports(
@@ -128,10 +135,10 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
 
     /** Dispatch runs on virtual threads only; the option remains so existing configurations still load. */
     private static void checkFanoutMode(final Map<String, String> protocolOptions) {
-        String raw = protocolOptions.getOrDefault(OPTION_FANOUT_MODE, FANOUT_MODE_VIRTUAL);
-        if (!FANOUT_MODE_VIRTUAL.equals(raw.toLowerCase(Locale.ROOT).trim())) {
+        String raw = FANOUT_MODE.get(protocolOptions, FANOUT_MODE_VIRTUAL);
+        if (!FANOUT_MODE_VIRTUAL.equals(raw.toLowerCase(Locale.ROOT))) {
             throw new IllegalStateException(
-                    "Unsupported " + OPTION_FANOUT_MODE + "=" + raw + ". Only \"" + FANOUT_MODE_VIRTUAL + "\" is supported");
+                    "Unsupported " + FANOUT_MODE.name() + "=" + raw + ". Only \"" + FANOUT_MODE_VIRTUAL + "\" is supported");
         }
     }
 }
