@@ -23,12 +23,15 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.client.TitanClient;
+import org.traffichunter.titan.core.net.TlsOptions;
+import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
@@ -46,11 +49,14 @@ final class TitanRuntime implements AutoCloseable {
     private static final String CONFIGURATION_RESOURCE = "/titan-smoke.yml";
     private static final Duration START_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration STOP_TIMEOUT = Duration.ofSeconds(10);
+    private static final String KEY_STORE_PASSWORD = "changeit";
 
     private final List<TitanClient> clients = new ArrayList<>();
     private final Path directory;
     private final Path configuration;
     private final Path log;
+    private final Path keyStore;
+    private String keyStoreResource = "/tls/titan-test.p12";
     private Process process;
     private TitanSmokeTransport transport;
     private int maxFrameLength;
@@ -61,6 +67,7 @@ final class TitanRuntime implements AutoCloseable {
             directory = Files.createTempDirectory("titan-smoke-");
             configuration = directory.resolve("titan-env.yml");
             log = directory.resolve("titan.log");
+            keyStore = directory.resolve("titan.p12");
         } catch (IOException error) {
             throw new IllegalStateException("Failed to create Titan smoke directory", error);
         }
@@ -80,6 +87,9 @@ final class TitanRuntime implements AutoCloseable {
             port = availablePort();
         }
 
+        if (transport.isTls()) {
+            copyKeyStore();
+        }
         Files.writeString(configuration, configuration(transport, maxFrameLength));
         Path jar = Path.of(System.getProperty("titan.smoke.jar", ""));
         if (!Files.isRegularFile(jar)) {
@@ -108,7 +118,20 @@ final class TitanRuntime implements AutoCloseable {
         start(transport, maxFrameLength);
     }
 
+    /** Uses another key store resource for TLS transports. Call before {@link #start}. */
+    void keyStoreResource(String resource) {
+        keyStoreResource = resource;
+    }
+
     TitanClient client() throws Exception {
+        TitanClient client = startClient(clientBuilder()
+                .reconnect(RetryPolicy.fixed(RetryPolicy.UNLIMITED_ATTEMPTS, Duration.ofMillis(100))));
+        client.connect().get(10, TimeUnit.SECONDS);
+        return client;
+    }
+
+    /** Builder for the running server's transport. TLS transports verify the host name. */
+    TitanClient.Builder clientBuilder() {
         if (!isRunning()) {
             throw new IllegalStateException("Titan server is not running");
         }
@@ -118,16 +141,29 @@ final class TitanRuntime implements AutoCloseable {
                 .port(port)
                 .worker(1)
                 .connectTimeout(Duration.ofSeconds(5))
-                .reconnect(RetryPolicy.fixed(RetryPolicy.UNLIMITED_ATTEMPTS, Duration.ofMillis(100)))
                 .session(StompSessionOption.builder().heartbeatX(0L).heartbeatY(0L).build());
-        if (transport != null && transport.isWebSocket()) {
+        if (transport.isWebSocket()) {
             builder.webSocket("/");
         }
+        if (transport.isTls()) {
+            builder.tls(clientTls(true));
+        }
+        return builder;
+    }
 
+    TlsOptions clientTls(boolean verifyHostname) {
+        return TlsOptions.builder()
+                .side(TlsSide.CLIENT)
+                .keyStore(keyStore, "PKCS12", KEY_STORE_PASSWORD, KEY_STORE_PASSWORD)
+                .verifyHostname(verifyHostname)
+                .build();
+    }
+
+    /** Starts a client that is shut down with this runtime, without connecting it. */
+    TitanClient startClient(TitanClient.Builder builder) {
         TitanClient client = builder.build();
         clients.add(client);
         client.start();
-        client.connect().get(10, TimeUnit.SECONDS);
         return client;
     }
 
@@ -230,7 +266,26 @@ final class TitanRuntime implements AutoCloseable {
                 .replace("${transport}", transport.setting())
                 .replace("${host}", HOST)
                 .replace("${port}", Integer.toString(port))
-                .replace("${maxFrameLength}", Integer.toString(maxFrameLength));
+                .replace("${maxFrameLength}", Integer.toString(maxFrameLength))
+                .replace("${tls}", transport.isTls() ? tlsSection() : "");
+    }
+
+    private String tlsSection() {
+        return """
+                      tls:
+                        path: "%s"
+                        store-password: "%s"
+                        key-password: "%s"
+                """.formatted(keyStore, KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
+    }
+
+    private void copyKeyStore() throws IOException {
+        try (var input = TitanRuntime.class.getResourceAsStream(keyStoreResource)) {
+            if (input == null) {
+                throw new IOException("Key store resource not found: " + keyStoreResource);
+            }
+            Files.copy(input, keyStore, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private static int availablePort() throws IOException {

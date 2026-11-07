@@ -20,3 +20,4 @@ titan:
         heartbeat-y: "0"
         supported-versions: "1.2"
         secured: "false"
+${tls}
