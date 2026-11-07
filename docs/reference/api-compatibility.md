@@ -35,7 +35,7 @@ visibility alone does not make them stable application APIs.
 
 ## Compatibility check
 
-The build compares every Maven-published module with Titan `0.9.0` by default.
+The build compares every Maven-published module with Titan `0.9.1` by default.
 It checks public and protected class, method, field, constructor, and interface
 signatures.
 

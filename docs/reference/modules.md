@@ -21,7 +21,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.traffichunter.titan:titan-client:0.9.0")
+    implementation("org.traffichunter.titan:titan-client:0.9.1")
 }
 ```
 
