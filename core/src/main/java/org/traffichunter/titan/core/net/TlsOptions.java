@@ -132,7 +132,8 @@ public final class TlsOptions {
         private KeyManager[] keyManagers = new KeyManager[0];
         private TrustManager[] trustManagers = new TrustManager[0];
         private boolean managed;
-        private boolean verifyHostname;
+        // Only client handlers check the host name, so a server ignores this.
+        private boolean verifyHostname = true;
 
         private Builder() {
         }

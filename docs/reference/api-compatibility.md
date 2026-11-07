@@ -12,7 +12,7 @@ The following application APIs are being reviewed for 1.0:
 | --- | --- |
 | Java client | `TitanClient`, `TitanClient.Builder`, `StompEndpoint`, `ClientException` |
 | Client values | `Buffer`, `Handler`, `StompFrames`, `StompHeaders.Elements` |
-| Client options | `StompSessionOption`, `InetClientOption`, `RetryPolicy`, `RetryListener`, `TlsContext` |
+| Client options | `StompSessionOption`, `InetClientOption`, `RetryPolicy`, `RetryListener`, `TlsOptions`, `TlsSide`, `TlsVersion`, `TlsClientAuth` |
 | Spring | `TitanTemplate`, `StompOperations`, `@EnableTitan`, `@TitanListener`, `TitanProperties` |
 | Configuration | documented keys and defaults under `titan-env.yml` and `spring.titan` |
 | Operations | documented monitor HTTP endpoints and CLI commands |

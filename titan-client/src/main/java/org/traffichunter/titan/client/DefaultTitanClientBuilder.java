@@ -19,7 +19,8 @@ import java.time.Duration;
 
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.net.TlsContext;
+import org.traffichunter.titan.core.net.JdkTlsContext;
+import org.traffichunter.titan.core.net.TlsOptions;
 import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
@@ -47,7 +48,7 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
     private RetryListener reconnectListener = RetryListener.NOOP;
     private InetClientOption inetOption = InetClientOption.DEFAULT_INET_CLIENT_OPTION;
     private @Nullable String webSocketPath;
-    private @Nullable TlsContext tlsContext;
+    private @Nullable TlsOptions tlsOptions;
 
     @Override
     public TitanClient.Builder worker(int workers) {
@@ -106,16 +107,16 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
     }
 
     @Override
-    public TitanClient.Builder tls(TlsContext context) {
-        this.tlsContext = context;
+    public TitanClient.Builder tls(TlsOptions options) {
+        this.tlsOptions = options;
         return this;
     }
 
     @Override
     public TitanClient build() {
-        TlsContext context = tlsContext;
-        if (context != null && context.side() != TlsSide.CLIENT) {
-            throw new IllegalArgumentException("TitanClient requires a client-side TLS context");
+        TlsOptions tls = tlsOptions;
+        if (tls != null && tls.side() != TlsSide.CLIENT) {
+            throw new IllegalArgumentException("TitanClient requires client-side TLS options");
         }
 
         ClientConfiguration option = new ClientConfiguration(
@@ -126,7 +127,7 @@ final class DefaultTitanClientBuilder implements TitanClient.Builder {
                 connectTimeout,
                 reconnectPolicy,
                 reconnectListener,
-                tlsContext,
+                tls == null ? null : new JdkTlsContext(tls),
                 webSocketPath
         );
 

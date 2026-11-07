@@ -131,6 +131,36 @@ application needs lifecycle or failure notifications. A graceful
 `disconnect()` does not trigger unexpected-loss recovery; `shutdown(...)`
 stops reconnect work and releases the client runtime.
 
+## TLS
+
+Pass client-side `TlsOptions` to the builder. The key store holds the
+certificates the client trusts, and its key entry is used when the server asks
+for a client certificate.
+
+```java
+import java.nio.file.Path;
+import org.traffichunter.titan.core.net.TlsOptions;
+import org.traffichunter.titan.core.net.TlsSide;
+
+TitanClient client = TitanClient.builder()
+        .host("titan.example.com")
+        .port(61614)
+        .tls(TlsOptions.builder()
+                .side(TlsSide.CLIENT)
+                .keyStore(Path.of("client.p12"), "PKCS12", "store-password", "key-password")
+                .build())
+        .build();
+```
+
+The TLS context is created in `build()`, so a missing key store or a wrong
+password fails there. Options with `TlsSide.SERVER` are rejected.
+The client checks that the server certificate names the host it connects to.
+`verifyHostname(false)` turns that check off.
+
+Use `managers(keyManagers, trustManagers)` instead of `keyStore(...)` when the
+key and trust material already come from another source. Add
+`.webSocket("/stomp")` to the builder to connect with WSS.
+
 ## Asynchronous Send
 
 Client operations return `CompletableFuture`, so they can be composed without blocking.

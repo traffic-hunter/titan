@@ -22,7 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.traffichunter.titan.core.codec.stomp.StompFrames;
-import org.traffichunter.titan.core.net.TlsContext;
+import org.traffichunter.titan.core.net.TlsOptions;
+import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.resilience.retry.RetryListener;
 import org.traffichunter.titan.core.resilience.retry.RetryPolicy;
@@ -447,13 +448,14 @@ public interface TitanClient {
         Builder webSocket(String path);
 
         /**
-         * Configures the client-side TLS context applied while the native transport is built.
+         * Enables TLS with client-side options. The TLS context is created by {@link #build()}, so
+         * invalid key or trust material fails there.
          *
-         * @param context initialized client-side TLS context
+         * @param options TLS options with {@link TlsSide#CLIENT}
          * @return this builder
          */
         @CanIgnoreReturnValue
-        Builder tls(TlsContext context);
+        Builder tls(TlsOptions options);
 
         /**
          * Builds a new client without starting its runtime.

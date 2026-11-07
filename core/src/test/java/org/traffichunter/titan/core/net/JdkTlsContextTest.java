@@ -53,6 +53,27 @@ class JdkTlsContextTest {
     }
 
     @Test
+    void verify_client_host_name_by_default() throws Exception {
+        TlsOptions options = keyStoreOptions(TlsSide.CLIENT, createKeyStore()).build();
+
+        SSLEngine engine = new JdkTlsContext(options).newHandler("localhost", 61614).sslEngine();
+
+        assertThat(options.verifyHostname()).isTrue();
+        assertThat(engine.getSSLParameters().getEndpointIdentificationAlgorithm()).isEqualTo("HTTPS");
+    }
+
+    @Test
+    void skip_client_host_name_check_when_disabled() throws Exception {
+        TlsOptions options = keyStoreOptions(TlsSide.CLIENT, createKeyStore())
+                .verifyHostname(false)
+                .build();
+
+        SSLEngine engine = new JdkTlsContext(options).newHandler("localhost", 61614).sslEngine();
+
+        assertThat(engine.getSSLParameters().getEndpointIdentificationAlgorithm()).isNull();
+    }
+
+    @Test
     void apply_server_client_auth_to_ssl_engine() throws Exception {
         TlsOptions options = keyStoreOptions(TlsSide.SERVER, createKeyStore())
                 .clientAuth(TlsClientAuth.NEED)
