@@ -15,7 +15,6 @@ Titan is a good fit when your system needs:
 * One `TitanClient` API centered on Titan's native transport
 * Reconnection with active subscription recovery
 * Local operational visibility from HTTP or a terminal
-* An embeddable runtime with pluggable protocol and transport engines
 
 Common examples include notifications, chat-style messaging, telemetry fanout,
 live interaction backends, and development environments that need a compact

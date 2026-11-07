@@ -14,6 +14,7 @@ The following application APIs are being reviewed for 1.0:
 | Client values | `Buffer`, `Handler`, `StompFrames`, `StompHeaders.Elements` |
 | Client options | `StompSessionOption`, `InetClientOption`, `RetryPolicy`, `RetryListener`, `TlsOptions`, `TlsSide`, `TlsVersion`, `TlsClientAuth` |
 | Spring | `TitanTemplate`, `StompOperations`, `@EnableTitan`, `@TitanListener`, `TitanProperties` |
+| Server startup | `TitanBootstrap.run(String)` |
 | Configuration | documented keys and defaults under `titan-env.yml` and `spring.titan` |
 | Operations | documented monitor HTTP endpoints and CLI commands |
 
@@ -21,11 +22,11 @@ The client implementation, transport drivers, physical connection adapters,
 workers, and subscription registry are package-private. They can change without
 adding transport-specific branches to application code.
 
-The embedded server and dispatch extension APIs still require a decision. The
-current server example uses `EventLoopGroups`, `StompServer`,
-`StompServerOption`, `DispatchGateway`, and its STOMP handlers directly. These
-types must either become supported extension APIs before RC.1 or move to an
-explicitly unstable server-embedding guide.
+Server embedding and dispatch extension are not part of the stable API.
+`EventLoopGroups`, `StompServer`, `StompServerOption`, `DispatchGateway`, the
+STOMP handlers, and the engine SPI can change in any release, including 1.x
+releases. The supported way to run a server is `titan-env.yml`, started through
+`TitanBootstrap.run(String)`, the standalone JAR, or the container image.
 
 Some implementation types must remain public for YAML binding, service loading,
 or module boundaries. Examples include mutable YAML property objects, transport

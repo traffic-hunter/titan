@@ -11,7 +11,6 @@ Titan's production focus is real-time STOMP dispatch over TCP and WebSocket.
 * In-memory fanout delivery
 * Native Java and Spring Boot clients
 * Local JVM, connection, server, and dispatcher visibility
-* Embeddable runtime and SPI-based engine discovery
 
 ## Not a current promise
 
@@ -22,6 +21,7 @@ Titan does not currently promise:
 * A drop-in replacement for a mature message broker
 * Fully evolved retry, nack, and listener error policies in every client path
 * Multi-node consensus or replicated queue state
+* A stable Java API for embedding the server or extending dispatch
 
 These boundaries are intentional documentation, not hidden caveats. Evaluate
 delivery and recovery requirements before placing Titan on a critical message

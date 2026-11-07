@@ -50,6 +50,9 @@ import org.traffichunter.titan.core.util.Protocol;
  * {@link #listen(String, int)}. Call {@link #webSocket(String)} before startup to accept WebSocket
  * connections.</p>
  *
+ * <p>This type is not part of Titan's stable API and can change in any release. The supported
+ * way to run a server is {@code TitanBootstrap.run(String)} with {@code titan-env.yml}.</p>
+ *
  * @author yun
  */
 public final class StompServer {

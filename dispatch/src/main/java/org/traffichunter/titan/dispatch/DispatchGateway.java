@@ -31,6 +31,9 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * The returned future completes when the chain finishes, not when acknowledgements arrive from
  * every subscribed client.</p>
  *
+ * <p>This type is not part of Titan's stable API and can change in any release. The supported
+ * way to run a server is {@code TitanBootstrap.run(String)} with {@code titan-env.yml}.</p>
+ *
  * @author yungwang-o
  */
 public interface DispatchGateway extends Closeable, DispatcherQueueManager {

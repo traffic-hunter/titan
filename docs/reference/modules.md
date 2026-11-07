@@ -27,5 +27,6 @@ dependencies {
 
 Applications should normally depend on `titan-client` or
 `titan-spring-client`. Use `titan-stomp` when embedding a server or working with
-the low-level protocol surface. The standalone distribution combines bootstrap,
-core, STOMP, dispatch, and monitoring modules.
+the low-level protocol surface; that API is not stable and can change in any
+release. The standalone distribution combines bootstrap, core, STOMP, dispatch,
+and monitoring modules.
