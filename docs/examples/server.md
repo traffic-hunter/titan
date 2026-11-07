@@ -1,7 +1,7 @@
 # Server Example
 
 Titan servers can be started from `titan-env.yml` through `TitanBootstrap`, or
-embedded directly through the STOMP server API.
+embedded directly through the STOMP server API. Only the first is a stable API.
 
 ## Bootstrap From Configuration
 
@@ -78,6 +78,10 @@ public class TitanServerApplication {
 Use this path for tests, experiments, or applications that need direct control
 over the server instance.
 
+> The embedding API is not part of Titan's stable API. `StompServer`,
+> `EventLoopGroups`, `DispatchGateway`, and the STOMP handlers can change in any
+> release. Use the bootstrap path above for production servers.
+
 ```java
 import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -125,7 +129,7 @@ public class EmbeddedStompServerExample {
 embedded server fluently. `listen(...)` returns a promise so callers can wait
 until the bind operation completes.
 
-## Start An Embedded Server Asynchronously
+### Start Asynchronously
 
 `listen(...)` returns a Titan promise. Keep the promise asynchronous when the
 application wants to react to bind completion without blocking the caller.

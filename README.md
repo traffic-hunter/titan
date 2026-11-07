@@ -176,6 +176,10 @@ Low-level server and extension artifacts:
 | `titan-bootstrap` | Standalone runtime bootstrap |
 | `titan-core` | Core transport and runtime primitives |
 
+These artifacts make up the standalone runtime. Apart from
+`TitanBootstrap.run(String)`, their Java APIs are used only when embedding a
+server and are not covered by compatibility guarantees.
+
 Use the same `0.9.0` version for each artifact. `TitanClient` uses Titan's
 native event-loop and channel implementation.
 
