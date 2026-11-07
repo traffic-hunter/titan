@@ -78,7 +78,7 @@ cd titan-cli && go test ./...
 ## API Compatibility
 
 Titan compares every Maven-published module with the configured released API
-baseline, which defaults to `0.9.0`. The report covers public and protected
+baseline, which defaults to `0.9.1`. The report covers public and protected
 bytecode and source signatures in `titan-bootstrap`, `titan-core`, `titan-stomp`,
 `titan-client`, `titan-spring-client`, `titan-dispatch`, and `titan-monitor`.
 
