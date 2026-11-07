@@ -20,7 +20,6 @@ package org.traffichunter.titan.core.util;
  */
 public enum Protocol {
     STOMP("stomp", "1.2", "v12.stomp"),
-    MQTT("mqtt", "5.0", "v50.mqtt"),
     ;
 
     private final String name;

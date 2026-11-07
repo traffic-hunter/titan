@@ -31,7 +31,6 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -103,27 +102,6 @@ class WebSocketChannelTest {
         assertThat(write.channel()).isSameAs(delegate);
 
         encoded.getValue().release();
-        payload.release();
-    }
-
-    @Test
-    void reject_frame_with_different_subprotocol() {
-        NetChannel delegate = mock(NetChannel.class);
-        WebSocketChannel channel = new WebSocketChannel(delegate, WebSocketSide.SERVER, Protocol.STOMP);
-        Buffer payload = Buffer.heap().alloc("data");
-        WebSocketFrame frame = new WebSocketFrame(
-                WebSocketFrameHeader.builder()
-                        .op(WebSocketFrameHeader.OpCode.BINARY, true)
-                        .payloadLength(payload.length())
-                        .build(),
-                payload,
-                Protocol.MQTT
-        );
-
-        assertThatThrownBy(() -> channel.writeAndFlush(frame))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("subprotocol");
-
         payload.release();
     }
 
