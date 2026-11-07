@@ -23,8 +23,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -37,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.CONTENT_LENGTH;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.RECEIPT;
 
 /**
  * Exercises packaged Titan messaging through TCP and WebSocket transports.
@@ -119,35 +122,71 @@ class TitanMessagingSmokeTest {
         }
     }
 
-    @ParameterizedTest(name = "restart and resubscribe, transport={0}")
+    @ParameterizedTest(name = "restarts under load, transport={0}")
     @EnumSource(TitanSmokeTransport.class)
-    void server_restart_restores_only_active_subscriptions(
+    @Timeout(value = 180, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void server_restarts_under_load_restore_only_active_subscriptions(
             TitanSmokeTransport transport,
             TitanRuntime runtime
     ) throws Exception {
         runtime.start(transport);
         String destination = "/topic/" + UUID.randomUUID();
-        LinkedBlockingQueue<String> active = new LinkedBlockingQueue<>();
-        LinkedBlockingQueue<String> removed = new LinkedBlockingQueue<>();
-        TitanClient client = runtime.client();
-        client.subscribe(destination, Map.of(ID, "active"), frame ->
+        ConcurrentLinkedQueue<String> active = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<String> removed = new ConcurrentLinkedQueue<>();
+        TitanClient subscriber = runtime.client();
+        TitanClient producer = runtime.client();
+        // The producer has its own connection, so wait for the server's receipt before sending.
+        subscriber.subscribe(destination, Map.of(ID, "active", RECEIPT, "subscribe-active"), frame ->
                 active.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
-        client.subscribe(destination, Map.of(ID, "removed"), frame ->
+        subscriber.subscribe(destination, Map.of(ID, "removed", RECEIPT, "subscribe-removed"), frame ->
                 removed.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
-        client.send(destination, "before").get(10, TimeUnit.SECONDS);
-        assertThat(active.poll(10, TimeUnit.SECONDS)).isEqualTo("before");
-        assertThat(removed.poll(10, TimeUnit.SECONDS)).isEqualTo("before");
+        producer.send(destination, "before").get(10, TimeUnit.SECONDS);
+        await().atMost(10, TimeUnit.SECONDS).until(() -> active.contains("before") && removed.contains("before"));
+        subscriber.unsubscribe("removed", Map.of(RECEIPT, "unsubscribe-removed")).get(10, TimeUnit.SECONDS);
 
-        client.unsubscribe("removed").get(10, TimeUnit.SECONDS);
-        runtime.stop();
-        await().atMost(10, TimeUnit.SECONDS).until(() -> !client.isConnected());
-        runtime.restart();
-        await().atMost(15, TimeUnit.SECONDS).until(client::isConnected);
+        AtomicBoolean loading = new AtomicBoolean(true);
+        Thread load = Thread.ofVirtual().start(() -> {
+            for (long i = 0; loading.get(); i++) {
+                try {
+                    producer.send(destination, "load-" + i).get(1, TimeUnit.SECONDS);
+                } catch (Exception ignored) {
+                    // Sends fail while the server is down. The probes below check delivery.
+                }
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        });
 
-        client.send(destination, "after").get(10, TimeUnit.SECONDS);
-        assertThat(active.poll(10, TimeUnit.SECONDS)).isEqualTo("after");
-        assertThat(removed.poll(300, TimeUnit.MILLISECONDS)).isNull();
-        assertThat(active.poll(200, TimeUnit.MILLISECONDS)).as("duplicate restored subscription").isNull();
+        try {
+            for (int restart = 1; restart <= 5; restart++) {
+                runtime.stop();
+                await().atMost(10, TimeUnit.SECONDS).until(() -> !subscriber.isConnected());
+                runtime.restart();
+                await().atMost(15, TimeUnit.SECONDS)
+                        .until(() -> subscriber.isConnected() && producer.isConnected());
+
+                // A probe sent before the subscription is restored is not delivered, so keep sending new ones.
+                String probe = "probe-" + restart + "-";
+                int[] attempts = {0};
+                await().alias("subscription restored after restart " + restart)
+                        .atMost(10, TimeUnit.SECONDS)
+                        .pollInterval(200, TimeUnit.MILLISECONDS)
+                        .until(() -> {
+                            producer.send(destination, probe + attempts[0]++);
+                            return active.stream().anyMatch(body -> body.startsWith(probe));
+                        });
+            }
+        } finally {
+            loading.set(false);
+            load.join(10_000);
+        }
+
+        assertThat(active).as("restored subscription").doesNotHaveDuplicates()
+                .anyMatch(body -> body.startsWith("load-"));
+        assertThat(removed).as("unsubscribed subscription").containsExactly("before");
     }
 
     @ParameterizedTest(name = "content-length payload, transport={0}, embeddedNul={1}")
