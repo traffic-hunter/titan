@@ -151,7 +151,7 @@ class TitanMessagingSmokeTest {
     }
 
     @ParameterizedTest(name = "content-length payload, transport={0}, embeddedNul={1}")
-    @CsvSource({"TCP, false", "TCP, true", "WEBSOCKET, false", "WEBSOCKET, true"})
+    @CsvSource({"TCP, false", "TCP, true", "WS, false", "WS, true"})
     void content_length_preserves_line_breaks_and_embedded_nul(
             TitanSmokeTransport transport,
             boolean embeddedNul,

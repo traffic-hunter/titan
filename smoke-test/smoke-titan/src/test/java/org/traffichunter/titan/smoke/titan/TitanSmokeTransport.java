@@ -21,13 +21,17 @@ package org.traffichunter.titan.smoke.titan;
  * @author yun
  */
 enum TitanSmokeTransport {
-    TCP("tcp"),
-    WEBSOCKET("websocket");
+    TCP("tcp", false),
+    WS("websocket", false),
+    TLS("tcp", true),
+    WSS("websocket", true);
 
     private final String setting;
+    private final boolean tls;
 
-    TitanSmokeTransport(String setting) {
+    TitanSmokeTransport(String setting, boolean tls) {
         this.setting = setting;
+        this.tls = tls;
     }
 
     String setting() {
@@ -35,6 +39,10 @@ enum TitanSmokeTransport {
     }
 
     boolean isWebSocket() {
-        return this == WEBSOCKET;
+        return setting.equals("websocket");
+    }
+
+    boolean isTls() {
+        return tls;
     }
 }

@@ -255,8 +255,10 @@ Requirements:
 - Gradle wrapper (`./gradlew`)
 - Go 1.22+ for `titan-cli`
 
-Run the smoke suites separately when changing transport or Spring lifecycle
-behavior:
+`./gradlew build` also runs the smoke suites. `smoke-titan` starts the packaged
+server JAR and connects over TCP, WebSocket, TLS, and WSS. `smoke-spring` runs
+the Spring client against a server started in the same JVM. To run one suite on
+its own:
 
 ```bash
 ./gradlew :smoke-test:smoke-spring:test
