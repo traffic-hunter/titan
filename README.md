@@ -49,7 +49,7 @@ Titan requires JDK 21 or newer. Download the standalone JAR from
 [GitHub Releases](https://github.com/traffic-hunter/titan/releases), or use:
 
 ```bash
-curl -LO https://github.com/traffic-hunter/titan/releases/download/0.9.0/titan-server-0.9.0.jar
+curl -LO https://github.com/traffic-hunter/titan/releases/download/0.9.1/titan-server-0.9.1.jar
 ```
 
 ### 2. Create `titan-env.yml`
@@ -74,7 +74,7 @@ titan:
 
 ```bash
 java -Dtitan.environment.path=./titan-env.yml \
-  -jar titan-server-0.9.0.jar
+  -jar titan-server-0.9.1.jar
 ```
 
 The STOMP server now listens on `localhost:61613`. Verify the node through the
@@ -157,13 +157,13 @@ repositories {
 For a Spring Boot application:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-spring-client:0.9.0")
+implementation("org.traffichunter.titan:titan-spring-client:0.9.1")
 ```
 
 For a standalone Java client:
 
 ```kotlin
-implementation("org.traffichunter.titan:titan-client:0.9.0")
+implementation("org.traffichunter.titan:titan-client:0.9.1")
 ```
 
 Low-level server and extension artifacts:
@@ -180,14 +180,14 @@ These artifacts make up the standalone runtime. Apart from
 `TitanBootstrap.run(String)`, their Java APIs are used only when embedding a
 server and are not covered by compatibility guarantees.
 
-Use the same `0.9.0` version for each artifact. `TitanClient` uses Titan's
+Use the same `0.9.1` version for each artifact. `TitanClient` uses Titan's
 native event-loop and channel implementation.
 
 ## Basic Commands
 
 ```bash
 # Start the standalone server
-java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.9.0.jar
+java -Dtitan.environment.path=./titan-env.yml -jar titan-server-0.9.1.jar
 
 # Check health and inspect a snapshot
 curl http://localhost:7777/titan/monitor/health
@@ -204,7 +204,7 @@ curl http://localhost:7777/titan/monitor/snapshot
 Prebuilt releases also contain the terminal monitor CLI:
 
 ```bash
-tar -xzf titan-cli-0.9.0-linux-amd64.tar.gz
+tar -xzf titan-cli-0.9.1-linux-amd64.tar.gz
 ./titan --addr http://localhost:7777
 ./titan --addr http://localhost:7777 --view queues
 ./titan --addr http://localhost:7777 queue list
