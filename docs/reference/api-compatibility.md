@@ -63,11 +63,11 @@ Strict mode is available for investigation before a stable baseline is accepted:
 ./gradlew checkApiCompatibility -PapiCompatibilityStrict=true
 ```
 
-The current strict mode examines every public type in the published modules.
-Before RC.1, the inventory above must be translated into explicit checker
-filters so implementation types do not become stable by accident. Once that is
-done, adding a public method to the supported surface still counts as an API
-change even when it is binary compatible.
+Strict mode examines every public type in the published modules, including
+implementation types outside the inventory, so it is an investigation aid rather
+than a gate. Read its report against the inventory above: a change to an
+inventory type is an API change, even when it only adds a binary-compatible
+method, while a change to any other type is not.
 
 ## Configuration compatibility
 
