@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Bean;
 import org.traffichunter.titan.client.StompEndpoint;
 import org.traffichunter.titan.client.TitanClient;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.core.net.JdkTlsContext;
 import org.traffichunter.titan.core.net.TlsOptions;
 import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.net.TlsVersion;
@@ -55,8 +54,12 @@ public class TitanStompClientAutoConfiguration {
                 .host(endpoint == null ? properties.getHost() : endpoint.host())
                 .port(endpoint == null ? properties.getPort() : endpoint.port())
                 .session(properties.toStompSessionOption())
-                .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMillis()))
-                .tls(resolveTlsContext(properties, endpoint, sslBundles));
+                .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMillis()));
+
+        TlsOptions tls = resolveTlsOptions(properties, endpoint, sslBundles);
+        if (tls != null) {
+            builder.tls(tls);
+        }
 
         boolean webSocket = endpoint == null
                 ? properties.getTransport() == TitanProperties.Transport.WEBSOCKET
@@ -83,7 +86,7 @@ public class TitanStompClientAutoConfiguration {
         return new TitanTemplate(titanClientManager);
     }
 
-    private static @Nullable JdkTlsContext resolveTlsContext(
+    private static @Nullable TlsOptions resolveTlsOptions(
             TitanProperties properties,
             @Nullable StompEndpoint endpoint,
             ObjectProvider<SslBundles> sslBundles
@@ -120,7 +123,7 @@ public class TitanStompClientAutoConfiguration {
         if (ciphers != null) {
             options.ciphers(ciphers);
         }
-        return new JdkTlsContext(options.build());
+        return options.build();
     }
 
     private static TlsVersion[] tlsVersions(String[] protocols) {

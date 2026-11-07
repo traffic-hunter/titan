@@ -19,15 +19,18 @@ import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.util.List;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
+
 import org.junit.jupiter.api.Test;
+import org.traffichunter.titan.core.net.JdkTlsContext;
 import org.traffichunter.titan.core.net.TlsContext;
+import org.traffichunter.titan.core.net.TlsOptions;
 import org.traffichunter.titan.core.net.TlsSide;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * @author yun
@@ -95,19 +98,27 @@ class TitanClientBuilderTest {
     }
 
     @Test
-    void stores_tls_context_in_native_client_configuration() {
-        TlsContext tlsContext = mock(TlsContext.class);
-        when(tlsContext.side()).thenReturn(TlsSide.CLIENT);
-
+    void tls_options_create_client_tls_context() {
         TitanClient client = TitanClient.builder()
-                .tls(tlsContext)
+                .tls(tlsOptions(TlsSide.CLIENT))
                 .build();
 
         try {
-            assertThat(((DefaultTitanClient) client).configuration().tlsContext()).isSameAs(tlsContext);
+            TlsContext tlsContext = ((DefaultTitanClient) client).configuration().tlsContext();
+            assertThat(tlsContext).isInstanceOf(JdkTlsContext.class);
+            assertThat(tlsContext.side()).isEqualTo(TlsSide.CLIENT);
         } finally {
             client.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
         }
+    }
+
+    @Test
+    void rejects_server_side_tls_options() {
+        TitanClient.Builder builder = TitanClient.builder().tls(tlsOptions(TlsSide.SERVER));
+
+        assertThatThrownBy(builder::build)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TitanClient requires client-side TLS options");
     }
 
     @Test
@@ -137,5 +148,12 @@ class TitanClientBuilderTest {
             relativePathClient.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
             rootPathClient.shutdown(5, java.util.concurrent.TimeUnit.SECONDS);
         }
+    }
+
+    private static TlsOptions tlsOptions(TlsSide side) {
+        return TlsOptions.builder()
+                .side(side)
+                .managers(new KeyManager[0], new TrustManager[0])
+                .build();
     }
 }
