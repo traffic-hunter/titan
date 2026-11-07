@@ -92,10 +92,6 @@ public final class WebSocketChannel implements NetChannel {
     }
 
     public ChannelPromise writeAndFlush(WebSocketFrame frame) {
-        if (frame.subProtocol() != subProtocol) {
-            throw new IllegalArgumentException("WebSocket frame subprotocol does not match channel subprotocol");
-        }
-
         Buffer encoded = frame.encode();
         IOEventLoop eventLoop = eventLoop();
         if (!eventLoop.inEventLoop()) {

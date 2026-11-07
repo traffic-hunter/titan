@@ -113,7 +113,6 @@ public class WebSocketFrameEncoder extends ChannelEncoder {
                 case STOMP -> Utf8Validator.isValid(payload, payload.byteBuf().readerIndex(), payload.length())
                         ? WebSocketFrameHeader.OpCode.TEXT
                         : WebSocketFrameHeader.OpCode.BINARY;
-                case MQTT -> WebSocketFrameHeader.OpCode.BINARY;
             };
         }
     }
