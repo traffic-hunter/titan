@@ -215,6 +215,10 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
         if(task instanceof ScheduledPromise<?> promise) {
             scheduleQueue.add(promise);
+            // A loop waiting in takeTask() does not see the schedule queue change on its own.
+            if(!inEventLoop()) {
+                wakeUp();
+            }
             return;
         }
         if(!taskQueue.offer(task)) {
@@ -230,7 +234,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
         int count = 0;
         while (true) {
-            Runnable task = takeTask();
+            Runnable task = pollTask();
             if(task == null) {
                 break;
             }
@@ -274,7 +278,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         return scheduledDelay < 0 ? shutdownDelay : Math.min(scheduledDelay, shutdownDelay);
     }
 
-    protected final @Nullable Runnable takeTask() {
+    protected final @Nullable Runnable pollTask() {
         if(!inEventLoop()) {
             return null;
         }
@@ -286,6 +290,41 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
             loadTaskAfterCompletedScheduledTask();
             return taskQueue.poll();
+        }
+    }
+
+    /**
+     * Waits until a task is queued or the next scheduled task is due, and returns it.
+     *
+     * <p>Due scheduled tasks reach the caller through the task queue, the same way
+     * {@link #pollTask()} hands them out. Loops that wait on a selector use {@link #pollTask()}
+     * instead.</p>
+     */
+    protected final Runnable takeTask() throws InterruptedException {
+        Assert.checkState(inEventLoop(), "takeTask must be called from the event loop");
+
+        if(!(taskQueue instanceof BlockingQueue<Runnable> blockingQueue)) {
+            throw new UnsupportedOperationException("takeTask requires a blocking task queue");
+        }
+
+        while (true) {
+            Runnable task = pollTask();
+            if(task != null) {
+                return task;
+            }
+
+            ScheduledPromise<?> scheduledTask = scheduleQueue.peek();
+            if(scheduledTask == null) {
+                return blockingQueue.take();
+            }
+
+            long delayNanos = scheduledTask.getDeadlineNanos() - Time.currentNanos();
+            if(delayNanos > 0) {
+                task = blockingQueue.poll(delayNanos, TimeUnit.NANOSECONDS);
+                if(task != null) {
+                    return task;
+                }
+            }
         }
     }
 
@@ -364,7 +403,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             cancelScheduleTasks();
             if (!isShutdown()) {
                 while (!timeoutExceeded()) {
-                    Runnable task = takeTask();
+                    Runnable task = pollTask();
                     if (task == null) {
                         break;
                     }

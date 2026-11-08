@@ -134,8 +134,9 @@ class TaskEventLoopTest {
         }
 
         @Test
-        void scheduledTaskTest() {
+        void scheduledTaskTest() throws Exception {
             AtomicInteger counter = new AtomicInteger(0);
+            Thread loopThread = eventLoop.submit(Thread::currentThread).get(5, TimeUnit.SECONDS);
 
             RunnableTask runnableTask1 = new RunnableTask(counter);
             eventLoop.schedule(runnableTask1, 500, TimeUnit.MILLISECONDS);
@@ -145,6 +146,12 @@ class TaskEventLoopTest {
 
             RunnableTask runnableTask3 = new RunnableTask(counter);
             eventLoop.schedule(runnableTask3, 200, TimeUnit.MILLISECONDS);
+
+            Awaitility.await().atMost(150, TimeUnit.MILLISECONDS)
+                    .pollDelay(0, TimeUnit.MILLISECONDS)
+                    .pollInterval(5, TimeUnit.MILLISECONDS)
+                    .until(() -> loopThread.getState() == Thread.State.TIMED_WAITING);
+            assertThat(counter.get()).isZero();
 
             Awaitility.await().atMost(5, TimeUnit.SECONDS)
                     .until(() -> runnableTask1.isDone && runnableTask2.isDone && runnableTask3.isDone);
@@ -232,11 +239,15 @@ class TaskEventLoopTest {
         private final EventLoop eventLoop = new TaskEventLoop();
 
         @Test
-        void isStartTest() {
+        void isStartTest() throws Exception {
             try {
                 eventLoop.start();
 
                 assertThat(eventLoop.isStarted()).isTrue();
+
+                Thread loopThread = eventLoop.submit(Thread::currentThread).get(5, TimeUnit.SECONDS);
+                Awaitility.await().atMost(5, TimeUnit.SECONDS)
+                        .until(() -> loopThread.getState() == Thread.State.WAITING);
             } finally {
                 eventLoop.gracefullyShutdown(0, TimeUnit.MILLISECONDS);
             }
