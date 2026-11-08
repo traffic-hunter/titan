@@ -22,10 +22,14 @@ public class TaskEventLoop extends SingleThreadEventLoop {
         }
 
         while (!checkShutdown()) {
-            final Runnable task = pollTask();
-            if(task != null) {
-                task.run();
+            final Runnable task;
+            try {
+                task = takeTask();
+            } catch (InterruptedException e) {
+                // shutdownNow() interrupts the wait; the loop condition decides whether to stop.
+                continue;
             }
+            task.run();
         }
     }
 
