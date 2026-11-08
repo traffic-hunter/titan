@@ -22,7 +22,7 @@ public class TaskEventLoop extends SingleThreadEventLoop {
         }
 
         while (!checkShutdown()) {
-            final Runnable task = takeTask();
+            final Runnable task = pollTask();
             if(task != null) {
                 task.run();
             }

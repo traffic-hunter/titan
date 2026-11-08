@@ -230,7 +230,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
 
         int count = 0;
         while (true) {
-            Runnable task = takeTask();
+            Runnable task = pollTask();
             if(task == null) {
                 break;
             }
@@ -274,7 +274,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
         return scheduledDelay < 0 ? shutdownDelay : Math.min(scheduledDelay, shutdownDelay);
     }
 
-    protected final @Nullable Runnable takeTask() {
+    protected @Nullable Runnable pollTask() {
         if(!inEventLoop()) {
             return null;
         }
@@ -364,7 +364,7 @@ public abstract class SingleThreadEventLoop extends AbstractEventLoop {
             cancelScheduleTasks();
             if (!isShutdown()) {
                 while (!timeoutExceeded()) {
-                    Runnable task = takeTask();
+                    Runnable task = pollTask();
                     if (task == null) {
                         break;
                     }
