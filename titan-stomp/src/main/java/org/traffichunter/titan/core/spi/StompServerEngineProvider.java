@@ -89,6 +89,10 @@ public class StompServerEngineProvider implements NetworkServerEngineProvider {
         this.webSocket = webSocket;
     }
 
+    /**
+     * Adds the handler after the STOMP decoder. The decoder hands frames to the server handler
+     * and passes no frames on, so this handler never receives STOMP frames.
+     */
     @Override
     @CanIgnoreReturnValue
     public NetworkServerEngineProvider setInboundHandler(ChannelInBoundHandler channelInBoundHandler) {
