@@ -115,6 +115,9 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
         if (command == StompCommand.CONNECT || command == StompCommand.CONNECTED) {
             return value;
         }
+        if (value.indexOf(ESCAPE) < 0) {
+            return value;
+        }
 
         StringBuilder sb = new StringBuilder(value.length());
         for(int i = 0; i < value.length();) {
