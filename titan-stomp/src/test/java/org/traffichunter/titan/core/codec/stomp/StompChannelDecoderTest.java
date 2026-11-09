@@ -40,11 +40,16 @@ class StompChannelDecoderTest {
         StompFrame stompFrame = StompFrame.create(headers, command, Buffer.heap().alloc("hello"));
         Buffer frames = stompFrame.toBuffer();
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
             Buffer result = decoder.decode(new InMemoryNetChannel(), frames);
 
-            assertThat(result).isEqualTo(stompFrame.toBuffer());
+            assertThat(result).isNull();
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.toBuffer()).isEqualTo(stompFrame.toBuffer()));
         } finally {
             frames.release();
         }
@@ -61,12 +66,16 @@ class StompChannelDecoderTest {
 
         Buffer notEofFrame = frame.readSlice(frame.length() - 1);
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
 
             Buffer decode = decoder.decode(new InMemoryNetChannel(), notEofFrame);
 
             assertThat(decode).isNull();
+            assertThat(handled).isEmpty();
         } finally {
             notEofFrame.release();
         }
@@ -80,11 +89,15 @@ class StompChannelDecoderTest {
         StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
             Buffer result = decoder.decode(new InMemoryNetChannel(), buf);
 
-            assertThat(result).isEqualTo(StompFrame.ERR_STOMP_FRAME.toBuffer());
+            assertThat(result).isNull();
+            assertThat(handled).singleElement().isSameAs(StompFrame.ERR_STOMP_FRAME);
         } finally {
             buf.release();
         }
@@ -99,11 +112,16 @@ class StompChannelDecoderTest {
 
         Buffer buf = frame.toBuffer();
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
             Buffer result = decoder.decode(new InMemoryNetChannel(), buf);
 
-            assertThat(result).isEqualTo(frame.toBuffer());
+            assertThat(result).isNull();
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.toBuffer()).isEqualTo(frame.toBuffer()));
         } finally {
             buf.release();
         }
@@ -125,8 +143,7 @@ class StompChannelDecoderTest {
 
             assertThat(handled).singleElement().satisfies(decoded ->
                     assertThat(decoded.body()).isEqualTo(body));
-            assertThat(result).isNotNull();
-            result.release();
+            assertThat(result).isNull();
         } finally {
             input.release();
         }
@@ -150,8 +167,7 @@ class StompChannelDecoderTest {
             assertThat(handled).singleElement().satisfies(decoded ->
                     assertThat(decoded.getHeader(StompHeaders.Elements.RECEIPT))
                             .isEqualTo("run-7:producer-2:message-9"));
-            assertThat(result).isNotNull();
-            result.release();
+            assertThat(result).isNull();
         } finally {
             input.release();
         }
@@ -161,11 +177,15 @@ class StompChannelDecoderTest {
     void an_illegal_escape_sequence_in_a_header_is_an_error_frame() {
         Buffer input = Buffer.heap().alloc("SEND\nreceipt:a\\tb\n\nhello\u0000");
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, (decoded, channel) ->
+                    handled.add(decoded));
             Buffer result = decoder.decode(new InMemoryNetChannel(), input);
 
-            assertThat(result).isEqualTo(StompFrame.ERR_STOMP_FRAME.toBuffer());
+            assertThat(result).isNull();
+            assertThat(handled).singleElement().isSameAs(StompFrame.ERR_STOMP_FRAME);
         } finally {
             input.release();
         }
@@ -179,11 +199,16 @@ class StompChannelDecoderTest {
         StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.heap().empty());
         Buffer buf = frame.toBuffer();
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
             Buffer result = decoder.decode(new InMemoryNetChannel(), buf);
 
-            assertThat(result).isEqualTo(frame.toBuffer());
+            assertThat(result).isNull();
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.toBuffer()).isEqualTo(frame.toBuffer()));
         } finally {
             buf.release();
         }
@@ -198,11 +223,16 @@ class StompChannelDecoderTest {
 
         Buffer stompFrames = Buffer.heap().alloc(stompFrame + "CONNECT\r\nid:1\r");
 
+        List<StompFrame> handled = new ArrayList<>();
+
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, channel) ->
+                    handled.add(decoded));
             Buffer result = decoder.decode(new InMemoryNetChannel(), stompFrames);
 
-            assertThat(result).isEqualTo(stompFrame.toBuffer());
+            assertThat(result).isNull();
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.toBuffer()).isEqualTo(stompFrame.toBuffer()));
         }  finally {
             stompFrames.release();
         }
@@ -222,17 +252,20 @@ class StompChannelDecoderTest {
         Buffer part2 = Buffer.heap().alloc(Arrays.copyOfRange(bytes, split, bytes.length));
 
         CollectingChain chain = new CollectingChain();
-        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+        List<StompFrame> handled = new ArrayList<>();
+        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, sc) ->
+                handled.add(decoded));
 
         NetChannel channel = new InMemoryNetChannel();
 
         try {
             decoder.sparkChannelRead(channel, part1, chain);
-            assertThat(chain.frames).isEmpty();
+            assertThat(handled).isEmpty();
 
             decoder.sparkChannelRead(channel, part2, chain);
-            assertThat(chain.frames).hasSize(1);
-            assertThat(chain.frames.getFirst().getBytes()).isEqualTo(bytes);
+            assertThat(handled).singleElement().satisfies(decoded ->
+                    assertThat(decoded.toBuffer().getBytes()).isEqualTo(bytes));
+            assertThat(chain.frames).isEmpty();
         } finally {
             total.release();
             chain.releaseAll();
@@ -352,7 +385,7 @@ class StompChannelDecoderTest {
                 assertThat(frame.command()).isEqualTo(StompCommand.SEND);
                 assertThat(frame.body()).isEqualTo(body.getBytes(StandardCharsets.US_ASCII));
             });
-            assertThat(chain.frames).hasSize(1);
+            assertThat(chain.frames).isEmpty();
         } finally {
             chain.releaseAll();
         }
@@ -375,7 +408,7 @@ class StompChannelDecoderTest {
                 assertThat(frame.command()).isEqualTo(StompCommand.SEND);
                 assertThat(frame.body()).isEqualTo("A".repeat(16).getBytes(StandardCharsets.US_ASCII));
             });
-            assertThat(chain.frames).hasSize(8);
+            assertThat(chain.frames).isEmpty();
             assertThat(input.byteBuf().refCnt()).isZero();
         } finally {
             chain.releaseAll();
@@ -402,29 +435,23 @@ class StompChannelDecoderTest {
     // ── refCnt leak regression tests ──────────────────────────────────────────
 
     @Test
-    void decode_result_refCnt_is_zero_when_no_downstream_handler() {
-        // Leak 2 regression: ChannelInBoundHandlerChainImpl must release the buffer
-        // returned by decode() when it reaches the end of the chain (next == null).
+    void decoded_frame_is_not_passed_to_the_next_handler() {
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.ID, IdGenerator.uuid());
         StompFrame frame = StompFrame.create(headers, StompCommand.CONNECT, Buffer.heap().alloc("hello"));
         Buffer buf = frame.toBuffer();
 
         TerminalChain terminal = new TerminalChain();
-        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+        List<StompFrame> handled = new ArrayList<>();
+        TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, (decoded, sc) ->
+                handled.add(decoded));
 
-        try {
-            decoder.sparkChannelRead(new InMemoryNetChannel(), buf, terminal);
-            assertThat(terminal.received)
-                    .as("terminal chain must have received the decoded buffer")
-                    .isNotNull();
-            assertThat(terminal.received.byteBuf().refCnt())
-                    .as("buffer refCnt must be 0 after terminal chain releases it")
-                    .isEqualTo(0);
-        } finally {
-            // buf itself is consumed by keepingBuffer inside ChannelDecoder
-            // and released when keepingBuffer is drained — no manual release needed here
-        }
+        // buf is consumed by the decoder's merge buffer and released once it is drained.
+        decoder.sparkChannelRead(new InMemoryNetChannel(), buf, terminal);
+
+        assertThat(handled).hasSize(1);
+        assertThat(terminal.received).isNull();
+        assertThat(buf.byteBuf().refCnt()).isZero();
     }
 
     @Test
@@ -442,9 +469,9 @@ class StompChannelDecoderTest {
 
         // If stompFrame/frames buffers were not released, ResourceLeakDetector (PARANOID)
         // would report a leak. Here we verify the decode completes without error
-        // and the output buffer is properly handled.
-        assertThat(terminal.received).isNotNull();
-        assertThat(terminal.received.byteBuf().refCnt()).isEqualTo(0);
+        // and the input buffer is released.
+        assertThat(terminal.received).isNull();
+        assertThat(buf.byteBuf().refCnt()).isZero();
     }
 
     private static class TerminalChain implements ChannelInBoundHandlerChain {
@@ -532,8 +559,7 @@ class StompChannelDecoderTest {
 
             assertThat(handled).singleElement().satisfies(decoded ->
                     assertThat(decoded.getHeader(StompHeaders.Elements.GROUP)).isEqualTo("market"));
-            assertThat(result).isNotNull();
-            result.release();
+            assertThat(result).isNull();
         } finally {
             input.release();
         }

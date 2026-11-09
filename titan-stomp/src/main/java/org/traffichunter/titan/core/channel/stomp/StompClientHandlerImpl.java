@@ -16,6 +16,7 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import org.traffichunter.titan.core.codec.stomp.StompException;
+import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
@@ -117,10 +118,10 @@ public final class StompClientHandlerImpl implements StompClientHandler {
                 StompFrame frame = event.frame();
                 StompClientChannel connection = event.connection();
                 String id = frame.getHeader(StompHeaders.Elements.SUBSCRIPTION);
-                connection.subscriptions()
-                        .stream()
-                        .filter(subscription -> subscription.id().equals(id))
-                        .forEach(subscription -> subscription.getHandler().handle(frame));
+                StompClientSubscription subscription = id == null ? null : connection.subscription(id);
+                if (subscription != null) {
+                    subscription.getHandler().handle(frame);
+                }
             }
         }
 

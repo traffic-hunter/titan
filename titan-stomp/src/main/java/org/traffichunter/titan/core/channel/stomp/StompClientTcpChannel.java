@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.*;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
 import org.traffichunter.titan.core.codec.stomp.StompClientSubscription;
@@ -334,6 +335,11 @@ public class StompClientTcpChannel implements StompClientChannel {
     @Override
     public List<StompClientSubscription> subscriptions() {
         return subscriptions.values();
+    }
+
+    @Override
+    public @Nullable StompClientSubscription subscription(String id) {
+        return subscriptions.find(id);
     }
 
     @Override

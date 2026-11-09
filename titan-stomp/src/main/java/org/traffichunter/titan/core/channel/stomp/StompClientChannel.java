@@ -16,6 +16,7 @@
 package org.traffichunter.titan.core.channel.stomp;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.channel.ChannelHandShakeEventListener;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
@@ -147,6 +148,8 @@ public interface StompClientChannel extends StompChannel {
     StompClientHandler handler();
 
     List<StompClientSubscription> subscriptions();
+
+    @Nullable StompClientSubscription subscription(String id);
 
     void setHeartbeat(long ping, long pong, Runnable handler);
 
