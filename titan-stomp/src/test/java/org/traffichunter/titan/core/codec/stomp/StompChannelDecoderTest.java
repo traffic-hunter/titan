@@ -10,6 +10,7 @@ import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
+import org.traffichunter.titan.core.codec.ChannelDecoderException;
 import org.traffichunter.titan.core.codec.TooLongFrameException;
 import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
@@ -175,19 +176,21 @@ class StompChannelDecoderTest {
 
     @Test
     void an_illegal_escape_sequence_in_a_header_is_an_error_frame() {
-        Buffer input = Buffer.heap().alloc("SEND\nreceipt:a\\tb\n\nhello\u0000");
+        Buffer input = Buffer.heap().alloc(
+                "SEND\nreceipt:a\\tb\n\nhello\u0000SEND\ndestination:/q\n\nok\u0000");
 
         List<StompFrame> handled = new ArrayList<>();
+        TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, (decoded, channel) ->
+                handled.add(decoded));
 
         try {
-            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, (decoded, channel) ->
-                    handled.add(decoded));
-            Buffer result = decoder.decode(new InMemoryNetChannel(), input);
-
-            assertThat(result).isNull();
+            // The handler leaves the connection open, so the decoder must not stop silently
+            // with the invalid bytes still buffered.
+            assertThatThrownBy(() -> decoder.sparkChannelRead(new InMemoryNetChannel(), input, new TerminalChain()))
+                    .isInstanceOf(ChannelDecoderException.class);
             assertThat(handled).singleElement().isSameAs(StompFrame.ERR_STOMP_FRAME);
         } finally {
-            input.release();
+            decoder.close();
         }
     }
 

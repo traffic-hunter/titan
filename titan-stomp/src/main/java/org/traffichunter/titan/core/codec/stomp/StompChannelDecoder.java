@@ -24,6 +24,7 @@ import org.traffichunter.titan.core.channel.stomp.StompHandler;
 import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.channel.stomp.StompServerHandler;
 import org.traffichunter.titan.core.codec.ChannelDecoder;
+import org.traffichunter.titan.core.codec.ChannelDecoderException;
 import org.traffichunter.titan.core.codec.TooLongFrameException;
 import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 import org.traffichunter.titan.core.util.buffer.Buffer;
@@ -101,12 +102,16 @@ public class StompChannelDecoder extends ChannelDecoder {
 
     @Override
     protected @Nullable Buffer decode(NetChannel channel, Buffer buffer) {
+        int readerIndex = buffer.byteBuf().readerIndex();
         StompFrame frame = stompParser.parse(buffer);
         if (frame == null) {
             return null;
         }
 
         handler.handle(frame, stompChannel);
+        if (frame == StompFrame.ERR_STOMP_FRAME && buffer.byteBuf().readerIndex() == readerIndex) {
+            throw new ChannelDecoderException("Invalid STOMP frame could not be skipped");
+        }
         return null;
     }
 
