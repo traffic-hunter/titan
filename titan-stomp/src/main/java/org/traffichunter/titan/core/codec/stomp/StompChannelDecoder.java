@@ -29,6 +29,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
@@ -112,6 +113,8 @@ public class StompChannelDecoder extends ChannelDecoder {
         private static final String COLON = StompDelimiter.COLON.getString();
         private static final String CONTENT_LENGTH = "content-length";
 
+        private static final Pattern LINE_BREAK = Pattern.compile("\\r?\\n");
+
         private final int maxFrameLength;
 
         private StompParser(int maxFrameLength) {
@@ -141,7 +144,7 @@ public class StompChannelDecoder extends ChannelDecoder {
                     buffer.getBytes(readerIndex, headerEnd - readerIndex),
                     StandardCharsets.UTF_8
             );
-            String[] lines = head.split("\\r?\\n");
+            String[] lines = LINE_BREAK.split(head);
             if (lines.length == 0 || lines[0].isBlank()) {
                 return StompFrame.ERR_STOMP_FRAME;
             }
