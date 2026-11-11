@@ -20,55 +20,77 @@ import org.traffichunter.titan.core.channel.stomp.StompClientChannel;
 import org.traffichunter.titan.core.util.Destination;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Server-side subscription registry scoped by STOMP session.
+ * Server-side subscription registry keyed by destination group and destination.
+ *
+ * <p>Looking up the subscribers of one destination does not scan other destinations. Lookups by
+ * session scan the destinations instead, which stays cheap while there are few destinations.</p>
  *
  * @author yun
  */
 public final class StompServerSubscriptions {
 
-    private final ConcurrentMap<String, ConcurrentMap<String, StompServerSubscription>> subscriptions =
+    // (group, destination) -> subscriptions on it, keyed by session id and subscription id.
+    // Subscription ids are unique only within a session.
+    private final ConcurrentMap<Route, ConcurrentMap<Key, StompServerSubscription>> subscriptions =
             new ConcurrentHashMap<>();
 
     public boolean register(StompServerSubscription subscription) {
-        String sessionId = subscription.getConnection().session();
-        return subscriptions
-                .computeIfAbsent(sessionId, ignored -> new ConcurrentHashMap<>())
-                .putIfAbsent(subscription.id(), subscription) == null;
+        // One session's frames run on its own event loop, so this check and the insert below
+        // do not race with another SUBSCRIBE of the same session.
+        if (find(subscription.getConnection(), subscription.id()) != null) {
+            return false;
+        }
+
+        subscriptions.compute(Route.of(subscription), (route, routeSubscriptions) -> {
+            ConcurrentMap<Key, StompServerSubscription> target =
+                    routeSubscriptions == null ? new ConcurrentHashMap<>() : routeSubscriptions;
+            target.put(Key.of(subscription), subscription);
+            return target;
+        });
+        return true;
     }
 
     public @Nullable StompServerSubscription unregister(StompClientChannel connection, String subscriptionId) {
-        ConcurrentMap<String, StompServerSubscription> sessionSubscriptions =
-                subscriptions.get(connection.session());
-        if (sessionSubscriptions == null) {
+        StompServerSubscription subscription = find(connection, subscriptionId);
+        if (subscription == null) {
             return null;
         }
 
-        StompServerSubscription removed = sessionSubscriptions.remove(subscriptionId);
-        if (sessionSubscriptions.isEmpty()) {
-            subscriptions.remove(connection.session(), sessionSubscriptions);
+        subscriptions.computeIfPresent(Route.of(subscription), (route, routeSubscriptions) -> {
+            routeSubscriptions.remove(Key.of(subscription), subscription);
+            return routeSubscriptions.isEmpty() ? null : routeSubscriptions;
+        });
+        return subscription;
+    }
+
+    /** Removes every subscription of the connection's session and returns whether there was any. */
+    public boolean unregisterAll(StompClientChannel connection) {
+        String sessionId = connection.session();
+        boolean removed = false;
+        for (Map.Entry<Route, ConcurrentMap<Key, StompServerSubscription>> entry : subscriptions.entrySet()) {
+            if (entry.getValue().keySet().removeIf(key -> key.sessionId().equals(sessionId))) {
+                removed = true;
+                subscriptions.computeIfPresent(entry.getKey(), (route, routeSubscriptions) ->
+                        routeSubscriptions.isEmpty() ? null : routeSubscriptions);
+            }
         }
         return removed;
     }
 
-    public List<StompServerSubscription> unregisterAll(StompClientChannel connection) {
-        ConcurrentMap<String, StompServerSubscription> removed = subscriptions.remove(connection.session());
-        if (removed == null) {
-            return List.of();
-        }
-        return List.copyOf(removed.values());
-    }
-
     public @Nullable StompServerSubscription find(StompClientChannel connection, String subscriptionId) {
-        ConcurrentMap<String, StompServerSubscription> sessionSubscriptions =
-                subscriptions.get(connection.session());
-        if (sessionSubscriptions == null) {
-            return null;
+        Key key = new Key(connection.session(), subscriptionId);
+        for (ConcurrentMap<Key, StompServerSubscription> routeSubscriptions : subscriptions.values()) {
+            StompServerSubscription subscription = routeSubscriptions.get(key);
+            if (subscription != null) {
+                return subscription;
+            }
         }
-        return sessionSubscriptions.get(subscriptionId);
+        return null;
     }
 
     public List<StompServerSubscription> findByDestination() {
@@ -77,21 +99,34 @@ public final class StompServerSubscriptions {
 
     /** Subscriptions on the destination inside the given group only. */
     public List<StompServerSubscription> findByDestination(String group, Destination destination) {
-        return values().stream()
-                .filter(subscription -> subscription.getGroup().equals(group)
-                        && subscription.destination().equals(destination))
-                .toList();
+        ConcurrentMap<Key, StompServerSubscription> routeSubscriptions =
+                subscriptions.get(new Route(group, destination));
+        return routeSubscriptions == null ? List.of() : List.copyOf(routeSubscriptions.values());
     }
 
     public List<StompServerSubscription> values() {
         return subscriptions.values().stream()
-                .flatMap(sessionSubscriptions -> sessionSubscriptions.values().stream())
+                .flatMap(routeSubscriptions -> routeSubscriptions.values().stream())
                 .toList();
     }
 
     public int size() {
         return subscriptions.values().stream()
-                .mapToInt(ConcurrentMap::size)
+                .mapToInt(Map::size)
                 .sum();
+    }
+
+    private record Route(String group, Destination destination) {
+
+        static Route of(StompServerSubscription subscription) {
+            return new Route(subscription.getGroup(), subscription.destination());
+        }
+    }
+
+    private record Key(String sessionId, String subId) {
+
+        static Key of(StompServerSubscription subscription) {
+            return new Key(subscription.getConnection().session(), subscription.id());
+        }
     }
 }
