@@ -54,6 +54,10 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
                     StompDelimiter.LF.getString().getBytes(StandardCharsets.UTF_8)
             );
 
+    private static final byte[] CRLF = {StompDelimiter.CR.getHex(), StompDelimiter.LF.getHex()};
+
+    private static final int HEADER_CAPACITY_HINT = 256;
+
     private final StompHeaders headers;
 
     private final StompCommand command;
@@ -144,18 +148,21 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
             return Buffer.heap().alloc(StompDelimiter.LF.getString());
         }
 
-        Buffer buffer = Buffer.heap().alloc(command.name());
-        buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
+        // Sized for the body plus typical headers so the buffer does not grow while it is written.
+        Buffer buffer = Buffer.heap().alloc(body.length + HEADER_CAPACITY_HINT);
+        buffer.accumulateString(command.name()).accumulateBytes(CRLF);
 
-        Set<Entry<Elements, String>> entries = headers.entrySet();
-        entries.forEach(entry ->
-                buffer.accumulateString(encode(entry.getKey().getName(), command) + ":" + encode(entry.getValue(), command))
-                        .accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString())
-        );
-        buffer.accumulateString(StompDelimiter.CR.getString()).accumulateString(StompDelimiter.LF.getString());
+        // Header names are fixed and hold nothing to escape.
+        for (Entry<Elements, String> entry : headers.entrySet()) {
+            buffer.accumulateString(entry.getKey().getName())
+                    .accumulateByte(StompDelimiter.COLON.getHex())
+                    .accumulateString(encode(entry.getValue(), command))
+                    .accumulateBytes(CRLF);
+        }
+        buffer.accumulateBytes(CRLF);
 
         buffer.accumulateBytes(body);
-        buffer.accumulateString(StompDelimiter.NUL.getString());
+        buffer.accumulateByte(StompDelimiter.NUL.getHex());
 
         return buffer;
     }

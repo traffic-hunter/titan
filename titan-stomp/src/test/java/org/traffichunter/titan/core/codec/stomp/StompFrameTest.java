@@ -81,6 +81,21 @@ class StompFrameTest {
     }
 
     @Test
+    void to_buffer_writes_the_wire_format() {
+        StompHeaders headers = StompHeaders.create();
+        headers.put(Elements.RECEIPT, "가:나");
+        byte[] body = "x".repeat(2048).getBytes(StandardCharsets.UTF_8);
+        StompFrame frame = StompFrame.create(headers, StompCommand.SEND, body);
+
+        Buffer buffer = frame.toBuffer();
+        try {
+            assertEquals("SEND\r\nreceipt:가\\c나\r\n\r\n" + "x".repeat(2048) + "\u0000", buffer.toString());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
     void do_parse_rejects_a_header_line_without_a_colon() {
         StompFrame parsed = StompFrame.doParse("SEND\r\nbroken\r\n\r\nhi\u0000", StompHeaders.create());
 
