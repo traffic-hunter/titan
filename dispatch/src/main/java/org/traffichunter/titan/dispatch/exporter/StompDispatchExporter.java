@@ -47,7 +47,8 @@ import java.time.Duration;
  * id owned by that client session, which lets a single STOMP connection
  * multiplex multiple subscriptions correctly. The {@code group} header is added
  * only for groups other than the default, so clients that never send the header
- * never see it.</p>
+ * never see it. The {@code message-id} names the message, so every subscriber of
+ * one message receives the same value.</p>
  *
  * <p>Each outgoing frame receives a copied payload buffer because the same
  * logical message can be written to many clients. Sharing one buffer instance
@@ -102,10 +103,11 @@ public class StompDispatchExporter implements DispatchExporter {
 
         // The caller may release the message as soon as this returns, and the loop hops outlive it.
         byte[] body = message.getBytes();
+        String messageId = IdGenerator.uuid();
 
         List<CompletableFuture<?>> writes = new ArrayList<>(subscriptions.size());
         for (StompServerSubscription subscription : subscriptions) {
-            writes.add(export(group, destination, subscription, body, deadlineNanos));
+            writes.add(export(group, destination, subscription, messageId, body, deadlineNanos));
         }
 
         return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
@@ -115,6 +117,7 @@ public class StompDispatchExporter implements DispatchExporter {
             String group,
             Destination destination,
             StompServerSubscription subscription,
+            String messageId,
             byte[] body,
             long deadlineNanos
     ) {
@@ -135,7 +138,7 @@ public class StompDispatchExporter implements DispatchExporter {
                 StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, body);
                 frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
                 frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
-                frame.addHeader(StompHeaders.Elements.MESSAGE_ID, IdGenerator.uuid());
+                frame.addHeader(StompHeaders.Elements.MESSAGE_ID, messageId);
                 if (!DestinationGroups.isDefault(group)) {
                     frame.addHeader(StompHeaders.Elements.GROUP, group);
                 }

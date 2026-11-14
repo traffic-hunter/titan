@@ -23,6 +23,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -297,6 +298,34 @@ class DispatchExporterTest {
 
         verify(successConn).send(any(StompFrame.class));
         verify(failedConn).send(any(StompFrame.class));
+    }
+
+    @Test
+    void stomp_exporter_gives_every_subscriber_of_a_message_the_same_message_id() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel firstConn = writableConnection(loop, "session-1");
+        StompClientChannel secondConn = writableConnection(loop, "session-2");
+        subscriptions.register(subscription(null, destination, "sub-1", firstConn));
+        subscriptions.register(subscription(null, destination, "sub-2", secondConn));
+
+        StompDispatchExporter exporter = new StompDispatchExporter(serverConnection);
+        exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("first".getBytes()));
+        exporter.export(DestinationGroups.DEFAULT, destination, Buffer.heap().alloc("second".getBytes()));
+
+        ArgumentCaptor<StompFrame> first = ArgumentCaptor.forClass(StompFrame.class);
+        ArgumentCaptor<StompFrame> second = ArgumentCaptor.forClass(StompFrame.class);
+        verify(firstConn, times(2)).send(first.capture());
+        verify(secondConn, times(2)).send(second.capture());
+
+        String firstMessageId = first.getAllValues().get(0).getHeader(Elements.MESSAGE_ID);
+        String secondMessageId = first.getAllValues().get(1).getHeader(Elements.MESSAGE_ID);
+        assertThat(firstMessageId).isNotBlank().isNotEqualTo(secondMessageId);
+        assertThat(second.getAllValues().get(0).getHeader(Elements.MESSAGE_ID)).isEqualTo(firstMessageId);
+        assertThat(second.getAllValues().get(1).getHeader(Elements.MESSAGE_ID)).isEqualTo(secondMessageId);
     }
 
     @Test
