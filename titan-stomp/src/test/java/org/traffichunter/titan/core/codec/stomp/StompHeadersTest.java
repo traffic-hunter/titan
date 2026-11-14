@@ -40,8 +40,8 @@ class StompHeadersTest {
     void a_value_with_nothing_to_escape_is_untouched_in_both_directions() {
         String value = "/queue/orders";
 
-        assertThat(StompHeaders.encode(value, StompCommand.SEND)).isEqualTo(value);
-        assertThat(StompHeaders.decode(value, StompCommand.SEND)).isEqualTo(value);
+        assertThat(StompHeaders.encode(value, StompCommand.SEND)).isSameAs(value);
+        assertThat(StompHeaders.decode(value, StompCommand.SEND)).isSameAs(value);
     }
 
     @Test
