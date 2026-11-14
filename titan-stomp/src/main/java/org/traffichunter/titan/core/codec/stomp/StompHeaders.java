@@ -86,6 +86,15 @@ public final class StompHeaders extends Headers<StompHeaders.Elements, String, S
             return value;
         }
 
+        boolean escape = false;
+        for (int i = 0; i < value.length() && !escape; i++) {
+            char c = value.charAt(i);
+            escape = c == ESCAPE || c == LINE_FEED || c == CARRIAGE_RETURN || c == COLON;
+        }
+        if (!escape) {
+            return value;
+        }
+
         StringBuilder sb = new StringBuilder(value.length());
         for(int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
