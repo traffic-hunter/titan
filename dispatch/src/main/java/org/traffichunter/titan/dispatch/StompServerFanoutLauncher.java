@@ -43,9 +43,15 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
     private static final OptionKey<String> FANOUT_MODE = OptionKey.stringKey("fanout-mode");
     private static final String FANOUT_MODE_VIRTUAL = "virtual";
 
+    private static final OptionKey<Integer> MAX_MESSAGE_BLOCK_SIZE = OptionKey.intKey("max-message-block-size");
+    private static final OptionKey<Integer> MAX_MESSAGE_BLOCK_BYTES = OptionKey.intKey("max-message-block-bytes");
+    private static final int MESSAGE_BLOCK_SIZE_LIMIT = 64;
+    // A connection's write buffer resumes below 32KiB, and one block must fit under that.
+    private static final int MESSAGE_BLOCK_BYTES_LIMIT = 32 * 1024;
+
     @Override
     public List<OptionKey<?>> optionKeys() {
-        return List.of(FANOUT_MODE);
+        return List.of(FANOUT_MODE, MAX_MESSAGE_BLOCK_SIZE, MAX_MESSAGE_BLOCK_BYTES);
     }
 
     @Override
@@ -67,6 +73,19 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
             final ManagedServer managedServer
     ) {
         checkFanoutMode(protocolOptions);
+        int maxMessageBlockSize = MAX_MESSAGE_BLOCK_SIZE.get(
+                protocolOptions, FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_SIZE);
+        if (maxMessageBlockSize < 1 || maxMessageBlockSize > MESSAGE_BLOCK_SIZE_LIMIT) {
+            throw new IllegalStateException(MAX_MESSAGE_BLOCK_SIZE.name() + " must be between 1 and "
+                    + MESSAGE_BLOCK_SIZE_LIMIT + ": " + maxMessageBlockSize);
+        }
+        int maxMessageBlockBytes = MAX_MESSAGE_BLOCK_BYTES.get(
+                protocolOptions, FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
+        if (maxMessageBlockBytes < 1 || maxMessageBlockBytes > MESSAGE_BLOCK_BYTES_LIMIT) {
+            throw new IllegalStateException(MAX_MESSAGE_BLOCK_BYTES.name() + " must be between 1 and "
+                    + MESSAGE_BLOCK_BYTES_LIMIT + ": " + maxMessageBlockBytes);
+        }
+
         ManagedServerFanoutAdapter adapter = findAdapter(protocol, transport, protocolOptions, managedServer);
         if (adapter == null) {
             throw new IllegalStateException("No fanout adapter for protocol=" + protocol + ", transport=" + transport);
@@ -88,7 +107,9 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                             : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
                     DispatchGateway gateway = DispatchGateway.of(
                             dispatchExporter,
-                            Dispatcher.getDefault(maxPendingBytes, resumePendingBytes)
+                            Dispatcher.getDefault(maxPendingBytes, resumePendingBytes),
+                            maxMessageBlockSize,
+                            maxMessageBlockBytes
                     );
                     Settings.HeapFlowControlSettings heap = flowControl.heap();
                     if (flowControl.enabled() && heap.enabled()) {

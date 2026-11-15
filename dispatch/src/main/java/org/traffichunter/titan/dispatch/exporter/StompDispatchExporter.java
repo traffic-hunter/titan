@@ -25,6 +25,7 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.channel.stomp.StompServerChannel;
 import org.traffichunter.titan.core.codec.stomp.StompServerSubscription;
+import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.IdGenerator;
@@ -97,17 +98,28 @@ public class StompDispatchExporter implements DispatchExporter {
 
     @Override
     public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer message) {
+        // The caller may release the message as soon as this returns, and the loop hops outlive it.
+        return fanout(group, destination, List.of(new Outgoing(IdGenerator.uuid(), message.getBytes())));
+    }
+
+    /** Hands every subscriber the whole block with one attempt and one write. */
+    @Override
+    public CompletionStage<@Nullable Void> export(String group, Destination destination, List<Message> block) {
+        List<Outgoing> messages = new ArrayList<>(block.size());
+        for (Message message : block) {
+            messages.add(new Outgoing(IdGenerator.uuid(), message.getBody()));
+        }
+        return fanout(group, destination, messages);
+    }
+
+    private CompletionStage<@Nullable Void> fanout(String group, Destination destination, List<Outgoing> messages) {
         long deadlineNanos = System.nanoTime() + exportTimeoutNanos;
         List<StompServerSubscription> subscriptions =
                 serverConnection.subscriptions().findByDestination(group, destination);
 
-        // The caller may release the message as soon as this returns, and the loop hops outlive it.
-        byte[] body = message.getBytes();
-        String messageId = IdGenerator.uuid();
-
         List<CompletableFuture<?>> writes = new ArrayList<>(subscriptions.size());
         for (StompServerSubscription subscription : subscriptions) {
-            writes.add(export(group, destination, subscription, messageId, body, deadlineNanos));
+            writes.add(export(group, destination, subscription, messages, deadlineNanos));
         }
 
         return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
@@ -117,8 +129,7 @@ public class StompDispatchExporter implements DispatchExporter {
             String group,
             Destination destination,
             StompServerSubscription subscription,
-            String messageId,
-            byte[] body,
+            List<Outgoing> messages,
             long deadlineNanos
     ) {
         StompClientChannel clientChannel = subscription.getConnection();
@@ -127,28 +138,37 @@ public class StompDispatchExporter implements DispatchExporter {
         Runnable attempt = () -> {
             try {
                 if (System.nanoTime() - deadlineNanos >= 0) {
-                    slowConsumerMetrics.recordSkippedMessage();
+                    slowConsumerMetrics.recordSkippedMessages(messages.size());
                     return;
                 }
+                // Asked once for the block, so a subscriber that cannot take it misses all of it.
                 if (!channel.isWritable()) {
-                    slowConsumerMetrics.recordSkippedMessage();
+                    slowConsumerMetrics.recordSkippedMessages(messages.size());
                     return;
                 }
 
-                StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, body);
-                frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
-                frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
-                frame.addHeader(StompHeaders.Elements.MESSAGE_ID, messageId);
-                if (!DestinationGroups.isDefault(group)) {
-                    frame.addHeader(StompHeaders.Elements.GROUP, group);
+                List<StompFrame> frames = new ArrayList<>(messages.size());
+                for (Outgoing message : messages) {
+                    StompFrame frame = StompFrame.create(StompHeaders.create(), StompCommand.MESSAGE, message.body());
+                    frame.addHeader(StompHeaders.Elements.DESTINATION, destination.path());
+                    frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription.id());
+                    frame.addHeader(StompHeaders.Elements.MESSAGE_ID, message.messageId());
+                    if (!DestinationGroups.isDefault(group)) {
+                        frame.addHeader(StompHeaders.Elements.GROUP, group);
+                    }
+                    frames.add(frame);
                 }
 
                 // Socket drain is the connection's own pace and must not hold the next queue message.
                 if (System.nanoTime() - deadlineNanos >= 0) {
-                    slowConsumerMetrics.recordSkippedMessage();
+                    slowConsumerMetrics.recordSkippedMessages(messages.size());
                     return;
                 }
-                clientChannel.send(frame);
+                if (frames.size() == 1) {
+                    clientChannel.send(frames.getFirst());
+                } else {
+                    clientChannel.send(frames);
+                }
             } catch (RuntimeException error) {
                 log.warn("Failed to hand STOMP frame to subscriber. destination={}, subscription={}",
                         destination.path(), subscription.id(), error);
@@ -165,4 +185,6 @@ public class StompDispatchExporter implements DispatchExporter {
         }
         return result;
     }
+
+    private record Outgoing(String messageId, byte[] body) { }
 }

@@ -52,6 +52,8 @@ public class StompClientTcpChannel implements StompClientChannel {
 
     private static final Logger log = LoggerFactory.getLogger(StompClientTcpChannel.class);
 
+    private static final int FRAME_HEADER_CAPACITY_HINT = 256;
+
     private final String sessionId = IdGenerator.randomId16("session");
     private final NetChannel netChannel;
     private final StompClientHandler stompClientHandler;
@@ -245,6 +247,13 @@ public class StompClientTcpChannel implements StompClientChannel {
         Promise<StompFrame> framePromise = Promise.newPromise(eventLoop());
         send(frame, framePromise);
         return framePromise;
+    }
+
+    @Override
+    public Promise<Void> send(List<StompFrame> frames) {
+        Promise<Void> promise = Promise.newPromise(eventLoop());
+        send(frames, promise);
+        return promise;
     }
 
     @Override
@@ -445,6 +454,74 @@ public class StompClientTcpChannel implements StompClientChannel {
         pingPongTaskMap.clear();
         netChannel.close();
         notifyClosed();
+    }
+
+    private void send(List<StompFrame> frames, Completable<Void> promise) {
+        if (frames.isEmpty()) {
+            promise.success();
+            return;
+        }
+        try {
+            IOEventLoop eventLoop = eventLoop();
+            if (!eventLoop.inEventLoop()) {
+                eventLoop.execute(() -> send(frames, promise));
+                return;
+            }
+
+            if (!netChannel.isActive() || !netChannel.isConnected()) {
+                promise.fail(new StompNetChannelException("Channel is closed"));
+                close();
+                return;
+            }
+
+            int bodyBytes = 0;
+            for (StompFrame frame : frames) {
+                byte[] body = frame.body();
+                if (body.length > 0 && !frame.getHeaders().containsKey(Elements.CONTENT_LENGTH)) {
+                    frame.addHeader(Elements.CONTENT_LENGTH, String.valueOf(body.length));
+                }
+                bodyBytes += body.length;
+            }
+
+            write(frames, bodyBytes)
+                    .onSuccess(ignored -> promise.success())
+                    .onFailure(error -> {
+                        promise.tryFail(new StompNetChannelException("Failed to write STOMP frames", error));
+                        log.error("Failed to write STOMP frames. session={}, frames={}", sessionId, frames.size(), error);
+                        try {
+                            exceptionHandler.handle(error);
+                        } finally {
+                            close();
+                        }
+                    });
+        } catch (RuntimeException e) {
+            promise.tryFail(new StompNetChannelException("Failed to write STOMP frames", e));
+            log.error("Failed to write STOMP frames. session={}, frames={}", sessionId, frames.size(), e);
+            try {
+                exceptionHandler.handle(e);
+            } finally {
+                close();
+            }
+        }
+    }
+
+    /** Puts the frames into one buffer so the socket takes them with one write. */
+    Promise<Void> write(List<StompFrame> frames, int bodyBytes) {
+        Buffer buffer = Buffer.heap().alloc(bodyBytes + frames.size() * FRAME_HEADER_CAPACITY_HINT);
+        try {
+            for (StompFrame frame : frames) {
+                Buffer encoded = frame.toBuffer();
+                try {
+                    buffer.accumulateBuffer(encoded);
+                } finally {
+                    encoded.release();
+                }
+            }
+        } catch (RuntimeException e) {
+            buffer.release();
+            throw e;
+        }
+        return netChannel.writeAndFlush(buffer);
     }
 
     private void send(StompFrame frame, Completable<StompFrame> receiptPromise) {

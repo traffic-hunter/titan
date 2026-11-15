@@ -36,6 +36,10 @@ public final class SlowConsumerMetrics implements SlowConsumerMetricsMbean {
         skippedMessages.increment();
     }
 
+    public void recordSkippedMessages(int count) {
+        skippedMessages.add(count);
+    }
+
     @Override
     public long getSkippedMessages() {
         return skippedMessages.sum();

@@ -46,6 +46,21 @@ class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGatew
         );
     }
 
+    public VirtualThreadExecutorDispatchGateway(
+            DispatchExporter exporter,
+            Dispatcher dispatcher,
+            int maxMessageBlockSize,
+            int maxMessageBlockBytes
+    ) {
+        super(
+                Executors.newThreadPerTaskExecutor(newThreadFactory()),
+                exporter,
+                dispatcher,
+                maxMessageBlockSize,
+                maxMessageBlockBytes
+        );
+    }
+
     private static ThreadFactory newThreadFactory() {
         return Thread.ofVirtual()
                 .name("DispatchVirtualThread")

@@ -44,6 +44,11 @@ The destination consumer removes messages from its FIFO queue one at a time.
 For each message, the STOMP exporter takes a snapshot of matching active
 subscriptions and schedules one send attempt per subscription.
 
+When `max-message-block-size` is above `1`, the consumer takes the messages
+already waiting in the queue as one block, up to that size. The snapshot and the
+send attempt then cover the block: each subscription gets its frames in queue
+order with one attempt, and a skipped subscription misses every message in it.
+
 A subscription is skipped when its channel is not writable or its event loop
 cannot accept the attempt before the export deadline. A failed or skipped
 attempt does not hold the destination queue, and the message is not placed back

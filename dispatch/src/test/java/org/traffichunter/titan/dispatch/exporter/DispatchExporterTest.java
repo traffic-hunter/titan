@@ -329,6 +329,115 @@ class DispatchExporterTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void stomp_exporter_hands_each_subscriber_a_block_with_one_send() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel firstConn = writableConnection(loop, "session-1");
+        StompClientChannel secondConn = writableConnection(loop, "session-2");
+        subscriptions.register(subscription(null, destination, "sub-1", firstConn));
+        subscriptions.register(subscription(null, destination, "sub-2", secondConn));
+
+        CompletableFuture<@Nullable Void> completion = new StompDispatchExporter(serverConnection)
+                .export(DestinationGroups.DEFAULT, destination, List.of(message("a"), message("b"), message("c")))
+                .toCompletableFuture();
+
+        ArgumentCaptor<List<StompFrame>> first = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<StompFrame>> second = ArgumentCaptor.forClass(List.class);
+        verify(firstConn).send(first.capture());
+        verify(secondConn).send(second.capture());
+        verify(firstConn, never()).send(any(StompFrame.class));
+        assertThat(completion).isDone();
+
+        // Queue order inside the block, and each subscriber's own subscription id on every frame.
+        assertThat(first.getValue()).extracting(frame -> new String(frame.body())).containsExactly("a", "b", "c");
+        assertThat(first.getValue()).extracting(frame -> frame.getHeader(Elements.SUBSCRIPTION)).containsOnly("sub-1");
+        assertThat(second.getValue()).extracting(frame -> frame.getHeader(Elements.SUBSCRIPTION)).containsOnly("sub-2");
+        List<String> messageIds = first.getValue().stream().map(frame -> frame.getHeader(Elements.MESSAGE_ID)).toList();
+        assertThat(messageIds).doesNotHaveDuplicates();
+        assertThat(second.getValue()).extracting(frame -> frame.getHeader(Elements.MESSAGE_ID))
+                .containsExactlyElementsOf(messageIds);
+    }
+
+    @Test
+    void stomp_exporter_sends_a_block_of_one_as_a_single_frame() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+        StompClientChannel connection = writableConnection(loop, "session-1");
+        subscriptions.register(subscription(null, destination, "sub-1", connection));
+
+        new StompDispatchExporter(serverConnection)
+                .export(DestinationGroups.DEFAULT, destination, List.of(message("a")));
+
+        verify(connection).send(any(StompFrame.class));
+    }
+
+    @Test
+    void stomp_exporter_skips_the_whole_block_for_a_non_writable_subscriber() {
+        IOEventLoop loop = immediateEventLoop();
+        StompServerSubscriptions subscriptions = new StompServerSubscriptions();
+        when(serverConnection.subscriptions()).thenReturn(subscriptions);
+        Destination destination = Destination.create("/topic/orders");
+
+        StompClientChannel connection = mock(StompClientChannel.class);
+        NetChannel channel = mock(NetChannel.class);
+        when(connection.session()).thenReturn("session-1");
+        when(connection.channel()).thenReturn(channel);
+        when(channel.eventLoop()).thenReturn(loop);
+        when(channel.isWritable()).thenReturn(false);
+        subscriptions.register(subscription(null, destination, "sub-1", connection));
+
+        SlowConsumerMetrics metrics = new SlowConsumerMetrics();
+        CompletableFuture<@Nullable Void> completion = new StompDispatchExporter(serverConnection, metrics)
+                .export(DestinationGroups.DEFAULT, destination, List.of(message("a"), message("b"), message("c")))
+                .toCompletableFuture();
+
+        verify(connection, never()).send(any(StompFrame.class));
+        verify(connection, never()).send(org.mockito.ArgumentMatchers.<StompFrame>anyList());
+        assertThat(metrics.getSkippedMessages()).isEqualTo(3);
+        assertThat(completion).isDone();
+    }
+
+    @Test
+    void default_block_export_exports_each_message_in_order() {
+        List<String> exported = new java.util.ArrayList<>();
+        DispatchExporter exporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
+                exported.add(payload.toString());
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+
+        CompletableFuture<@Nullable Void> completion = exporter
+                .export(DestinationGroups.DEFAULT, Destination.create("/topic/test"),
+                        List.of(message("a"), message("b"), message("c")))
+                .toCompletableFuture();
+
+        assertThat(exported).containsExactly("a", "b", "c");
+        assertThat(completion).isDone();
+    }
+
+    private static Message message(String body) {
+        return Message.builder()
+                .destination(Destination.create("/topic/orders"))
+                .createdAt(Instant.now())
+                .producerId("producer")
+                .body(body.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .build();
+    }
+
+    @Test
     void stompFanoutExporter_skips_non_writable_subscriber() {
         IOEventLoop loop = immediateEventLoop();
         StompServerSubscriptions subscriptions = new StompServerSubscriptions();

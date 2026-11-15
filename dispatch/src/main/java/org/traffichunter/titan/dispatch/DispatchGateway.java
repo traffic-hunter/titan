@@ -47,6 +47,19 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
     }
 
     /**
+     * @param maxMessageBlockSize  most messages a destination consumer takes from its queue at once
+     * @param maxMessageBlockBytes body bytes after which the consumer stops adding to a block
+     */
+    static DispatchGateway of(
+            DispatchExporter exporter,
+            Dispatcher dispatcher,
+            int maxMessageBlockSize,
+            int maxMessageBlockBytes
+    ) {
+        return new VirtualThreadExecutorDispatchGateway(exporter, dispatcher, maxMessageBlockSize, maxMessageBlockBytes);
+    }
+
+    /**
      * Configures the dispatch handler chain used by {@link #sparkDispatch(Message)}.
      *
      * <p>The gateway installs routing before the callback and fanout after the

@@ -75,9 +75,26 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
+        this(
+                executor,
+                exporter,
+                dispatcher,
+                FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_SIZE,
+                FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_BYTES
+        );
+    }
+
+    protected AbstractExecutorDispatchGateway(
+            ExecutorService executor,
+            DispatchExporter exporter,
+            Dispatcher dispatcher,
+            int maxMessageBlockSize,
+            int maxMessageBlockBytes
+    ) {
         this.executor = executor;
         this.dispatcher = dispatcher;
-        this.fanoutHandler = new FanoutDispatchChainHandler(executor, exporter, dispatcher);
+        this.fanoutHandler = new FanoutDispatchChainHandler(
+                executor, exporter, dispatcher, maxMessageBlockSize, maxMessageBlockBytes);
         this.handlerChain = DispatchHandlerChain.chain(executor)
                 .add(new RouteDispatchChainHandler(dispatcher))
                 .add(fanoutHandler);

@@ -15,8 +15,12 @@
  */
 package org.traffichunter.titan.core.channel.stomp;
 
+import java.util.List;
+
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.channel.websocket.WebSocketChannel;
+import org.traffichunter.titan.core.codec.stomp.StompFrame;
+import org.traffichunter.titan.core.util.concurrent.Promise;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Handler;
 
@@ -50,5 +54,16 @@ public final class StompClientWebSocketChannel extends StompClientTcpChannel {
     public WebSocketChannel channel() {
         NetChannel channel = super.channel();
         return (WebSocketChannel) channel;
+    }
+
+    /** A WebSocket message carries one STOMP frame, so each frame is written as its own message. */
+    @Override
+    Promise<Void> write(List<StompFrame> frames, int bodyBytes) {
+        WebSocketChannel channel = channel();
+        int last = frames.size() - 1;
+        for (int i = 0; i < last; i++) {
+            channel.writeAndFlush(frames.get(i).toBuffer());
+        }
+        return channel.writeAndFlush(frames.get(last).toBuffer());
     }
 }

@@ -15,6 +15,8 @@
  */
 package org.traffichunter.titan.dispatch;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -42,7 +44,10 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * @author yun
  */
 final class FanoutDispatchChainHandler implements DispatchChainHandler {
+
     private static final long EXPORT_TIMEOUT_SECONDS = 5;
+    static final int DEFAULT_MAX_MESSAGE_BLOCK_SIZE = 1;
+    static final int DEFAULT_MAX_MESSAGE_BLOCK_BYTES = 16_384;
 
     private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
 
@@ -50,6 +55,8 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     private final ExecutorService executor;
     private final DispatchExporter exporter;
     private final Dispatcher dispatcher;
+    private final int maxMessageBlockSize;
+    private final int maxMessageBlockBytes;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     FanoutDispatchChainHandler(
@@ -57,9 +64,21 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
             DispatchExporter exporter,
             Dispatcher dispatcher
     ) {
+        this(executor, exporter, dispatcher, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
+    }
+
+    FanoutDispatchChainHandler(
+            ExecutorService executor,
+            DispatchExporter exporter,
+            Dispatcher dispatcher,
+            int maxMessageBlockSize,
+            int maxMessageBlockBytes
+    ) {
         this.executor = executor;
         this.exporter = exporter;
         this.dispatcher = dispatcher;
+        this.maxMessageBlockSize = maxMessageBlockSize;
+        this.maxMessageBlockBytes = maxMessageBlockBytes;
     }
 
     @Override
@@ -126,14 +145,28 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
                 while (!closed.get()
                         && !Thread.currentThread().isInterrupted()
                         && !queue.isClosed()) {
-                    Message message = null;
+
+                    final List<Message> block = new ArrayList<>(maxMessageBlockSize);
+                    Message message;
                     try {
                         message = queue.dispatch(1, TimeUnit.SECONDS);
                         if (message == null) {
                             continue;
                         }
+                        block.add(message);
+                        long bytes = message.getSize();
 
-                        exporter.export(key.group(), key.destination(), message)
+                        while (block.size() < maxMessageBlockSize && bytes < maxMessageBlockBytes) {
+                            Message next = queue.dispatch(0, TimeUnit.NANOSECONDS);
+                            if (next == null) {
+                                break;
+                            }
+
+                            block.add(next);
+                            bytes += next.getSize();
+                        }
+
+                        exporter.export(key.group(), key.destination(), block)
                                 .toCompletableFuture()
                                 .get(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
@@ -158,8 +191,8 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
                             break;
                         }
                     } finally {
-                        if (message != null) {
-                            queue.complete(message);
+                        for (Message msg : block) {
+                            queue.complete(msg);
                         }
                     }
                 }
