@@ -44,9 +44,16 @@ as unset.
 | `heartbeat-y` | Expected incoming heartbeat interval in milliseconds | `"1000"` |
 | `connect-timeout-millis` | Time an accepted connection has to finish the TLS handshake and WebSocket upgrade, and then again to send `CONNECT`, before it is closed; `"0"` disables it | `"10000"` |
 | `fanout-mode` | Enables dispatcher fanout; `virtual` is the only mode | `"virtual"` |
+| `max-message-block-size` | Most messages a destination consumer takes from its queue and hands to subscribers at once, from 1 to 64; `1` delivers one message at a time | `1` |
+| `max-message-block-bytes` | Body bytes after which the consumer stops adding messages to a block, from 1 to 32768 | `16384` |
 
 Heartbeat values must be zero or greater. A zero value disables that heartbeat
 direction.
+
+A block only forms from messages already waiting in the destination queue, so a
+larger `max-message-block-size` changes nothing while the queue stays empty.
+Under a backlog it raises throughput, and a subscriber whose connection cannot
+take a write then misses the whole block instead of one message.
 
 ## WebSocket
 

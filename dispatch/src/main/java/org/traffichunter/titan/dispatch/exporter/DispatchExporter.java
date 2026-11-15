@@ -15,6 +15,8 @@
  */
 package org.traffichunter.titan.dispatch.exporter;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import org.jspecify.annotations.Nullable;
@@ -52,6 +54,14 @@ public interface DispatchExporter {
 
     default CompletionStage<@Nullable Void> export(String group, Destination destination, Message payload) {
         return exportOwned(group, destination, Buffer.heap().alloc(payload.getBody()));
+    }
+
+    default CompletionStage<@Nullable Void> export(String group, Destination destination, List<Message> block) {
+        CompletableFuture<?>[] exports = new CompletableFuture<?>[block.size()];
+        for (int i = 0; i < exports.length; i++) {
+            exports[i] = export(group, destination, block.get(i)).toCompletableFuture();
+        }
+        return CompletableFuture.allOf(exports);
     }
 
     /**

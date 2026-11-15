@@ -2,10 +2,12 @@ package org.traffichunter.titan.dispatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
@@ -16,10 +18,12 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.traffichunter.titan.core.message.DispatchRejectException;
 import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
@@ -136,6 +140,166 @@ class DispatchChainHandlerChainTest {
             future.join();
             assertThat(handlerThread.get()).isNotSameAs(callerThread);
         }
+    }
+
+    @Test
+    void fanout_consumer_takes_a_backlog_in_bounded_blocks_and_keeps_queue_order() throws Exception {
+        Destination destination = Destination.create("/queue/blocks");
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        int total = 20;
+        List<List<String>> blocks = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CompletableFuture<@Nullable Void> firstExport = new CompletableFuture<>();
+        CountDownLatch firstTaken = new CountDownLatch(1);
+        CountDownLatch allExported = new CountDownLatch(total);
+        DispatchExporter exporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, Buffer payload) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, List<Message> block) {
+                boolean first = blocks.isEmpty();
+                blocks.add(block.stream().map(message -> new String(message.getBody())).toList());
+                block.forEach(ignored -> allExported.countDown());
+                if (first) {
+                    firstTaken.countDown();
+                    return firstExport;
+                }
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            FanoutDispatchChainHandler handler = new FanoutDispatchChainHandler(executor, exporter, dispatcher, 8, 16_384);
+            DispatcherQueue queue = dispatcher.getOrPut(destination);
+            try {
+                Message first = numbered(destination, 0);
+                queue.enqueue(first);
+                handler.fanout(first.getGroup(), destination);
+                assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
+                // The rest piles up behind the export that is still running.
+                for (int i = 1; i < total; i++) {
+                    queue.enqueue(numbered(destination, i));
+                }
+                firstExport.complete(null);
+
+                assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                handler.close();
+            }
+        }
+
+        assertThat(blocks).allSatisfy(block -> assertThat(block).hasSizeLessThanOrEqualTo(8));
+        assertThat(blocks.get(1)).hasSize(8);
+        assertThat(blocks.stream().flatMap(List::stream).toList())
+                .containsExactlyElementsOf(java.util.stream.IntStream.range(0, total).mapToObj(String::valueOf).toList());
+    }
+
+    @Test
+    void fanout_consumer_exports_one_message_at_a_time_by_default() throws Exception {
+        List<Integer> sizes = backlogBlockSizes(
+                (executor, exporter, dispatcher) -> new FanoutDispatchChainHandler(executor, exporter, dispatcher));
+
+        assertThat(sizes).hasSize(20).containsOnly(1);
+    }
+
+    @Test
+    void fanout_consumer_ends_a_block_once_it_reaches_the_byte_limit() throws Exception {
+        // Bodies are one or two bytes, so three bytes are reached after two or three messages.
+        List<Integer> sizes = backlogBlockSizes(
+                (executor, exporter, dispatcher) -> new FanoutDispatchChainHandler(executor, exporter, dispatcher, 8, 3));
+
+        assertThat(sizes.subList(1, sizes.size())).allSatisfy(size -> assertThat(size).isBetween(1, 3));
+        assertThat(sizes.get(1)).isEqualTo(3);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "max-message-block-size, 0",
+            "max-message-block-size, 65",
+            "max-message-block-size, many",
+            "max-message-block-bytes, 0",
+            "max-message-block-bytes, 32769"
+    })
+    void fanout_launcher_rejects_a_message_block_option_out_of_range(String option, String value) {
+        StompServerFanoutLauncher launcher = new StompServerFanoutLauncher();
+
+        assertThatThrownBy(() -> launcher.apply("stomp", "tcp", Map.of(option, value), mock(ManagedServer.class)))
+                .hasMessageContaining(option);
+    }
+
+    private interface HandlerFactory {
+        FanoutDispatchChainHandler create(
+                java.util.concurrent.ExecutorService executor, DispatchExporter exporter, TrieDispatcher dispatcher);
+    }
+
+    /** Sizes of the blocks a consumer exports when 19 messages pile up behind a first export. */
+    private static List<Integer> backlogBlockSizes(HandlerFactory factory) throws Exception {
+        Destination destination = Destination.create("/queue/block-sizes");
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        int total = 20;
+        List<Integer> sizes = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CompletableFuture<@Nullable Void> firstExport = new CompletableFuture<>();
+        CountDownLatch firstTaken = new CountDownLatch(1);
+        CountDownLatch allExported = new CountDownLatch(total);
+        DispatchExporter exporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, Buffer payload) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, List<Message> block) {
+                boolean first = sizes.isEmpty();
+                sizes.add(block.size());
+                block.forEach(ignored -> allExported.countDown());
+                if (first) {
+                    firstTaken.countDown();
+                    return firstExport;
+                }
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            FanoutDispatchChainHandler handler = factory.create(executor, exporter, dispatcher);
+            DispatcherQueue queue = dispatcher.getOrPut(destination);
+            try {
+                Message first = numbered(destination, 0);
+                queue.enqueue(first);
+                handler.fanout(first.getGroup(), destination);
+                assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
+                for (int i = 1; i < total; i++) {
+                    queue.enqueue(numbered(destination, i));
+                }
+                firstExport.complete(null);
+
+                assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                handler.close();
+            }
+        }
+        return sizes;
+    }
+
+    private static Message numbered(Destination destination, int number) {
+        return Message.builder()
+                .destination(destination)
+                .createdAt(Instant.now())
+                .producerId("test")
+                .body(String.valueOf(number).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .build();
     }
 
     private static DispatchExporter exporter(CountDownLatch exported, Destination expected) {
