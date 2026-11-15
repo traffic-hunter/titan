@@ -17,6 +17,7 @@ package org.traffichunter.titan.core.channel.stomp;
 
 import org.junit.jupiter.api.Test;
 import org.traffichunter.titan.core.channel.Channel;
+import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
 import org.traffichunter.titan.core.channel.IOEventLoop;
 import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.codec.stomp.StompCommand;
@@ -24,9 +25,12 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.Handler;
+import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.concurrent.Promise;
 
+import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,6 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -95,6 +101,47 @@ class StompClientTcpChannelTest {
     @SuppressWarnings("unchecked")
     private static void closeTransport(NetChannel netChannel) {
         ((Handler<Channel>) closeHandlers.get(netChannel)).handle(netChannel);
+    }
+
+    @Test
+    void a_list_of_frames_goes_out_as_one_write() {
+        IOEventLoop eventLoop = mock(IOEventLoop.class);
+        NetChannel netChannel = mock(NetChannel.class);
+        when(netChannel.eventLoop()).thenReturn(eventLoop);
+        when(netChannel.isActive()).thenReturn(true);
+        when(netChannel.isConnected()).thenReturn(true);
+        when(eventLoop.inEventLoop()).thenReturn(true);
+        AtomicReference<String> written = new AtomicReference<>();
+        when(netChannel.writeAndFlush(any(Buffer.class))).thenAnswer(invocation -> {
+            Buffer buffer = invocation.getArgument(0);
+            written.set(buffer.toString());
+            buffer.release();
+            return ChannelPromise.newPromise(eventLoop, netChannel);
+        });
+
+        StompClientTcpChannel channel = new StompClientTcpChannel(netChannel, StompSessionOption.DEFAULT);
+        channel.send(List.of(message("sub-1", "one"), message("sub-1", "two")));
+
+        verify(netChannel, times(1)).writeAndFlush(any(Buffer.class));
+        // The same bytes two single sends would have produced, content-length included.
+        assertThat(written.get()).isEqualTo(wire(message("sub-1", "one")) + wire(message("sub-1", "two")));
+    }
+
+    private static StompFrame message(String subscription, String body) {
+        StompFrame frame = StompFrame.create(
+                StompHeaders.create(), StompCommand.MESSAGE, body.getBytes(StandardCharsets.UTF_8));
+        frame.addHeader(StompHeaders.Elements.SUBSCRIPTION, subscription);
+        return frame;
+    }
+
+    private static String wire(StompFrame frame) {
+        frame.addHeader(StompHeaders.Elements.CONTENT_LENGTH, String.valueOf(frame.body().length));
+        Buffer buffer = frame.toBuffer();
+        try {
+            return buffer.toString();
+        } finally {
+            buffer.release();
+        }
     }
 
     @Test

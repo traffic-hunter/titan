@@ -121,6 +121,12 @@ public interface StompClientChannel extends StompChannel {
     @CanIgnoreReturnValue
     Promise<StompFrame> send(StompFrame frame);
 
+    /**
+     * Sends the frames in order and flushes once. A {@code receipt} header on them is not tracked.
+     */
+    @CanIgnoreReturnValue
+    Promise<Void> send(List<StompFrame> frames);
+
     @CanIgnoreReturnValue
     Promise<StompFrame> send(String destination, StompFrame body);
 
