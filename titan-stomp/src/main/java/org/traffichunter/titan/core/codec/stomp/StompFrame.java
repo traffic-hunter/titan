@@ -35,8 +35,9 @@ import org.traffichunter.titan.core.util.Frame;
 /**
  * STOMP command, headers, and body for Titan's native transport.
  *
- * <p>The factories copy byte-array bodies. The {@code Buffer} factory reads and releases its
- * input. {@link #body()} returns a copy, and {@link #toBuffer()} writes the frame to a buffer.</p>
+ * <p>The byte-array factory keeps the array it is given, so the caller must not modify it
+ * afterwards. The {@code Buffer} factory reads and releases its input. {@link #body()} returns a
+ * copy, and {@link #toBuffer()} writes the frame to a buffer.</p>
  *
  * @author yungwang-o
  */
@@ -71,7 +72,7 @@ public final class StompFrame implements Frame<Elements, String>, StompFrames {
     private StompFrame(final StompHeaders headers, final StompCommand command, final byte [] body) {
         this.headers = headers;
         this.command = command;
-        this.body = body.clone();
+        this.body = body;
     }
 
     public static StompFrame create(final StompHeaders headers, final StompCommand command) {
