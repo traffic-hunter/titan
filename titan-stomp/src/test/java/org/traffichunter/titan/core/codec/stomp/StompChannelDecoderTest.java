@@ -582,4 +582,110 @@ class StompChannelDecoderTest {
             input.release();
         }
     }
+
+    @Test
+    void crlf_line_endings_decode_like_lf() {
+        StompFrame frame = decodeOne("SEND\r\ndestination:/topic/price\r\nreceipt:r-1\r\n\r\na\n\nb\0");
+
+        assertThat(frame.command()).isEqualTo(StompCommand.SEND);
+        assertThat(frame.getHeader(StompHeaders.Elements.DESTINATION)).isEqualTo("/topic/price");
+        assertThat(frame.getHeader(StompHeaders.Elements.RECEIPT)).isEqualTo("r-1");
+        assertThat(frame.body()).isEqualTo("a\n\nb".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void lf_header_lines_may_end_with_a_crlf_blank_line() {
+        StompFrame frame = decodeOne("SEND\ndestination:/q\r\n\r\nhello\0");
+
+        assertThat(frame.getHeader(StompHeaders.Elements.DESTINATION)).isEqualTo("/q");
+        assertThat(frame.body()).isEqualTo("hello".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void a_line_break_left_before_a_crlf_blank_line_adds_no_header() {
+        StompFrame frame = decodeOne("SEND\n\r\n\r\nhello\0");
+
+        assertThat(frame.command()).isEqualTo(StompCommand.SEND);
+        assertThat(frame.headers()).isEmpty();
+        assertThat(frame.body()).isEqualTo("hello".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void header_names_and_values_are_trimmed_and_an_inner_carriage_return_is_kept() {
+        StompFrame frame = decodeOne("SEND\n destination : /q \nreceipt:a\rb\r\n\nhello\0");
+
+        assertThat(frame.getHeader(StompHeaders.Elements.DESTINATION)).isEqualTo("/q");
+        assertThat(frame.getHeader(StompHeaders.Elements.RECEIPT)).isEqualTo("a\rb");
+    }
+
+    @Test
+    void an_empty_header_value_is_kept() {
+        StompFrame frame = decodeOne("SEND\ndestination:/q\nreceipt:\n\nhello\0");
+
+        assertThat(frame.getHeader(StompHeaders.Elements.RECEIPT)).isEmpty();
+    }
+
+    @Test
+    void a_header_line_without_a_colon_is_an_error_frame() {
+        assertErrorFrame("SEND\ndestination\n\nhello\0");
+    }
+
+    @Test
+    void a_blank_line_between_headers_is_an_error_frame() {
+        assertErrorFrame("SEND\ndestination:/q\n\r\nreceipt:r-1\n\nhello\0");
+    }
+
+    @Test
+    void a_frame_without_a_command_line_is_an_error_frame() {
+        assertErrorFrame("\r\ndestination:/q\n\nhello\0");
+    }
+
+    @Test
+    void unknown_command_still_throws() {
+        Buffer input = Buffer.heap().alloc("NOPE\ndestination:/q\n\nhello\0");
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
+
+            assertThatThrownBy(() -> decoder.decode(new InMemoryNetChannel(), input))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("NOPE");
+        } finally {
+            input.release();
+        }
+    }
+
+    private static StompFrame decodeOne(String wire) {
+        Buffer input = Buffer.heap().alloc(wire);
+        List<StompFrame> handled = new ArrayList<>();
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, (decoded, channel) ->
+                    handled.add(decoded));
+            decoder.decode(new InMemoryNetChannel(), input);
+
+            assertThat(input.isReadable()).isFalse();
+            assertThat(handled).hasSize(1);
+            return handled.get(0);
+        } finally {
+            input.release();
+        }
+    }
+
+    private static void assertErrorFrame(String wire) {
+        Buffer input = Buffer.heap().alloc(wire);
+        List<StompFrame> handled = new ArrayList<>();
+
+        try {
+            TestStompChannelDecoder decoder = new TestStompChannelDecoder(256, (decoded, channel) ->
+                    handled.add(decoded));
+
+            // The frame is reported and its bytes stay in the buffer, so decoding stops.
+            assertThatThrownBy(() -> decoder.decode(new InMemoryNetChannel(), input))
+                    .isInstanceOf(ChannelDecoderException.class);
+            assertThat(handled).singleElement().isSameAs(StompFrame.ERR_STOMP_FRAME);
+        } finally {
+            input.release();
+        }
+    }
 }

@@ -30,7 +30,8 @@ import org.traffichunter.titan.core.codec.stomp.StompFrame.StompFrameException;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 import java.nio.charset.StandardCharsets;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.*;
 import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
@@ -117,9 +118,10 @@ public class StompChannelDecoder extends ChannelDecoder {
 
     static class StompParser {
 
-        private static final String COLON = StompDelimiter.COLON.getString();
+        private static final char COLON = StompDelimiter.COLON.getCharacter();
         private static final String CONTENT_LENGTH = "content-length";
-        private static final Pattern LINE_BREAK = Pattern.compile("\\r?\\n");
+        private static final byte[] LF_LF = {'\n', '\n'};
+        private static final byte[] CRLF_CRLF = {'\r', '\n', '\r', '\n'};
 
         private final int maxFrameLength;
 
@@ -150,25 +152,26 @@ public class StompChannelDecoder extends ChannelDecoder {
                     buffer.getBytes(readerIndex, headerEnd - readerIndex),
                     StandardCharsets.UTF_8
             );
-            String[] lines = LINE_BREAK.split(head);
-            if (lines.length == 0 || lines[0].isBlank()) {
+            List<String> lines = splitLines(head);
+            if (lines.isEmpty() || lines.getFirst().isBlank()) {
                 return StompFrame.ERR_STOMP_FRAME;
             }
 
-            StompCommand stompCommand = StompCommand.valueOf(lines[0].toUpperCase());
+            StompCommand stompCommand = StompCommand.valueOf(lines.get(0).toUpperCase());
             int contentLength = -1;
             StompHeaders headers = new StompHeaders(StompVersion.STOMP_1_2);
-            for (int i = 1; i < lines.length; i++) {
-                String[] keyValue = lines[i].split(COLON, 2);
-                if (keyValue.length != 2) {
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i);
+                int colon = line.indexOf(COLON);
+                if (colon == -1) {
                     return StompFrame.ERR_STOMP_FRAME;
                 }
 
                 String key;
                 String value;
                 try {
-                    key = StompHeaders.decode(keyValue[0].trim(), stompCommand);
-                    value = StompHeaders.decode(keyValue[1].trim(), stompCommand);
+                    key = StompHeaders.decode(line.substring(0, colon).trim(), stompCommand);
+                    value = StompHeaders.decode(line.substring(colon + 1).trim(), stompCommand);
                 } catch (StompFrameException error) {
                     return StompFrame.ERR_STOMP_FRAME;
                 }
@@ -227,22 +230,52 @@ public class StompChannelDecoder extends ChannelDecoder {
             }
         }
 
+        // Lines end with LF or CRLF. Empty lines at the end are dropped.
+        private static List<String> splitLines(String head) {
+            List<String> lines = new ArrayList<>();
+            int start = 0;
+            int lineFeed = head.indexOf('\n', start);
+            while (lineFeed != -1) {
+                boolean crlf = lineFeed > start && head.charAt(lineFeed - 1) == '\r';
+                lines.add(head.substring(start, crlf ? lineFeed - 1 : lineFeed));
+                start = lineFeed + 1;
+                lineFeed = head.indexOf('\n', start);
+            }
+            lines.add(head.substring(start));
+
+            while (!lines.isEmpty() && lines.getLast().isEmpty()) {
+                lines.removeLast();
+            }
+            return lines;
+        }
+
+        // The headers end at the first empty line, so only positions holding an LF are checked.
         private static int findBodyStart(Buffer buffer, int readerIndex) {
             int writerIndex = buffer.byteBuf().writerIndex();
-            for (int index = readerIndex; index < writerIndex - 1; index++) {
-                if (buffer.getByte(index) == StompDelimiter.LF.getHex()
-                        && buffer.getByte(index + 1) == StompDelimiter.LF.getHex()) {
-                    return index + 2;
+            int lineFeed = buffer.indexOf(readerIndex, writerIndex, StompDelimiter.LF.getHex());
+            while (lineFeed != -1) {
+                if (matches(buffer, lineFeed, writerIndex, LF_LF)) {
+                    return lineFeed + LF_LF.length;
                 }
-                if (index < writerIndex - 3
-                        && buffer.getByte(index) == StompDelimiter.CR.getHex()
-                        && buffer.getByte(index + 1) == StompDelimiter.LF.getHex()
-                        && buffer.getByte(index + 2) == StompDelimiter.CR.getHex()
-                        && buffer.getByte(index + 3) == StompDelimiter.LF.getHex()) {
-                    return index + 4;
+                int carriageReturn = lineFeed - 1;
+                if (carriageReturn >= readerIndex && matches(buffer, carriageReturn, writerIndex, CRLF_CRLF)) {
+                    return carriageReturn + CRLF_CRLF.length;
                 }
+                lineFeed = buffer.indexOf(lineFeed + 1, writerIndex, StompDelimiter.LF.getHex());
             }
             return -1;
+        }
+
+        private static boolean matches(Buffer buffer, int index, int writerIndex, byte[] expected) {
+            if (index + expected.length > writerIndex) {
+                return false;
+            }
+            for (int i = 0; i < expected.length; i++) {
+                if (buffer.getByte(index + i) != expected[i]) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static int headerEnd(Buffer buffer, int bodyStart) {
