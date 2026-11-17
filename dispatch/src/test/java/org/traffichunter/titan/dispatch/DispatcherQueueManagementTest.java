@@ -4,7 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import org.junit.jupiter.api.Test;
@@ -194,6 +199,69 @@ class DispatcherQueueManagementTest {
         assertThat(dispatcher.remove(replacement)).isTrue();
         assertThat(dispatcher.get(destination)).isNull();
         assertThat(server.isRegistered(name)).isFalse();
+    }
+
+    @Test
+    void trie_dispatcher_removed_queue_leaves_exact_and_wildcard_lookups() {
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        Destination created = Destination.create("/queue/removal/created");
+        Destination cancelled = Destination.create("/queue/removal/cancelled");
+        Destination wildcard = Destination.create("/queue/removal/*");
+
+        dispatcher.getOrPut(created);
+        DispatcherQueue cancelledQueue = dispatcher.getOrPut(cancelled);
+
+        dispatcher.remove(created);
+
+        assertThat(dispatcher.get(created)).isNull();
+        assertThat(dispatcher.exists(created)).isFalse();
+        assertThat(dispatcher.searchAll(wildcard)).containsExactly(cancelledQueue);
+
+        dispatcher.remove(cancelled);
+
+        assertThat(dispatcher.isEmpty()).isTrue();
+    }
+
+    @Test
+    void trie_dispatcher_stale_remove_keeps_the_replacement_in_wildcard_search() {
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        Destination destination = Destination.create("/queue/stale-wildcard/created");
+        Destination wildcard = Destination.create("/queue/stale-wildcard/*");
+
+        DispatcherQueue stale = dispatcher.getOrPut(destination);
+        dispatcher.remove(destination);
+        DispatcherQueue replacement = dispatcher.getOrPut(destination);
+
+        assertThat(dispatcher.remove(stale)).isFalse();
+        assertThat(dispatcher.searchAll(wildcard)).containsExactly(replacement);
+
+        dispatcher.remove(replacement);
+    }
+
+    @Test
+    void trie_dispatcher_creates_one_queue_for_concurrent_callers() throws Exception {
+        TrieDispatcher dispatcher = new TrieDispatcher();
+        Destination destination = Destination.create("/queue/concurrent-create/created");
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<DispatcherQueue>> results = new ArrayList<>();
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(8)) {
+            for (int i = 0; i < 8; i++) {
+                results.add(executor.submit(() -> {
+                    start.await();
+                    return dispatcher.getOrPut(destination);
+                }));
+            }
+            start.countDown();
+        }
+
+        DispatcherQueue queue = dispatcher.get(destination);
+        for (Future<DispatcherQueue> result : results) {
+            assertThat(result.get()).isSameAs(queue);
+        }
+        assertThat(dispatcher.searchAll(Destination.create("/queue/concurrent-create/*"))).containsExactly(queue);
+
+        dispatcher.remove(destination);
     }
 
     @Test
