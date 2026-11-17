@@ -16,6 +16,10 @@
 package org.traffichunter.titan.dispatch;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
@@ -27,8 +31,9 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 /**
  * Trie-backed dispatcher for path-like destinations.
  *
- * <p>Destinations are stored by their normalized path. A trie keeps lookup and prefix existence
- * checks aligned with the routing model used by queue creation and fanout consumers.</p>
+ * <p>Destinations are stored by their normalized path. A trie keeps wildcard search and prefix
+ * existence checks aligned with the routing model used by queue creation and fanout consumers.
+ * Exact lookups read a map keyed by the full path, which holds the same queues as the trie.</p>
  *
  * @author yungwang-o
  */
@@ -37,6 +42,9 @@ public class TrieDispatcher implements Dispatcher {
     private static final Logger log = LoggerFactory.getLogger(TrieDispatcher.class);
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
+    private final Map<String, DispatcherQueue> queues = new ConcurrentHashMap<>();
+    // Held while a queue is added or removed, so the trie and the map change together.
+    private final Lock lock = new ReentrantLock();
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
     private final String group;
@@ -66,21 +74,16 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public @Nullable DispatcherQueue get(Destination destination) {
-        return trie.get(destination.path());
+        return queues.get(destination.path());
     }
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination) {
-        return trie.computeIfAbsent(destination.path(), path -> {
-            DispatcherQueue queue = DispatcherQueue.create(
-                    destination,
-                    defaultMaxPendingBytes,
-                    defaultResumePendingBytes,
-                    group
-            );
-            log.info("Created new dispatcher for path {} in group {}", path, group);
+        DispatcherQueue queue = get(destination);
+        if (queue != null) {
             return queue;
-        });
+        }
+        return create(destination, defaultMaxPendingBytes, defaultResumePendingBytes);
     }
 
     @Override
@@ -103,16 +106,15 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
-        return trie.computeIfAbsent(destination.path(), path -> {
-            DispatcherQueue queue = DispatcherQueue.create(
-                    destination,
-                    maxPendingBytes,
-                    DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes),
-                    group
-            );
-            log.info("Created new dispatcher for path {} in group {}", path, group);
+        DispatcherQueue queue = get(destination);
+        if (queue != null) {
             return queue;
-        });
+        }
+        return create(
+                destination,
+                maxPendingBytes,
+                DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes)
+        );
     }
 
     @Override
@@ -136,7 +138,19 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public void remove(Destination destination) {
-        DispatcherQueue queue = trie.remove(destination.path());
+        String path = destination.path();
+        DispatcherQueue queue;
+
+        lock.lock();
+        try {
+            queue = queues.remove(path);
+            if (queue != null) {
+                trie.remove(path, queue);
+            }
+        } finally {
+            lock.unlock();
+        }
+
         if (queue != null) {
             DispatcherQueueMbeans.unregister(queue);
         }
@@ -144,9 +158,18 @@ public class TrieDispatcher implements Dispatcher {
 
     @Override
     public boolean remove(DispatcherQueue expected) {
-        if (!trie.remove(expected.route().path(), expected)) {
-            return false;
+        String path = expected.route().path();
+
+        lock.lock();
+        try {
+            if (!queues.remove(path, expected)) {
+                return false;
+            }
+            trie.remove(path, expected);
+        } finally {
+            lock.unlock();
         }
+
         DispatcherQueueMbeans.unregister(expected);
         return true;
     }
@@ -154,6 +177,28 @@ public class TrieDispatcher implements Dispatcher {
     /** {@code true} when this dispatcher holds no queues. */
     public boolean isEmpty() {
         return trie.isEmpty();
+    }
+
+    // Another thread may have created the queue since the lookup, so the map is read again
+    // under the lock.
+    private DispatcherQueue create(Destination destination, long maxPendingBytes, long resumePendingBytes) {
+        String path = destination.path();
+
+        lock.lock();
+        try {
+            DispatcherQueue existing = queues.get(path);
+            if (existing != null) {
+                return existing;
+            }
+
+            DispatcherQueue queue = DispatcherQueue.create(destination, maxPendingBytes, resumePendingBytes, group);
+            trie.insert(path, queue);
+            queues.put(path, queue);
+            log.info("Created new dispatcher for path {} in group {}", path, group);
+            return queue;
+        } finally {
+            lock.unlock();
+        }
     }
 
     private void requireOwnGroup(String group) {
