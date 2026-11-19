@@ -16,11 +16,11 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
-import org.traffichunter.titan.dispatch.MapDispatcher;
-import org.traffichunter.titan.dispatch.TrieDispatcher;
+import org.traffichunter.titan.dispatch.MapPathFinder;
+import org.traffichunter.titan.dispatch.TriePathFinder;
 
 /**
- * Trie and map dispatchers shared by every benchmark thread. Both hold 10,000 queues,
+ * Trie and map path finders shared by every benchmark thread. Both hold 10,000 queues,
  * 100 under each of 100 parents. Run with {@code -t 16} for the multi-threaded case.
  */
 @State(Scope.Benchmark)
@@ -35,8 +35,8 @@ public class DispatcherLookupBenchmark {
     private static final int QUEUES_PER_PARENT = 100;
     private static final int KEYS = 64;
 
-    private TrieDispatcher trieDispatcher;
-    private MapDispatcher mapDispatcher;
+    private TriePathFinder triePathFinder;
+    private MapPathFinder mapPathFinder;
     private Destination[] keys;
     private byte[][] wirePaths;
     private Destination wildcard;
@@ -53,13 +53,13 @@ public class DispatcherLookupBenchmark {
 
     @Setup(Level.Trial)
     public void setUp() {
-        trieDispatcher = new TrieDispatcher();
-        mapDispatcher = new MapDispatcher(PARENTS * QUEUES_PER_PARENT);
+        triePathFinder = new TriePathFinder();
+        mapPathFinder = new MapPathFinder(PARENTS * QUEUES_PER_PARENT);
         for (int parent = 0; parent < PARENTS; parent++) {
             for (int queue = 0; queue < QUEUES_PER_PARENT; queue++) {
                 Destination destination = Destination.create("/topic/p" + parent + "/" + queue);
-                trieDispatcher.getOrPut(destination);
-                mapDispatcher.getOrPut(destination);
+                triePathFinder.getOrPut(destination);
+                mapPathFinder.getOrPut(destination);
             }
         }
 
@@ -74,22 +74,22 @@ public class DispatcherLookupBenchmark {
 
     @Benchmark
     public DispatcherQueue trieGetOrPut(Cursor cursor) {
-        return trieDispatcher.getOrPut(keys[cursor.next()]);
+        return triePathFinder.getOrPut(keys[cursor.next()]);
     }
 
     @Benchmark
     public DispatcherQueue mapGetOrPut(Cursor cursor) {
-        return mapDispatcher.getOrPut(keys[cursor.next()]);
+        return mapPathFinder.getOrPut(keys[cursor.next()]);
     }
 
     @Benchmark
     public DispatcherQueue trieGetOrPutNewKey(Cursor cursor) {
-        return trieDispatcher.getOrPut(newKey(cursor));
+        return triePathFinder.getOrPut(newKey(cursor));
     }
 
     @Benchmark
     public DispatcherQueue mapGetOrPutNewKey(Cursor cursor) {
-        return mapDispatcher.getOrPut(newKey(cursor));
+        return mapPathFinder.getOrPut(newKey(cursor));
     }
 
     /** Cost of building the key alone, to subtract from the two benchmarks above. */
@@ -100,12 +100,12 @@ public class DispatcherLookupBenchmark {
 
     @Benchmark
     public List<DispatcherQueue> trieSearchWildcard() {
-        return trieDispatcher.searchAll(wildcard);
+        return triePathFinder.searchAll(wildcard);
     }
 
     @Benchmark
     public List<DispatcherQueue> mapSearchWildcard() {
-        return mapDispatcher.searchAll(wildcard);
+        return mapPathFinder.searchAll(wildcard);
     }
 
     // A decoded frame hands over a new string each time, so its hash is not cached yet.

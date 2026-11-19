@@ -7,7 +7,7 @@ import org.traffichunter.titan.core.util.Destination;
  * Creates and deletes dispatcher queues owned by a running transport or
  * fanout component.
  *
- * <p>This interface provides a smaller set of operations than {@link Dispatcher}.
+ * <p>This interface provides a smaller set of operations than {@link PathFinder}.
  * Management tools such as the monitor HTTP API use it to create or remove queues
  * without depending on a specific fanout implementation.</p>
  *

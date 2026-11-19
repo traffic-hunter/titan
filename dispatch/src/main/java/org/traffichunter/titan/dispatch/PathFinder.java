@@ -24,22 +24,22 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 /**
  * Registry of destination queues.
  *
- * <p>Dispatchers do not deliver messages directly. They resolve the queue for a destination,
+ * <p>Path finders do not deliver messages directly. They resolve the queue for a destination,
  * creating it when necessary, and queue consumers perform the actual dispatch from
  * {@link DispatcherQueue}.</p>
  *
  * <p>{@link DestinationGroupRegistry} is the default implementation. It keeps queues in
- * named {@link DestinationGroup}s. Each group is itself a {@code Dispatcher} over the
+ * named {@link DestinationGroup}s. Each group is itself a {@code PathFinder} over the
  * queues it owns.</p>
  *
  * <p>Methods that take only a {@link Destination} address the default group. The
- * overloads that also take a group name reach other groups. A dispatcher that has no
+ * overloads that also take a group name reach other groups. A path finder that has no
  * notion of groups serves the default group and refuses every other name, so a message
  * aimed at an unknown group fails instead of landing in the wrong queue.</p>
  *
  * @author yungwang-o
  */
-public interface Dispatcher {
+public interface PathFinder {
 
     /**
      * Returns Titan's default destination registry implementation.
@@ -47,17 +47,17 @@ public interface Dispatcher {
      * <p>The default is a {@link DestinationGroupRegistry}. Queues created through
      * {@link #getOrPut(Destination)} belong to its default group.</p>
      */
-    static Dispatcher getDefault() {
+    static PathFinder getDefault() {
         return new DestinationGroupRegistry();
     }
 
     /** Returns the default destination registry with an automatic queue byte limit. */
-    static Dispatcher getDefault(long maxPendingBytes) {
+    static PathFinder getDefault(long maxPendingBytes) {
         return new DestinationGroupRegistry(maxPendingBytes);
     }
 
     /** Returns the default destination registry with byte pause and resume thresholds. */
-    static Dispatcher getDefault(long maxPendingBytes, long resumePendingBytes) {
+    static PathFinder getDefault(long maxPendingBytes, long resumePendingBytes) {
         return new DestinationGroupRegistry(maxPendingBytes, resumePendingBytes);
     }
 
@@ -76,7 +76,7 @@ public interface Dispatcher {
      * Returns the queue for the destination inside the named group, or {@code null} when
      * it has not been created. Looking up a group never creates it.
      *
-     * @throws UnsupportedOperationException when this dispatcher cannot serve the group
+     * @throws UnsupportedOperationException when this path finder cannot serve the group
      */
     default @Nullable DispatcherQueue get(String group, Destination destination) {
         if (DestinationGroups.isDefault(group)) {
@@ -90,7 +90,7 @@ public interface Dispatcher {
      * Returns the existing queue or creates one for this destination inside the named
      * group. Implementations that manage groups create the group on first use.
      *
-     * @throws UnsupportedOperationException when this dispatcher cannot serve the group
+     * @throws UnsupportedOperationException when this path finder cannot serve the group
      */
     @CanIgnoreReturnValue
     default DispatcherQueue getOrPut(String group, Destination destination) {
@@ -114,7 +114,7 @@ public interface Dispatcher {
      * Returns the existing queue or creates one with the requested byte limit inside the
      * named group. An existing queue keeps the byte limit it was created with.
      *
-     * @throws UnsupportedOperationException when this dispatcher cannot serve the group
+     * @throws UnsupportedOperationException when this path finder cannot serve the group
      */
     @CanIgnoreReturnValue
     default DispatcherQueue getOrPut(String group, Destination destination, long maxPendingBytes) {

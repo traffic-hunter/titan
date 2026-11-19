@@ -38,10 +38,10 @@ import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
-import org.traffichunter.titan.dispatch.TrieDispatcher;
+import org.traffichunter.titan.dispatch.TriePathFinder;
 
 /**
- * Many producers resolving queues that already exist on one shared dispatcher.
+ * Many producers resolving queues that already exist on one shared path finder.
  * This is the routing hot path: every SEND calls {@code getOrPut} for a queue
  * that was created long ago.
  */
@@ -53,28 +53,28 @@ import org.traffichunter.titan.dispatch.TrieDispatcher;
 @Fork(1)
 public class TrieContentionBenchmark {
 
-    private TrieDispatcher dispatcher;
+    private TriePathFinder pathFinder;
     private Destination[] keys;
 
     @Setup(Level.Trial)
     public void setUp() {
-        dispatcher = new TrieDispatcher();
+        pathFinder = new TriePathFinder();
         keys = new Destination[64];
         for (int i = 0; i < keys.length; i++) {
             keys[i] = Destination.create("/topic/bench/" + i);
-            dispatcher.getOrPut(keys[i]);
+            pathFinder.getOrPut(keys[i]);
         }
     }
 
     @Benchmark
     @Threads(1)
     public DispatcherQueue getOrPutHitSingleThread() {
-        return dispatcher.getOrPut(keys[(int) (Thread.currentThread().threadId() & 63)]);
+        return pathFinder.getOrPut(keys[(int) (Thread.currentThread().threadId() & 63)]);
     }
 
     @Benchmark
     @Threads(16)
     public DispatcherQueue getOrPutHitSixteenThreads() {
-        return dispatcher.getOrPut(keys[(int) (Thread.currentThread().threadId() & 63)]);
+        return pathFinder.getOrPut(keys[(int) (Thread.currentThread().threadId() & 63)]);
     }
 }

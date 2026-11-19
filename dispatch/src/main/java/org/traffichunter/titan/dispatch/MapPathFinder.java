@@ -26,26 +26,26 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
- * Hash-map dispatcher implementation.
+ * Hash-map path finder implementation.
  *
  * <p>This implementation is useful when destinations should be matched exactly and prefix
  * behavior is unnecessary.</p>
  *
  * @author yungwang-o
  */
-public class MapDispatcher implements Dispatcher {
+public class MapPathFinder implements PathFinder {
 
-    private static final Logger log = LoggerFactory.getLogger(MapDispatcher.class);
+    private static final Logger log = LoggerFactory.getLogger(MapPathFinder.class);
 
     private final Map<Destination, DispatcherQueue> map;
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
 
-    public MapDispatcher(final int initialCapacity) {
+    public MapPathFinder(final int initialCapacity) {
         this(initialCapacity, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
     }
 
-    public MapDispatcher(final int initialCapacity, long defaultMaxPendingBytes) {
+    public MapPathFinder(final int initialCapacity, long defaultMaxPendingBytes) {
         this(
                 new ConcurrentHashMap<>(initialCapacity),
                 defaultMaxPendingBytes,
@@ -53,15 +53,15 @@ public class MapDispatcher implements Dispatcher {
         );
     }
 
-    public MapDispatcher(final Map<Destination, DispatcherQueue> map) {
+    public MapPathFinder(final Map<Destination, DispatcherQueue> map) {
         this(map, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
     }
 
-    public MapDispatcher(final Map<Destination, DispatcherQueue> map, long defaultMaxPendingBytes) {
+    public MapPathFinder(final Map<Destination, DispatcherQueue> map, long defaultMaxPendingBytes) {
         this(map, defaultMaxPendingBytes, DestinationQueueMetadata.defaultResumePendingBytes(defaultMaxPendingBytes));
     }
 
-    public MapDispatcher(
+    public MapPathFinder(
             final Map<Destination, DispatcherQueue> map,
             long defaultMaxPendingBytes,
             long defaultResumePendingBytes

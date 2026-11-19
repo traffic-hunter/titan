@@ -23,7 +23,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
-import org.traffichunter.titan.dispatch.Dispatcher;
+import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 
 public final class StompServerExtension implements
@@ -66,7 +66,7 @@ public final class StompServerExtension implements
     public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
             throws ParameterResolutionException {
         Class<?> type = parameterContext.getParameter().getType();
-        return type == StompTestServer.class || type == StompServer.class || type == Dispatcher.class;
+        return type == StompTestServer.class || type == StompServer.class || type == PathFinder.class;
     }
 
     @Override
@@ -80,8 +80,8 @@ public final class StompServerExtension implements
         Class<?> type = parameterContext.getParameter().getType();
         if (type == StompServer.class) {
             return testServer.server();
-        } else if (type == Dispatcher.class) {
-            return testServer.dispatcher();
+        } else if (type == PathFinder.class) {
+            return testServer.pathFinder();
         }
 
         return testServer;

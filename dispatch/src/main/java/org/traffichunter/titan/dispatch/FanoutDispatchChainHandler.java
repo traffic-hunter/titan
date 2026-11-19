@@ -54,7 +54,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     private final Map<ConsumerKey, Consumer> consumers = new ConcurrentHashMap<>();
     private final ExecutorService executor;
     private final DispatchExporter exporter;
-    private final Dispatcher dispatcher;
+    private final PathFinder pathFinder;
     private final int maxMessageBlockSize;
     private final int maxMessageBlockBytes;
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -62,21 +62,21 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     FanoutDispatchChainHandler(
             ExecutorService executor,
             DispatchExporter exporter,
-            Dispatcher dispatcher
+            PathFinder pathFinder
     ) {
-        this(executor, exporter, dispatcher, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
+        this(executor, exporter, pathFinder, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
     }
 
     FanoutDispatchChainHandler(
             ExecutorService executor,
             DispatchExporter exporter,
-            Dispatcher dispatcher,
+            PathFinder pathFinder,
             int maxMessageBlockSize,
             int maxMessageBlockBytes
     ) {
         this.executor = executor;
         this.exporter = exporter;
-        this.dispatcher = dispatcher;
+        this.pathFinder = pathFinder;
         this.maxMessageBlockSize = maxMessageBlockSize;
         this.maxMessageBlockBytes = maxMessageBlockBytes;
     }
@@ -134,7 +134,7 @@ final class FanoutDispatchChainHandler implements DispatchChainHandler {
     }
 
     private Consumer consume(ConsumerKey key) {
-        DispatcherQueue queue = dispatcher.get(key.group(), key.destination());
+        DispatcherQueue queue = pathFinder.get(key.group(), key.destination());
         if (queue == null) {
             throw new IllegalStateException("Queue for " + key + " was removed before its consumer started");
         }

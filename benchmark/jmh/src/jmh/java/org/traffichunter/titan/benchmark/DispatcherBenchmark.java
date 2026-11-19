@@ -16,8 +16,8 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
-import org.traffichunter.titan.dispatch.MapDispatcher;
-import org.traffichunter.titan.dispatch.TrieDispatcher;
+import org.traffichunter.titan.dispatch.MapPathFinder;
+import org.traffichunter.titan.dispatch.TriePathFinder;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
@@ -29,8 +29,8 @@ import org.traffichunter.titan.core.util.Destination;
 @Fork(1)
 public class DispatcherBenchmark {
 
-    private TrieDispatcher trieDispatcher;
-    private MapDispatcher mapDispatcher;
+    private TriePathFinder triePathFinder;
+    private MapPathFinder mapPathFinder;
     private Destination exactKey;
     private DispatcherQueue trieExactQueue;
     private DispatcherQueue mapExactQueue;
@@ -38,8 +38,8 @@ public class DispatcherBenchmark {
 
     @Setup(Level.Trial)
     public void setUp() {
-        trieDispatcher = new TrieDispatcher();
-        mapDispatcher = new MapDispatcher(10_240);
+        triePathFinder = new TriePathFinder();
+        mapPathFinder = new MapPathFinder(10_240);
         exactKey = Destination.create("/topic/bench/5000");
 
         List<Destination> keys = new ArrayList<>(10_000);
@@ -48,12 +48,12 @@ public class DispatcherBenchmark {
         }
 
         for (Destination key : keys) {
-            trieDispatcher.getOrPut(key);
-            mapDispatcher.getOrPut(key);
+            triePathFinder.getOrPut(key);
+            mapPathFinder.getOrPut(key);
         }
 
-        trieExactQueue = trieDispatcher.get(exactKey);
-        mapExactQueue = mapDispatcher.get(exactKey);
+        trieExactQueue = triePathFinder.get(exactKey);
+        mapExactQueue = mapPathFinder.get(exactKey);
 
         message = Message.builder()
                 .destination(exactKey)
@@ -73,33 +73,33 @@ public class DispatcherBenchmark {
 
     @Benchmark
     public DispatcherQueue trieFindExactQueue() {
-        return trieDispatcher.get(exactKey);
+        return triePathFinder.get(exactKey);
     }
 
     @Benchmark
     public DispatcherQueue mapFindExactQueue() {
-        return mapDispatcher.get(exactKey);
+        return mapPathFinder.get(exactKey);
     }
 
     @Benchmark
     public DispatcherQueue trieGetOrPutExactQueueHit() {
-        return trieDispatcher.getOrPut(exactKey);
+        return triePathFinder.getOrPut(exactKey);
     }
 
     @Benchmark
     public DispatcherQueue mapGetOrPutExactQueueHit() {
-        DispatcherQueue queue = mapDispatcher.getOrPut(exactKey);
-        return queue == null ? mapDispatcher.get(exactKey) : queue;
+        DispatcherQueue queue = mapPathFinder.getOrPut(exactKey);
+        return queue == null ? mapPathFinder.get(exactKey) : queue;
     }
 
     @Benchmark
     public boolean trieExistsExactKey() {
-        return trieDispatcher.exists(exactKey);
+        return triePathFinder.exists(exactKey);
     }
 
     @Benchmark
     public boolean mapExistsExactKey() {
-        return mapDispatcher.exists(exactKey);
+        return mapPathFinder.exists(exactKey);
     }
 
     @Benchmark

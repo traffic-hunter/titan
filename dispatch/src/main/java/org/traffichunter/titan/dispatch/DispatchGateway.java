@@ -42,8 +42,8 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
         return new VirtualThreadExecutorDispatchGateway(exporter);
     }
 
-    static DispatchGateway of(DispatchExporter exporter, Dispatcher dispatcher) {
-        return new VirtualThreadExecutorDispatchGateway(exporter, dispatcher);
+    static DispatchGateway of(DispatchExporter exporter, PathFinder pathFinder) {
+        return new VirtualThreadExecutorDispatchGateway(exporter, pathFinder);
     }
 
     /**
@@ -52,11 +52,11 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
      */
     static DispatchGateway of(
             DispatchExporter exporter,
-            Dispatcher dispatcher,
+            PathFinder pathFinder,
             int maxMessageBlockSize,
             int maxMessageBlockBytes
     ) {
-        return new VirtualThreadExecutorDispatchGateway(exporter, dispatcher, maxMessageBlockSize, maxMessageBlockBytes);
+        return new VirtualThreadExecutorDispatchGateway(exporter, pathFinder, maxMessageBlockSize, maxMessageBlockBytes);
     }
 
     /**

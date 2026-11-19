@@ -20,7 +20,7 @@ import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import org.traffichunter.titan.core.channel.EventLoopGroups;
-import org.traffichunter.titan.dispatch.Dispatcher;
+import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.core.transport.option.InetServerOption;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
@@ -30,7 +30,7 @@ public final class StompTestServer implements AutoCloseable {
     private static final int LIFECYCLE_TIMEOUT_SECONDS = 3;
 
     private final EnableStompServer configuration;
-    private final Dispatcher dispatcher = Dispatcher.getDefault();
+    private final PathFinder pathFinder = PathFinder.getDefault();
 
     private int port;
     private StompServer server;
@@ -52,8 +52,8 @@ public final class StompTestServer implements AutoCloseable {
         return server;
     }
 
-    public Dispatcher dispatcher() {
-        return dispatcher;
+    public PathFinder pathFinder() {
+        return pathFinder;
     }
 
     public void stop() {

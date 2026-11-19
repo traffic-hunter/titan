@@ -25,7 +25,7 @@ sequenceDiagram
     participant P as STOMP producer
     participant H as StompSendToFanoutHandler
     participant G as DispatchGateway
-    participant D as Dispatcher
+    participant D as PathFinder
     participant Q as DispatcherQueue
     participant C as Destination consumer
     participant E as StompDispatchExporter
@@ -75,7 +75,7 @@ Even though these keys share a trie prefix, they are three independent queues.
 Publishing to `/orders/created` never falls back to the `/orders` queue.
 
 {% hint style="warning" icon="asterisk" %}
-`Dispatcher.searchAll("/orders/*")` is a queue discovery operation that returns
+`PathFinder.searchAll("/orders/*")` is a queue discovery operation that returns
 descendant queues. The publish path never calls `searchAll`; wildcard lookup is
 not message routing. Do not use a wildcard destination in `SEND` expecting
 broadcast behavior.

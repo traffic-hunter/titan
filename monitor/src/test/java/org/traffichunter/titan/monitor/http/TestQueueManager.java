@@ -15,21 +15,21 @@ import org.traffichunter.titan.dispatch.DispatcherQueueManager;
 @NullMarked
 final class TestQueueManager implements DispatcherQueueManager {
 
-    private final DestinationGroupRegistry dispatcher = new DestinationGroupRegistry();
+    private final DestinationGroupRegistry pathFinder = new DestinationGroupRegistry();
 
     /** Reads a queue directly, so a test can check what an HTTP call did or did not touch. */
     @Nullable DispatcherQueue queue(String group, Destination destination) {
-        return dispatcher.get(group, destination);
+        return pathFinder.get(group, destination);
     }
 
     @Override
     public DispatcherQueue createQueue(String group, Destination destination, long maxPendingBytes) {
-        return dispatcher.getOrPut(group, destination, maxPendingBytes);
+        return pathFinder.getOrPut(group, destination, maxPendingBytes);
     }
 
     @Override
     public boolean pauseQueue(String group, Destination destination) {
-        DispatcherQueue queue = dispatcher.get(group, destination);
+        DispatcherQueue queue = pathFinder.get(group, destination);
         if (queue == null) {
             return false;
         }
@@ -39,7 +39,7 @@ final class TestQueueManager implements DispatcherQueueManager {
 
     @Override
     public boolean resumeQueue(String group, Destination destination) {
-        DispatcherQueue queue = dispatcher.get(group, destination);
+        DispatcherQueue queue = pathFinder.get(group, destination);
         if (queue == null) {
             return false;
         }
@@ -49,7 +49,7 @@ final class TestQueueManager implements DispatcherQueueManager {
 
     @Override
     public boolean purgeQueue(String group, Destination destination) {
-        DispatcherQueue queue = dispatcher.get(group, destination);
+        DispatcherQueue queue = pathFinder.get(group, destination);
         if (queue == null) {
             return false;
         }
@@ -59,7 +59,7 @@ final class TestQueueManager implements DispatcherQueueManager {
 
     @Override
     public DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
-        DispatcherQueue queue = dispatcher.get(group, destination);
+        DispatcherQueue queue = pathFinder.get(group, destination);
         if (queue == null) {
             return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.NOT_FOUND, 0);
         }
@@ -71,7 +71,7 @@ final class TestQueueManager implements DispatcherQueueManager {
             queue.clear();
         }
         // Removing the queue itself also unregisters the MBean of that exact queue.
-        dispatcher.remove(queue);
+        pathFinder.remove(queue);
         return new DispatcherQueueDeleteResult(DispatcherQueueDeleteResult.Status.DELETED, size);
     }
 }

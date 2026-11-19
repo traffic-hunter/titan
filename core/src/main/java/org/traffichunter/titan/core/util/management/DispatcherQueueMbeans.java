@@ -81,7 +81,7 @@ public final class DispatcherQueueMbeans {
         synchronized (REGISTERED) {
             Map<ObjectName, DispatcherQueueMbean> names = REGISTERED.get(server);
             if (names == null || names.get(name) != queue) {
-                // A queue created since this one left the dispatcher owns the name now.
+                // A queue created since this one left the path finder owns the name now.
                 return;
             }
             forget(server, names, name);

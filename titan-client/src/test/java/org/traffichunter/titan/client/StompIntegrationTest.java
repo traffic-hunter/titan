@@ -41,7 +41,7 @@ import org.traffichunter.titan.core.codec.stomp.StompHeaders;
 import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
 import org.traffichunter.titan.core.codec.stomp.Transaction;
 import org.traffichunter.titan.core.codec.stomp.Transactions;
-import org.traffichunter.titan.dispatch.Dispatcher;
+import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
@@ -60,7 +60,7 @@ class StompIntegrationTest {
     void stomp_server_started_test(StompTestServer testServer) {
         Assertions.assertThat(testServer.server()).isNotNull();
         Assertions.assertThat(testServer.server().isStart()).isTrue();
-        assertThat(testServer.dispatcher()).isNotNull();
+        assertThat(testServer.pathFinder()).isNotNull();
     }
 
     // ===== CONNECT Command Tests =====
@@ -115,9 +115,9 @@ class StompIntegrationTest {
     }
 
     @Test
-    void stomp_send_with_text_body_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
+    void stomp_send_with_text_body_test(StompTestServer testServer, PathFinder pathFinder) throws Exception {
         Destination key = Destination.create("/queue/test");
-        DispatcherQueue queue = dispatcher.getOrPut(key);
+        DispatcherQueue queue = pathFinder.getOrPut(key);
         TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
         try {
@@ -134,16 +134,16 @@ class StompIntegrationTest {
             assertThat(new String(result.body(), StandardCharsets.UTF_8)).isEqualTo("Hello STOMP!");
         } finally {
             client.close();
-            dispatcher.remove(key);
+            pathFinder.remove(key);
         }
     }
 
     // ===== SUBSCRIBE/UNSUBSCRIBE Command Tests =====
 
     @Test
-    void stomp_subscribe_and_receive_message_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
+    void stomp_subscribe_and_receive_message_test(StompTestServer testServer, PathFinder pathFinder) throws Exception {
         Destination key = Destination.create("/topic/test");
-        DispatcherQueue queue = dispatcher.getOrPut(key);
+        DispatcherQueue queue = pathFinder.getOrPut(key);
 
         AtomicBoolean messageReceived = new AtomicBoolean(false);
         AtomicReference<StompFrame> receivedFrame = new AtomicReference<>();
@@ -178,14 +178,14 @@ class StompIntegrationTest {
             }
         } finally {
             client.close();
-            dispatcher.remove(key);
+            pathFinder.remove(key);
         }
     }
 
     @Test
-    void stomp_unsubscribe_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
+    void stomp_unsubscribe_test(StompTestServer testServer, PathFinder pathFinder) throws Exception {
         Destination key = Destination.create("/topic/unsub");
-        DispatcherQueue queue = dispatcher.getOrPut(key);
+        DispatcherQueue queue = pathFinder.getOrPut(key);
 
         TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
@@ -208,18 +208,18 @@ class StompIntegrationTest {
             assertThat(client.channel().subscriptions()).hasSize(0);
         } finally {
             client.close();
-            dispatcher.remove(key);
+            pathFinder.remove(key);
         }
     }
 
     @Test
-    void stomp_subscribe_with_ack_modes_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
+    void stomp_subscribe_with_ack_modes_test(StompTestServer testServer, PathFinder pathFinder) throws Exception {
         Destination key1 = Destination.create("/topic/ack1");
         Destination key2 = Destination.create("/topic/ack2");
         Destination key3 = Destination.create("/topic/ack3");
-        dispatcher.getOrPut(key1);
-        dispatcher.getOrPut(key2);
-        dispatcher.getOrPut(key3);
+        pathFinder.getOrPut(key1);
+        pathFinder.getOrPut(key2);
+        pathFinder.getOrPut(key3);
 
         TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT);
 
@@ -245,9 +245,9 @@ class StompIntegrationTest {
             assertThat(client.channel().subscriptions()).hasSize(3);
         } finally {
             client.close();
-            dispatcher.remove(key1);
-            dispatcher.remove(key2);
-            dispatcher.remove(key3);
+            pathFinder.remove(key1);
+            pathFinder.remove(key2);
+            pathFinder.remove(key3);
         }
     }
 
@@ -378,9 +378,9 @@ class StompIntegrationTest {
     }
 
     @Test
-    void stomp_transaction_with_send_test(StompTestServer testServer, Dispatcher dispatcher) throws Exception {
+    void stomp_transaction_with_send_test(StompTestServer testServer, PathFinder pathFinder) throws Exception {
         Destination key = Destination.create("/queue/tx-test");
-        DispatcherQueue queue = dispatcher.getOrPut(key);
+        DispatcherQueue queue = pathFinder.getOrPut(key);
 
         TitanStompClientDriver client = new TitanStompClientDriver(clientGroups(), ClientConfiguration.DEFAULT)
                 .onChannel(channel ->
@@ -406,7 +406,7 @@ class StompIntegrationTest {
             assertThat(queue.size()).isGreaterThan(0);
         } finally {
             client.close();
-            dispatcher.remove(key);
+            pathFinder.remove(key);
         }
     }
 
@@ -462,7 +462,7 @@ class StompIntegrationTest {
             client.start();
             client.connect(testServer.host(), testServer.port()).get(3, TimeUnit.SECONDS);
 
-            // Subscribe to destination not in dispatcher
+            // Subscribe to destination not in path finder
             client.channel().subscribe("/nonexistent", frame -> {}).get(3, TimeUnit.SECONDS);
         } finally {
             if (!client.isClosed()) {

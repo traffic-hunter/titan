@@ -198,7 +198,7 @@ class DispatchGatewayGroupManagementTest {
                     () -> hooked.deleteQueue("market", DESTINATION, true));
             assertThat(removed.await(5, TimeUnit.SECONDS)).isTrue();
 
-            // The deleted queue is out of the dispatcher and the delete has not finished. This
+            // The deleted queue is out of the path finder and the delete has not finished. This
             // message lands in a queue created on the spot, and no later message will come along
             // to notice it has nothing draining it.
             hooked.sparkDispatch(message("market")).join();
@@ -213,15 +213,15 @@ class DispatchGatewayGroupManagementTest {
         }
     }
 
-    /** Wraps a dispatcher so a queue removal blocks until the test lets it finish. */
-    private static Dispatcher pauseAfterRemove(
-            Dispatcher delegate,
+    /** Wraps a path finder so a queue removal blocks until the test lets it finish. */
+    private static PathFinder pauseAfterRemove(
+            PathFinder delegate,
             CountDownLatch removed,
             CountDownLatch resume
     ) {
-        return (Dispatcher) Proxy.newProxyInstance(
-                Dispatcher.class.getClassLoader(),
-                new Class<?>[]{Dispatcher.class},
+        return (PathFinder) Proxy.newProxyInstance(
+                PathFinder.class.getClassLoader(),
+                new Class<?>[]{PathFinder.class},
                 (proxy, method, arguments) -> {
                     Object result;
                     try {

@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * run between them.</p>
  *
  * <p>The fanout handler deletes queues and manages their consumers. Queue creation uses the
- * dispatcher registry directly.</p>
+ * path finder directly.</p>
  *
  * <pre>{@code
  * sparkDispatch(message)
@@ -65,7 +65,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
 
     private final ExecutorService executor;
-    private final Dispatcher dispatcher;
+    private final PathFinder pathFinder;
     private final FanoutDispatchChainHandler fanoutHandler;
     private final AtomicBoolean closed = new AtomicBoolean();
     private DispatchHandlerChain handlerChain;
@@ -73,12 +73,12 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     protected AbstractExecutorDispatchGateway(
             ExecutorService executor,
             DispatchExporter exporter,
-            Dispatcher dispatcher
+            PathFinder pathFinder
     ) {
         this(
                 executor,
                 exporter,
-                dispatcher,
+                pathFinder,
                 FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_SIZE,
                 FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_BYTES
         );
@@ -87,23 +87,23 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     protected AbstractExecutorDispatchGateway(
             ExecutorService executor,
             DispatchExporter exporter,
-            Dispatcher dispatcher,
+            PathFinder pathFinder,
             int maxMessageBlockSize,
             int maxMessageBlockBytes
     ) {
         this.executor = executor;
-        this.dispatcher = dispatcher;
+        this.pathFinder = pathFinder;
         this.fanoutHandler = new FanoutDispatchChainHandler(
-                executor, exporter, dispatcher, maxMessageBlockSize, maxMessageBlockBytes);
+                executor, exporter, pathFinder, maxMessageBlockSize, maxMessageBlockBytes);
         this.handlerChain = DispatchHandlerChain.chain(executor)
-                .add(new RouteDispatchChainHandler(dispatcher))
+                .add(new RouteDispatchChainHandler(pathFinder))
                 .add(fanoutHandler);
     }
 
     @Override
     public DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler) {
         DispatchHandlerChain chain = DispatchHandlerChain.chain(executor);
-        chain.add(new RouteDispatchChainHandler(dispatcher));
+        chain.add(new RouteDispatchChainHandler(pathFinder));
         chainHandler.handle(chain);
         chain.add(fanoutHandler);
         this.handlerChain = chain;
@@ -144,13 +144,13 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatcher.getOrPut(group, destination, maxPendingBytes);
+        return pathFinder.getOrPut(group, destination, maxPendingBytes);
     }
 
     /**
      * Deletes a dispatcher queue and detaches its consumer.
      *
-     * <p>The queue is closed before it leaves the dispatcher, so a producer admitted in the
+     * <p>The queue is closed before it leaves the path finder, so a producer admitted in the
      * meantime is refused outright rather than filling a queue this call is about to drop.
      * Non-empty queues are rejected unless force deletion is requested.</p>
      */
@@ -171,8 +171,8 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         queue.close();
 
         // Remove the queue this call looked up, never a replacement created since. The
-        // dispatcher unregisters the MBean of whatever it actually removed.
-        if (!dispatcher.remove(queue)) {
+        // path finder unregisters the MBean of whatever it actually removed.
+        if (!pathFinder.remove(queue)) {
             return DispatcherQueueDeleteResult.notFound();
         }
         if (force) {
@@ -256,6 +256,6 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             throw new IllegalStateException("DispatchGateway is closed");
         }
 
-        return dispatcher.get(group, destination);
+        return pathFinder.get(group, destination);
     }
 }

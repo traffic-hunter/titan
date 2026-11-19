@@ -36,7 +36,7 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
  * refuses new messages and stops dispatch, while an automatic pressure pause refuses new
  * messages and lets consumers continue draining queued messages.</p>
  *
- * <p>A queue that leaves its dispatcher is closed and refuses further messages, so a producer
+ * <p>A queue that leaves its path finder is closed and refuses further messages, so a producer
  * holding a stale reference fails instead of writing into a queue nothing drains.</p>
  *
  * @author yungwang-o
@@ -131,7 +131,7 @@ public interface DispatcherQueue extends Pausable, Iterator<Message>, Dispatcher
     /**
      * Refuses further messages.
      *
-     * <p>Called once the queue has left its dispatcher. {@link #enqueue(Message)} then returns
+     * <p>Called once the queue has left its path finder. {@link #enqueue(Message)} then returns
      * {@link DispatchResult#CLOSED}, even if the queue is paused. A
      * message accepted just before the close is still queued, so a caller that must not lose
      * one checks {@link #size()} afterwards. Closing is one way.</p>

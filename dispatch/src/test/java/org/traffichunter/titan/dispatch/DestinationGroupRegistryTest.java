@@ -95,7 +95,7 @@ class DestinationGroupRegistryTest {
     }
 
     @Test
-    void registry_dispatcher_calls_use_the_default_namespace() {
+    void registry_path_finder_calls_use_the_default_namespace() {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         DestinationGroup market = registry.getOrPutGroup("market");
         Destination destination = destination("namespace/price");
@@ -206,14 +206,14 @@ class DestinationGroupRegistryTest {
     }
 
     @Test
-    void default_dispatcher_is_group_registry_with_inherited_thresholds() {
-        Dispatcher dispatcher = Dispatcher.getDefault(128);
+    void default_path_finder_is_group_registry_with_inherited_thresholds() {
+        PathFinder pathFinder = PathFinder.getDefault(128);
 
-        assertThat(dispatcher).isInstanceOf(DestinationGroupRegistry.class);
+        assertThat(pathFinder).isInstanceOf(DestinationGroupRegistry.class);
 
-        DestinationGroupRegistry registry = (DestinationGroupRegistry) dispatcher;
+        DestinationGroupRegistry registry = (DestinationGroupRegistry) pathFinder;
         DispatcherQueue grouped = track(registry.getOrPutGroup("market").getOrPut(destination("threshold/market")));
-        DispatcherQueue ungrouped = track(dispatcher.getOrPut(destination("threshold/default")));
+        DispatcherQueue ungrouped = track(pathFinder.getOrPut(destination("threshold/default")));
 
         long expectedResume = DestinationQueueMetadata.defaultResumePendingBytes(128);
         assertThat(grouped.getMaxPendingBytes()).isEqualTo(128);
