@@ -23,7 +23,7 @@ import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.dispatch.DispatchGateway;
-import org.traffichunter.titan.dispatch.Dispatcher;
+import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 import org.traffichunter.titan.stability.StabilityFixtureOptions.DeliveryPath;
@@ -82,11 +82,11 @@ public final class StabilityFixture implements Closeable {
 
         DispatchGateway gateway = null;
         if (options.path() == DeliveryPath.DISPATCH) {
-            Dispatcher dispatcher = Dispatcher.getDefault(
+            PathFinder pathFinder = PathFinder.getDefault(
                     options.queueMaxPendingBytes(),
                     options.queueResumePendingBytes()
             );
-            gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), dispatcher);
+            gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), pathFinder);
             StompSendToFanoutHandler sendHandler = new StompSendToFanoutHandler(gateway);
             server.onStomp(handler -> handler.sendHandler(sendHandler));
         }

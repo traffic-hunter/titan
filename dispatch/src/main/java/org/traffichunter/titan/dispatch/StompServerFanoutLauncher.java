@@ -107,7 +107,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                             : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
                     DispatchGateway gateway = DispatchGateway.of(
                             dispatchExporter,
-                            Dispatcher.getDefault(maxPendingBytes, resumePendingBytes),
+                            PathFinder.getDefault(maxPendingBytes, resumePendingBytes),
                             maxMessageBlockSize,
                             maxMessageBlockBytes
                     );

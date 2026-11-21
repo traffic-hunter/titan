@@ -31,10 +31,10 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RouteDispatchChainHandler.class);
 
-    private final Dispatcher dispatcher;
+    private final PathFinder pathFinder;
 
-    RouteDispatchChainHandler(Dispatcher dispatcher) {
-        this.dispatcher = dispatcher;
+    RouteDispatchChainHandler(PathFinder pathFinder) {
+        this.pathFinder = pathFinder;
     }
 
     @Override
@@ -43,7 +43,7 @@ final class RouteDispatchChainHandler implements DispatchChainHandler {
         String group = message.getGroup();
         Destination destination = message.getDestination();
 
-        DispatcherQueue dq = dispatcher.getOrPut(group, destination);
+        DispatcherQueue dq = pathFinder.getOrPut(group, destination);
 
         DispatchResult result = dq.enqueue(message);
         if (result != DispatchResult.ACCEPTED) {

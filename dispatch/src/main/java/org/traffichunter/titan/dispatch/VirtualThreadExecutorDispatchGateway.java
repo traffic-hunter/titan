@@ -32,30 +32,30 @@ import java.util.concurrent.ThreadFactory;
 class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
 
     public VirtualThreadExecutorDispatchGateway(DispatchExporter exporter) {
-        this(exporter, Dispatcher.getDefault());
+        this(exporter, PathFinder.getDefault());
     }
 
     public VirtualThreadExecutorDispatchGateway(
             DispatchExporter exporter,
-            Dispatcher dispatcher
+            PathFinder pathFinder
     ) {
         super(
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,
-                dispatcher
+                pathFinder
         );
     }
 
     public VirtualThreadExecutorDispatchGateway(
             DispatchExporter exporter,
-            Dispatcher dispatcher,
+            PathFinder pathFinder,
             int maxMessageBlockSize,
             int maxMessageBlockBytes
     ) {
         super(
                 Executors.newThreadPerTaskExecutor(newThreadFactory()),
                 exporter,
-                dispatcher,
+                pathFinder,
                 maxMessageBlockSize,
                 maxMessageBlockBytes
         );

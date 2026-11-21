@@ -33,10 +33,10 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
 
 /**
- * Top level {@link Dispatcher} composed of named {@link DestinationGroup}s.
+ * Top level {@link PathFinder} composed of named {@link DestinationGroup}s.
  *
  * <p>Groups are namespaces. The same destination may exist in several groups as
- * separate queues, and the registry holds no queues itself. As a {@code Dispatcher} the
+ * separate queues, and the registry holds no queues itself. As a {@code PathFinder} the
  * registry is the {@value #DEFAULT_GROUP} namespace: calls that name no group read and
  * create queues there. Other groups are reached through {@link #getOrPutGroup(String)}
  * or the overloads that take a group name. The default group always exists and cannot
@@ -44,14 +44,14 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbean;
  *
  * @author yun
  */
-public final class DestinationGroupRegistry implements Dispatcher {
+public final class DestinationGroupRegistry implements PathFinder {
 
     public static final String DEFAULT_GROUP = DispatcherQueueMbean.DEFAULT_GROUP;
 
-    private final Map<String, DispatcherDestinationGroup> groups = new ConcurrentHashMap<>();
+    private final Map<String, PathFinderDestinationGroup> groups = new ConcurrentHashMap<>();
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
-    private final DispatcherDestinationGroup defaultGroup;
+    private final PathFinderDestinationGroup defaultGroup;
 
     public DestinationGroupRegistry() {
         this(DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
@@ -101,7 +101,7 @@ public final class DestinationGroupRegistry implements Dispatcher {
         }
         // computeIfPresent returns null for a missing key as well as for a removed entry.
         // The containsKey check above is what lets null mean "removed" here.
-        DispatcherDestinationGroup destinationGroup =
+        PathFinderDestinationGroup destinationGroup =
                 groups.computeIfPresent(name, (groupName, group) -> group.tryRemove() ? null : group);
 
         return destinationGroup == null;
@@ -132,7 +132,7 @@ public final class DestinationGroupRegistry implements Dispatcher {
         if (!DestinationGroups.isValid(group)) {
             return null;
         }
-        DispatcherDestinationGroup destinationGroup = groups.get(group);
+        PathFinderDestinationGroup destinationGroup = groups.get(group);
         return destinationGroup == null ? null : destinationGroup.get(destination);
     }
 
@@ -166,13 +166,13 @@ public final class DestinationGroupRegistry implements Dispatcher {
     /** Removes the queue from the group it belongs to, which need not be the default one. */
     @Override
     public boolean remove(DispatcherQueue expected) {
-        DispatcherDestinationGroup group = groups.get(expected.getGroup());
+        PathFinderDestinationGroup group = groups.get(expected.getGroup());
         return group != null && group.remove(expected);
     }
 
-    private DispatcherDestinationGroup groupOrCreate(String name) {
+    private PathFinderDestinationGroup groupOrCreate(String name) {
         Assert.checkArgument(DestinationGroups.isValid(name), "Invalid group name: " + name);
         return groups.computeIfAbsent(name, groupName ->
-                new DispatcherDestinationGroup(groupName, defaultMaxPendingBytes, defaultResumePendingBytes));
+                new PathFinderDestinationGroup(groupName, defaultMaxPendingBytes, defaultResumePendingBytes));
     }
 }

@@ -27,7 +27,7 @@ import org.traffichunter.titan.core.codec.json.Json;
  * <p>{@code queueLimitsApplied} is recorded on purpose. The shipped configuration only applies the
  * queue byte limits when the top-level flow-control switch is on, and it is off by default, so a
  * limit printed by a configuration file is not evidence that any limit was in force. The fixture
- * passes its limits straight to the dispatcher, and this field says so.</p>
+ * passes its limits straight to the path finder, and this field says so.</p>
  *
  * @author yun
  */

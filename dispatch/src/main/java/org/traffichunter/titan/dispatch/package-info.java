@@ -27,7 +27,7 @@
  * }</pre>
  *
  * <p>{@link org.traffichunter.titan.dispatch.DispatchGateway} starts the dispatch chain,
- * {@link org.traffichunter.titan.dispatch.Dispatcher} resolves destination queues, and exporter
+ * {@link org.traffichunter.titan.dispatch.PathFinder} resolves destination queues, and exporter
  * implementations own protocol-specific delivery. This keeps message routing independent from
  * the protocol used to write the payload to connected clients.</p>
  */

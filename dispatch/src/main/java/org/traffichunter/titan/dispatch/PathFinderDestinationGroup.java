@@ -32,27 +32,27 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.IdGenerator;
 
 /**
- * Group backed by its own {@link TrieDispatcher}.
+ * Group backed by its own {@link TriePathFinder}.
  *
- * <p>The dispatcher carries the group name, so every queue created here registers under
+ * <p>The path finder carries the group name, so every queue created here registers under
  * a group qualified MBean name. Queue creation takes a read lock and group removal takes
  * the write lock. A group can therefore only be removed while no queue is being created
  * in it, and a stale reference to a removed group fails instead of creating an orphan.</p>
  *
  * @author yun
  */
-final class DispatcherDestinationGroup implements DestinationGroup {
+final class PathFinderDestinationGroup implements DestinationGroup {
 
     private final String id;
     private final String name;
-    private final TrieDispatcher dispatcher;
+    private final TriePathFinder pathFinder;
     private final ReadWriteLock lifecycle = new ReentrantReadWriteLock();
     private volatile boolean removed;
 
-    DispatcherDestinationGroup(String name, long defaultMaxPendingBytes, long defaultResumePendingBytes) {
+    PathFinderDestinationGroup(String name, long defaultMaxPendingBytes, long defaultResumePendingBytes) {
         this.id = IdGenerator.uuid();
         this.name = name;
-        this.dispatcher = new TrieDispatcher(name, defaultMaxPendingBytes, defaultResumePendingBytes);
+        this.pathFinder = new TriePathFinder(name, defaultMaxPendingBytes, defaultResumePendingBytes);
     }
 
     @Override
@@ -67,12 +67,12 @@ final class DispatcherDestinationGroup implements DestinationGroup {
 
     @Override
     public @Nullable DispatcherQueue get(Destination destination) {
-        return dispatcher.get(destination);
+        return pathFinder.get(destination);
     }
 
     @Override
     public DispatcherQueue getOrPut(Destination destination) {
-        return create(() -> dispatcher.getOrPut(destination));
+        return create(() -> pathFinder.getOrPut(destination));
     }
 
     @Override
@@ -89,7 +89,7 @@ final class DispatcherDestinationGroup implements DestinationGroup {
 
     @Override
     public DispatcherQueue getOrPut(Destination destination, long maxPendingBytes) {
-        return create(() -> dispatcher.getOrPut(destination, maxPendingBytes));
+        return create(() -> pathFinder.getOrPut(destination, maxPendingBytes));
     }
 
     @Override
@@ -100,12 +100,12 @@ final class DispatcherDestinationGroup implements DestinationGroup {
 
     @Override
     public List<DispatcherQueue> searchAll(Destination destination) {
-        return dispatcher.searchAll(destination);
+        return pathFinder.searchAll(destination);
     }
 
     @Override
     public boolean exists(Destination destination) {
-        return dispatcher.exists(destination);
+        return pathFinder.exists(destination);
     }
 
     /** Removes the queue if this group has it. Unknown destinations are ignored. */
@@ -114,8 +114,8 @@ final class DispatcherDestinationGroup implements DestinationGroup {
         lifecycle.writeLock().lock();
         try {
             ensureActive();
-            if (dispatcher.get(destination) != null) {
-                dispatcher.remove(destination);
+            if (pathFinder.get(destination) != null) {
+                pathFinder.remove(destination);
             }
         } finally {
             lifecycle.writeLock().unlock();
@@ -127,7 +127,7 @@ final class DispatcherDestinationGroup implements DestinationGroup {
         lifecycle.writeLock().lock();
         try {
             ensureActive();
-            return dispatcher.remove(expected);
+            return pathFinder.remove(expected);
         } finally {
             lifecycle.writeLock().unlock();
         }
@@ -141,7 +141,7 @@ final class DispatcherDestinationGroup implements DestinationGroup {
     boolean tryRemove() {
         lifecycle.writeLock().lock();
         try {
-            if (removed || !dispatcher.isEmpty()) {
+            if (removed || !pathFinder.isEmpty()) {
                 return false;
             }
             removed = true;

@@ -29,7 +29,7 @@ import org.traffichunter.titan.core.util.TrieImpl;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
- * Trie-backed dispatcher for path-like destinations.
+ * Trie-backed path finder for path-like destinations.
  *
  * <p>Destinations are stored by their normalized path. A trie keeps wildcard search and prefix
  * existence checks aligned with the routing model used by queue creation and fanout consumers.
@@ -37,9 +37,9 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
  *
  * @author yungwang-o
  */
-public class TrieDispatcher implements Dispatcher {
+public class TriePathFinder implements PathFinder {
 
-    private static final Logger log = LoggerFactory.getLogger(TrieDispatcher.class);
+    private static final Logger log = LoggerFactory.getLogger(TriePathFinder.class);
 
     private final Trie<DispatcherQueue> trie = new TrieImpl<>();
     private final Map<String, DispatcherQueue> queues = new ConcurrentHashMap<>();
@@ -49,23 +49,23 @@ public class TrieDispatcher implements Dispatcher {
     private final long defaultResumePendingBytes;
     private final String group;
 
-    public TrieDispatcher() {
+    public TriePathFinder() {
         this(DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
     }
 
-    public TrieDispatcher(long defaultMaxPendingBytes) {
+    public TriePathFinder(long defaultMaxPendingBytes) {
         this(
                 defaultMaxPendingBytes,
                 DestinationQueueMetadata.defaultResumePendingBytes(defaultMaxPendingBytes)
         );
     }
 
-    public TrieDispatcher(long defaultMaxPendingBytes, long defaultResumePendingBytes) {
+    public TriePathFinder(long defaultMaxPendingBytes, long defaultResumePendingBytes) {
         this(DispatcherQueue.DEFAULT_GROUP, defaultMaxPendingBytes, defaultResumePendingBytes);
     }
 
-    /** Dispatcher whose queues belong to the named group. */
-    public TrieDispatcher(String group, long defaultMaxPendingBytes, long defaultResumePendingBytes) {
+    /** PathFinder whose queues belong to the named group. */
+    public TriePathFinder(String group, long defaultMaxPendingBytes, long defaultResumePendingBytes) {
         DestinationQueueMetadata.validateThresholds(defaultMaxPendingBytes, defaultResumePendingBytes);
         this.group = group;
         this.defaultMaxPendingBytes = defaultMaxPendingBytes;
@@ -174,7 +174,7 @@ public class TrieDispatcher implements Dispatcher {
         return true;
     }
 
-    /** {@code true} when this dispatcher holds no queues. */
+    /** {@code true} when this path finder holds no queues. */
     public boolean isEmpty() {
         return trie.isEmpty();
     }
@@ -204,7 +204,7 @@ public class TrieDispatcher implements Dispatcher {
     private void requireOwnGroup(String group) {
         if (!this.group.equals(group)) {
             throw new UnsupportedOperationException(
-                    "TrieDispatcher for group " + this.group + " cannot serve group " + group);
+                    "TriePathFinder for group " + this.group + " cannot serve group " + group);
         }
     }
 }

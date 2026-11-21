@@ -27,12 +27,12 @@ package org.traffichunter.titan.dispatch;
  * Named namespace of queues.
  *
  * <p>Each group owns its own queues. The same destination may exist in several groups
- * as separate queues. A group is a {@link Dispatcher} over the queues it owns, and its
+ * as separate queues. A group is a {@link PathFinder} over the queues it owns, and its
  * lookups and wildcard searches do not see other groups.</p>
  *
  * @author yun
  */
-public interface DestinationGroup extends Dispatcher {
+public interface DestinationGroup extends PathFinder {
 
     /** Identifier assigned when the group is created. It never changes. */
     String id();
