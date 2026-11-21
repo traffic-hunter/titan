@@ -15,216 +15,36 @@
  */
 package org.traffichunter.titan.dispatch;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
-import org.traffichunter.titan.core.util.Destination;
-import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
- * Owns destination consumer registration, execution, and removal after messages are routed.
+ * Makes sure the queue a message was routed into is being delivered.
  *
- * <p>At most one long-lived consumer is registered per destination within a group. The same
- * destination in two groups is two queues and therefore two consumers, and a queue deleted and
- * created again is a new queue that gets a consumer of its own. The handler starts that task
- * without awaiting its completion because dispatch completion only represents successful
- * queue admission and consumer activation. Queue deletion and handler shutdown cancel registered
- * consumers and let their polling loops observe the corresponding lifecycle state.</p>
+ * <p>Runs after {@link RouteDispatchChainHandler}. Delivery itself belongs to the
+ * {@link Dispatcher} and is not awaited here, so dispatch completion only means the message was
+ * admitted and its queue has a consumer.</p>
  *
  * @author yun
  */
 final class FanoutDispatchChainHandler implements DispatchChainHandler {
 
-    private static final long EXPORT_TIMEOUT_SECONDS = 5;
-    static final int DEFAULT_MAX_MESSAGE_BLOCK_SIZE = 1;
-    static final int DEFAULT_MAX_MESSAGE_BLOCK_BYTES = 16_384;
-
-    private static final Logger log = LoggerFactory.getLogger(FanoutDispatchChainHandler.class);
-
-    private final Map<ConsumerKey, Consumer> consumers = new ConcurrentHashMap<>();
-    private final ExecutorService executor;
-    private final DispatchExporter exporter;
+    private final Dispatcher dispatcher;
     private final PathFinder pathFinder;
-    private final int maxMessageBlockSize;
-    private final int maxMessageBlockBytes;
-    private final AtomicBoolean closed = new AtomicBoolean();
 
-    FanoutDispatchChainHandler(
-            ExecutorService executor,
-            DispatchExporter exporter,
-            PathFinder pathFinder
-    ) {
-        this(executor, exporter, pathFinder, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
-    }
-
-    FanoutDispatchChainHandler(
-            ExecutorService executor,
-            DispatchExporter exporter,
-            PathFinder pathFinder,
-            int maxMessageBlockSize,
-            int maxMessageBlockBytes
-    ) {
-        this.executor = executor;
-        this.exporter = exporter;
+    FanoutDispatchChainHandler(Dispatcher dispatcher, PathFinder pathFinder) {
+        this.dispatcher = dispatcher;
         this.pathFinder = pathFinder;
-        this.maxMessageBlockSize = maxMessageBlockSize;
-        this.maxMessageBlockBytes = maxMessageBlockBytes;
     }
 
     @Override
     public DispatchChain handle(DispatchContext context, DispatchChain chain) {
         Message message = context.getMessage();
-        fanout(message.getGroup(), message.getDestination());
-        return chain.next(context);
-    }
-
-    void fanout(String group, Destination destination) {
-        if (closed.get()) {
-            throw new IllegalStateException("Fanout dispatch handler is closed");
-        }
-
-        ConsumerKey key = new ConsumerKey(group, destination);
-        Consumer existing = consumers.get(key);
-        if (existing != null && !existing.queue().isClosed()) {
-            return;
-        }
-
-        // The registered consumer drains a queue that has since been deleted, and it only ever
-        // drains the instance it was handed. Whatever queue the message just went into is a
-        // different one and needs a consumer of its own, or it would sit there undelivered.
-        consumers.compute(key, (ignored, current) -> {
-            if (current != null && !current.queue().isClosed()) {
-                return current;
-            }
-            return consume(key);
-        });
-    }
-
-    /**
-     * Stops the consumer of this very queue, if it is the one registered.
-     *
-     * <p>A replacement queue registers a consumer of its own, and taking that one down would
-     * leave the new queue with nothing draining it. Call this while the queue is still open and
-     * registered, so the consumer found here is the queue's own.</p>
-     */
-    void detach(DispatcherQueue queue) {
-        ConsumerKey key = new ConsumerKey(queue.getGroup(), queue.route());
-        Consumer consumer = consumers.get(key);
-        if (consumer != null && consumer.queue() == queue) {
-            consumers.remove(key, consumer);
-            consumer.cancel();
-        }
-    }
-
-    void close() {
-        if (closed.compareAndSet(false, true)) {
-            consumers.values().forEach(Consumer::cancel);
-            consumers.clear();
-        }
-    }
-
-    private Consumer consume(ConsumerKey key) {
-        DispatcherQueue queue = pathFinder.get(key.group(), key.destination());
+        DispatcherQueue queue = pathFinder.get(message.getGroup(), message.getDestination());
         if (queue == null) {
-            throw new IllegalStateException("Queue for " + key + " was removed before its consumer started");
+            throw new IllegalStateException("Queue for " + message.getGroup() + ":" + message.getDestination()
+                    + " was removed before its consumer started");
         }
-        log.info("Starting fanout consumer for group={} destination={}", key.group(), key.destination().path());
-
-        Future<?> handle = executor.submit(() -> {
-            try {
-                while (!closed.get()
-                        && !Thread.currentThread().isInterrupted()
-                        && !queue.isClosed()) {
-
-                    final List<Message> block = new ArrayList<>(maxMessageBlockSize);
-                    Message message;
-                    try {
-                        message = queue.dispatch(1, TimeUnit.SECONDS);
-                        if (message == null) {
-                            continue;
-                        }
-                        block.add(message);
-                        long bytes = message.getSize();
-
-                        while (block.size() < maxMessageBlockSize && bytes < maxMessageBlockBytes) {
-                            Message next = queue.dispatch(0, TimeUnit.NANOSECONDS);
-                            if (next == null) {
-                                break;
-                            }
-
-                            block.add(next);
-                            bytes += next.getSize();
-                        }
-
-                        exporter.export(key.group(), key.destination(), block)
-                                .toCompletableFuture()
-                                .get(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (Exception e) {
-                        Throwable cause = e;
-                        if (e instanceof ExecutionException execution) {
-                            Throwable nested = execution.getCause();
-                            if (nested != null) {
-                                cause = nested;
-                            }
-                        }
-                        if (cause instanceof TimeoutException) {
-                            log.warn("Export timed out after {} s. group={}, destination={}",
-                                    EXPORT_TIMEOUT_SECONDS,
-                                    key.group(), key.destination().path());
-                        } else {
-                            log.error("Unexpected error while dispatching message", e);
-                        }
-                        if (closed.get() || executor.isShutdown()) {
-                            break;
-                        }
-                    } finally {
-                        for (Message msg : block) {
-                            queue.complete(msg);
-                        }
-                    }
-                }
-            } finally {
-                consumers.computeIfPresent(key, (ignored, current) ->
-                        current.queue() == queue ? null : current);
-            }
-        });
-        return new Consumer(queue, handle);
-    }
-
-    /** Queue identity as seen by fanout: a destination inside one group. */
-    private record ConsumerKey(String group, Destination destination) {
-
-        @Override
-        public String toString() {
-            return group + ":" + destination;
-        }
-    }
-
-    /**
-     * A running consumer together with the queue instance it drains.
-     *
-     * <p>The queue is what makes a consumer replaceable. A key outlives the queue it named, so
-     * without the instance neither a delete nor a later message could tell a consumer that is
-     * still serving the current queue from one left over from a deleted queue.</p>
-     */
-    private record Consumer(DispatcherQueue queue, Future<?> handle) {
-
-        /** Interrupts the parked thread. */
-        void cancel() {
-            handle.cancel(true);
-        }
+        dispatcher.start(queue);
+        return chain.next(context);
     }
 }

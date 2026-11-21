@@ -35,11 +35,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>The gateway owns the executor and manages startup and shutdown. Its handlers do the dispatch
  * work: {@link RouteDispatchChainHandler} admits messages to destination queues, and
- * {@link FanoutDispatchChainHandler} manages destination consumers and fanout. Custom handlers
- * run between them.</p>
+ * {@link FanoutDispatchChainHandler} starts the {@link Dispatcher} on the queue a message went
+ * into. Custom handlers run between them.</p>
  *
- * <p>The fanout handler deletes queues and manages their consumers. Queue creation uses the
- * path finder directly.</p>
+ * <p>The dispatcher owns the queue consumers and delivers through the exporter. Queue creation
+ * uses the path finder directly, and queue deletion stops the queue's consumer first.</p>
  *
  * <pre>{@code
  * sparkDispatch(message)
@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * optional middle handlers (backup, metrics, ...)
  *      |
  *      v
- * FanoutDispatchChainHandler -> computeIfAbsent(destination, consume)
+ * FanoutDispatchChainHandler -> Dispatcher.start(queue)
  * }</pre>
  *
  * @author yun
@@ -66,6 +66,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
 
     private final ExecutorService executor;
     private final PathFinder pathFinder;
+    private final Dispatcher dispatcher;
     private final FanoutDispatchChainHandler fanoutHandler;
     private final AtomicBoolean closed = new AtomicBoolean();
     private DispatchHandlerChain handlerChain;
@@ -79,8 +80,8 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
                 executor,
                 exporter,
                 pathFinder,
-                FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_SIZE,
-                FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_BYTES
+                FanoutDispatcher.DEFAULT_MAX_MESSAGE_BLOCK_SIZE,
+                FanoutDispatcher.DEFAULT_MAX_MESSAGE_BLOCK_BYTES
         );
     }
 
@@ -93,8 +94,8 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     ) {
         this.executor = executor;
         this.pathFinder = pathFinder;
-        this.fanoutHandler = new FanoutDispatchChainHandler(
-                executor, exporter, pathFinder, maxMessageBlockSize, maxMessageBlockBytes);
+        this.dispatcher = new FanoutDispatcher(executor, exporter, maxMessageBlockSize, maxMessageBlockBytes);
+        this.fanoutHandler = new FanoutDispatchChainHandler(dispatcher, pathFinder);
         this.handlerChain = DispatchHandlerChain.chain(executor)
                 .add(new RouteDispatchChainHandler(pathFinder))
                 .add(fanoutHandler);
@@ -148,7 +149,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     }
 
     /**
-     * Deletes a dispatcher queue and detaches its consumer.
+     * Deletes a dispatcher queue and stops its consumer.
      *
      * <p>The queue is closed before it leaves the path finder, so a producer admitted in the
      * meantime is refused outright rather than filling a queue this call is about to drop.
@@ -166,8 +167,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             return DispatcherQueueDeleteResult.notEmpty(size);
         }
 
-        // While the queue is still open and registered, its consumer is unambiguously its own.
-        fanoutHandler.detach(queue);
+        dispatcher.stop(queue);
         queue.close();
 
         // Remove the queue this call looked up, never a replacement created since. The
@@ -233,7 +233,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            fanoutHandler.close();
+            dispatcher.close();
             executor.shutdown();
             try {
                 if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
