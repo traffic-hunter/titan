@@ -74,18 +74,18 @@ class DispatchChainHandlerChainTest {
         CountDownLatch exported = new CountDownLatch(1);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatchChainHandler handler = new FanoutDispatchChainHandler(
+            FanoutDispatcher dispatcher = new FanoutDispatcher(
                     executor,
-                    exporter(exported, message.getDestination()),
-                    pathFinder
+                    exporter(exported, message.getDestination())
             );
-            DispatchHandlerChain chain = new DispatchHandlerChain(List.of(handler));
+            DispatchHandlerChain chain = new DispatchHandlerChain(
+                    List.of(new FanoutDispatchChainHandler(dispatcher, pathFinder)));
 
             try {
                 chain.sparkDispatch(new DispatchContext(message)).join();
                 assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
             } finally {
-                handler.close();
+                dispatcher.close();
             }
         }
     }
@@ -176,12 +176,11 @@ class DispatchChainHandlerChainTest {
         };
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatchChainHandler handler = new FanoutDispatchChainHandler(executor, exporter, pathFinder, 8, 16_384);
+            FanoutDispatcher dispatcher = new FanoutDispatcher(executor, exporter, 8, 16_384);
             DispatcherQueue queue = pathFinder.getOrPut(destination);
             try {
-                Message first = numbered(destination, 0);
-                queue.enqueue(first);
-                handler.fanout(first.getGroup(), destination);
+                queue.enqueue(numbered(destination, 0));
+                dispatcher.start(queue);
                 assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
                 // The rest piles up behind the export that is still running.
                 for (int i = 1; i < total; i++) {
@@ -191,7 +190,7 @@ class DispatchChainHandlerChainTest {
 
                 assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
             } finally {
-                handler.close();
+                dispatcher.close();
             }
         }
 
@@ -204,7 +203,7 @@ class DispatchChainHandlerChainTest {
     @Test
     void fanout_consumer_exports_one_message_at_a_time_by_default() throws Exception {
         List<Integer> sizes = backlogBlockSizes(
-                (executor, exporter, pathFinder) -> new FanoutDispatchChainHandler(executor, exporter, pathFinder));
+                (executor, exporter) -> new FanoutDispatcher(executor, exporter));
 
         assertThat(sizes).hasSize(20).containsOnly(1);
     }
@@ -213,7 +212,7 @@ class DispatchChainHandlerChainTest {
     void fanout_consumer_ends_a_block_once_it_reaches_the_byte_limit() throws Exception {
         // Bodies are one or two bytes, so three bytes are reached after two or three messages.
         List<Integer> sizes = backlogBlockSizes(
-                (executor, exporter, pathFinder) -> new FanoutDispatchChainHandler(executor, exporter, pathFinder, 8, 3));
+                (executor, exporter) -> new FanoutDispatcher(executor, exporter, 8, 3));
 
         assertThat(sizes.subList(1, sizes.size())).allSatisfy(size -> assertThat(size).isBetween(1, 3));
         assertThat(sizes.get(1)).isEqualTo(3);
@@ -234,13 +233,12 @@ class DispatchChainHandlerChainTest {
                 .hasMessageContaining(option);
     }
 
-    private interface HandlerFactory {
-        FanoutDispatchChainHandler create(
-                java.util.concurrent.ExecutorService executor, DispatchExporter exporter, TriePathFinder pathFinder);
+    private interface DispatcherFactory {
+        FanoutDispatcher create(java.util.concurrent.ExecutorService executor, DispatchExporter exporter);
     }
 
     /** Sizes of the blocks a consumer exports when 19 messages pile up behind a first export. */
-    private static List<Integer> backlogBlockSizes(HandlerFactory factory) throws Exception {
+    private static List<Integer> backlogBlockSizes(DispatcherFactory factory) throws Exception {
         Destination destination = Destination.create("/queue/block-sizes");
         TriePathFinder pathFinder = new TriePathFinder();
         int total = 20;
@@ -273,12 +271,11 @@ class DispatchChainHandlerChainTest {
         };
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatchChainHandler handler = factory.create(executor, exporter, pathFinder);
+            FanoutDispatcher dispatcher = factory.create(executor, exporter);
             DispatcherQueue queue = pathFinder.getOrPut(destination);
             try {
-                Message first = numbered(destination, 0);
-                queue.enqueue(first);
-                handler.fanout(first.getGroup(), destination);
+                queue.enqueue(numbered(destination, 0));
+                dispatcher.start(queue);
                 assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
                 for (int i = 1; i < total; i++) {
                     queue.enqueue(numbered(destination, i));
@@ -287,7 +284,7 @@ class DispatchChainHandlerChainTest {
 
                 assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
             } finally {
-                handler.close();
+                dispatcher.close();
             }
         }
         return sizes;

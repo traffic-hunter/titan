@@ -74,13 +74,13 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
     ) {
         checkFanoutMode(protocolOptions);
         int maxMessageBlockSize = MAX_MESSAGE_BLOCK_SIZE.get(
-                protocolOptions, FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_SIZE);
+                protocolOptions, FanoutDispatcher.DEFAULT_MAX_MESSAGE_BLOCK_SIZE);
         if (maxMessageBlockSize < 1 || maxMessageBlockSize > MESSAGE_BLOCK_SIZE_LIMIT) {
             throw new IllegalStateException(MAX_MESSAGE_BLOCK_SIZE.name() + " must be between 1 and "
                     + MESSAGE_BLOCK_SIZE_LIMIT + ": " + maxMessageBlockSize);
         }
         int maxMessageBlockBytes = MAX_MESSAGE_BLOCK_BYTES.get(
-                protocolOptions, FanoutDispatchChainHandler.DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
+                protocolOptions, FanoutDispatcher.DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
         if (maxMessageBlockBytes < 1 || maxMessageBlockBytes > MESSAGE_BLOCK_BYTES_LIMIT) {
             throw new IllegalStateException(MAX_MESSAGE_BLOCK_BYTES.name() + " must be between 1 and "
                     + MESSAGE_BLOCK_BYTES_LIMIT + ": " + maxMessageBlockBytes);

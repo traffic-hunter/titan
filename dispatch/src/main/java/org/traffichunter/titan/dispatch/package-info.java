@@ -17,7 +17,7 @@
  * DispatcherQueue per Destination
  *        |
  *        v
- * FanoutDispatchChainHandler consumer task
+ * FanoutDispatcher consumer task
  *        |
  *        v
  * DispatchExporter (STOMP, TCP, ...)
