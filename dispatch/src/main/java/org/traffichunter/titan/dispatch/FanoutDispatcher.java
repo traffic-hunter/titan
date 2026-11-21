@@ -39,9 +39,12 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * the next one. Consumers are kept per queue instance, so a queue deleted and created again is
  * a new queue with a consumer of its own.</p>
  *
+ * <p>As a {@link DispatcherQueueListener} it starts a queue when the path finder creates it and
+ * stops it when the path finder removes it.</p>
+ *
  * @author yun
  */
-final class FanoutDispatcher implements Dispatcher {
+final class FanoutDispatcher implements Dispatcher, DispatcherQueueListener {
 
     private static final long EXPORT_TIMEOUT_SECONDS = 5;
     static final int DEFAULT_MAX_MESSAGE_BLOCK_SIZE = 1;
@@ -92,6 +95,16 @@ final class FanoutDispatcher implements Dispatcher {
     }
 
     @Override
+    public void queueCreated(DispatcherQueue queue) {
+        start(queue);
+    }
+
+    @Override
+    public void queueRemoved(DispatcherQueue queue) {
+        stop(queue);
+    }
+
+    @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
             consumers.values().forEach(consumer -> consumer.cancel(true));
@@ -136,7 +149,8 @@ final class FanoutDispatcher implements Dispatcher {
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
+                        // Nothing starts this consumer again, so it has to outlive an Error too.
                         Throwable cause = e;
                         if (e instanceof ExecutionException execution) {
                             Throwable nested = execution.getCause();

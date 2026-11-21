@@ -32,6 +32,7 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
 import org.traffichunter.titan.dispatch.DispatchGateway;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
+import org.traffichunter.titan.dispatch.DispatcherQueueListener;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -127,6 +128,8 @@ class GroupedStompFanoutIntegrationTest {
     @EnumSource(value = DispatchResult.class, names = "ACCEPTED", mode = EnumSource.Mode.EXCLUDE)
     @Timeout(20)
     void refused_send_receives_numeric_error_and_disconnects(DispatchResult expected) throws Exception {
+        // Without a consumer the queue keeps the state set up below.
+        registry.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create(DESTINATION);
         DispatcherQueue queue = gateway.createQueue(DestinationGroups.DEFAULT, destination,
                 expected == DispatchResult.TOO_LARGE ? 1 : 5);
@@ -157,6 +160,8 @@ class GroupedStompFanoutIntegrationTest {
     @Test
     @Timeout(20)
     void handler_failure_after_enqueue_is_not_reported_as_admission_refusal() throws Exception {
+        // Without a consumer the admitted message is still in the queue at the end.
+        registry.listen(DispatcherQueueListener.NOOP);
         gateway.chainHandler(chain -> chain.add((context, continuation) -> {
             throw new IllegalStateException("Handler failed after enqueue");
         }));

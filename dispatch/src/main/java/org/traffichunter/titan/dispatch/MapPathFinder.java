@@ -40,6 +40,7 @@ public class MapPathFinder implements PathFinder {
     private final Map<Destination, DispatcherQueue> map;
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
+    private volatile DispatcherQueueListener listener = DispatcherQueueListener.NOOP;
 
     public MapPathFinder(final int initialCapacity) {
         this(initialCapacity, DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
@@ -81,13 +82,13 @@ public class MapPathFinder implements PathFinder {
     public DispatcherQueue getOrPut(final Destination destination) {
         return map.computeIfAbsent(
                 destination,
-                key -> DispatcherQueue.create(key, defaultMaxPendingBytes, defaultResumePendingBytes)
+                key -> created(DispatcherQueue.create(key, defaultMaxPendingBytes, defaultResumePendingBytes))
         );
     }
 
     @Override
     public DispatcherQueue getOrPut(final Destination destination, long maxPendingBytes) {
-        return map.computeIfAbsent(destination, key -> DispatcherQueue.create(key, maxPendingBytes));
+        return map.computeIfAbsent(destination, key -> created(DispatcherQueue.create(key, maxPendingBytes)));
     }
 
     @Override
@@ -115,6 +116,7 @@ public class MapPathFinder implements PathFinder {
     public void remove(Destination destination) {
         DispatcherQueue queue = map.remove(destination);
         if (queue != null) {
+            listener.queueRemoved(queue);
             DispatcherQueueMbeans.unregister(queue);
         }
     }
@@ -124,8 +126,20 @@ public class MapPathFinder implements PathFinder {
         if (!map.remove(expected.route(), expected)) {
             return false;
         }
+        listener.queueRemoved(expected);
         DispatcherQueueMbeans.unregister(expected);
         return true;
+    }
+
+    @Override
+    public void listen(DispatcherQueueListener listener) {
+        this.listener = listener;
+        map.values().forEach(listener::queueCreated);
+    }
+
+    private DispatcherQueue created(DispatcherQueue queue) {
+        listener.queueCreated(queue);
+        return queue;
     }
 
     private boolean isDescendant(String path, String prefix) {
