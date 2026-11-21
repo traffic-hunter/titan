@@ -145,6 +145,8 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        // The test takes messages off the queue itself, so the gateway's consumer is left out.
+        pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/pause-withholds");
         DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
         Message queued = message(destination);
@@ -172,6 +174,8 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        // The test takes messages off the queue itself, so the gateway's consumer is left out.
+        pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/pressure-drains");
         Message first = message(destination);
         DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
@@ -194,6 +198,8 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        // The test takes messages off the queue itself, so the gateway's consumer is left out.
+        pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/manual-resume-under-pressure");
         // Fill the queue exactly so the next message trips the pressure pause,
         // then stack a manual pause on top of it.
@@ -339,6 +345,92 @@ class DispatchGatewayQueueManagementTest {
         assertThat(queue.getPendingBytes()).isZero();
         assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
         gateway.close();
+    }
+
+    @Test
+    void created_queue_is_delivered_before_any_message_goes_through_the_gateway() throws Exception {
+        BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+                heldExporter(exports),
+                new TriePathFinder()
+        );
+        Destination destination = Destination.create("/queue/delivered-from-creation");
+
+        try {
+            DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+            queue.enqueue(message(destination));
+
+            CompletableFuture<@Nullable Void> export = exports.poll(5, TimeUnit.SECONDS);
+            assertThat(export).isNotNull();
+            export.complete(null);
+        } finally {
+            gateway.close();
+        }
+    }
+
+    @Test
+    void removing_a_queue_from_the_path_finder_stops_its_consumer() throws Exception {
+        BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        TriePathFinder pathFinder = new TriePathFinder();
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+                heldExporter(exports),
+                pathFinder
+        );
+        Destination destination = Destination.create("/queue/removed-from-path-finder");
+        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+
+        try {
+            gateway.sparkDispatch(message(destination)).get(5, TimeUnit.SECONDS);
+            CompletableFuture<@Nullable Void> firstExport = exports.poll(5, TimeUnit.SECONDS);
+            assertThat(firstExport).isNotNull();
+
+            pathFinder.remove(destination);
+
+            // The interrupt ends the wait well before the export timeout would.
+            await().atMost(2, TimeUnit.SECONDS).until(() -> queue.getPendingBytes() == 0);
+            assertThat(firstExport).isNotDone();
+
+            // The queue itself is still open, so only a missing consumer keeps this one in it.
+            queue.enqueue(message(destination));
+            assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
+        } finally {
+            gateway.close();
+        }
+    }
+
+    @Test
+    void consumer_keeps_delivering_after_the_exporter_throws_an_error() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        CountDownLatch secondExported = new CountDownLatch(1);
+        DispatchExporter failingOnce = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "failing-once";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination destination, Buffer payload) {
+                if (calls.incrementAndGet() == 1) {
+                    throw new Error("export failed");
+                }
+                secondExported.countDown();
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+                failingOnce,
+                new TriePathFinder()
+        );
+        Destination destination = Destination.create("/queue/exporter-error");
+
+        try {
+            gateway.sparkDispatch(message(destination)).get(5, TimeUnit.SECONDS);
+            gateway.sparkDispatch(message(destination)).get(5, TimeUnit.SECONDS);
+
+            assertThat(secondExported.await(5, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            gateway.close();
+        }
     }
 
     @Test

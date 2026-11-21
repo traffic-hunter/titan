@@ -49,10 +49,16 @@ final class PathFinderDestinationGroup implements DestinationGroup {
     private final ReadWriteLock lifecycle = new ReentrantReadWriteLock();
     private volatile boolean removed;
 
-    PathFinderDestinationGroup(String name, long defaultMaxPendingBytes, long defaultResumePendingBytes) {
+    PathFinderDestinationGroup(
+            String name,
+            long defaultMaxPendingBytes,
+            long defaultResumePendingBytes,
+            DispatcherQueueListener listener
+    ) {
         this.id = IdGenerator.uuid();
         this.name = name;
         this.pathFinder = new TriePathFinder(name, defaultMaxPendingBytes, defaultResumePendingBytes);
+        this.pathFinder.listen(listener);
     }
 
     @Override
@@ -138,6 +144,11 @@ final class PathFinderDestinationGroup implements DestinationGroup {
      *
      * @return {@code false} when the group still has queues, or was already removed
      */
+    @Override
+    public void listen(DispatcherQueueListener listener) {
+        pathFinder.listen(listener);
+    }
+
     boolean tryRemove() {
         lifecycle.writeLock().lock();
         try {

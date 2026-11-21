@@ -33,24 +33,22 @@ sequenceDiagram
     P->>H: SEND destination=/orders
     H->>G: publish(Message{/orders})
     G->>D: getOrPut(/orders)
+    D->>C: start the consumer when the queue is created
     D-->>G: exact queue for /orders
     G->>Q: enqueue(message)
-    G->>C: ensure one consumer for /orders
     C->>Q: dispatch with timeout
     Q-->>C: next FIFO message
     C->>E: export(/orders, payload)
     E->>E: find subscriptions equal to /orders
 ```
 
-The implementation divides this into two handler-chain stages:
+The gateway's handler chain ends at the queue: `RouteDispatchChainHandler`
+invokes `DispatchGateway.route(message)`. The consumer is not part of the
+chain. `FanoutDispatcher` starts it when the path finder creates the queue and
+stops it when the queue is removed.
 
-1. `RouteDispatchChainHandler` invokes `DispatchGateway.route(message)`.
-2. `FanoutDispatchChainHandler` ensures that the destination consumer is
-   running.
-
-Custom handlers are inserted between those stages. This allows backup,
-validation, or metrics work after routing and before consumer startup without
-putting protocol logic inside the queue.
+Custom handlers run after routing. This allows backup, validation, or metrics
+work without putting protocol logic inside the queue.
 
 ## How a queue is selected
 

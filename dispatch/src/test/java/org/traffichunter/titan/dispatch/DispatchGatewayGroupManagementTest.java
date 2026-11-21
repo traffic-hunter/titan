@@ -80,7 +80,8 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void a_purge_empties_the_named_group_only() {
-        // No consumer is attached to a queue made this way, so the messages simply stay.
+        // Without a consumer the messages simply stay.
+        registry.listen(DispatcherQueueListener.NOOP);
         DispatcherQueue market = gateway.createQueue("market", DESTINATION, 4096);
         DispatcherQueue plain = gateway.createQueue("default", DESTINATION, 4096);
         market.enqueue(message("market"));

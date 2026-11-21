@@ -45,6 +45,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
 import org.traffichunter.titan.dispatch.DispatchGateway;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
+import org.traffichunter.titan.dispatch.DispatcherQueueListener;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -255,6 +256,8 @@ class GroupedStompClientIntegrationTest {
     @Timeout(value = 30, unit = SECONDS)
     void queue_refusal_fails_the_send_future_and_preserves_error_callback(DispatchResult expected) throws Exception {
         int port = startDispatchingServer("");
+        // Without a consumer the queue keeps the state set up below.
+        registry.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create(DESTINATION);
         DispatcherQueue queue = gateway.createQueue("market", destination,
                 expected == DispatchResult.TOO_LARGE ? 1 : 5);
@@ -374,6 +377,8 @@ class GroupedStompClientIntegrationTest {
     @Timeout(value = 30, unit = SECONDS)
     void failure_after_enqueue_is_not_exposed_as_a_queue_refusal() throws Exception {
         int port = startDispatchingServer("");
+        // Without a consumer the admitted message is still in the queue at the end.
+        registry.listen(DispatcherQueueListener.NOOP);
         gateway.chainHandler(chain -> chain.add((context, continuation) -> {
             throw new IllegalStateException("Handler failed after enqueue");
         }));

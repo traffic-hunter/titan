@@ -33,13 +33,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Base {@link DispatchGateway} for platform and virtual-thread executors.
  *
- * <p>The gateway owns the executor and manages startup and shutdown. Its handlers do the dispatch
- * work: {@link RouteDispatchChainHandler} admits messages to destination queues, and
- * {@link FanoutDispatchChainHandler} starts the {@link Dispatcher} on the queue a message went
- * into. Custom handlers run between them.</p>
+ * <p>The gateway owns the executor and manages startup and shutdown. Its handler chain ends at
+ * the queue: {@link RouteDispatchChainHandler} admits messages to destination queues, and custom
+ * handlers run after it.</p>
  *
- * <p>The dispatcher owns the queue consumers and delivers through the exporter. Queue creation
- * uses the path finder directly, and queue deletion stops the queue's consumer first.</p>
+ * <p>The {@link Dispatcher} owns the queue consumers and delivers through the exporter. It
+ * listens to the path finder, so a queue is delivered from the moment it is created until it
+ * is removed.</p>
  *
  * <pre>{@code
  * sparkDispatch(message)
@@ -51,10 +51,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * RouteDispatchChainHandler -> DispatcherQueue(destination).enqueue(message)
  *      |
  *      v
- * optional middle handlers (backup, metrics, ...)
- *      |
- *      v
- * FanoutDispatchChainHandler -> Dispatcher.start(queue)
+ * optional handlers (backup, metrics, ...)
+ *
+ * PathFinder creates a queue -> Dispatcher.start(queue) -> DispatchExporter
  * }</pre>
  *
  * @author yun
@@ -67,7 +66,6 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     private final ExecutorService executor;
     private final PathFinder pathFinder;
     private final Dispatcher dispatcher;
-    private final FanoutDispatchChainHandler fanoutHandler;
     private final AtomicBoolean closed = new AtomicBoolean();
     private DispatchHandlerChain handlerChain;
 
@@ -94,11 +92,12 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     ) {
         this.executor = executor;
         this.pathFinder = pathFinder;
-        this.dispatcher = new FanoutDispatcher(executor, exporter, maxMessageBlockSize, maxMessageBlockBytes);
-        this.fanoutHandler = new FanoutDispatchChainHandler(dispatcher, pathFinder);
+        FanoutDispatcher fanoutDispatcher =
+                new FanoutDispatcher(executor, exporter, maxMessageBlockSize, maxMessageBlockBytes);
+        this.dispatcher = fanoutDispatcher;
+        pathFinder.listen(fanoutDispatcher);
         this.handlerChain = DispatchHandlerChain.chain(executor)
-                .add(new RouteDispatchChainHandler(pathFinder))
-                .add(fanoutHandler);
+                .add(new RouteDispatchChainHandler(pathFinder));
     }
 
     @Override
@@ -106,7 +105,6 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         DispatchHandlerChain chain = DispatchHandlerChain.chain(executor);
         chain.add(new RouteDispatchChainHandler(pathFinder));
         chainHandler.handle(chain);
-        chain.add(fanoutHandler);
         this.handlerChain = chain;
         return this;
     }
@@ -149,7 +147,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     }
 
     /**
-     * Deletes a dispatcher queue and stops its consumer.
+     * Deletes a dispatcher queue. Its consumer stops when the queue leaves the path finder.
      *
      * <p>The queue is closed before it leaves the path finder, so a producer admitted in the
      * meantime is refused outright rather than filling a queue this call is about to drop.
@@ -167,7 +165,6 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             return DispatcherQueueDeleteResult.notEmpty(size);
         }
 
-        dispatcher.stop(queue);
         queue.close();
 
         // Remove the queue this call looked up, never a replacement created since. The
