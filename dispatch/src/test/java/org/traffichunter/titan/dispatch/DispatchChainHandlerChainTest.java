@@ -230,6 +230,134 @@ class DispatchChainHandlerChainTest {
         assertThat(sizes.get(1)).isEqualTo(3);
     }
 
+    @Test
+    void fanout_dispatcher_runs_its_handlers_on_each_message_before_the_exporter() throws Exception {
+        Destination destination = Destination.create("/queue/handler-order");
+        TriePathFinder pathFinder = new TriePathFinder();
+        List<String> calls = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CountDownLatch exported = new CountDownLatch(2);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(
+                recordingExporter(block -> calls.add("export:" + block), exported), pathFinder);
+        dispatcher.chainHandler(chain -> chain.add((context, next) -> {
+            calls.add("handler:" + new String(context.getMessage().getBody()));
+            return next.next(context);
+        }));
+
+        DispatcherQueue queue = pathFinder.getOrPut(destination);
+        try {
+            queue.enqueue(numbered(destination, 0));
+            queue.enqueue(numbered(destination, 1));
+            assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
+        }
+
+        assertThat(calls).containsExactly("handler:0", "export:[0]", "handler:1", "export:[1]");
+    }
+
+    @Test
+    void fanout_dispatcher_drops_a_message_its_handler_stops_and_delivers_the_next() throws Exception {
+        Destination destination = Destination.create("/queue/handler-stop");
+        TriePathFinder pathFinder = new TriePathFinder();
+        List<List<String>> blocks = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CountDownLatch exported = new CountDownLatch(1);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(blocks::add, exported), pathFinder);
+        dispatcher.chainHandler(chain -> chain.add((context, next) ->
+                "0".equals(new String(context.getMessage().getBody())) ? next : next.next(context)));
+
+        // Room for one message, so the second is only admitted once the first is completed.
+        DispatcherQueue queue = pathFinder.getOrPut(destination, 1);
+        try {
+            assertThat(queue.enqueue(numbered(destination, 0))).isEqualTo(DispatchResult.ACCEPTED);
+            org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(1)).untilAsserted(() ->
+                    assertThat(queue.enqueue(numbered(destination, 1))).isEqualTo(DispatchResult.ACCEPTED));
+            assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
+        }
+
+        assertThat(blocks).containsExactly(List.of("1"));
+    }
+
+    @Test
+    void fanout_dispatcher_exports_the_rest_of_a_block_when_its_handler_stops_one_message() throws Exception {
+        Destination destination = Destination.create("/queue/handler-block");
+        TriePathFinder pathFinder = new TriePathFinder();
+        List<List<String>> blocks = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CompletableFuture<@Nullable Void> firstExport = new CompletableFuture<>();
+        CountDownLatch firstTaken = new CountDownLatch(1);
+        CountDownLatch exported = new CountDownLatch(2);
+        DispatchExporter exporter = new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, Buffer payload) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, List<Message> block) {
+                boolean first = blocks.isEmpty();
+                blocks.add(block.stream().map(message -> new String(message.getBody())).toList());
+                exported.countDown();
+                if (first) {
+                    firstTaken.countDown();
+                    return firstExport;
+                }
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+        FanoutDispatcher dispatcher = new FanoutDispatcher(exporter, pathFinder, 8, 16_384);
+        dispatcher.chainHandler(chain -> chain.add((context, next) ->
+                "2".equals(new String(context.getMessage().getBody())) ? next : next.next(context)));
+
+        DispatcherQueue queue = pathFinder.getOrPut(destination);
+        try {
+            queue.enqueue(numbered(destination, 0));
+            assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
+            // The next three pile up behind the export that is still running and leave as one block.
+            for (int i = 1; i <= 3; i++) {
+                queue.enqueue(numbered(destination, i));
+            }
+            firstExport.complete(null);
+
+            assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
+        }
+
+        assertThat(blocks).containsExactly(List.of("0"), List.of("1", "3"));
+    }
+
+    @Test
+    void fanout_dispatcher_keeps_delivering_after_its_handler_throws() throws Exception {
+        Destination destination = Destination.create("/queue/handler-throws");
+        TriePathFinder pathFinder = new TriePathFinder();
+        List<List<String>> blocks = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CountDownLatch exported = new CountDownLatch(1);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(blocks::add, exported), pathFinder);
+        dispatcher.chainHandler(chain -> chain.add((context, next) -> {
+            if ("0".equals(new String(context.getMessage().getBody()))) {
+                throw new IllegalStateException("handler failed");
+            }
+            return next.next(context);
+        }));
+
+        DispatcherQueue queue = pathFinder.getOrPut(destination);
+        try {
+            queue.enqueue(numbered(destination, 0));
+            queue.enqueue(numbered(destination, 1));
+            assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
+        }
+
+        assertThat(blocks).containsExactly(List.of("1"));
+    }
+
     @ParameterizedTest
     @CsvSource({
             "max-message-block-size, 0",
@@ -379,6 +507,29 @@ class DispatchChainHandlerChainTest {
                 .producerId("test")
                 .body(String.valueOf(number).getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .build();
+    }
+
+    /** Reports the bodies of every exported block and counts the block down. */
+    private static DispatchExporter recordingExporter(
+            java.util.function.Consumer<List<String>> blocks, CountDownLatch exported) {
+        return new DispatchExporter() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, Buffer payload) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletionStage<@Nullable Void> export(String group, Destination target, List<Message> block) {
+                blocks.accept(block.stream().map(message -> new String(message.getBody())).toList());
+                exported.countDown();
+                return CompletableFuture.completedFuture(null);
+            }
+        };
     }
 
     private static DispatchExporter exporter(CountDownLatch exported, Destination expected) {

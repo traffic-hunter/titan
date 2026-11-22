@@ -134,6 +134,7 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
         public DispatchChain next(DispatchContext context) {
             Node chain = next;
             if (chain == null) {
+                context.pass();
                 return this;
             }
 
