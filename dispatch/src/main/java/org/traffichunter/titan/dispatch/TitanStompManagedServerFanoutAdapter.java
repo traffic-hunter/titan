@@ -54,22 +54,22 @@ public final class TitanStompManagedServerFanoutAdapter implements ManagedServer
             String transport,
             Map<String, String> protocolOptions,
             ManagedServer managedServer,
-            Function<DispatchExporter, DispatchGateway> gatewayFactory
+            Function<DispatchExporter, Gateway> gatewayFactory
     ) {
         StompManagedServer stompManagedServer = (StompManagedServer) managedServer;
-        DispatchGateway dispatchGateway = gatewayFactory.apply(
+        Gateway gateway = gatewayFactory.apply(
                 new StompDispatchExporter(stompManagedServer.server().connection())
         );
         SHUTDOWN_HOOK.addShutdownCallback(GlobalShutdownHook.DISPATCH_ORDER, () -> {
             try {
-                dispatchGateway.close();
+                gateway.close();
             } catch (Exception e) {
                 log.warn("Failed to close fanout gateway", e);
             }
         });
 
         stompManagedServer.server().onStomp(handler ->
-                handler.sendHandler(new StompSendToFanoutHandler(dispatchGateway))
+                handler.sendHandler(new StompSendToFanoutHandler(gateway))
         );
 
         log.info("Fanout adapter installed for server={}", managedServer.name());

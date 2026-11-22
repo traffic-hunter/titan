@@ -79,7 +79,7 @@ Use this path for tests, experiments, or applications that need direct control
 over the server instance.
 
 > The embedding API is not part of Titan's stable API. `StompServer`,
-> `EventLoopGroups`, `DispatchGateway`, and the STOMP handlers can change in any
+> `EventLoopGroups`, `Gateway`, and the STOMP handlers can change in any
 > release. Use the bootstrap path above for production servers.
 
 ```java
@@ -87,7 +87,7 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
-import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -103,19 +103,19 @@ public class EmbeddedStompServerExample {
                         .build()
         );
 
-        DispatchGateway dispatchGateway = DispatchGateway.of(
+        Gateway gateway = Gateway.of(
                 new StompDispatchExporter(server.connection())
         );
 
         try {
             server
                     .onStomp(handler -> handler
-                            .sendHandler(new StompSendToFanoutHandler(dispatchGateway)))
+                            .sendHandler(new StompSendToFanoutHandler(gateway)))
                     .start()
                     .listen("0.0.0.0", 61613)
                     .get(30, TimeUnit.SECONDS);
         } catch (Exception e) {
-            dispatchGateway.close();
+            gateway.close();
             if (server.isStart()) {
                 server.shutdown(30, TimeUnit.SECONDS);
             }

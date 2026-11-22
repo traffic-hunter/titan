@@ -23,7 +23,7 @@ workers, and subscription registry are package-private. They can change without
 adding transport-specific branches to application code.
 
 Server embedding and dispatch extension are not part of the stable API.
-`EventLoopGroups`, `StompServer`, `StompServerOption`, `DispatchGateway`, the
+`EventLoopGroups`, `StompServer`, `StompServerOption`, `Gateway`, the
 STOMP handlers, and the engine SPI can change in any release, including 1.x
 releases. The supported way to run a server is `titan-env.yml`, started through
 `TitanBootstrap.run(String)`, the standalone JAR, or the container image.

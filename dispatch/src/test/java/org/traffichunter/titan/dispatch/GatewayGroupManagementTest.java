@@ -28,14 +28,14 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * Covers queue management across destination groups: a change names one group and must
  * leave the queues of every other group, including the default one, untouched.
  */
-class DispatchGatewayGroupManagementTest {
+class GatewayGroupManagementTest {
 
     private static final Destination DESTINATION = Destination.create("/queue/group-management");
 
     private final DestinationGroupRegistry registry = new DestinationGroupRegistry();
     private final Map<String, Integer> exported = new ConcurrentHashMap<>();
-    private final VirtualThreadExecutorDispatchGateway gateway =
-            new VirtualThreadExecutorDispatchGateway(recordingExporter(exported), registry);
+    private final VirtualThreadExecutorGateway gateway =
+            new VirtualThreadExecutorGateway(recordingExporter(exported), registry);
     private final DispatcherQueueManager manager = DispatcherQueueManager.of(registry);
 
     @AfterEach
@@ -187,7 +187,7 @@ class DispatchGatewayGroupManagementTest {
         CountDownLatch removed = new CountDownLatch(1);
         CountDownLatch resumeDelete = new CountDownLatch(1);
         PathFinder hookedPathFinder = pauseAfterRemove(registry, removed, resumeDelete);
-        VirtualThreadExecutorDispatchGateway hooked = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway hooked = new VirtualThreadExecutorGateway(
                 recordingExporter(exported),
                 hookedPathFinder
         );

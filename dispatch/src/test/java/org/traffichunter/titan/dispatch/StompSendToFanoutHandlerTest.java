@@ -37,14 +37,14 @@ import org.traffichunter.titan.core.util.concurrent.Promise;
  */
 class StompSendToFanoutHandlerTest {
 
-    private DispatchGateway gateway;
+    private Gateway gateway;
     private StompServerHandlerContext context;
     private StompClientChannel connection;
     private StompSendToFanoutHandler handler;
 
     @BeforeEach
     void setUp() {
-        gateway = mock(DispatchGateway.class);
+        gateway = mock(Gateway.class);
         when(gateway.sparkDispatch(any(Message.class))).thenReturn(CompletableFuture.completedFuture(null));
         StompServerChannel server = mock(StompServerChannel.class);
         when(server.option()).thenReturn(StompServerOption.builder().build());

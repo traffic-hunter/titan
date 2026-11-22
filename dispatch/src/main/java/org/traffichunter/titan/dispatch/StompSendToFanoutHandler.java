@@ -40,7 +40,7 @@ import static org.traffichunter.titan.core.codec.stomp.StompFrame.errorFrame;
  *
  * <p>Validates the required destination header, reads the optional group header,
  * converts the frame body to a Titan {@link Message}, and passes it to
- * {@link DispatchGateway} for routing. Exporters handle protocol-specific writes
+ * {@link Gateway} for routing. Exporters handle protocol-specific writes
  * to subscribers.</p>
  *
  * <p>Confirmed queue refusals use their numeric code in the ERROR message header. Errors
@@ -51,10 +51,10 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
 
     private static final Logger log = LoggerFactory.getLogger(StompSendToFanoutHandler.class);
 
-    private final DispatchGateway dispatchGateway;
+    private final Gateway gateway;
 
-    public StompSendToFanoutHandler(DispatchGateway dispatchGateway) {
-        this.dispatchGateway = dispatchGateway;
+    public StompSendToFanoutHandler(Gateway gateway) {
+        this.gateway = gateway;
     }
 
     @Override
@@ -94,7 +94,7 @@ public final class StompSendToFanoutHandler implements StompServerCommandHandler
 
         CompletableFuture<@Nullable Void> dispatchResult;
         try {
-            dispatchResult = dispatchGateway.sparkDispatch(message);
+            dispatchResult = gateway.sparkDispatch(message);
         } catch (Exception error) {
             dispatchResult = CompletableFuture.failedFuture(error);
         }

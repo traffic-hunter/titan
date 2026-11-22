@@ -26,12 +26,12 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
-class DispatchGatewayQueueManagementTest {
+class GatewayQueueManagementTest {
 
     @Test
     void delete_queue_rejects_non_empty_queue_without_force() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -50,7 +50,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void delete_queue_with_force_removes_queue_and_allows_auto_create_later() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -75,7 +75,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void spark_dispatch_runs_custom_handler_between_route_and_fanout() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -126,7 +126,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void pause_queue_marks_queue_paused() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -144,7 +144,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void paused_queue_withholds_queued_messages_from_consumers() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -174,7 +174,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void pressure_paused_queue_still_lets_consumers_drain() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -199,7 +199,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void manual_resume_wakes_consumer_parked_while_pressure_pause_is_active() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -250,7 +250,7 @@ class DispatchGatewayQueueManagementTest {
     void consumer_holds_the_message_in_the_queue_until_the_export_completes() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 heldExporter(exports),
                 pathFinder
         );
@@ -298,7 +298,7 @@ class DispatchGatewayQueueManagementTest {
             }
         };
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 stalledExporter,
                 pathFinder
         );
@@ -330,7 +330,7 @@ class DispatchGatewayQueueManagementTest {
     void force_delete_stops_a_consumer_waiting_on_an_export() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 heldExporter(exports),
                 pathFinder
         );
@@ -362,7 +362,7 @@ class DispatchGatewayQueueManagementTest {
     void created_queue_is_delivered_before_any_message_goes_through_the_gateway() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 heldExporter(exports),
                 pathFinder
         );
@@ -385,7 +385,7 @@ class DispatchGatewayQueueManagementTest {
     void removing_a_queue_from_the_path_finder_stops_its_consumer() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 heldExporter(exports),
                 pathFinder
         );
@@ -431,7 +431,7 @@ class DispatchGatewayQueueManagementTest {
                 return CompletableFuture.completedFuture(null);
             }
         };
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 failingOnce,
                 new TriePathFinder()
         );
@@ -451,7 +451,7 @@ class DispatchGatewayQueueManagementTest {
     @Timeout(5)
     void paused_queue_refuses_producers_until_resumed() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -475,7 +475,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void pause_queue_is_idempotent() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -494,7 +494,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void resume_queue_clears_manual_pause() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -513,7 +513,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void resume_queue_is_idempotent_on_running_queue() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -531,7 +531,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void resume_queue_keeps_pressure_pause_while_queue_is_over_limit() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -555,7 +555,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void purge_queue_keeps_queue_and_empties_pending_messages() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -576,7 +576,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void queue_state_actions_return_false_for_unknown_queue() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );
@@ -604,7 +604,7 @@ class DispatchGatewayQueueManagementTest {
     void spark_dispatch_with_group_routes_to_group_queue() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 recordingExporter(exported),
                 registry
         );
@@ -624,7 +624,7 @@ class DispatchGatewayQueueManagementTest {
     void same_destination_in_two_groups_gets_two_consumers() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 recordingExporter(exported),
                 registry
         );
@@ -645,7 +645,7 @@ class DispatchGatewayQueueManagementTest {
     void message_without_group_uses_default_group() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 recordingExporter(exported),
                 registry
         );
@@ -698,7 +698,7 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void deleted_queue_refuses_messages_from_a_producer_holding_it() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
                 noopExporter(),
                 pathFinder
         );

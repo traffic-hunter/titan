@@ -30,7 +30,7 @@ import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
-import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.DispatcherQueueListener;
 import org.traffichunter.titan.dispatch.DispatcherQueueManager;
@@ -49,7 +49,7 @@ class GroupedStompFanoutIntegrationTest {
 
     private final List<RawStompClient> clients = new ArrayList<>();
     private StompServer server;
-    private DispatchGateway gateway;
+    private Gateway gateway;
     private DestinationGroupRegistry registry;
     private int port;
 
@@ -57,7 +57,7 @@ class GroupedStompFanoutIntegrationTest {
     void startServer() throws Exception {
         registry = new DestinationGroupRegistry();
         server = StompServer.open(EventLoopGroups.singleGroup(), StompServerOption.builder().build());
-        gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), registry);
+        gateway = Gateway.of(new StompDispatchExporter(server.connection()), registry);
         server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(gateway)));
         server.start();
         server.listen("localhost", 0).get(5, TimeUnit.SECONDS);

@@ -32,7 +32,7 @@ import org.traffichunter.titan.core.util.OptionKey;
  * StompServerFanoutLauncher.apply(...)
  *      |
  *      v
- * SEND handler -> DispatchGateway -> StompDispatchExporter
+ * SEND handler -> Gateway -> StompDispatchExporter
  * }</pre>
  */
 @SuppressWarnings("unused")
@@ -106,7 +106,7 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                             ? queue.resumePendingBytes()
                             : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
                     PathFinder pathFinder = PathFinder.getDefault(maxPendingBytes, resumePendingBytes);
-                    DispatchGateway gateway = DispatchGateway.of(
+                    Gateway gateway = Gateway.of(
                             dispatchExporter,
                             pathFinder,
                             maxMessageBlockSize,

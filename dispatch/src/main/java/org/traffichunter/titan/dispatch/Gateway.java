@@ -36,27 +36,27 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  *
  * @author yungwang-o
  */
-public interface DispatchGateway extends Closeable {
+public interface Gateway extends Closeable {
 
-    static DispatchGateway of(DispatchExporter exporter) {
-        return new VirtualThreadExecutorDispatchGateway(exporter);
+    static Gateway of(DispatchExporter exporter) {
+        return new VirtualThreadExecutorGateway(exporter);
     }
 
-    static DispatchGateway of(DispatchExporter exporter, PathFinder pathFinder) {
-        return new VirtualThreadExecutorDispatchGateway(exporter, pathFinder);
+    static Gateway of(DispatchExporter exporter, PathFinder pathFinder) {
+        return new VirtualThreadExecutorGateway(exporter, pathFinder);
     }
 
     /**
      * @param maxMessageBlockSize  most messages a destination consumer takes from its queue at once
      * @param maxMessageBlockBytes body bytes after which the consumer stops adding to a block
      */
-    static DispatchGateway of(
+    static Gateway of(
             DispatchExporter exporter,
             PathFinder pathFinder,
             int maxMessageBlockSize,
             int maxMessageBlockBytes
     ) {
-        return new VirtualThreadExecutorDispatchGateway(exporter, pathFinder, maxMessageBlockSize, maxMessageBlockBytes);
+        return new VirtualThreadExecutorGateway(exporter, pathFinder, maxMessageBlockSize, maxMessageBlockBytes);
     }
 
     /**
@@ -72,7 +72,7 @@ public interface DispatchGateway extends Closeable {
      * @return this gateway
      */
     @CanIgnoreReturnValue
-    DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler);
+    Gateway chainHandler(Handler<DispatchHandlerChain> chainHandler);
 
     /**
      * Sparks one message through the configured handler chain.

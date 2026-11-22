@@ -11,7 +11,7 @@
  * StompSendToFanoutHandler
  *        |
  *        v
- * DispatchGateway.sparkDispatch(message)
+ * Gateway.sparkDispatch(message)
  *        |
  *        v
  * DispatcherQueue per Destination
@@ -26,7 +26,7 @@
  * subscribed clients
  * }</pre>
  *
- * <p>{@link org.traffichunter.titan.dispatch.DispatchGateway} starts the dispatch chain,
+ * <p>{@link org.traffichunter.titan.dispatch.Gateway} starts the dispatch chain,
  * {@link org.traffichunter.titan.dispatch.PathFinder} resolves destination queues, and exporter
  * implementations own protocol-specific delivery. This keeps message routing independent from
  * the protocol used to write the payload to connected clients.</p>
