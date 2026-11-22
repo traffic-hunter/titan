@@ -29,6 +29,7 @@ import org.traffichunter.titan.core.message.Message;
 public class DispatchContext {
 
     private final Message message;
+    private boolean passed;
 
     public DispatchContext(Message message) {
         this.message = message;
@@ -36,5 +37,14 @@ public class DispatchContext {
 
     public Message getMessage() {
         return message;
+    }
+
+    /** True once the last handler of the chain has let the message through. */
+    boolean isPassed() {
+        return passed;
+    }
+
+    void pass() {
+        this.passed = true;
     }
 }

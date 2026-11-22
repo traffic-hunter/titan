@@ -50,6 +50,11 @@ stops it when the queue is removed.
 Custom handlers run after routing. This allows backup, validation, or metrics
 work without putting protocol logic inside the queue.
 
+`FanoutDispatcher` has a handler chain of its own, set with
+`dispatcher.chainHandler(...)`. Every message the consumer takes from a queue
+goes through it before the exporter is called. A message a handler does not
+pass on, or fails on, is dropped: the queue completes it and it is not exported.
+
 ## How a queue is selected
 
 `Gateway.route` does not search for the nearest path, a topic pattern,

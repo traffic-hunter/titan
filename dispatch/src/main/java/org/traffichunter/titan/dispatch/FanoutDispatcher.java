@@ -18,6 +18,7 @@ package org.traffichunter.titan.dispatch;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -30,15 +31,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
+import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
  * Delivers each queue to the subscribers of its destination through a {@link DispatchExporter}.
  *
  * <p>Every started queue gets one long-lived consumer task. The task takes messages off the
- * queue in blocks, hands each block to the exporter and waits for that export before it takes
- * the next one. Consumers are kept per queue instance, so a queue deleted and created again is
- * a new queue with a consumer of its own.</p>
+ * queue in blocks, runs each message through the handler chain, hands the ones that passed to
+ * the exporter and waits for that export before it takes the next block. Consumers are kept
+ * per queue instance, so a queue deleted and created again is a new queue with a consumer of
+ * its own.</p>
  *
  * <p>It listens to the path finder it is given, so a queue is started when the path finder
  * creates it and stopped when the path finder removes it. The consumer tasks run on virtual
@@ -61,6 +64,7 @@ public final class FanoutDispatcher implements Dispatcher, DispatcherQueueListen
     private final int maxMessageBlockSize;
     private final int maxMessageBlockBytes;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private volatile DispatchHandlerChain handlerChain = DispatchHandlerChain.chain();
 
     public FanoutDispatcher(DispatchExporter exporter, PathFinder pathFinder) {
         this(exporter, pathFinder, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
@@ -82,6 +86,14 @@ public final class FanoutDispatcher implements Dispatcher, DispatcherQueueListen
         this.maxMessageBlockSize = maxMessageBlockSize;
         this.maxMessageBlockBytes = maxMessageBlockBytes;
         pathFinder.listen(this);
+    }
+
+    @Override
+    public Dispatcher chainHandler(Handler<DispatchHandlerChain> chainHandler) {
+        DispatchHandlerChain chain = DispatchHandlerChain.chain();
+        chainHandler.handle(chain);
+        this.handlerChain = chain;
+        return this;
     }
 
     @Override
@@ -160,7 +172,12 @@ public final class FanoutDispatcher implements Dispatcher, DispatcherQueueListen
                             bytes += next.getSize();
                         }
 
-                        exporter.export(group, destination, block)
+                        List<Message> passed = passed(block);
+                        if (passed.isEmpty()) {
+                            continue;
+                        }
+
+                        exporter.export(group, destination, passed)
                                 .toCompletableFuture()
                                 .get(EXPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
@@ -195,5 +212,25 @@ public final class FanoutDispatcher implements Dispatcher, DispatcherQueueListen
                 consumers.remove(queue);
             }
         });
+    }
+
+    /** Messages of the block that every handler let through, in the order they were taken. */
+    private List<Message> passed(List<Message> block) {
+        DispatchHandlerChain chain = handlerChain;
+        List<Message> passed = new ArrayList<>(block.size());
+        for (Message message : block) {
+            DispatchContext context = new DispatchContext(message);
+            try {
+                chain.sparkDispatch(context).join();
+            } catch (CompletionException e) {
+                log.error("Dispatch handler failed, dropping the message. group={}, destination={}",
+                        message.getGroup(), message.getDestination().path(), e.getCause());
+                continue;
+            }
+            if (context.isPassed()) {
+                passed.add(message);
+            }
+        }
+        return passed;
     }
 }
