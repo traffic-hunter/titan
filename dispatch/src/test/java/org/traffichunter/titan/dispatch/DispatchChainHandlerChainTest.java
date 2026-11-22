@@ -67,8 +67,30 @@ class DispatchChainHandlerChainTest {
     }
 
     @Test
-    void dispatch_handler_fans_out_message_destination() throws Exception {
+    void fanout_dispatcher_delivers_a_queue_the_path_finder_creates() throws Exception {
         Message message = message("/queue/fanout");
+        TriePathFinder pathFinder = new TriePathFinder();
+        CountDownLatch exported = new CountDownLatch(1);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            FanoutDispatcher dispatcher = new FanoutDispatcher(
+                    executor,
+                    exporter(exported, message.getDestination())
+            );
+            pathFinder.listen(dispatcher);
+
+            try {
+                pathFinder.getOrPut(message.getDestination()).enqueue(message);
+                assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                dispatcher.close();
+            }
+        }
+    }
+
+    @Test
+    void fanout_dispatcher_delivers_a_queue_created_before_it_listened() throws Exception {
+        Message message = message("/queue/fanout-existing");
         TriePathFinder pathFinder = new TriePathFinder();
         pathFinder.getOrPut(message.getDestination()).enqueue(message);
         CountDownLatch exported = new CountDownLatch(1);
@@ -78,11 +100,9 @@ class DispatchChainHandlerChainTest {
                     executor,
                     exporter(exported, message.getDestination())
             );
-            DispatchHandlerChain chain = new DispatchHandlerChain(
-                    List.of(new FanoutDispatchChainHandler(dispatcher, pathFinder)));
 
             try {
-                chain.sparkDispatch(new DispatchContext(message)).join();
+                pathFinder.listen(dispatcher);
                 assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
             } finally {
                 dispatcher.close();

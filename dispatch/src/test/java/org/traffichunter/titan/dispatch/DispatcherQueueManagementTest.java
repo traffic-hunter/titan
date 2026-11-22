@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -262,6 +263,68 @@ class DispatcherQueueManagementTest {
         assertThat(pathFinder.searchAll(Destination.create("/queue/concurrent-create/*"))).containsExactly(queue);
 
         pathFinder.remove(destination);
+    }
+
+    @Test
+    void trie_path_finder_reports_a_queue_once_when_created_and_once_when_removed() throws Exception {
+        TriePathFinder pathFinder = new TriePathFinder();
+        List<DispatcherQueue> created = new CopyOnWriteArrayList<>();
+        List<DispatcherQueue> removed = new CopyOnWriteArrayList<>();
+        pathFinder.listen(recordingListener(created, removed));
+        Destination destination = Destination.create("/queue/listener/reported");
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(8)) {
+            for (int i = 0; i < 8; i++) {
+                executor.submit(() -> {
+                    start.await();
+                    return pathFinder.getOrPut(destination);
+                });
+            }
+            start.countDown();
+        }
+
+        DispatcherQueue queue = pathFinder.get(destination);
+        assertThat(created).containsExactly(queue);
+        assertThat(removed).isEmpty();
+
+        assertThat(pathFinder.remove(queue)).isTrue();
+        assertThat(pathFinder.remove(queue)).isFalse();
+        pathFinder.remove(destination);
+
+        assertThat(created).containsExactly(queue);
+        assertThat(removed).containsExactly(queue);
+    }
+
+    @Test
+    void trie_path_finder_reports_existing_queues_to_a_new_listener() {
+        TriePathFinder pathFinder = new TriePathFinder();
+        Destination destination = Destination.create("/queue/listener/existing");
+        DispatcherQueue queue = pathFinder.getOrPut(destination);
+        List<DispatcherQueue> created = new CopyOnWriteArrayList<>();
+
+        pathFinder.listen(recordingListener(created, new CopyOnWriteArrayList<>()));
+
+        assertThat(created).containsExactly(queue);
+
+        pathFinder.remove(destination);
+    }
+
+    private static DispatcherQueueListener recordingListener(
+            List<DispatcherQueue> created,
+            List<DispatcherQueue> removed
+    ) {
+        return new DispatcherQueueListener() {
+            @Override
+            public void queueCreated(DispatcherQueue queue) {
+                created.add(queue);
+            }
+
+            @Override
+            public void queueRemoved(DispatcherQueue queue) {
+                removed.add(queue);
+            }
+        };
     }
 
     @Test

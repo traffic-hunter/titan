@@ -148,4 +148,12 @@ public interface PathFinder {
      * @return {@code true} when the queue was present and removed
      */
     boolean remove(DispatcherQueue expected);
+
+    /**
+     * Sets the listener told about every queue this path finder creates or removes.
+     *
+     * <p>Queues that already exist are reported to the listener as created, so a queue made
+     * before the listener arrived is not left out.</p>
+     */
+    void listen(DispatcherQueueListener listener);
 }

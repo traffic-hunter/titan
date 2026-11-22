@@ -23,7 +23,7 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
- * Routes an inbound message into memory before later fanout handlers run.
+ * Routes an inbound message into its destination queue before later handlers run.
  *
  * @author yun
  */

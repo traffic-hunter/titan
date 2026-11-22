@@ -27,9 +27,9 @@ import org.traffichunter.titan.core.channel.LinkedNode;
 /**
  * Asynchronous linked handler chain for message dispatch work.
  *
- * <p>The gateway normally places routing first, custom handlers in the middle, and fanout
- * activation last. Custom handlers can validate, persist, or measure messages without changes
- * to the gateway. Each handler sees the context changes made by earlier handlers.</p>
+ * <p>The gateway places routing first and custom handlers after it. Custom handlers can
+ * validate, persist, or measure messages without changes to the gateway. Each handler sees the
+ * context changes made by earlier handlers.</p>
  *
  * <p>Starting the chain schedules the complete traversal on the configured {@link Executor}.
  * Each handler decides whether to continue by invoking its supplied {@link DispatchChain}. The

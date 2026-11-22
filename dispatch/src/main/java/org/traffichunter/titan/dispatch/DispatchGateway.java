@@ -27,9 +27,9 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 /**
  * Starts asynchronous message dispatch for fanout delivery.
  *
- * <p>Each dispatch starts the configured handler chain. Its handlers perform routing and fanout.
- * The returned future completes when the chain finishes, not when acknowledgements arrive from
- * every subscribed client.</p>
+ * <p>Each dispatch starts the configured handler chain, which routes the message into its
+ * destination queue. Delivery from the queue runs separately. The returned future completes
+ * when the chain finishes, not when acknowledgements arrive from every subscribed client.</p>
  *
  * <p>This type is not part of Titan's stable API and can change in any release. The supported
  * way to run a server is {@code TitanBootstrap.run(String)} with {@code titan-env.yml}.</p>
@@ -62,9 +62,8 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
     /**
      * Configures the dispatch handler chain used by {@link #sparkDispatch(Message)}.
      *
-     * <p>The gateway installs routing before the callback and fanout after the
-     * callback. Custom handlers therefore run after the message is routed into
-     * the dispatcher queue and before the destination consumer is started. This
+     * <p>The gateway installs routing before the callback. Custom handlers
+     * therefore run after the message is routed into the dispatcher queue. This
      * is the extension point for backup, metrics, validation, and filtering.
      * Admission controls that must run before routing can be inserted with
      * {@link DispatchHandlerChain#addFirst(DispatchChainHandler)}.</p>
@@ -76,7 +75,7 @@ public interface DispatchGateway extends Closeable, DispatcherQueueManager {
     DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler);
 
     /**
-     * Sparks one message through the configured routing and fanout handler chain.
+     * Sparks one message through the configured handler chain.
      *
      * <p>The returned future completes with {@code null}; the value is only a
      * completion signal.</p>

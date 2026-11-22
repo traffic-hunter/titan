@@ -52,6 +52,7 @@ public final class DestinationGroupRegistry implements PathFinder {
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
     private final PathFinderDestinationGroup defaultGroup;
+    private volatile DispatcherQueueListener listener = DispatcherQueueListener.NOOP;
 
     public DestinationGroupRegistry() {
         this(DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
@@ -170,9 +171,16 @@ public final class DestinationGroupRegistry implements PathFinder {
         return group != null && group.remove(expected);
     }
 
+    /** Groups created later start with the same listener. */
+    @Override
+    public void listen(DispatcherQueueListener listener) {
+        this.listener = listener;
+        groups.values().forEach(group -> group.listen(listener));
+    }
+
     private PathFinderDestinationGroup groupOrCreate(String name) {
         Assert.checkArgument(DestinationGroups.isValid(name), "Invalid group name: " + name);
-        return groups.computeIfAbsent(name, groupName ->
-                new PathFinderDestinationGroup(groupName, defaultMaxPendingBytes, defaultResumePendingBytes));
+        return groups.computeIfAbsent(name, groupName -> new PathFinderDestinationGroup(
+                groupName, defaultMaxPendingBytes, defaultResumePendingBytes, listener));
     }
 }

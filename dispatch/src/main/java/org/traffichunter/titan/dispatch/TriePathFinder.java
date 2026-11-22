@@ -48,6 +48,8 @@ public class TriePathFinder implements PathFinder {
     private final long defaultMaxPendingBytes;
     private final long defaultResumePendingBytes;
     private final String group;
+    // Read and written under the lock.
+    private DispatcherQueueListener listener = DispatcherQueueListener.NOOP;
 
     public TriePathFinder() {
         this(DispatcherQueue.DEFAULT_MAX_PENDING_BYTES);
@@ -146,6 +148,7 @@ public class TriePathFinder implements PathFinder {
             queue = queues.remove(path);
             if (queue != null) {
                 trie.remove(path, queue);
+                listener.queueRemoved(queue);
             }
         } finally {
             lock.unlock();
@@ -166,6 +169,7 @@ public class TriePathFinder implements PathFinder {
                 return false;
             }
             trie.remove(path, expected);
+            listener.queueRemoved(expected);
         } finally {
             lock.unlock();
         }
@@ -175,6 +179,17 @@ public class TriePathFinder implements PathFinder {
     }
 
     /** {@code true} when this path finder holds no queues. */
+    @Override
+    public void listen(DispatcherQueueListener listener) {
+        lock.lock();
+        try {
+            this.listener = listener;
+            queues.values().forEach(listener::queueCreated);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public boolean isEmpty() {
         return trie.isEmpty();
     }
@@ -194,6 +209,7 @@ public class TriePathFinder implements PathFinder {
             DispatcherQueue queue = DispatcherQueue.create(destination, maxPendingBytes, resumePendingBytes, group);
             trie.insert(path, queue);
             queues.put(path, queue);
+            listener.queueCreated(queue);
             log.info("Created new dispatcher for path {} in group {}", path, group);
             return queue;
         } finally {
