@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -35,9 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * the queue: {@link RouteDispatchChainHandler} admits messages to destination queues, and custom
  * handlers run after it.</p>
  *
- * <p>The {@link Dispatcher} owns the queue consumers and delivers through the exporter. It
- * listens to the path finder, so a queue is delivered from the moment it is created until it
- * is removed.</p>
+ * <p>Delivery from the queues is not the gateway's job. A {@link Dispatcher} built on the same
+ * path finder takes it from there.</p>
  *
  * <pre>{@code
  * sparkDispatch(message)
@@ -50,8 +48,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *      |
  *      v
  * optional handlers (backup, metrics, ...)
- *
- * PathFinder creates a queue -> Dispatcher.start(queue) -> DispatchExporter
  * }</pre>
  *
  * @author yun
@@ -63,37 +59,12 @@ abstract class AbstractExecutorGateway implements Gateway {
 
     private final ExecutorService executor;
     private final PathFinder pathFinder;
-    private final Dispatcher dispatcher;
     private final AtomicBoolean closed = new AtomicBoolean();
     private DispatchHandlerChain handlerChain;
 
-    protected AbstractExecutorGateway(
-            ExecutorService executor,
-            DispatchExporter exporter,
-            PathFinder pathFinder
-    ) {
-        this(
-                executor,
-                exporter,
-                pathFinder,
-                FanoutDispatcher.DEFAULT_MAX_MESSAGE_BLOCK_SIZE,
-                FanoutDispatcher.DEFAULT_MAX_MESSAGE_BLOCK_BYTES
-        );
-    }
-
-    protected AbstractExecutorGateway(
-            ExecutorService executor,
-            DispatchExporter exporter,
-            PathFinder pathFinder,
-            int maxMessageBlockSize,
-            int maxMessageBlockBytes
-    ) {
+    protected AbstractExecutorGateway(ExecutorService executor, PathFinder pathFinder) {
         this.executor = executor;
         this.pathFinder = pathFinder;
-        FanoutDispatcher fanoutDispatcher =
-                new FanoutDispatcher(executor, exporter, maxMessageBlockSize, maxMessageBlockBytes);
-        this.dispatcher = fanoutDispatcher;
-        pathFinder.listen(fanoutDispatcher);
         this.handlerChain = DispatchHandlerChain.chain(executor)
                 .add(new RouteDispatchChainHandler(pathFinder));
     }
@@ -132,13 +103,12 @@ abstract class AbstractExecutorGateway implements Gateway {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            dispatcher.close();
             executor.shutdown();
             try {
                 if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     executor.shutdownNow();
                     if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                        log.warn("Fanout executor did not terminate cleanly");
+                        log.warn("Gateway executor did not terminate cleanly");
                     }
                 }
             } catch (InterruptedException e) {

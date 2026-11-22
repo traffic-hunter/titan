@@ -141,10 +141,9 @@ resent.
 
 ## One consumer per destination
 
-`Gateway` keeps a concurrent map of group and destination to consumer
-task. `computeIfAbsent` guarantees at most one active queue-draining task for
-each destination within a group inside that gateway. The same destination in
-two groups is two queues and two consumers.
+`FanoutDispatcher` keeps a concurrent map of queue to consumer task.
+`computeIfAbsent` guarantees at most one active queue-draining task for each
+queue. The same destination in two groups is two queues and two consumers.
 
 The consumer polls its queue and invokes the configured `DispatchExporter` one
 message at a time. This preserves FIFO processing within one destination while

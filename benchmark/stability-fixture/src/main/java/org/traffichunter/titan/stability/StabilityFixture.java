@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
+import org.traffichunter.titan.dispatch.Dispatcher;
+import org.traffichunter.titan.dispatch.FanoutDispatcher;
 import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
@@ -47,17 +49,20 @@ public final class StabilityFixture implements Closeable {
     private final StabilityFixtureOptions options;
     private final StompServer server;
     private final Gateway gateway;
+    private final Dispatcher dispatcher;
     private final int port;
 
     private StabilityFixture(
             StabilityFixtureOptions options,
             StompServer server,
             Gateway gateway,
+            Dispatcher dispatcher,
             int port
     ) {
         this.options = options;
         this.server = server;
         this.gateway = gateway;
+        this.dispatcher = dispatcher;
         this.port = port;
     }
 
@@ -81,12 +86,14 @@ public final class StabilityFixture implements Closeable {
         }
 
         Gateway gateway = null;
+        Dispatcher dispatcher = null;
         if (options.path() == DeliveryPath.DISPATCH) {
             PathFinder pathFinder = PathFinder.getDefault(
                     options.queueMaxPendingBytes(),
                     options.queueResumePendingBytes()
             );
-            gateway = Gateway.of(new StompDispatchExporter(server.connection()), pathFinder);
+            gateway = Gateway.of(pathFinder);
+            dispatcher = new FanoutDispatcher(new StompDispatchExporter(server.connection()), pathFinder);
             StompSendToFanoutHandler sendHandler = new StompSendToFanoutHandler(gateway);
             server.onStomp(handler -> handler.sendHandler(sendHandler));
         }
@@ -95,12 +102,12 @@ public final class StabilityFixture implements Closeable {
         try {
             server.listen(options.host(), options.port()).get(LISTEN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception error) {
-            closeQuietly(server, gateway);
+            closeQuietly(server, gateway, dispatcher);
             throw error;
         }
 
         int port = ((InetSocketAddress) server.connection().channel().localAddress()).getPort();
-        return new StabilityFixture(options, server, gateway, port);
+        return new StabilityFixture(options, server, gateway, dispatcher, port);
     }
 
     /** Returns the port the fixture actually bound, which the caller may have left the OS to pick. */
@@ -115,13 +122,16 @@ public final class StabilityFixture implements Closeable {
 
     @Override
     public void close() {
-        closeQuietly(server, gateway);
+        closeQuietly(server, gateway, dispatcher);
     }
 
-    private static void closeQuietly(StompServer server, Gateway gateway) {
+    private static void closeQuietly(StompServer server, Gateway gateway, Dispatcher dispatcher) {
         try {
             if (gateway != null) {
                 gateway.close();
+            }
+            if (dispatcher != null) {
+                dispatcher.close();
             }
         } catch (Exception ignored) {
             // A gateway that refuses to close must not keep the server listening.

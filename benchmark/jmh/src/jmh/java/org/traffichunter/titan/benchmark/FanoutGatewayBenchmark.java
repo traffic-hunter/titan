@@ -28,7 +28,10 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
+import org.traffichunter.titan.dispatch.Dispatcher;
+import org.traffichunter.titan.dispatch.FanoutDispatcher;
 import org.traffichunter.titan.dispatch.Gateway;
+import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 @State(Scope.Thread)
@@ -43,6 +46,7 @@ public class FanoutGatewayBenchmark {
     public int batchSize;
 
     private Gateway gateway;
+    private Dispatcher dispatcher;
     private Destination destination;
     private Message message;
     private List<Message> batchMessages;
@@ -59,13 +63,16 @@ public class FanoutGatewayBenchmark {
                 .build();
         batchMessages = createBatchMessages(destination, batchSize);
 
-        gateway = Gateway.of(new CountingNoopExporter(exportCount));
+        PathFinder pathFinder = PathFinder.getDefault();
+        gateway = Gateway.of(pathFinder);
+        dispatcher = new FanoutDispatcher(new CountingNoopExporter(exportCount), pathFinder);
         gateway.sparkDispatch(message).get(1, TimeUnit.SECONDS);
     }
 
     @TearDown(Level.Trial)
     public void tearDown() throws Exception {
         gateway.close();
+        dispatcher.close();
     }
 
     @Benchmark

@@ -31,10 +31,8 @@ class GatewayQueueManagementTest {
     @Test
     void delete_queue_rejects_non_empty_queue_without_force() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-safe");
         manager.createQueue(DEFAULT, destination, 10).enqueue(message(destination));
@@ -45,15 +43,14 @@ class GatewayQueueManagementTest {
         assertThat(pathFinder.get(destination)).isNotNull();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void delete_queue_with_force_removes_queue_and_allows_auto_create_later() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-force");
         DispatcherQueue first = manager.createQueue(DEFAULT, destination, 10);
@@ -70,15 +67,14 @@ class GatewayQueueManagementTest {
         assertThat(pathFinder.get(destination)).isNotSameAs(first);
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void spark_dispatch_runs_custom_handler_between_route_and_fanout() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         AtomicInteger customHandlerCalls = new AtomicInteger();
         gateway.chainHandler(chain -> chain.add((context, chainContext) -> {
             customHandlerCalls.incrementAndGet();
@@ -90,6 +86,7 @@ class GatewayQueueManagementTest {
         assertThat(customHandlerCalls).hasValue(1);
 
         gateway.close();
+        dispatcher.close();
     }
 
     /** Hands every export back as an unfinished future so the test decides when a delivery ends. */
@@ -126,10 +123,8 @@ class GatewayQueueManagementTest {
     @Test
     void pause_queue_marks_queue_paused() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-state");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -139,18 +134,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.isPaused()).isTrue();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void paused_queue_withholds_queued_messages_from_consumers() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
-        // The test takes messages off the queue itself, so the gateway's consumer is left out.
-        pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/pause-withholds");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
         Message queued = message(destination);
@@ -174,13 +165,8 @@ class GatewayQueueManagementTest {
     @Test
     void pressure_paused_queue_still_lets_consumers_drain() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
-        // The test takes messages off the queue itself, so the gateway's consumer is left out.
-        pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/pressure-drains");
         Message first = message(destination);
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, first.getSize());
@@ -199,13 +185,8 @@ class GatewayQueueManagementTest {
     @Test
     void manual_resume_wakes_consumer_parked_while_pressure_pause_is_active() throws Exception {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
-        // The test takes messages off the queue itself, so the gateway's consumer is left out.
-        pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/manual-resume-under-pressure");
         // Fill the queue exactly so the next message trips the pressure pause,
         // then stack a manual pause on top of it.
@@ -250,10 +231,8 @@ class GatewayQueueManagementTest {
     void consumer_holds_the_message_in_the_queue_until_the_export_completes() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                heldExporter(exports),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(heldExporter(exports), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/held-until-exported");
         Message first = message(destination);
@@ -279,6 +258,7 @@ class GatewayQueueManagementTest {
         secondExport.complete(null);
         await().atMost(5, TimeUnit.SECONDS).until(() -> queue.getPendingBytes() == 0);
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
@@ -298,10 +278,8 @@ class GatewayQueueManagementTest {
             }
         };
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                stalledExporter,
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(stalledExporter, pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/export-timeout");
         Message first = message(destination);
@@ -323,6 +301,7 @@ class GatewayQueueManagementTest {
             secondExport.complete(null);
         } finally {
             gateway.close();
+            dispatcher.close();
         }
     }
 
@@ -330,10 +309,8 @@ class GatewayQueueManagementTest {
     void force_delete_stops_a_consumer_waiting_on_an_export() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                heldExporter(exports),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(heldExporter(exports), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/force-delete-in-flight");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -356,16 +333,15 @@ class GatewayQueueManagementTest {
         assertThat(queue.getPendingBytes()).isZero();
         assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void created_queue_is_delivered_before_any_message_goes_through_the_gateway() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                heldExporter(exports),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(heldExporter(exports), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delivered-from-creation");
 
@@ -378,6 +354,7 @@ class GatewayQueueManagementTest {
             export.complete(null);
         } finally {
             gateway.close();
+            dispatcher.close();
         }
     }
 
@@ -385,10 +362,8 @@ class GatewayQueueManagementTest {
     void removing_a_queue_from_the_path_finder_stops_its_consumer() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                heldExporter(exports),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(heldExporter(exports), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/removed-from-path-finder");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -409,6 +384,7 @@ class GatewayQueueManagementTest {
             assertThat(exports.poll(200, TimeUnit.MILLISECONDS)).isNull();
         } finally {
             gateway.close();
+            dispatcher.close();
         }
     }
 
@@ -431,10 +407,9 @@ class GatewayQueueManagementTest {
                 return CompletableFuture.completedFuture(null);
             }
         };
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                failingOnce,
-                new TriePathFinder()
-        );
+        TriePathFinder pathFinder = new TriePathFinder();
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(failingOnce, pathFinder);
         Destination destination = Destination.create("/queue/exporter-error");
 
         try {
@@ -444,6 +419,7 @@ class GatewayQueueManagementTest {
             assertThat(secondExported.await(5, TimeUnit.SECONDS)).isTrue();
         } finally {
             gateway.close();
+            dispatcher.close();
         }
     }
 
@@ -451,10 +427,8 @@ class GatewayQueueManagementTest {
     @Timeout(5)
     void paused_queue_refuses_producers_until_resumed() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-refuses-producer");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -470,15 +444,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.size()).isEqualTo(1);
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void pause_queue_is_idempotent() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-twice");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -489,15 +462,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.isPaused()).isTrue();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void resume_queue_clears_manual_pause() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-state");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -508,15 +480,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.isPaused()).isFalse();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void resume_queue_is_idempotent_on_running_queue() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-running");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -526,15 +497,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.isPaused()).isFalse();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void resume_queue_keeps_pressure_pause_while_queue_is_over_limit() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-under-pressure");
         // Size the queue so the first message fills it exactly. The second
@@ -550,15 +520,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.isPaused()).isTrue();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void purge_queue_keeps_queue_and_empties_pending_messages() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/purge-state");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -571,15 +540,14 @@ class GatewayQueueManagementTest {
         assertThat(queue.getPendingBytes()).isZero();
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void queue_state_actions_return_false_for_unknown_queue() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/missing-state");
 
@@ -589,6 +557,7 @@ class GatewayQueueManagementTest {
         assertThat(pathFinder.get(destination)).isNull();
 
         gateway.close();
+        dispatcher.close();
     }
 
     private static Message message(Destination destination) {
@@ -604,10 +573,8 @@ class GatewayQueueManagementTest {
     void spark_dispatch_with_group_routes_to_group_queue() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                recordingExporter(exported),
-                registry
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(registry);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(exported), registry);
         Destination destination = Destination.create("/queue/grouped-route");
 
         gateway.sparkDispatch(message("market", destination)).get();
@@ -618,16 +585,15 @@ class GatewayQueueManagementTest {
         assertThat(exported).containsOnlyKeys("market");
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void same_destination_in_two_groups_gets_two_consumers() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                recordingExporter(exported),
-                registry
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(registry);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(exported), registry);
         Destination destination = Destination.create("/queue/grouped-twice");
 
         gateway.sparkDispatch(message("market", destination)).get();
@@ -639,16 +605,15 @@ class GatewayQueueManagementTest {
         assertThat(registry.get("market", destination)).isNotSameAs(registry.get("notification", destination));
 
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
     void message_without_group_uses_default_group() throws Exception {
         DestinationGroupRegistry registry = new DestinationGroupRegistry();
         Map<String, Integer> exported = new ConcurrentHashMap<>();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                recordingExporter(exported),
-                registry
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(registry);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(exported), registry);
         Destination destination = Destination.create("/queue/grouped-default");
 
         gateway.sparkDispatch(message(destination)).get();
@@ -658,6 +623,7 @@ class GatewayQueueManagementTest {
         assertThat(exported).containsOnlyKeys(DestinationGroups.DEFAULT);
 
         gateway.close();
+        dispatcher.close();
     }
 
     private static void awaitExported(Map<String, Integer> exported, String group) throws Exception {
@@ -698,10 +664,8 @@ class GatewayQueueManagementTest {
     @Test
     void deleted_queue_refuses_messages_from_a_producer_holding_it() {
         TriePathFinder pathFinder = new TriePathFinder();
-        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(
-                noopExporter(),
-                pathFinder
-        );
+        VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(pathFinder);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-closes");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -715,5 +679,6 @@ class GatewayQueueManagementTest {
         assertThat(queue.size()).isZero();
 
         gateway.close();
+        dispatcher.close();
     }
 }
