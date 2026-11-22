@@ -36,7 +36,7 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  *
  * @author yungwang-o
  */
-public interface DispatchGateway extends Closeable, DispatcherQueueManager {
+public interface DispatchGateway extends Closeable {
 
     static DispatchGateway of(DispatchExporter exporter) {
         return new VirtualThreadExecutorDispatchGateway(exporter);

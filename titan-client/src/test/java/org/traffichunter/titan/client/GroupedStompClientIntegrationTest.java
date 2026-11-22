@@ -46,6 +46,7 @@ import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
 import org.traffichunter.titan.dispatch.DispatchGateway;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.DispatcherQueueListener;
+import org.traffichunter.titan.dispatch.DispatcherQueueManager;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -60,6 +61,7 @@ class GroupedStompClientIntegrationTest {
     private final List<DefaultTitanClient> clients = new ArrayList<>();
     private DestinationGroupRegistry registry;
     private DispatchGateway gateway;
+    private DispatcherQueueManager manager;
     private StompServer server;
 
     @AfterEach
@@ -259,7 +261,7 @@ class GroupedStompClientIntegrationTest {
         // Without a consumer the queue keeps the state set up below.
         registry.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create(DESTINATION);
-        DispatcherQueue queue = gateway.createQueue("market", destination,
+        DispatcherQueue queue = manager.createQueue("market", destination,
                 expected == DispatchResult.TOO_LARGE ? 1 : 5);
         switch (expected) {
             case FULL -> assertThat(queue.enqueue(Message.builder()
@@ -295,7 +297,7 @@ class GroupedStompClientIntegrationTest {
     @Timeout(value = 30, unit = SECONDS)
     void websocket_send_future_preserves_queue_refusal() throws Exception {
         int port = startDispatchingServer("/stomp");
-        DispatcherQueue queue = gateway.createQueue(DestinationGroups.DEFAULT, Destination.create(DESTINATION), 1024);
+        DispatcherQueue queue = manager.createQueue(DestinationGroups.DEFAULT, Destination.create(DESTINATION), 1024);
         queue.pause();
         DefaultTitanClient client = connect(port, "/stomp");
 
@@ -360,7 +362,7 @@ class GroupedStompClientIntegrationTest {
     @Timeout(value = 30, unit = SECONDS)
     void send_without_receipt_reports_refusal_through_error_callback() throws Exception {
         int port = startDispatchingServer("");
-        gateway.createQueue(DestinationGroups.DEFAULT, Destination.create(DESTINATION), 1024).pause();
+        manager.createQueue(DestinationGroups.DEFAULT, Destination.create(DESTINATION), 1024).pause();
         DefaultTitanClient client = connect(port, "");
         BlockingQueue<StompFrames> errors = new LinkedBlockingQueue<>();
         client.errorHandler(errors::add);
@@ -408,6 +410,7 @@ class GroupedStompClientIntegrationTest {
         );
         server = webSocketPath.isEmpty() ? opened : opened.webSocket(webSocketPath);
         gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), registry);
+        manager = DispatcherQueueManager.of(registry);
         server.onStomp(handler -> handler.sendHandler(
                 sendHandler == null ? new StompSendToFanoutHandler(gateway) : sendHandler));
         server.start();

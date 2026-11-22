@@ -105,12 +105,14 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                     long resumePendingBytes = flowControl.enabled() && queue.enabled()
                             ? queue.resumePendingBytes()
                             : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
+                    PathFinder pathFinder = PathFinder.getDefault(maxPendingBytes, resumePendingBytes);
                     DispatchGateway gateway = DispatchGateway.of(
                             dispatchExporter,
-                            PathFinder.getDefault(maxPendingBytes, resumePendingBytes),
+                            pathFinder,
                             maxMessageBlockSize,
                             maxMessageBlockBytes
                     );
+                    DispatcherQueueManagers.register(managedServer.name(), DispatcherQueueManager.of(pathFinder));
                     Settings.HeapFlowControlSettings heap = flowControl.heap();
                     if (flowControl.enabled() && heap.enabled()) {
                         MemoryPressureDamper damper = new MemoryPressureDamper(

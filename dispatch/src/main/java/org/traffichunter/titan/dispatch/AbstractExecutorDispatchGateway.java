@@ -18,11 +18,9 @@ package org.traffichunter.titan.dispatch;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 import java.util.concurrent.CompletableFuture;
@@ -131,102 +129,6 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         return closed.get();
     }
 
-    /**
-     * Creates a dispatcher queue through the gateway-owned dispatcher.
-     *
-     * <p>Queue creation is idempotent. If the queue already exists, the
-     * existing instance is returned and the supplied byte limit is ignored.</p>
-     */
-    @Override
-    public DispatcherQueue createQueue(String group, Destination destination, long maxPendingBytes) {
-        if (closed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
-        }
-
-        return pathFinder.getOrPut(group, destination, maxPendingBytes);
-    }
-
-    /**
-     * Deletes a dispatcher queue. Its consumer stops when the queue leaves the path finder.
-     *
-     * <p>The queue is closed before it leaves the path finder, so a producer admitted in the
-     * meantime is refused outright rather than filling a queue this call is about to drop.
-     * Non-empty queues are rejected unless force deletion is requested.</p>
-     */
-    @Override
-    public DispatcherQueueDeleteResult deleteQueue(String group, Destination destination, boolean force) {
-        DispatcherQueue queue = getQueue(group, destination);
-        if (queue == null) {
-            return DispatcherQueueDeleteResult.notFound();
-        }
-
-        int size = queue.size();
-        if (size > 0 && !force) {
-            return DispatcherQueueDeleteResult.notEmpty(size);
-        }
-
-        queue.close();
-
-        // Remove the queue this call looked up, never a replacement created since. The
-        // path finder unregisters the MBean of whatever it actually removed.
-        if (!pathFinder.remove(queue)) {
-            return DispatcherQueueDeleteResult.notFound();
-        }
-        if (force) {
-            queue.clear();
-        }
-        return DispatcherQueueDeleteResult.deleted(size);
-    }
-
-    /**
-     * Manually pauses the queue without detaching its consumer.
-     *
-     * <p>A manual pause immediately refuses new messages with {@link DispatchResult#PAUSED}
-     * and stops delivering queued messages. The consumer
-     * stays attached and waits until the queue is resumed. To discard the
-     * queued messages instead, use {@link #purgeQueue(String, Destination)}.</p>
-     */
-    @Override
-    public boolean pauseQueue(String group, Destination destination) {
-        DispatcherQueue queue = getQueue(group, destination);
-        if (queue == null) {
-            return false;
-        }
-        queue.pause();
-        return true;
-    }
-
-    /**
-     * Clears the manual pause so the queue admits and delivers messages again.
-     *
-     * <p>A queue that is still over its byte limit stays paused for producers
-     * by flow control, because the queue re-evaluates its own pause state
-     * rather than trusting the caller. A pressure pause never blocks dispatch,
-     * so consumers can drain the queue back below the resume threshold.</p>
-     */
-    @Override
-    public boolean resumeQueue(String group, Destination destination) {
-        DispatcherQueue queue = getQueue(group, destination);
-        if (queue == null) {
-            return false;
-        }
-        queue.resume();
-        return true;
-    }
-
-    /**
-     * Drops every pending message while keeping the queue and its consumer.
-     */
-    @Override
-    public boolean purgeQueue(String group, Destination destination) {
-        DispatcherQueue queue = getQueue(group, destination);
-        if (queue == null) {
-            return false;
-        }
-        queue.clear();
-        return true;
-    }
-
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
@@ -245,14 +147,5 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
             }
             handlerChain.clear();
         }
-    }
-
-    /** Looks the queue up inside its own group. An unknown group is not created. */
-    private @Nullable DispatcherQueue getQueue(String group, Destination destination) {
-        if (closed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
-        }
-
-        return pathFinder.get(group, destination);
     }
 }
