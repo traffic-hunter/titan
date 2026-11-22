@@ -43,10 +43,12 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
-import org.traffichunter.titan.dispatch.Gateway;
+import org.traffichunter.titan.dispatch.Dispatcher;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.DispatcherQueueListener;
 import org.traffichunter.titan.dispatch.DispatcherQueueManager;
+import org.traffichunter.titan.dispatch.FanoutDispatcher;
+import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -61,6 +63,7 @@ class GroupedStompClientIntegrationTest {
     private final List<DefaultTitanClient> clients = new ArrayList<>();
     private DestinationGroupRegistry registry;
     private Gateway gateway;
+    private Dispatcher dispatcher;
     private DispatcherQueueManager manager;
     private StompServer server;
 
@@ -71,6 +74,9 @@ class GroupedStompClientIntegrationTest {
         }
         if (gateway != null) {
             gateway.close();
+        }
+        if (dispatcher != null) {
+            dispatcher.close();
         }
         if (server != null && !server.isShutdown()) {
             server.shutdown(5, SECONDS);
@@ -409,7 +415,8 @@ class GroupedStompClientIntegrationTest {
                 StompServerOption.builder().build()
         );
         server = webSocketPath.isEmpty() ? opened : opened.webSocket(webSocketPath);
-        gateway = Gateway.of(new StompDispatchExporter(server.connection()), registry);
+        gateway = Gateway.of(registry);
+        dispatcher = new FanoutDispatcher(new StompDispatchExporter(server.connection()), registry);
         manager = DispatcherQueueManager.of(registry);
         server.onStomp(handler -> handler.sendHandler(
                 sendHandler == null ? new StompSendToFanoutHandler(gateway) : sendHandler));

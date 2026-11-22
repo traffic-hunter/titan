@@ -22,7 +22,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jspecify.annotations.Nullable;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Handler;
-import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
 
 /**
  * Starts asynchronous message dispatch for fanout delivery.
@@ -38,25 +37,9 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  */
 public interface Gateway extends Closeable {
 
-    static Gateway of(DispatchExporter exporter) {
-        return new VirtualThreadExecutorGateway(exporter);
-    }
-
-    static Gateway of(DispatchExporter exporter, PathFinder pathFinder) {
-        return new VirtualThreadExecutorGateway(exporter, pathFinder);
-    }
-
-    /**
-     * @param maxMessageBlockSize  most messages a destination consumer takes from its queue at once
-     * @param maxMessageBlockBytes body bytes after which the consumer stops adding to a block
-     */
-    static Gateway of(
-            DispatchExporter exporter,
-            PathFinder pathFinder,
-            int maxMessageBlockSize,
-            int maxMessageBlockBytes
-    ) {
-        return new VirtualThreadExecutorGateway(exporter, pathFinder, maxMessageBlockSize, maxMessageBlockBytes);
+    /** Returns a gateway that routes messages into the queues of the path finder. */
+    static Gateway of(PathFinder pathFinder) {
+        return new VirtualThreadExecutorGateway(pathFinder);
     }
 
     /**

@@ -30,10 +30,12 @@ import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
-import org.traffichunter.titan.dispatch.Gateway;
+import org.traffichunter.titan.dispatch.Dispatcher;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.DispatcherQueueListener;
 import org.traffichunter.titan.dispatch.DispatcherQueueManager;
+import org.traffichunter.titan.dispatch.FanoutDispatcher;
+import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -50,6 +52,7 @@ class GroupedStompFanoutIntegrationTest {
     private final List<RawStompClient> clients = new ArrayList<>();
     private StompServer server;
     private Gateway gateway;
+    private Dispatcher dispatcher;
     private DestinationGroupRegistry registry;
     private int port;
 
@@ -57,7 +60,8 @@ class GroupedStompFanoutIntegrationTest {
     void startServer() throws Exception {
         registry = new DestinationGroupRegistry();
         server = StompServer.open(EventLoopGroups.singleGroup(), StompServerOption.builder().build());
-        gateway = Gateway.of(new StompDispatchExporter(server.connection()), registry);
+        gateway = Gateway.of(registry);
+        dispatcher = new FanoutDispatcher(new StompDispatchExporter(server.connection()), registry);
         server.onStomp(handler -> handler.sendHandler(new StompSendToFanoutHandler(gateway)));
         server.start();
         server.listen("localhost", 0).get(5, TimeUnit.SECONDS);
@@ -71,6 +75,9 @@ class GroupedStompFanoutIntegrationTest {
         }
         if (gateway != null) {
             gateway.close();
+        }
+        if (dispatcher != null) {
+            dispatcher.close();
         }
         if (server != null && !server.isShutdown()) {
             server.shutdown(5, TimeUnit.SECONDS);

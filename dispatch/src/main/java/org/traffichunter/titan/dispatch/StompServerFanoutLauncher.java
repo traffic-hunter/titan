@@ -7,6 +7,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
+import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.bootstrap.Settings;
 import org.traffichunter.titan.core.resilience.flowcontrol.FlowControlConfiguration;
 import org.traffichunter.titan.core.resilience.flowcontrol.MemoryPressureDamper;
@@ -106,12 +107,16 @@ public final class StompServerFanoutLauncher implements FanoutLauncher {
                             ? queue.resumePendingBytes()
                             : DestinationQueueMetadata.defaultResumePendingBytes(maxPendingBytes);
                     PathFinder pathFinder = PathFinder.getDefault(maxPendingBytes, resumePendingBytes);
-                    Gateway gateway = Gateway.of(
+                    Gateway gateway = Gateway.of(pathFinder);
+                    Dispatcher dispatcher = new FanoutDispatcher(
                             dispatchExporter,
                             pathFinder,
                             maxMessageBlockSize,
                             maxMessageBlockBytes
                     );
+                    // One step after the gateway, so nothing is admitted once delivery has stopped.
+                    GlobalShutdownHook.INSTANCE.addShutdownCallback(
+                            GlobalShutdownHook.DISPATCH_ORDER + 1, dispatcher::close);
                     DispatcherQueueManagers.register(managedServer.name(), DispatcherQueueManager.of(pathFinder));
                     Settings.HeapFlowControlSettings heap = flowControl.heap();
                     if (flowControl.enabled() && heap.enabled()) {

@@ -34,13 +34,14 @@ class GatewayGroupManagementTest {
 
     private final DestinationGroupRegistry registry = new DestinationGroupRegistry();
     private final Map<String, Integer> exported = new ConcurrentHashMap<>();
-    private final VirtualThreadExecutorGateway gateway =
-            new VirtualThreadExecutorGateway(recordingExporter(exported), registry);
+    private final VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(registry);
+    private final FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(exported), registry);
     private final DispatcherQueueManager manager = DispatcherQueueManager.of(registry);
 
     @AfterEach
     void closeGateway() {
         gateway.close();
+        dispatcher.close();
     }
 
     @Test
@@ -187,10 +188,8 @@ class GatewayGroupManagementTest {
         CountDownLatch removed = new CountDownLatch(1);
         CountDownLatch resumeDelete = new CountDownLatch(1);
         PathFinder hookedPathFinder = pauseAfterRemove(registry, removed, resumeDelete);
-        VirtualThreadExecutorGateway hooked = new VirtualThreadExecutorGateway(
-                recordingExporter(exported),
-                hookedPathFinder
-        );
+        VirtualThreadExecutorGateway hooked = new VirtualThreadExecutorGateway(hookedPathFinder);
+        FanoutDispatcher hookedDispatcher = new FanoutDispatcher(recordingExporter(exported), hookedPathFinder);
         DispatcherQueueManager hookedManager = DispatcherQueueManager.of(hookedPathFinder);
 
         try {
@@ -214,6 +213,7 @@ class GatewayGroupManagementTest {
                     .untilAsserted(() -> assertThat(exported.get("market")).isEqualTo(2));
         } finally {
             hooked.close();
+            hookedDispatcher.close();
         }
     }
 

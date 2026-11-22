@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -39,14 +40,16 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  * the next one. Consumers are kept per queue instance, so a queue deleted and created again is
  * a new queue with a consumer of its own.</p>
  *
- * <p>As a {@link DispatcherQueueListener} it starts a queue when the path finder creates it and
- * stops it when the path finder removes it.</p>
+ * <p>It listens to the path finder it is given, so a queue is started when the path finder
+ * creates it and stopped when the path finder removes it. The consumer tasks run on virtual
+ * threads this dispatcher owns and ends in {@link #close()}.</p>
  *
  * @author yun
  */
-final class FanoutDispatcher implements Dispatcher, DispatcherQueueListener {
+public final class FanoutDispatcher implements Dispatcher, DispatcherQueueListener {
 
     private static final long EXPORT_TIMEOUT_SECONDS = 5;
+    private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
     static final int DEFAULT_MAX_MESSAGE_BLOCK_SIZE = 1;
     static final int DEFAULT_MAX_MESSAGE_BLOCK_BYTES = 16_384;
 
@@ -59,20 +62,26 @@ final class FanoutDispatcher implements Dispatcher, DispatcherQueueListener {
     private final int maxMessageBlockBytes;
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    FanoutDispatcher(ExecutorService executor, DispatchExporter exporter) {
-        this(executor, exporter, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
+    public FanoutDispatcher(DispatchExporter exporter, PathFinder pathFinder) {
+        this(exporter, pathFinder, DEFAULT_MAX_MESSAGE_BLOCK_SIZE, DEFAULT_MAX_MESSAGE_BLOCK_BYTES);
     }
 
-    FanoutDispatcher(
-            ExecutorService executor,
+    /**
+     * @param maxMessageBlockSize  most messages a destination consumer takes from its queue at once
+     * @param maxMessageBlockBytes body bytes after which the consumer stops adding to a block
+     */
+    public FanoutDispatcher(
             DispatchExporter exporter,
+            PathFinder pathFinder,
             int maxMessageBlockSize,
             int maxMessageBlockBytes
     ) {
-        this.executor = executor;
+        this.executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("FanoutDispatcherVirtualThread").factory());
         this.exporter = exporter;
         this.maxMessageBlockSize = maxMessageBlockSize;
         this.maxMessageBlockBytes = maxMessageBlockBytes;
+        pathFinder.listen(this);
     }
 
     @Override
@@ -109,6 +118,14 @@ final class FanoutDispatcher implements Dispatcher, DispatcherQueueListener {
         if (closed.compareAndSet(false, true)) {
             consumers.values().forEach(consumer -> consumer.cancel(true));
             consumers.clear();
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    log.warn("Fanout consumers did not terminate cleanly");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

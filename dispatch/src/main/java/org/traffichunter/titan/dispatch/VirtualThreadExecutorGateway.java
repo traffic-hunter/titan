@@ -15,8 +15,6 @@
  */
 package org.traffichunter.titan.dispatch;
 
-import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
@@ -31,34 +29,8 @@ import java.util.concurrent.ThreadFactory;
  */
 class VirtualThreadExecutorGateway extends AbstractExecutorGateway {
 
-    public VirtualThreadExecutorGateway(DispatchExporter exporter) {
-        this(exporter, PathFinder.getDefault());
-    }
-
-    public VirtualThreadExecutorGateway(
-            DispatchExporter exporter,
-            PathFinder pathFinder
-    ) {
-        super(
-                Executors.newThreadPerTaskExecutor(newThreadFactory()),
-                exporter,
-                pathFinder
-        );
-    }
-
-    public VirtualThreadExecutorGateway(
-            DispatchExporter exporter,
-            PathFinder pathFinder,
-            int maxMessageBlockSize,
-            int maxMessageBlockBytes
-    ) {
-        super(
-                Executors.newThreadPerTaskExecutor(newThreadFactory()),
-                exporter,
-                pathFinder,
-                maxMessageBlockSize,
-                maxMessageBlockBytes
-        );
+    public VirtualThreadExecutorGateway(PathFinder pathFinder) {
+        super(Executors.newThreadPerTaskExecutor(newThreadFactory()), pathFinder);
     }
 
     private static ThreadFactory newThreadFactory() {

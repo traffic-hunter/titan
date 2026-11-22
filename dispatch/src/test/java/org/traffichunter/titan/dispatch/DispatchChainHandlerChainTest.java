@@ -23,7 +23,9 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.traffichunter.titan.core.message.DispatchRejectException;
 import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.bootstrap.GlobalShutdownHook;
 import org.traffichunter.titan.bootstrap.ServerSettings;
+import org.traffichunter.titan.bootstrap.TitanShutdownHook;
 import org.traffichunter.titan.core.spi.ManagedServer;
 import org.traffichunter.titan.core.spi.StompManagedServer;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
@@ -77,19 +79,13 @@ class DispatchChainHandlerChainTest {
         TriePathFinder pathFinder = new TriePathFinder();
         CountDownLatch exported = new CountDownLatch(1);
 
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatcher dispatcher = new FanoutDispatcher(
-                    executor,
-                    exporter(exported, message.getDestination())
-            );
-            pathFinder.listen(dispatcher);
+        FanoutDispatcher dispatcher = new FanoutDispatcher(exporter(exported, message.getDestination()), pathFinder);
 
-            try {
-                pathFinder.getOrPut(message.getDestination()).enqueue(message);
-                assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
-            } finally {
-                dispatcher.close();
-            }
+        try {
+            pathFinder.getOrPut(message.getDestination()).enqueue(message);
+            assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
         }
     }
 
@@ -100,18 +96,12 @@ class DispatchChainHandlerChainTest {
         pathFinder.getOrPut(message.getDestination()).enqueue(message);
         CountDownLatch exported = new CountDownLatch(1);
 
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatcher dispatcher = new FanoutDispatcher(
-                    executor,
-                    exporter(exported, message.getDestination())
-            );
+        FanoutDispatcher dispatcher = new FanoutDispatcher(exporter(exported, message.getDestination()), pathFinder);
 
-            try {
-                pathFinder.listen(dispatcher);
-                assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
-            } finally {
-                dispatcher.close();
-            }
+        try {
+            assertThat(exported.await(1, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
         }
     }
 
@@ -200,23 +190,20 @@ class DispatchChainHandlerChainTest {
             }
         };
 
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatcher dispatcher = new FanoutDispatcher(executor, exporter, 8, 16_384);
-            DispatcherQueue queue = pathFinder.getOrPut(destination);
-            try {
-                queue.enqueue(numbered(destination, 0));
-                dispatcher.start(queue);
-                assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
-                // The rest piles up behind the export that is still running.
-                for (int i = 1; i < total; i++) {
-                    queue.enqueue(numbered(destination, i));
-                }
-                firstExport.complete(null);
-
-                assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
-            } finally {
-                dispatcher.close();
+        FanoutDispatcher dispatcher = new FanoutDispatcher(exporter, pathFinder, 8, 16_384);
+        DispatcherQueue queue = pathFinder.getOrPut(destination);
+        try {
+            queue.enqueue(numbered(destination, 0));
+            assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
+            // The rest piles up behind the export that is still running.
+            for (int i = 1; i < total; i++) {
+                queue.enqueue(numbered(destination, i));
             }
+            firstExport.complete(null);
+
+            assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
         }
 
         assertThat(blocks).allSatisfy(block -> assertThat(block).hasSizeLessThanOrEqualTo(8));
@@ -228,7 +215,7 @@ class DispatchChainHandlerChainTest {
     @Test
     void fanout_consumer_exports_one_message_at_a_time_by_default() throws Exception {
         List<Integer> sizes = backlogBlockSizes(
-                (executor, exporter) -> new FanoutDispatcher(executor, exporter));
+                (exporter, pathFinder) -> new FanoutDispatcher(exporter, pathFinder));
 
         assertThat(sizes).hasSize(20).containsOnly(1);
     }
@@ -237,7 +224,7 @@ class DispatchChainHandlerChainTest {
     void fanout_consumer_ends_a_block_once_it_reaches_the_byte_limit() throws Exception {
         // Bodies are one or two bytes, so three bytes are reached after two or three messages.
         List<Integer> sizes = backlogBlockSizes(
-                (executor, exporter) -> new FanoutDispatcher(executor, exporter, 8, 3));
+                (exporter, pathFinder) -> new FanoutDispatcher(exporter, pathFinder, 8, 3));
 
         assertThat(sizes.subList(1, sizes.size())).allSatisfy(size -> assertThat(size).isBetween(1, 3));
         assertThat(sizes.get(1)).isEqualTo(3);
@@ -280,8 +267,59 @@ class DispatchChainHandlerChainTest {
         }
     }
 
+    @Test
+    void fanout_launcher_closes_the_dispatcher_one_shutdown_step_after_the_gateway() throws Exception {
+        // Stays enabled for this JVM. The hook is never registered with the runtime, so its
+        // callbacks only run when this test runs them.
+        GlobalShutdownHook.INSTANCE.enableShutdownHook();
+        StompServer server = StompServer.open(EventLoopGroups.singleGroup(), StompServerOption.builder().build());
+        ServerSettings settings = new ServerSettings(
+                "shutdown-order-test", "tcp", "stomp", "localhost", 61613, 1, 1, Map.of(), Map.of(), Map.of(), null);
+        Destination afterGateway = Destination.create("/queue/shutdown-order/after-gateway");
+        Destination afterDispatcher = Destination.create("/queue/shutdown-order/after-dispatcher");
+        List<Boolean> dispatcherOpen = new ArrayList<>();
+
+        new StompServerFanoutLauncher()
+                .apply("stomp", "tcp", Map.of(), new StompManagedServer(server, settings));
+        DispatcherQueueManager manager = DispatcherQueueManagers.get("shutdown-order-test");
+        assertThat(manager).isNotNull();
+
+        try {
+            // Same step as the gateway's close and added after it, so this runs right behind it.
+            GlobalShutdownHook.INSTANCE.addShutdownCallback(GlobalShutdownHook.DISPATCH_ORDER,
+                    () -> dispatcherOpen.add(startsDelivery(manager, afterGateway)));
+            GlobalShutdownHook.INSTANCE.addShutdownCallback(GlobalShutdownHook.DISPATCH_ORDER + 1,
+                    () -> dispatcherOpen.add(startsDelivery(manager, afterDispatcher)));
+
+            runShutdownCallbacks();
+
+            assertThat(dispatcherOpen).containsExactly(true, false);
+        } finally {
+            manager.deleteQueue("default", afterGateway, true);
+            manager.deleteQueue("default", afterDispatcher, true);
+            DispatcherQueueManagers.unregister("shutdown-order-test");
+        }
+    }
+
+    /** A new queue starts its consumer on creation, which a closed dispatcher refuses. */
+    private static boolean startsDelivery(DispatcherQueueManager manager, Destination destination) {
+        try {
+            manager.createQueue("default", destination, 1024);
+            return true;
+        } catch (IllegalStateException closed) {
+            return false;
+        }
+    }
+
+    /** The global hook only runs at JVM exit, so the test reaches in to run its callbacks. */
+    private static void runShutdownCallbacks() throws Exception {
+        java.lang.reflect.Field hook = GlobalShutdownHook.class.getDeclaredField("shutdownHook");
+        hook.setAccessible(true);
+        ((TitanShutdownHook) hook.get(GlobalShutdownHook.INSTANCE)).run();
+    }
+
     private interface DispatcherFactory {
-        FanoutDispatcher create(java.util.concurrent.ExecutorService executor, DispatchExporter exporter);
+        FanoutDispatcher create(DispatchExporter exporter, PathFinder pathFinder);
     }
 
     /** Sizes of the blocks a consumer exports when 19 messages pile up behind a first export. */
@@ -317,22 +355,19 @@ class DispatchChainHandlerChainTest {
             }
         };
 
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            FanoutDispatcher dispatcher = factory.create(executor, exporter);
-            DispatcherQueue queue = pathFinder.getOrPut(destination);
-            try {
-                queue.enqueue(numbered(destination, 0));
-                dispatcher.start(queue);
-                assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
-                for (int i = 1; i < total; i++) {
-                    queue.enqueue(numbered(destination, i));
-                }
-                firstExport.complete(null);
-
-                assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
-            } finally {
-                dispatcher.close();
+        FanoutDispatcher dispatcher = factory.create(exporter, pathFinder);
+        DispatcherQueue queue = pathFinder.getOrPut(destination);
+        try {
+            queue.enqueue(numbered(destination, 0));
+            assertThat(firstTaken.await(1, TimeUnit.SECONDS)).isTrue();
+            for (int i = 1; i < total; i++) {
+                queue.enqueue(numbered(destination, i));
             }
+            firstExport.complete(null);
+
+            assertThat(allExported.await(2, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            dispatcher.close();
         }
         return sizes;
     }
