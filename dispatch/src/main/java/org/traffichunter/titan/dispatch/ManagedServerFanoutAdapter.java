@@ -53,6 +53,6 @@ public interface ManagedServerFanoutAdapter {
             String transport,
             Map<String, String> protocolOptions,
             ManagedServer managedServer,
-            Function<DispatchExporter, DispatchGateway> gatewayFactory
+            Function<DispatchExporter, Gateway> gatewayFactory
     );
 }

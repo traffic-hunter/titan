@@ -29,13 +29,13 @@ import java.util.concurrent.ThreadFactory;
  *
  * @author yun
  */
-class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGateway {
+class VirtualThreadExecutorGateway extends AbstractExecutorGateway {
 
-    public VirtualThreadExecutorDispatchGateway(DispatchExporter exporter) {
+    public VirtualThreadExecutorGateway(DispatchExporter exporter) {
         this(exporter, PathFinder.getDefault());
     }
 
-    public VirtualThreadExecutorDispatchGateway(
+    public VirtualThreadExecutorGateway(
             DispatchExporter exporter,
             PathFinder pathFinder
     ) {
@@ -46,7 +46,7 @@ class VirtualThreadExecutorDispatchGateway extends AbstractExecutorDispatchGatew
         );
     }
 
-    public VirtualThreadExecutorDispatchGateway(
+    public VirtualThreadExecutorGateway(
             DispatchExporter exporter,
             PathFinder pathFinder,
             int maxMessageBlockSize,

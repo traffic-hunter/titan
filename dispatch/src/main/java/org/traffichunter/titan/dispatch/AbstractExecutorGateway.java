@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Base {@link DispatchGateway} for platform and virtual-thread executors.
+ * Base {@link Gateway} for platform and virtual-thread executors.
  *
  * <p>The gateway owns the executor and manages startup and shutdown. Its handler chain ends at
  * the queue: {@link RouteDispatchChainHandler} admits messages to destination queues, and custom
@@ -56,9 +56,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author yun
  */
-abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
+abstract class AbstractExecutorGateway implements Gateway {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractExecutorDispatchGateway.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractExecutorGateway.class);
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
 
     private final ExecutorService executor;
@@ -67,7 +67,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     private final AtomicBoolean closed = new AtomicBoolean();
     private DispatchHandlerChain handlerChain;
 
-    protected AbstractExecutorDispatchGateway(
+    protected AbstractExecutorGateway(
             ExecutorService executor,
             DispatchExporter exporter,
             PathFinder pathFinder
@@ -81,7 +81,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         );
     }
 
-    protected AbstractExecutorDispatchGateway(
+    protected AbstractExecutorGateway(
             ExecutorService executor,
             DispatchExporter exporter,
             PathFinder pathFinder,
@@ -99,7 +99,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
     }
 
     @Override
-    public DispatchGateway chainHandler(Handler<DispatchHandlerChain> chainHandler) {
+    public Gateway chainHandler(Handler<DispatchHandlerChain> chainHandler) {
         DispatchHandlerChain chain = DispatchHandlerChain.chain(executor);
         chain.add(new RouteDispatchChainHandler(pathFinder));
         chainHandler.handle(chain);
@@ -112,7 +112,7 @@ abstract class AbstractExecutorDispatchGateway implements DispatchGateway {
         Assert.checkNotNull(message, "message");
 
         if (closed.get()) {
-            throw new IllegalStateException("DispatchGateway is closed");
+            throw new IllegalStateException("Gateway is closed");
         }
 
         return handlerChain.sparkDispatch(new DispatchContext(message))

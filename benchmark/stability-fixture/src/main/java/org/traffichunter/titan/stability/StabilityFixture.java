@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.traffichunter.titan.core.channel.EventLoopGroups;
 import org.traffichunter.titan.core.transport.stomp.StompServer;
 import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
-import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.PathFinder;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
@@ -46,13 +46,13 @@ public final class StabilityFixture implements Closeable {
 
     private final StabilityFixtureOptions options;
     private final StompServer server;
-    private final DispatchGateway gateway;
+    private final Gateway gateway;
     private final int port;
 
     private StabilityFixture(
             StabilityFixtureOptions options,
             StompServer server,
-            DispatchGateway gateway,
+            Gateway gateway,
             int port
     ) {
         this.options = options;
@@ -80,13 +80,13 @@ public final class StabilityFixture implements Closeable {
             server.webSocket(options.webSocketPath());
         }
 
-        DispatchGateway gateway = null;
+        Gateway gateway = null;
         if (options.path() == DeliveryPath.DISPATCH) {
             PathFinder pathFinder = PathFinder.getDefault(
                     options.queueMaxPendingBytes(),
                     options.queueResumePendingBytes()
             );
-            gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), pathFinder);
+            gateway = Gateway.of(new StompDispatchExporter(server.connection()), pathFinder);
             StompSendToFanoutHandler sendHandler = new StompSendToFanoutHandler(gateway);
             server.onStomp(handler -> handler.sendHandler(sendHandler));
         }
@@ -118,7 +118,7 @@ public final class StabilityFixture implements Closeable {
         closeQuietly(server, gateway);
     }
 
-    private static void closeQuietly(StompServer server, DispatchGateway gateway) {
+    private static void closeQuietly(StompServer server, Gateway gateway) {
         try {
             if (gateway != null) {
                 gateway.close();

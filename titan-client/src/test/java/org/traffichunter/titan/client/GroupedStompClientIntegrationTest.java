@@ -43,7 +43,7 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.DestinationGroups;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
-import org.traffichunter.titan.dispatch.DispatchGateway;
+import org.traffichunter.titan.dispatch.Gateway;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.DispatcherQueueListener;
 import org.traffichunter.titan.dispatch.DispatcherQueueManager;
@@ -60,7 +60,7 @@ class GroupedStompClientIntegrationTest {
 
     private final List<DefaultTitanClient> clients = new ArrayList<>();
     private DestinationGroupRegistry registry;
-    private DispatchGateway gateway;
+    private Gateway gateway;
     private DispatcherQueueManager manager;
     private StompServer server;
 
@@ -409,7 +409,7 @@ class GroupedStompClientIntegrationTest {
                 StompServerOption.builder().build()
         );
         server = webSocketPath.isEmpty() ? opened : opened.webSocket(webSocketPath);
-        gateway = DispatchGateway.of(new StompDispatchExporter(server.connection()), registry);
+        gateway = Gateway.of(new StompDispatchExporter(server.connection()), registry);
         manager = DispatcherQueueManager.of(registry);
         server.onStomp(handler -> handler.sendHandler(
                 sendHandler == null ? new StompSendToFanoutHandler(gateway) : sendHandler));

@@ -24,7 +24,7 @@ path:
 sequenceDiagram
     participant P as STOMP producer
     participant H as StompSendToFanoutHandler
-    participant G as DispatchGateway
+    participant G as Gateway
     participant D as PathFinder
     participant Q as DispatcherQueue
     participant C as Destination consumer
@@ -43,7 +43,7 @@ sequenceDiagram
 ```
 
 The gateway's handler chain ends at the queue: `RouteDispatchChainHandler`
-invokes `DispatchGateway.route(message)`. The consumer is not part of the
+invokes `Gateway.route(message)`. The consumer is not part of the
 chain. `FanoutDispatcher` starts it when the path finder creates the queue and
 stops it when the queue is removed.
 
@@ -52,7 +52,7 @@ work without putting protocol logic inside the queue.
 
 ## How a queue is selected
 
-`DispatchGateway.route` does not search for the nearest path, a topic pattern,
+`Gateway.route` does not search for the nearest path, a topic pattern,
 or every matching prefix. It performs this operation:
 
 ```java
@@ -141,7 +141,7 @@ resent.
 
 ## One consumer per destination
 
-`DispatchGateway` keeps a concurrent map of group and destination to consumer
+`Gateway` keeps a concurrent map of group and destination to consumer
 task. `computeIfAbsent` guarantees at most one active queue-draining task for
 each destination within a group inside that gateway. The same destination in
 two groups is two queues and two consumers.
@@ -260,7 +260,7 @@ the queue and consumer count as growing with them and watch `queue list`.
 The dispatcher-queue path described above is installed when `fanout-mode` is
 configured. Without that adapter, Titan's default STOMP `SEND` handler looks up
 exact-match subscriptions and writes to them directly; it does not pass the
-frame through `DispatchGateway` or a `DispatcherQueue`.
+frame through `Gateway` or a `DispatcherQueue`.
 
 For the standalone configuration documented here, enable fanout explicitly:
 
