@@ -20,6 +20,11 @@ import org.traffichunter.titan.core.util.Destination;
  */
 public interface DispatcherQueueManager {
 
+    /** Returns a manager for the queues of the path finder. */
+    static DispatcherQueueManager of(PathFinder pathFinder) {
+        return new PathFinderQueueManager(pathFinder);
+    }
+
     /**
      * Creates the queue for the destination if it does not exist.
      *

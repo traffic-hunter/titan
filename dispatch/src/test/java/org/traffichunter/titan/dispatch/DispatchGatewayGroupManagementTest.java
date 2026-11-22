@@ -36,6 +36,7 @@ class DispatchGatewayGroupManagementTest {
     private final Map<String, Integer> exported = new ConcurrentHashMap<>();
     private final VirtualThreadExecutorDispatchGateway gateway =
             new VirtualThreadExecutorDispatchGateway(recordingExporter(exported), registry);
+    private final DispatcherQueueManager manager = DispatcherQueueManager.of(registry);
 
     @AfterEach
     void closeGateway() {
@@ -44,7 +45,7 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void creation_puts_the_queue_in_the_named_group_only() {
-        DispatcherQueue queue = gateway.createQueue("market", DESTINATION, 1024);
+        DispatcherQueue queue = manager.createQueue("market", DESTINATION, 1024);
 
         assertThat(queue.getGroup()).isEqualTo("market");
         assertThat(registry.get("market", DESTINATION)).isSameAs(queue);
@@ -53,10 +54,10 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void creation_is_idempotent_per_group_and_keeps_the_first_byte_limit() {
-        DispatcherQueue first = gateway.createQueue("market", DESTINATION, 1024);
+        DispatcherQueue first = manager.createQueue("market", DESTINATION, 1024);
 
-        DispatcherQueue again = gateway.createQueue("market", DESTINATION, 4096);
-        DispatcherQueue other = gateway.createQueue("notification", DESTINATION, 4096);
+        DispatcherQueue again = manager.createQueue("market", DESTINATION, 4096);
+        DispatcherQueue other = manager.createQueue("notification", DESTINATION, 4096);
 
         assertThat(again).isSameAs(first);
         assertThat(again.getMaxPendingBytes()).isEqualTo(1024);
@@ -66,15 +67,15 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void a_pause_leaves_the_other_groups_running() {
-        DispatcherQueue market = gateway.createQueue("market", DESTINATION, 1024);
-        DispatcherQueue plain = gateway.createQueue("default", DESTINATION, 1024);
+        DispatcherQueue market = manager.createQueue("market", DESTINATION, 1024);
+        DispatcherQueue plain = manager.createQueue("default", DESTINATION, 1024);
 
-        assertThat(gateway.pauseQueue("market", DESTINATION)).isTrue();
+        assertThat(manager.pauseQueue("market", DESTINATION)).isTrue();
 
         assertThat(market.isPaused()).isTrue();
         assertThat(plain.isPaused()).isFalse();
 
-        assertThat(gateway.resumeQueue("market", DESTINATION)).isTrue();
+        assertThat(manager.resumeQueue("market", DESTINATION)).isTrue();
         assertThat(market.isPaused()).isFalse();
     }
 
@@ -82,12 +83,12 @@ class DispatchGatewayGroupManagementTest {
     void a_purge_empties_the_named_group_only() {
         // Without a consumer the messages simply stay.
         registry.listen(DispatcherQueueListener.NOOP);
-        DispatcherQueue market = gateway.createQueue("market", DESTINATION, 4096);
-        DispatcherQueue plain = gateway.createQueue("default", DESTINATION, 4096);
+        DispatcherQueue market = manager.createQueue("market", DESTINATION, 4096);
+        DispatcherQueue plain = manager.createQueue("default", DESTINATION, 4096);
         market.enqueue(message("market"));
         plain.enqueue(message("default"));
 
-        assertThat(gateway.purgeQueue("market", DESTINATION)).isTrue();
+        assertThat(manager.purgeQueue("market", DESTINATION)).isTrue();
 
         assertThat(market.size()).isZero();
         assertThat(plain.size()).isEqualTo(1);
@@ -95,10 +96,10 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void a_delete_removes_the_named_group_queue_only() {
-        gateway.createQueue("market", DESTINATION, 1024);
-        DispatcherQueue plain = gateway.createQueue("default", DESTINATION, 1024);
+        manager.createQueue("market", DESTINATION, 1024);
+        DispatcherQueue plain = manager.createQueue("default", DESTINATION, 1024);
 
-        DispatcherQueueDeleteResult result = gateway.deleteQueue("market", DESTINATION, false);
+        DispatcherQueueDeleteResult result = manager.deleteQueue("market", DESTINATION, false);
 
         assertThat(result.status()).isEqualTo(DispatcherQueueDeleteResult.Status.DELETED);
         assertThat(registry.get("market", DESTINATION)).isNull();
@@ -108,9 +109,9 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void a_delete_without_a_group_does_not_reach_another_group() {
-        DispatcherQueue market = gateway.createQueue("market", DESTINATION, 1024);
+        DispatcherQueue market = manager.createQueue("market", DESTINATION, 1024);
 
-        DispatcherQueueDeleteResult result = gateway.deleteQueue("default", DESTINATION, false);
+        DispatcherQueueDeleteResult result = manager.deleteQueue("default", DESTINATION, false);
 
         assertThat(result.status()).isEqualTo(DispatcherQueueDeleteResult.Status.NOT_FOUND);
         assertThat(registry.get("market", DESTINATION)).isSameAs(market);
@@ -118,24 +119,24 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void a_non_empty_group_queue_is_kept_until_the_delete_is_forced() {
-        DispatcherQueue market = gateway.createQueue("market", DESTINATION, 4096);
+        DispatcherQueue market = manager.createQueue("market", DESTINATION, 4096);
         market.enqueue(message("market"));
 
-        assertThat(gateway.deleteQueue("market", DESTINATION, false).status())
+        assertThat(manager.deleteQueue("market", DESTINATION, false).status())
                 .isEqualTo(DispatcherQueueDeleteResult.Status.NOT_EMPTY);
         assertThat(registry.get("market", DESTINATION)).isSameAs(market);
 
-        assertThat(gateway.deleteQueue("market", DESTINATION, true).status())
+        assertThat(manager.deleteQueue("market", DESTINATION, true).status())
                 .isEqualTo(DispatcherQueueDeleteResult.Status.DELETED);
         assertThat(registry.get("market", DESTINATION)).isNull();
     }
 
     @Test
     void a_change_on_an_unknown_group_reports_missing_without_creating_it() {
-        assertThat(gateway.pauseQueue("unused", DESTINATION)).isFalse();
-        assertThat(gateway.resumeQueue("unused", DESTINATION)).isFalse();
-        assertThat(gateway.purgeQueue("unused", DESTINATION)).isFalse();
-        assertThat(gateway.deleteQueue("unused", DESTINATION, true).status())
+        assertThat(manager.pauseQueue("unused", DESTINATION)).isFalse();
+        assertThat(manager.resumeQueue("unused", DESTINATION)).isFalse();
+        assertThat(manager.purgeQueue("unused", DESTINATION)).isFalse();
+        assertThat(manager.deleteQueue("unused", DESTINATION, true).status())
                 .isEqualTo(DispatcherQueueDeleteResult.Status.NOT_FOUND);
 
         assertThat(registry.containsGroup("unused")).isFalse();
@@ -143,7 +144,7 @@ class DispatchGatewayGroupManagementTest {
 
     @Test
     void a_malformed_group_is_refused_on_creation() {
-        assertThatThrownBy(() -> gateway.createQueue("bad/name", DESTINATION, 1024))
+        assertThatThrownBy(() -> manager.createQueue("bad/name", DESTINATION, 1024))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid group name");
     }
@@ -154,7 +155,7 @@ class DispatchGatewayGroupManagementTest {
         await().atMost(Duration.ofSeconds(5))
                 .untilAsserted(() -> assertThat(exported.get("market")).isEqualTo(1));
 
-        assertThat(gateway.deleteQueue("market", DESTINATION, true).status())
+        assertThat(manager.deleteQueue("market", DESTINATION, true).status())
                 .isEqualTo(DispatcherQueueDeleteResult.Status.DELETED);
 
         // The replacement registers a consumer of its own. The delete above must not have
@@ -173,7 +174,7 @@ class DispatchGatewayGroupManagementTest {
             assertThat(exported.get("notification")).isEqualTo(1);
         });
 
-        assertThat(gateway.deleteQueue("market", DESTINATION, true).status())
+        assertThat(manager.deleteQueue("market", DESTINATION, true).status())
                 .isEqualTo(DispatcherQueueDeleteResult.Status.DELETED);
 
         gateway.sparkDispatch(message("notification")).join();
@@ -185,10 +186,12 @@ class DispatchGatewayGroupManagementTest {
     void a_message_that_arrives_while_a_delete_runs_still_gets_a_consumer() throws Exception {
         CountDownLatch removed = new CountDownLatch(1);
         CountDownLatch resumeDelete = new CountDownLatch(1);
+        PathFinder hookedPathFinder = pauseAfterRemove(registry, removed, resumeDelete);
         VirtualThreadExecutorDispatchGateway hooked = new VirtualThreadExecutorDispatchGateway(
                 recordingExporter(exported),
-                pauseAfterRemove(registry, removed, resumeDelete)
+                hookedPathFinder
         );
+        DispatcherQueueManager hookedManager = DispatcherQueueManager.of(hookedPathFinder);
 
         try {
             hooked.sparkDispatch(message("market")).join();
@@ -196,7 +199,7 @@ class DispatchGatewayGroupManagementTest {
                     .untilAsserted(() -> assertThat(exported.get("market")).isEqualTo(1));
 
             CompletableFuture<DispatcherQueueDeleteResult> delete = CompletableFuture.supplyAsync(
-                    () -> hooked.deleteQueue("market", DESTINATION, true));
+                    () -> hookedManager.deleteQueue("market", DESTINATION, true));
             assertThat(removed.await(5, TimeUnit.SECONDS)).isTrue();
 
             // The deleted queue is out of the path finder and the delete has not finished. This

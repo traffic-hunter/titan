@@ -35,10 +35,11 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-safe");
-        gateway.createQueue(DEFAULT, destination, 10).enqueue(message(destination));
+        manager.createQueue(DEFAULT, destination, 10).enqueue(message(destination));
 
-        DispatcherQueueDeleteResult result = gateway.deleteQueue(DEFAULT, destination, false);
+        DispatcherQueueDeleteResult result = manager.deleteQueue(DEFAULT, destination, false);
 
         assertThat(result.status()).isEqualTo(DispatcherQueueDeleteResult.Status.NOT_EMPTY);
         assertThat(pathFinder.get(destination)).isNotNull();
@@ -53,11 +54,12 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-force");
-        DispatcherQueue first = gateway.createQueue(DEFAULT, destination, 10);
+        DispatcherQueue first = manager.createQueue(DEFAULT, destination, 10);
         first.enqueue(message(destination));
 
-        DispatcherQueueDeleteResult result = gateway.deleteQueue(DEFAULT, destination, true);
+        DispatcherQueueDeleteResult result = manager.deleteQueue(DEFAULT, destination, true);
 
         assertThat(result.isDeleted()).isTrue();
         assertThat(pathFinder.get(destination)).isNull();
@@ -128,10 +130,11 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-state");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.pauseQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isTrue();
 
@@ -145,21 +148,22 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         // The test takes messages off the queue itself, so the gateway's consumer is left out.
         pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/pause-withholds");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
         Message queued = message(destination);
         queue.enqueue(queued);
 
-        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.pauseQueue(DEFAULT, destination)).isTrue();
 
         // A manual pause blocks dispatch, so the queued message is withheld
         // until the queue resumes rather than being delivered.
         assertThat(queue.dispatch(200, TimeUnit.MILLISECONDS)).isNull();
         assertThat(queue.size()).isEqualTo(1);
 
-        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.dispatch(5, TimeUnit.SECONDS)).isSameAs(queued);
         assertThat(queue.size()).isZero();
@@ -174,11 +178,12 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         // The test takes messages off the queue itself, so the gateway's consumer is left out.
         pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/pressure-drains");
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, first.getSize());
         queue.enqueue(first);
         queue.enqueue(message(destination));
 
@@ -198,17 +203,18 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         // The test takes messages off the queue itself, so the gateway's consumer is left out.
         pathFinder.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create("/queue/manual-resume-under-pressure");
         // Fill the queue exactly so the next message trips the pressure pause,
         // then stack a manual pause on top of it.
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, first.getSize());
         queue.enqueue(first);
         queue.enqueue(message(destination));
         assertThat(queue.isPaused()).isTrue();
-        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.pauseQueue(DEFAULT, destination)).isTrue();
 
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch drained = new CountDownLatch(1);
@@ -228,7 +234,7 @@ class DispatchGatewayQueueManagementTest {
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
         assertThat(drained.await(200, TimeUnit.MILLISECONDS)).isFalse();
 
-        gateway.resumeQueue(DEFAULT, destination);
+        manager.resumeQueue(DEFAULT, destination);
 
         // Clearing the manual pause has to wake the parked consumer even though
         // the pressure pause is still set. Otherwise nothing drains the queue and
@@ -243,14 +249,16 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void consumer_holds_the_message_in_the_queue_until_the_export_completes() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        TriePathFinder pathFinder = new TriePathFinder();
         VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 heldExporter(exports),
-                new TriePathFinder()
+                pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/held-until-exported");
         Message first = message(destination);
         Message second = message(destination);
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize() + second.getSize());
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, first.getSize() + second.getSize());
 
         gateway.sparkDispatch(first).get(5, TimeUnit.SECONDS);
         gateway.sparkDispatch(second).get(5, TimeUnit.SECONDS);
@@ -289,13 +297,15 @@ class DispatchGatewayQueueManagementTest {
                 return export;
             }
         };
+        TriePathFinder pathFinder = new TriePathFinder();
         VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 stalledExporter,
-                new TriePathFinder()
+                pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/export-timeout");
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, first.getSize());
 
         try {
             gateway.sparkDispatch(first).get(5, TimeUnit.SECONDS);
@@ -324,8 +334,9 @@ class DispatchGatewayQueueManagementTest {
                 heldExporter(exports),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/force-delete-in-flight");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
         Message first = message(destination);
 
         gateway.sparkDispatch(first).get(5, TimeUnit.SECONDS);
@@ -333,7 +344,7 @@ class DispatchGatewayQueueManagementTest {
         assertThat(firstExport).isNotNull();
         queue.enqueue(message(destination));
 
-        assertThat(gateway.deleteQueue(DEFAULT, destination, true).isDeleted()).isTrue();
+        assertThat(manager.deleteQueue(DEFAULT, destination, true).isDeleted()).isTrue();
         assertThat(pathFinder.get(destination)).isNull();
 
         // The interrupt wakes the consumer out of get(); it returns the bytes without waiting
@@ -350,14 +361,16 @@ class DispatchGatewayQueueManagementTest {
     @Test
     void created_queue_is_delivered_before_any_message_goes_through_the_gateway() throws Exception {
         BlockingQueue<CompletableFuture<@Nullable Void>> exports = new LinkedBlockingQueue<>();
+        TriePathFinder pathFinder = new TriePathFinder();
         VirtualThreadExecutorDispatchGateway gateway = new VirtualThreadExecutorDispatchGateway(
                 heldExporter(exports),
-                new TriePathFinder()
+                pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delivered-from-creation");
 
         try {
-            DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+            DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
             queue.enqueue(message(destination));
 
             CompletableFuture<@Nullable Void> export = exports.poll(5, TimeUnit.SECONDS);
@@ -376,8 +389,9 @@ class DispatchGatewayQueueManagementTest {
                 heldExporter(exports),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/removed-from-path-finder");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
 
         try {
             gateway.sparkDispatch(message(destination)).get(5, TimeUnit.SECONDS);
@@ -441,15 +455,16 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-refuses-producer");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
-        gateway.pauseQueue(DEFAULT, destination);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
+        manager.pauseQueue(DEFAULT, destination);
 
         assertThat(queue.enqueue(message(destination))).isEqualTo(DispatchResult.PAUSED);
         assertThat(queue.size()).isZero();
         assertThat(queue.getPendingBytes()).isZero();
 
-        gateway.resumeQueue(DEFAULT, destination);
+        manager.resumeQueue(DEFAULT, destination);
 
         assertThat(queue.enqueue(message(destination))).isEqualTo(DispatchResult.ACCEPTED);
         assertThat(queue.size()).isEqualTo(1);
@@ -464,11 +479,12 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-twice");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
-        assertThat(gateway.pauseQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.pauseQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.pauseQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isTrue();
 
@@ -482,11 +498,12 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-state");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
-        gateway.pauseQueue(DEFAULT, destination);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
+        manager.pauseQueue(DEFAULT, destination);
 
-        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isFalse();
 
@@ -500,10 +517,11 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-running");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isFalse();
 
@@ -517,16 +535,17 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-under-pressure");
         // Size the queue so the first message fills it exactly. The second
         // message then fails to reserve bytes and trips the pressure pause.
         Message first = message(destination);
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, first.getSize());
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, first.getSize());
         queue.enqueue(first);
         queue.enqueue(message(destination));
 
         assertThat(queue.isPaused()).isTrue();
-        assertThat(gateway.resumeQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.resumeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(queue.isPaused()).isTrue();
 
@@ -540,11 +559,12 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/purge-state");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
         queue.enqueue(message(destination));
 
-        assertThat(gateway.purgeQueue(DEFAULT, destination)).isTrue();
+        assertThat(manager.purgeQueue(DEFAULT, destination)).isTrue();
 
         assertThat(pathFinder.get(destination)).isSameAs(queue);
         assertThat(queue.size()).isZero();
@@ -560,11 +580,12 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/missing-state");
 
-        assertThat(gateway.pauseQueue(DEFAULT, destination)).isFalse();
-        assertThat(gateway.resumeQueue(DEFAULT, destination)).isFalse();
-        assertThat(gateway.purgeQueue(DEFAULT, destination)).isFalse();
+        assertThat(manager.pauseQueue(DEFAULT, destination)).isFalse();
+        assertThat(manager.resumeQueue(DEFAULT, destination)).isFalse();
+        assertThat(manager.purgeQueue(DEFAULT, destination)).isFalse();
         assertThat(pathFinder.get(destination)).isNull();
 
         gateway.close();
@@ -681,10 +702,11 @@ class DispatchGatewayQueueManagementTest {
                 noopExporter(),
                 pathFinder
         );
+        DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-closes");
-        DispatcherQueue queue = gateway.createQueue(DEFAULT, destination, 1024);
+        DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
 
-        assertThat(gateway.deleteQueue(DEFAULT, destination, false).isDeleted()).isTrue();
+        assertThat(manager.deleteQueue(DEFAULT, destination, false).isDeleted()).isTrue();
 
         // A producer that resolved the queue before the delete would otherwise write into
         // a queue nothing drains.

@@ -23,7 +23,12 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.traffichunter.titan.core.message.DispatchRejectException;
 import org.traffichunter.titan.core.message.DispatchResult;
 import org.traffichunter.titan.core.message.Message;
+import org.traffichunter.titan.bootstrap.ServerSettings;
 import org.traffichunter.titan.core.spi.ManagedServer;
+import org.traffichunter.titan.core.spi.StompManagedServer;
+import org.traffichunter.titan.core.channel.EventLoopGroups;
+import org.traffichunter.titan.core.transport.stomp.StompServer;
+import org.traffichunter.titan.core.transport.stomp.option.StompServerOption;
 import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
@@ -251,6 +256,28 @@ class DispatchChainHandlerChainTest {
 
         assertThatThrownBy(() -> launcher.apply("stomp", "tcp", Map.of(option, value), mock(ManagedServer.class)))
                 .hasMessageContaining(option);
+    }
+
+    @Test
+    void fanout_launcher_registers_a_queue_manager_under_the_server_name() {
+        // The server is never started, so there is nothing to shut down afterwards.
+        StompServer server = StompServer.open(EventLoopGroups.singleGroup(), StompServerOption.builder().build());
+        ServerSettings settings = new ServerSettings(
+                "launcher-test", "tcp", "stomp", "localhost", 61613, 1, 1, Map.of(), Map.of(), Map.of(), null);
+
+        try {
+            new StompServerFanoutLauncher()
+                    .apply("stomp", "tcp", Map.of(), new StompManagedServer(server, settings));
+
+            DispatcherQueueManager manager = DispatcherQueueManagers.get("launcher-test");
+            assertThat(manager).isNotNull();
+            Destination destination = Destination.create("/queue/launcher-managed");
+            DispatcherQueue queue = manager.createQueue("default", destination, 1024);
+            assertThat(queue.route()).isEqualTo(destination);
+            assertThat(manager.deleteQueue("default", destination, true).isDeleted()).isTrue();
+        } finally {
+            DispatcherQueueManagers.unregister("launcher-test");
+        }
     }
 
     private interface DispatcherFactory {

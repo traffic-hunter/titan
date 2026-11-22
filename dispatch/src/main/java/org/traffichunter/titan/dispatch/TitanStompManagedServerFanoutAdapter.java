@@ -68,8 +68,6 @@ public final class TitanStompManagedServerFanoutAdapter implements ManagedServer
             }
         });
 
-        DispatcherQueueManagers.register(managedServer.name(), dispatchGateway);
-
         stompManagedServer.server().onStomp(handler ->
                 handler.sendHandler(new StompSendToFanoutHandler(dispatchGateway))
         );

@@ -33,6 +33,7 @@ import org.traffichunter.titan.dispatch.DestinationGroupRegistry;
 import org.traffichunter.titan.dispatch.DispatchGateway;
 import org.traffichunter.titan.dispatch.DispatcherQueue;
 import org.traffichunter.titan.dispatch.DispatcherQueueListener;
+import org.traffichunter.titan.dispatch.DispatcherQueueManager;
 import org.traffichunter.titan.dispatch.StompSendToFanoutHandler;
 import org.traffichunter.titan.dispatch.exporter.StompDispatchExporter;
 
@@ -131,8 +132,8 @@ class GroupedStompFanoutIntegrationTest {
         // Without a consumer the queue keeps the state set up below.
         registry.listen(DispatcherQueueListener.NOOP);
         Destination destination = Destination.create(DESTINATION);
-        DispatcherQueue queue = gateway.createQueue(DestinationGroups.DEFAULT, destination,
-                expected == DispatchResult.TOO_LARGE ? 1 : 5);
+        DispatcherQueue queue = DispatcherQueueManager.of(registry)
+                .createQueue(DestinationGroups.DEFAULT, destination, expected == DispatchResult.TOO_LARGE ? 1 : 5);
         switch (expected) {
             case FULL -> assertThat(queue.enqueue(Message.builder()
                     .destination(destination)
