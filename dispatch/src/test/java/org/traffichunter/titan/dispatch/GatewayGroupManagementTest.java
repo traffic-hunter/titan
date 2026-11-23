@@ -34,7 +34,7 @@ class GatewayGroupManagementTest {
 
     private final DestinationGroupRegistry registry = new DestinationGroupRegistry();
     private final Map<String, Integer> exported = new ConcurrentHashMap<>();
-    private final VirtualThreadExecutorGateway gateway = new VirtualThreadExecutorGateway(registry);
+    private final Gateway gateway = Gateway.of(registry);
     private final FanoutDispatcher dispatcher = new FanoutDispatcher(recordingExporter(exported), registry);
     private final DispatcherQueueManager manager = DispatcherQueueManager.of(registry);
 
@@ -190,7 +190,7 @@ class GatewayGroupManagementTest {
         CountDownLatch removed = new CountDownLatch(1);
         CountDownLatch resumeDelete = new CountDownLatch(1);
         PathFinder hookedPathFinder = pauseAfterRemove(registry, removed, resumeDelete);
-        VirtualThreadExecutorGateway hooked = new VirtualThreadExecutorGateway(hookedPathFinder);
+        Gateway hooked = Gateway.of(hookedPathFinder);
         FanoutDispatcher hookedDispatcher = new FanoutDispatcher(recordingExporter(exported), hookedPathFinder);
         DispatcherQueueManager hookedManager = DispatcherQueueManager.of(hookedPathFinder);
 

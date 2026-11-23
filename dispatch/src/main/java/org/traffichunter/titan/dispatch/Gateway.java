@@ -24,11 +24,12 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Handler;
 
 /**
- * Starts asynchronous message dispatch for fanout delivery.
+ * Starts message dispatch for fanout delivery.
  *
- * <p>Each dispatch starts the configured handler chain, which routes the message into its
- * destination queue. Delivery from the queue runs separately. The returned future completes
- * when the chain finishes, not when acknowledgements arrive from every subscribed client.</p>
+ * <p>Each dispatch runs the configured handler chain on the calling thread, which routes the
+ * message into its destination queue. Delivery from the queue runs separately. The returned
+ * future is complete when the chain has finished, not when acknowledgements arrive from every
+ * subscribed client.</p>
  *
  * <p>This type is not part of Titan's stable API and can change in any release. The supported
  * way to run a server is {@code TitanBootstrap.run(String)} with {@code titan-env.yml}.</p>
@@ -39,7 +40,7 @@ public interface Gateway extends Closeable {
 
     /** Returns a gateway that routes messages into the queues of the path finder. */
     static Gateway of(PathFinder pathFinder) {
-        return new VirtualThreadExecutorGateway(pathFinder);
+        return new DefaultGateway(pathFinder);
     }
 
     /**
@@ -68,4 +69,8 @@ public interface Gateway extends Closeable {
     boolean isOpen();
 
     boolean isClosed();
+
+    /** Stops admitting messages. */
+    @Override
+    void close();
 }
