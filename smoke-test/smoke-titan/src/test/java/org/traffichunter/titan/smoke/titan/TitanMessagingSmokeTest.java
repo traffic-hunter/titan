@@ -60,9 +60,10 @@ class TitanMessagingSmokeTest {
         String destination = "/topic/" + UUID.randomUUID();
         LinkedBlockingQueue<String> first = new LinkedBlockingQueue<>();
         LinkedBlockingQueue<String> second = new LinkedBlockingQueue<>();
-        runtime.client().subscribe(destination, frame ->
+        // The producers have their own connections, so wait for the server's receipt before sending.
+        runtime.client().subscribe(destination, Map.of(RECEIPT, "subscribe-first"), frame ->
                 first.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
-        runtime.client().subscribe(destination, frame ->
+        runtime.client().subscribe(destination, Map.of(RECEIPT, "subscribe-second"), frame ->
                 second.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
 
         List<TitanClient> producers = new ArrayList<>();
@@ -111,7 +112,9 @@ class TitanMessagingSmokeTest {
         String destination = "/queue/" + UUID.randomUUID();
         LinkedBlockingQueue<StompFrames> messages = new LinkedBlockingQueue<>();
         TitanClient producer = runtime.client();
-        runtime.client().subscribe(destination, messages::add).get(10, TimeUnit.SECONDS);
+        // The producer has its own connection, so wait for the server's receipt before sending.
+        runtime.client().subscribe(destination, Map.of(RECEIPT, "subscribe"), messages::add)
+                .get(10, TimeUnit.SECONDS);
 
         for (String payload : List.of("", "\uD55C\uAE00-\uD83D\uDE80", "x".repeat(48 * 1024))) {
             producer.send(destination, payload).get(10, TimeUnit.SECONDS);
@@ -200,7 +203,9 @@ class TitanMessagingSmokeTest {
         String destination = "/queue/" + UUID.randomUUID();
         LinkedBlockingQueue<StompFrames> messages = new LinkedBlockingQueue<>();
         TitanClient producer = runtime.client();
-        runtime.client().subscribe(destination, messages::add).get(10, TimeUnit.SECONDS);
+        // The producer has its own connection, so wait for the server's receipt before sending.
+        runtime.client().subscribe(destination, Map.of(RECEIPT, "subscribe"), messages::add)
+                .get(10, TimeUnit.SECONDS);
 
         byte[] payload = embeddedNul
                 ? new byte[]{'a', 0, 'b'}
