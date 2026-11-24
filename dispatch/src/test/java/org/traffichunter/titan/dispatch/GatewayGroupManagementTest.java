@@ -120,6 +120,8 @@ class GatewayGroupManagementTest {
 
     @Test
     void a_non_empty_group_queue_is_kept_until_the_delete_is_forced() {
+        // Without a consumer the message simply stays.
+        registry.listen(DispatcherQueueListener.NOOP);
         DispatcherQueue market = manager.createQueue("market", DESTINATION, 4096);
         market.enqueue(message("market"));
 
