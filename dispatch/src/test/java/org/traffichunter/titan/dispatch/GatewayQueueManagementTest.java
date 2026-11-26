@@ -31,7 +31,6 @@ class GatewayQueueManagementTest {
     void delete_queue_rejects_non_empty_queue_without_force() {
         TriePathFinder pathFinder = new TriePathFinder();
         Gateway gateway = Gateway.of(pathFinder);
-        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/delete-safe");
         manager.createQueue(DEFAULT, destination, 10).enqueue(message(destination));
@@ -42,7 +41,6 @@ class GatewayQueueManagementTest {
         assertThat(pathFinder.get(destination)).isNotNull();
 
         gateway.close();
-        dispatcher.close();
     }
 
     @Test
@@ -470,7 +468,6 @@ class GatewayQueueManagementTest {
     void paused_queue_refuses_producers_until_resumed() {
         TriePathFinder pathFinder = new TriePathFinder();
         Gateway gateway = Gateway.of(pathFinder);
-        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/pause-refuses-producer");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -486,7 +483,6 @@ class GatewayQueueManagementTest {
         assertThat(queue.size()).isEqualTo(1);
 
         gateway.close();
-        dispatcher.close();
     }
 
     @Test
@@ -546,7 +542,6 @@ class GatewayQueueManagementTest {
     void resume_queue_keeps_pressure_pause_while_queue_is_over_limit() {
         TriePathFinder pathFinder = new TriePathFinder();
         Gateway gateway = Gateway.of(pathFinder);
-        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/resume-under-pressure");
         // Size the queue so the first message fills it exactly. The second
@@ -562,14 +557,12 @@ class GatewayQueueManagementTest {
         assertThat(queue.isPaused()).isTrue();
 
         gateway.close();
-        dispatcher.close();
     }
 
     @Test
     void purge_queue_keeps_queue_and_empties_pending_messages() {
         TriePathFinder pathFinder = new TriePathFinder();
         Gateway gateway = Gateway.of(pathFinder);
-        FanoutDispatcher dispatcher = new FanoutDispatcher(noopExporter(), pathFinder);
         DispatcherQueueManager manager = DispatcherQueueManager.of(pathFinder);
         Destination destination = Destination.create("/queue/purge-state");
         DispatcherQueue queue = manager.createQueue(DEFAULT, destination, 1024);
@@ -582,7 +575,6 @@ class GatewayQueueManagementTest {
         assertThat(queue.getPendingBytes()).isZero();
 
         gateway.close();
-        dispatcher.close();
     }
 
     @Test
