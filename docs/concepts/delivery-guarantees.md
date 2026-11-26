@@ -17,6 +17,7 @@ not imply success at the next one.
 | Boundary | What success confirms | What it does not confirm |
 | --- | --- | --- |
 | `send` without a STOMP `receipt` header | The client wrote the SEND frame to its connection | Server acceptance, queue admission, or subscriber delivery |
+| `subscribe` without a STOMP `receipt` header | The client wrote the SUBSCRIBE frame to its connection | That the server has registered the subscription |
 | STOMP `RECEIPT` for SEND | The destination queue accepted the message and dispatch was activated | A subscriber received, processed, or acknowledged the MESSAGE frame |
 | Queue admission | The message entered the in-memory destination queue | Persistence or recovery after process failure |
 | Fanout attempt | Titan handed a MESSAGE frame to each writable matching connection it could reach | Completion of the socket write or application processing |
@@ -100,3 +101,32 @@ client.send(
 
 The resulting future confirms admission only. End-to-end processing requires
 an application-level acknowledgement from the subscriber.
+
+## Subscribing before a producer sends
+
+A message is delivered only to the subscriptions that exist when its queue
+consumer reaches it. A message that arrives before the server has registered a
+subscription has no matching subscriber and is not delivered to it.
+
+Frames from one connection are handled in the order they arrive, so a SUBSCRIBE
+is registered before a SEND that follows it on the same connection. A producer
+on another connection has no such ordering. It must wait for the server's
+RECEIPT for the SUBSCRIBE, which the server sends after registering the
+subscription:
+
+```java
+import java.util.Map;
+import org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements;
+import org.traffichunter.titan.core.util.IdGenerator;
+
+consumer.subscribe(
+        "/notifications",
+        Map.of(Elements.RECEIPT, IdGenerator.uuid()),
+        frame -> handle(frame)
+).get();
+
+producer.send("/notifications", "hello");
+```
+
+Without the receipt header the subscribe future completes after the
+client-side socket write, which says nothing about the server.
