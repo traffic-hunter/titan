@@ -50,6 +50,11 @@ stops it when the queue is removed.
 Custom handlers run after routing. This allows backup, validation, or metrics
 work without putting protocol logic inside the queue.
 
+The gateway runs its chain on the thread that calls it, which for a STOMP `SEND`
+is the connection's event loop. Messages from one connection therefore enter
+their queue in the order they were sent. A handler that blocks holds up every
+connection on that event loop, so slow work belongs on a thread of its own.
+
 `FanoutDispatcher` has a handler chain of its own, set with
 `dispatcher.chainHandler(...)`. Every message the consumer takes from a queue
 goes through it before the exporter is called. A message a handler does not
@@ -153,7 +158,7 @@ queue. The same destination in two groups is two queues and two consumers.
 The consumer polls its queue and invokes the configured `DispatchExporter` one
 message at a time. This preserves FIFO processing within one destination while
 allowing different destination consumers to progress independently on the
-gateway executor.
+dispatcher's virtual threads.
 
 The `publish()` future represents completion of the dispatch handler chain and
 consumer-start request. It does **not** mean that every remote subscriber has

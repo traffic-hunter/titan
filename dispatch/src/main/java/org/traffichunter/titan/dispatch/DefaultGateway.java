@@ -16,23 +16,21 @@
 package org.traffichunter.titan.dispatch;
 
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Assert;
 import org.traffichunter.titan.core.util.Handler;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Base {@link Gateway} for platform and virtual-thread executors.
+ * {@link Gateway} that runs its handler chain on the thread that calls
+ * {@link #sparkDispatch(Message)}.
  *
- * <p>The gateway owns the executor and manages startup and shutdown. Its handler chain ends at
- * the queue: {@link RouteDispatchChainHandler} admits messages to destination queues, and custom
- * handlers run after it.</p>
+ * <p>The message is in its queue when {@code sparkDispatch} returns, so messages one caller
+ * sends are enqueued in the order it sends them. The handler chain ends at the queue:
+ * {@link RouteDispatchChainHandler} admits messages to destination queues, and custom handlers
+ * run after it. A handler that blocks holds up its caller, which is the server's event loop.</p>
  *
  * <p>Delivery from the queues is not the gateway's job. A {@link Dispatcher} built on the same
  * path finder takes it from there.</p>
@@ -52,26 +50,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author yun
  */
-abstract class AbstractExecutorGateway implements Gateway {
+final class DefaultGateway implements Gateway {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractExecutorGateway.class);
-    private static final long SHUTDOWN_TIMEOUT_SECONDS = 60;
-
-    private final ExecutorService executor;
     private final PathFinder pathFinder;
     private final AtomicBoolean closed = new AtomicBoolean();
     private DispatchHandlerChain handlerChain;
 
-    protected AbstractExecutorGateway(ExecutorService executor, PathFinder pathFinder) {
-        this.executor = executor;
+    DefaultGateway(PathFinder pathFinder) {
         this.pathFinder = pathFinder;
-        this.handlerChain = DispatchHandlerChain.chain(executor)
+        this.handlerChain = DispatchHandlerChain.chain()
                 .add(new RouteDispatchChainHandler(pathFinder));
     }
 
     @Override
     public Gateway chainHandler(Handler<DispatchHandlerChain> chainHandler) {
-        DispatchHandlerChain chain = DispatchHandlerChain.chain(executor);
+        DispatchHandlerChain chain = DispatchHandlerChain.chain();
         chain.add(new RouteDispatchChainHandler(pathFinder));
         chainHandler.handle(chain);
         this.handlerChain = chain;
@@ -103,18 +96,6 @@ abstract class AbstractExecutorGateway implements Gateway {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            executor.shutdown();
-            try {
-                if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                    executor.shutdownNow();
-                    if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                        log.warn("Gateway executor did not terminate cleanly");
-                    }
-                }
-            } catch (InterruptedException e) {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
             handlerChain.clear();
         }
     }
