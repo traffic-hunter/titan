@@ -18,6 +18,7 @@ package org.traffichunter.titan.smoke.titan;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -33,6 +34,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.RECEIPT;
 
 /**
  * Checks packaged-server and client lifecycle behavior at the process boundary.
@@ -87,7 +89,8 @@ class TitanLifecycleSmokeTest {
         TitanClient producer = runtime.client();
         TitanClient consumer = runtime.client();
         LinkedBlockingQueue<String> received = new LinkedBlockingQueue<>();
-        consumer.subscribe(destination, frame ->
+        // The producer has its own connection, so wait for the server's receipt before sending.
+        consumer.subscribe(destination, Map.of(RECEIPT, "subscribe-consumer"), frame ->
                 received.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
 
         List<CompletableFuture<StompFrames>> sends = new ArrayList<>();

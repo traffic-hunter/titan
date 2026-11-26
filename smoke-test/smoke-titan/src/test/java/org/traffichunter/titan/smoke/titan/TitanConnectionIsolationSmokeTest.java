@@ -16,6 +16,7 @@
 package org.traffichunter.titan.smoke.titan;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Timeout;
 import org.traffichunter.titan.client.TitanClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.RECEIPT;
 
 /**
  * Checks that malformed input and stalled readers remain isolated to their connections.
@@ -41,7 +43,8 @@ class TitanConnectionIsolationSmokeTest {
         try (SmokeStompPeer producer = new SmokeStompPeer(runtime.port())) {
             String destination = "/queue/" + UUID.randomUUID();
             LinkedBlockingQueue<String> messages = new LinkedBlockingQueue<>();
-            runtime.client().subscribe(destination, frame ->
+            // The producer has its own connection, so wait for the server's receipt before sending.
+            runtime.client().subscribe(destination, Map.of(RECEIPT, "subscribe-fragmented"), frame ->
                     messages.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
 
             producer.send("SEND\ndestination:" + destination + "\n\nfrag");
@@ -108,7 +111,8 @@ class TitanConnectionIsolationSmokeTest {
             TitanClient producer = runtime.client();
             TitanClient healthy = runtime.client();
             LinkedBlockingQueue<String> messages = new LinkedBlockingQueue<>();
-            healthy.subscribe(destination, frame ->
+            // The producer has its own connection, so wait for the server's receipt before sending.
+            healthy.subscribe(destination, Map.of(RECEIPT, "subscribe-healthy"), frame ->
                     messages.add(new String(frame.body(), StandardCharsets.UTF_8))).get(10, TimeUnit.SECONDS);
 
             for (int i = 0; i < 512; i++) {

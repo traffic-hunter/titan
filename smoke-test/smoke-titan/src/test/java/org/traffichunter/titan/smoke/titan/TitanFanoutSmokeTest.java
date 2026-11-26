@@ -27,6 +27,7 @@ import org.traffichunter.titan.client.TitanClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.ID;
+import static org.traffichunter.titan.core.codec.stomp.StompHeaders.Elements.RECEIPT;
 
 /**
  * Verifies that the packaged dispatch runtime fans one message out to every subscriber.
@@ -47,11 +48,12 @@ class TitanFanoutSmokeTest {
 
         TitanClient firstConsumer = runtime.client();
         TitanClient secondConsumer = runtime.client();
-        firstConsumer.subscribe(destination, Map.of(ID, "smoke-fanout-first"), frame -> {
+        // The producer has its own connection, so wait for the server's receipt before sending.
+        firstConsumer.subscribe(destination, Map.of(ID, "smoke-fanout-first", RECEIPT, "subscribe-first"), frame -> {
             firstPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
             received.countDown();
         }).get(10, TimeUnit.SECONDS);
-        secondConsumer.subscribe(destination, Map.of(ID, "smoke-fanout-second"), frame -> {
+        secondConsumer.subscribe(destination, Map.of(ID, "smoke-fanout-second", RECEIPT, "subscribe-second"), frame -> {
             secondPayload.set(new String(frame.body(), StandardCharsets.UTF_8));
             received.countDown();
         }).get(10, TimeUnit.SECONDS);
