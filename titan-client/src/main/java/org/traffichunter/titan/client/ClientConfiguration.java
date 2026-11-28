@@ -28,9 +28,9 @@ import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 /**
  * Immutable configuration shared by a {@link TitanClient} and its internal driver.
  *
- * <p>The {@link TitanClient.Builder} assembles this value for the selected driver. Its compact
- * constructor supplies defaults for omitted optional values and checks that the configuration is
- * valid for a connection attempt.</p>
+ * <p>The {@link TitanClient.Builder} assembles this value for the selected driver and supplies the
+ * defaults. The compact constructor checks that the configuration is valid for a connection
+ * attempt and normalizes the WebSocket path.</p>
  *
  * @param host remote server host used by the transport
  * @param port remote server port
@@ -111,7 +111,7 @@ record ClientConfiguration(
         return session.autoComputeContentLength();
     }
 
-    /** Returns whether outbound messages should use the complete STOMP frame write path. */
+    /** Returns whether the session opens with a {@code STOMP} frame instead of {@code CONNECT}. */
     boolean useStompFrame() {
         return session.useStompFrame();
     }
@@ -141,7 +141,7 @@ record ClientConfiguration(
         return session.maxFrameLength();
     }
 
-    /** Returns the negotiated STOMP protocol version. */
+    /** Returns the STOMP version the client sends in {@code accept-version}. */
     StompVersion stompVersion() {
         return session.version();
     }

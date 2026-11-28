@@ -21,8 +21,8 @@ import org.traffichunter.titan.springframework.stomp.listener.TitanListenerEndpo
 
 /**
  * Strategy for creating listener containers from discovered listener endpoints.
- * Implementations own container assembly and policy injection.
- * This mirrors Spring listener container factory patterns.
+ * Implementations build the container and apply its listener options.
+ * Modeled on Spring's listener container factories.
  *
  * @author yun
  */

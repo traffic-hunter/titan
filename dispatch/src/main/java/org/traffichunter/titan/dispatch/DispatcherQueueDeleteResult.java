@@ -1,7 +1,7 @@
 package org.traffichunter.titan.dispatch;
 
 /**
- * Result of an operational dispatcher queue deletion request.
+ * Result of a request to delete a dispatcher queue.
  *
  * @param status deletion outcome
  * @param size queue size observed when the deletion request was evaluated
@@ -25,8 +25,7 @@ public record DispatcherQueueDeleteResult(
     }
 
     /**
-     * Deletion status values used by management APIs to map domain outcomes to
-     * transport-specific responses.
+     * Outcome of a delete. Management APIs map it to their own responses.
      */
     public enum Status {
         /**

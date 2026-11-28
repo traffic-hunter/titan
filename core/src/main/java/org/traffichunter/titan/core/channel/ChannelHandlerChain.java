@@ -72,10 +72,9 @@ import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
  * handlers. TLS can therefore decrypt before protocol decoding and encrypt after protocol
  * encoding while sharing one handler instance.</p>
  *
- * <p>The chain is designed for event-loop confinement and does not synchronize structural
- * mutations. Configure handlers before channel traffic starts, or add and remove them only from
- * the owning event loop. Closing is idempotent and uses identity-based deduplication so a duplex
- * {@link AutoCloseable} handler is closed exactly once.</p>
+ * <p>The chain does not synchronize structural changes. Configure handlers before channel traffic
+ * starts, or add and remove them only from the owning event loop. Closing is idempotent and uses
+ * identity-based deduplication so a duplex {@link AutoCloseable} handler is closed exactly once.</p>
  *
  * @author yun
  */

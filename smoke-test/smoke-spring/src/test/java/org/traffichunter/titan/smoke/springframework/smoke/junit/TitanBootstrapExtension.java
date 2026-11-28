@@ -51,7 +51,7 @@ public final class TitanBootstrapExtension implements BeforeAllCallback, AfterAl
 
     @Override
     public void afterAll(ExtensionContext context) throws Exception {
-        // Titan server lifecycle is managed by GlobalShutdownHook in core.
+        // GlobalShutdownHook in bootstrap stops the Titan server when the JVM exits.
     }
 
     private static String resolveEnvironmentPath(String configuredPath) {

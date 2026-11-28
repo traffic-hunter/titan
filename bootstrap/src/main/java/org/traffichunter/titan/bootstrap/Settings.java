@@ -121,9 +121,9 @@ public record Settings(
     /**
      * Process-wide admission control settings.
      *
-     * <p>Resource-specific settings are nested so additional controls such as
-     * CPU, thread, or queue pressure can be added without flattening unrelated
-     * thresholds into this record.</p>
+     * <p>Each resource has its own nested record, {@code heap} and {@code queue},
+     * so another control such as CPU or thread pressure can be added without
+     * mixing its thresholds into this record.</p>
      */
     public record FlowControlSettings(
             boolean enabled,

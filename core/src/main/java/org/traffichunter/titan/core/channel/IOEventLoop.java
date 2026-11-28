@@ -21,8 +21,7 @@ import org.traffichunter.titan.core.util.concurrent.ChannelPromise;
  * Event loop that owns an {@link IOSelector}.
  *
  * <p>Channels are registered with an I/O event loop before selector operations are performed.
- * The owning loop is responsible for all readiness registration and I/O callbacks for that
- * channel.</p>
+ * The owning loop runs all readiness registration and I/O callbacks for that channel.</p>
  *
  * @author yungwang-o
  */

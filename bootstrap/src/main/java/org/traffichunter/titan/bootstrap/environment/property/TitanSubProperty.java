@@ -27,9 +27,10 @@ import org.traffichunter.titan.bootstrap.environment.property.sub.ServiceDiscove
 /**
  * YAML binding object for properties nested below the {@code titan} key.
  *
- * <p>Some fields are placeholders for broader process features, while
- * {@link #servers} is the active path used to construct managed server
- * settings.</p>
+ * <p>{@link #servers} builds the managed server settings, and {@code monitor},
+ * {@code backup}, and {@code flowControl} map into process settings.
+ * {@code httpServer} and {@code serviceDiscovery} are placeholders that
+ * nothing reads yet.</p>
  */
 public class TitanSubProperty {
 

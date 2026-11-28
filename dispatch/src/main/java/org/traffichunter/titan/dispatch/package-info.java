@@ -1,8 +1,8 @@
 /**
  * Dispatch module entry points.
  *
- * <p>The dispatch module connects inbound producer traffic to all consumers that
- * have subscribed to the same {@code Destination}. Its runtime shape is:</p>
+ * <p>The dispatch module delivers each message a producer sends to every client subscribed
+ * to the same {@code Destination}:</p>
  *
  * <pre>{@code
  * Producer SEND frame
@@ -28,10 +28,9 @@
  *
  * <p>{@link org.traffichunter.titan.dispatch.Gateway} routes a message into its queue,
  * {@link org.traffichunter.titan.dispatch.PathFinder} resolves destination queues,
- * {@link org.traffichunter.titan.dispatch.Dispatcher} delivers from the queues, and exporter
- * implementations own protocol-specific delivery. Gateway and dispatcher are built separately on
- * the same path finder. This keeps message routing independent from the protocol used to write
- * the payload to connected clients.</p>
+ * {@link org.traffichunter.titan.dispatch.Dispatcher} delivers from the queues, and exporters
+ * write to clients in their own protocol, so routing does not depend on the protocol. Gateway
+ * and dispatcher are built separately on the same path finder.</p>
  */
 @NullMarked
 package org.traffichunter.titan.dispatch;

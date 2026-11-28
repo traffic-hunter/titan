@@ -18,8 +18,8 @@ package org.traffichunter.titan.client;
 /**
  * Reports lifecycle, configuration, or transport failures exposed by the client facade.
  *
- * <p>Transport-specific failures may be retained as the cause, allowing callers to depend on one
- * client-level exception without losing the original diagnostic information.</p>
+ * <p>Transport-specific failures may be kept as the cause, so callers catch one exception type
+ * and still see the original failure.</p>
  *
  * @author yun
  */

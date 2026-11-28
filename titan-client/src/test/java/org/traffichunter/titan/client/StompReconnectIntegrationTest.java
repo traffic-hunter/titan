@@ -449,8 +449,8 @@ class StompReconnectIntegrationTest {
             CompletableFuture<String> subscription = client.subscribe(destination, headers, frame -> { });
             subscriptionWritten.get(3, SECONDS);
 
-            // The subscription kept for reconnect used to be built from this map once the
-            // SUBSCRIBE completed, so an edit landing in this window chose the restored group.
+            // The SUBSCRIBE is written but not complete. An edit to the caller's map in this
+            // window must not choose the group the subscription is restored into.
             headers.put(Elements.GROUP, "notification");
             releaseSubscription.complete(null);
             String subscriptionId = subscription.get(3, SECONDS);

@@ -27,14 +27,14 @@ import java.util.stream.Stream;
 /**
  * Normalized configuration for one managed server.
  *
- * <p>The YAML layer largely preserves user input. This record applies defaults,
- * validates required values,
- * and separates shared options from transport- and protocol-specific overrides.</p>
+ * <p>The YAML layer keeps user input mostly as written. This record applies
+ * defaults, validates required values, and keeps shared options apart from
+ * transport- and protocol-specific overrides.</p>
  *
- * <p>Option resolution is shallow and deterministic. Values in
- * {@code transportOptions} override {@code options} for transport providers,
- * and values in {@code protocolOptions} override {@code options} for protocol
- * providers. Common settings can be declared once and overridden for each provider.</p>
+ * <p>Options merge one level deep. Values in {@code transportOptions} override
+ * {@code options} for transport providers, and values in {@code protocolOptions}
+ * override {@code options} for protocol providers, so a common setting is
+ * declared once and overridden per provider.</p>
  */
 @NullUnmarked
 public record ServerSettings(

@@ -22,7 +22,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * This annotation indicates that the method or class is thread-safe.
+ * Marks a method or class as thread-safe.
  * @author yungwang-o
  */
 @Retention(RetentionPolicy.SOURCE)

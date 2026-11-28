@@ -33,7 +33,7 @@ class TitanClientManagerTest {
         when(client.connect()).thenReturn(CompletableFuture.completedFuture(client));
 
         // Mirror a real client: start()/shutdown() flip the client's own lifecycle flags,
-        // which the manager now treats as the single source of truth.
+        // which are the only lifecycle state the manager reads.
         doAnswer(invocation -> {
             when(client.isStarted()).thenReturn(true);
             return null;

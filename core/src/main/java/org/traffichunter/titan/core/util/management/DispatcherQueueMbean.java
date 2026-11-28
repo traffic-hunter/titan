@@ -25,7 +25,7 @@ public interface DispatcherQueueMbean {
     /** Group used for queues created without an explicit group. */
     String DEFAULT_GROUP = DestinationGroups.DEFAULT;
 
-    /** Group that owns the queue. Queues that predate groups report the default group. */
+    /** Group that owns the queue. The default group unless an implementation overrides this. */
     default String getGroup() {
         return DEFAULT_GROUP;
     }

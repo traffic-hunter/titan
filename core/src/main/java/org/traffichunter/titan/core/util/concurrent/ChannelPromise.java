@@ -22,8 +22,8 @@ import org.traffichunter.titan.core.channel.EventLoop;
 /**
  * Promise specialization for channel operations.
  *
- * <p>Channel promises carry the channel that initiated the operation, making registration,
- * bind, connect, and write results easier to correlate with their owning channel.</p>
+ * <p>Channel promises carry the channel that started the operation, so a registration, bind,
+ * connect, or write result can be traced back to its channel.</p>
  *
  * @author yun
  */

@@ -23,16 +23,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Thread-safe live metadata for one destination queue.
+ * Live metadata for one destination queue, safe to read from any thread.
  *
- * <p>The immutable fields identify the queue and define its admission limits.
- * Pending bytes include reservations made by concurrent producers before
- * their messages become visible in the underlying queue. This conservative
- * accounting prevents concurrent publishers from overshooting the byte limit.</p>
+ * <p>The final fields name the queue and set its byte limits. Pending bytes include bytes
+ * producers have reserved before their messages show up in the queue, so concurrent
+ * producers cannot go past the byte limit together.</p>
  *
- * <p>Mutation methods have package visibility so only the queue implementation
- * can reserve or release pending bytes. Callers receiving this object can inspect
- * current state without being able to corrupt its accounting.</p>
+ * <p>The methods that change pending bytes are package-private, so only the queue
+ * implementation calls them. Other callers can read the state but not change it.</p>
  *
  * @author yun
  */

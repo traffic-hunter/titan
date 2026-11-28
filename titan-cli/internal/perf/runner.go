@@ -34,8 +34,8 @@ const (
 	SendModeWrite   = "write"
 )
 
-// The server path a run is aimed at. The runner cannot tell them apart over STOMP, so the label
-// travels with the result and keeps a direct run from being read as a dispatch guarantee.
+// The server path a run is aimed at. The runner cannot tell them apart over STOMP. The label is
+// kept with the result, so a direct run is not taken as a guarantee for dispatch.
 const (
 	PathDispatch = "dispatch"
 	PathDirect   = "direct"
@@ -172,8 +172,8 @@ type runnerReport struct {
 	Environment json.RawMessage `json:"environment"`
 }
 
-// Manifest records what a run was, so a number can be read back with the conditions that produced
-// it. A result without its conditions is not evidence.
+// Manifest records the conditions of one run, so a number can be read back together with the
+// conditions that produced it.
 type Manifest struct {
 	RunID      string          `json:"runId"`
 	Iteration  int             `json:"iteration"`

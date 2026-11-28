@@ -18,11 +18,10 @@ package org.traffichunter.titan.dispatch;
 import org.traffichunter.titan.core.message.Message;
 
 /**
- * Mutable state shared while one dispatch operation moves through a handler chain.
+ * Mutable state for one message as it goes through a handler chain.
  *
- * <p>The context retains the producer {@link Message} while handlers route, observe, and fan out
- * one dispatch operation. A routing failure terminates traversal by throwing rather than storing
- * a nullable routing result.</p>
+ * <p>It holds the producer's {@link Message}. A routing failure throws and ends the chain, so
+ * the context stores no routing result.</p>
  *
  * @author yun
  */

@@ -459,8 +459,8 @@ class StompChannelDecoderTest {
 
     @Test
     void when_content_length_mismatch_then_parse_buffers_released() {
-        // Leak 3 regression: stompFrame and frames list inside StompParser.parse()
-        // must be released even when ERR_STOMP_FRAME is returned early.
+        // A content-length that does not match the body makes StompParser.parse() return
+        // ERR_STOMP_FRAME early. The input buffer must still be released.
         StompHeaders headers = StompHeaders.create();
         headers.put(StompHeaders.Elements.CONTENT_LENGTH, "4");
         StompFrame frame = StompFrame.create(headers, StompCommand.SEND, Buffer.heap().alloc("hello"));
@@ -470,9 +470,7 @@ class StompChannelDecoderTest {
         TestStompChannelDecoder decoder = new TestStompChannelDecoder(64, ((sf, sc) -> {}));
         decoder.sparkChannelRead(new InMemoryNetChannel(), buf, terminal);
 
-        // If stompFrame/frames buffers were not released, ResourceLeakDetector (PARANOID)
-        // would report a leak. Here we verify the decode completes without error
-        // and the input buffer is released.
+        // The decode completes without error and the input buffer is released.
         assertThat(terminal.received).isNull();
         assertThat(buf.byteBuf().refCnt()).isZero();
     }

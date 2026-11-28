@@ -36,7 +36,7 @@ import org.traffichunter.titan.core.transport.stomp.option.StompSessionOption;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Checks against a real server that what the session agreed to is what actually happens.
+ * Checks against a real server that the client does what the session negotiated.
  *
  * @author yun
  */

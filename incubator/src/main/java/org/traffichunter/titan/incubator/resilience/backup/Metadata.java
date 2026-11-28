@@ -23,8 +23,8 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 /**
  * Binary AOF record metadata and payload.
  *
- * <p>The record keeps byte arrays defensively copied so that callers cannot
- *  invalidate length and checksum metadata after construction. The source {@link Buffer} passed to
+ * <p>The record copies its byte arrays, so callers cannot invalidate the length
+ * and checksum metadata after construction. The source {@link Buffer} passed to
  * {@link #create(Type, long, String, Buffer)} remains owned by the caller.</p>
  *
  * @author yun

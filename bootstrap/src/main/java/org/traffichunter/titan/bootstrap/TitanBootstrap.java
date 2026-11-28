@@ -119,10 +119,9 @@ public final class TitanBootstrap {
     /**
      * Contract implemented by the runtime module that bootstrap starts.
      *
-     * <p>Implementations live outside the bootstrap module. Bootstrap is
-     * responsible for loading and normalizing {@link Settings}; the starter is
-     * responsible for turning those settings into concrete runtime components
-     * such as managed servers, transports, and protocol handlers.</p>
+     * <p>Implementations live outside the bootstrap module. Bootstrap loads and
+     * normalizes {@link Settings}; the starter turns those settings into runtime
+     * components such as managed servers, transports, and protocol handlers.</p>
      */
     public interface ApplicationStarter {
 

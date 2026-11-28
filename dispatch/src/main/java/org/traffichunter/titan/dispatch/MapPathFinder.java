@@ -26,10 +26,9 @@ import org.traffichunter.titan.core.util.Destination;
 import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 
 /**
- * Hash-map path finder implementation.
+ * Path finder backed by a hash map.
  *
- * <p>This implementation is useful when destinations should be matched exactly and prefix
- * behavior is unnecessary.</p>
+ * <p>Use it when destinations only need exact matches, not prefix lookups.</p>
  *
  * @author yungwang-o
  */

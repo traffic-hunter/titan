@@ -39,7 +39,7 @@ import org.traffichunter.titan.core.util.Handler;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Default {@link TitanClient} implementation, responsible for client state.
+ * Default {@link TitanClient} implementation. It holds the client state.
  *
  * <p>It manages the client lifecycle and delegates connection attempts to a
  * {@link StompClientDriver}. The public API stays the same when the physical connection changes.
@@ -479,7 +479,7 @@ final class DefaultTitanClient implements TitanClient {
                 synchronized (subscriptionLock) {
                     // The snapshot and the bookkeeping that corrects it are published together.
                     // An unsubscribe therefore either runs before the snapshot is taken, and is
-                    // simply absent from it, or finds a restore it can correct.
+                    // not in it, or finds a restore it can correct.
                     Restore restore = new Restore(connection, subscriptionManager.subscriptions());
                     this.restore = restore;
                     return restore;
@@ -523,7 +523,7 @@ final class DefaultTitanClient implements TitanClient {
      * Replays the snapshot on the replacement connection, skipping what has been unsubscribed.
      *
      * <p>A subscription can be given up at any point of this loop. One that goes before its
-     * SUBSCRIBE is sent is simply not sent. One that goes while the SUBSCRIBE is on the wire is
+     * SUBSCRIBE is sent is not sent. One that goes while the SUBSCRIBE is on the wire is
      * undone here, because by then only this loop knows the server ever received it. Both cases
      * would otherwise leave a subscription the caller has already dropped delivering messages
      * for the rest of the connection's life.</p>

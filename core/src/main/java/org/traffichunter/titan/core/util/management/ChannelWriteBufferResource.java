@@ -16,7 +16,7 @@
 package org.traffichunter.titan.core.util.management;
 
 /**
- * Process-wide channel write-buffer pressure aggregated from all active event-loop groups.
+ * Process-wide channel write-buffer pressure, summed over the registered write-buffer MBeans.
  *
  * @param activeBuffers number of open channel write buffers
  * @param pendingBytes bytes accepted for outbound delivery but not yet written to sockets

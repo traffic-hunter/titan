@@ -19,8 +19,8 @@ class DestinationGroupRegistryTest {
 
     @AfterEach
     void unregisterQueueMbeans() {
-        // Creating a queue registers a JMX MBean. The registry does not unregister it;
-        // the gateway does. Clean up here so no MBeans are left behind.
+        // Creating a queue registers a JMX MBean, and only removing the queue unregisters
+        // it. Clean up here so no MBeans are left behind.
         for (DispatcherQueue queue : created) {
             try {
                 DispatcherQueueMbeans.unregister(queue.getGroup(), queue.getDestination());

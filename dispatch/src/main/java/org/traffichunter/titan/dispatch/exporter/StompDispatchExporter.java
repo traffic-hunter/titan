@@ -45,15 +45,14 @@ import java.time.Duration;
  * <p>The exporter asks the server connection for subscriptions matching the
  * destination within the group, then emits a STOMP {@code MESSAGE} frame per
  * subscription. The {@code subscription} header is copied from the subscription
- * id owned by that client session, which lets a single STOMP connection
- * multiplex multiple subscriptions correctly. The {@code group} header is added
+ * id owned by that client session, so a connection with several subscriptions
+ * can tell them apart. The {@code group} header is added
  * only for groups other than the default, so clients that never send the header
  * never see it. The {@code message-id} names the message, so every subscriber of
  * one message receives the same value.</p>
  *
- * <p>Each outgoing frame receives a copied payload buffer because the same
- * logical message can be written to many clients. Sharing one buffer instance
- * across those writes would couple independent channel write lifecycles.</p>
+ * <p>The frames for one message share its body as one byte array. No frame holds the
+ * payload buffer.</p>
  *
  * <p>Whether a subscriber can take the write is decided on that connection's own event loop,
  * right before the write, so no flush or other writer can change the answer in between. The

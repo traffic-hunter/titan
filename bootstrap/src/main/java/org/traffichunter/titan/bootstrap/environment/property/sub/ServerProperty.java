@@ -21,9 +21,9 @@ import java.util.Objects;
 /**
  * Mutable YAML DTO for one configured server.
  *
- * <p>This class mirrors configuration keys closely so SnakeYAML can bind user
- * input with minimal ceremony. Validation and defaulting are intentionally
- * deferred to {@code ServerSettings}, which is the immutable runtime model.</p>
+ * <p>Fields mirror the configuration keys so SnakeYAML can bind user input
+ * directly. {@code ServerSettings}, the immutable runtime model, validates the
+ * values and fills in defaults.</p>
  */
 public class ServerProperty {
 

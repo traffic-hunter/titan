@@ -42,9 +42,8 @@ public interface RetryExecutor {
     /**
      * Schedules a retryable callable.
      *
-     * <p>The returned value is intentionally ignored. This executor only models retry
-     * scheduling and cancellation; consumers that need a result should capture it in
-     * their own state or future abstraction.</p>
+     * <p>The returned value is ignored. This executor only schedules and cancels retries;
+     * a caller that needs the result must capture it itself.</p>
      *
      * @param callback callback to invoke on each attempt
      * @return handle that can cancel the currently scheduled retry attempt

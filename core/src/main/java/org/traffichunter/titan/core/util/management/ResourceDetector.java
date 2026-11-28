@@ -19,8 +19,8 @@ package org.traffichunter.titan.core.util.management;
  * Detects a snapshot of a JVM or operating-system resource.
  *
  * <p>Implementations perform one measurement per invocation and do not own
- * scheduling or threshold policy. Callers that require periodic sampling are
- * responsible for scheduling calls to {@link #detect()}.</p>
+ * scheduling or threshold policy. Callers that need periodic sampling schedule
+ * calls to {@link #detect()} themselves.</p>
  *
  * @param <T> resource snapshot type
  * @author yun

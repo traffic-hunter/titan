@@ -23,8 +23,8 @@ import org.yaml.snakeyaml.introspector.PropertyUtils;
  * Java bean properties.
  *
  * <p>For example, {@code primary-threads} is resolved as
- * {@code primaryThreads}. This keeps configuration files idiomatic for users
- * while preserving normal Java naming in the property DTOs.</p>
+ * {@code primaryThreads}. Configuration files use kebab-case keys and the
+ * property DTOs keep Java names.</p>
  */
 final class RelaxedBindingUtils extends PropertyUtils {
 

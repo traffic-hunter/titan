@@ -16,12 +16,11 @@
 package org.traffichunter.titan.bootstrap;
 
 /**
- * Process-wide access point for Titan shutdown callbacks.
+ * Process-wide handle for Titan shutdown callbacks.
  *
- * <p>The enum singleton keeps callback registration centralized without
- * exposing the mutable callback set. Runtime modules can register cleanup work
- * through this facade, while {@link TitanShutdownHook} owns the actual JVM hook
- * integration.</p>
+ * <p>Runtime modules register cleanup work through this enum singleton, which
+ * does not expose the callback set. {@link TitanShutdownHook} installs the JVM
+ * hook and runs the callbacks.</p>
  */
 public enum GlobalShutdownHook {
     INSTANCE;

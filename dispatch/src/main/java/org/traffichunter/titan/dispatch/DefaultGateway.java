@@ -28,12 +28,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link #sparkDispatch(Message)}.
  *
  * <p>The message is in its queue when {@code sparkDispatch} returns, so messages one caller
- * sends are enqueued in the order it sends them. The handler chain ends at the queue:
- * {@link RouteDispatchChainHandler} admits messages to destination queues, and custom handlers
- * run after it. A handler that blocks holds up its caller, which is the server's event loop.</p>
+ * sends are enqueued in the order it sends them. The chain starts with
+ * {@link RouteDispatchChainHandler}, which puts the message into its destination queue, and
+ * custom handlers run after it. A handler that blocks holds up its caller, which is the
+ * server's event loop.</p>
  *
- * <p>Delivery from the queues is not the gateway's job. A {@link Dispatcher} built on the same
- * path finder takes it from there.</p>
+ * <p>A {@link Dispatcher} built on the same path finder delivers from the queues.</p>
  *
  * <pre>{@code
  * sparkDispatch(message)

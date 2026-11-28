@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Retry executor backed by Titan's {@link EventLoop}.
  *
- * <p>This executor is useful when retry callbacks must run on Titan's event loop
+ * <p>Use this executor when retry callbacks must run on Titan's event loop
  * instead of a JDK scheduler thread. When constructed without an event loop, it
  * creates and owns a {@link TaskEventLoop}.</p>
  *

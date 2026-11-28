@@ -22,19 +22,21 @@ package org.traffichunter.titan.dispatch;
  * Call {@link DispatchChain#next(DispatchContext)} to continue dispatch, or return
  * the supplied chain without calling it to stop.</p>
  *
- * <p>Handlers run sequentially on the dispatch executor selected by the gateway.</p>
+ * <p>Handlers run one after another on the thread that runs the chain: the caller of
+ * {@link Gateway#sparkDispatch} on the way into the queue, and the queue consumer of the
+ * {@link Dispatcher} on the way out.</p>
  *
  * @author yun
  */
 public interface DispatchChainHandler {
 
-    /** Sentinel behavior that completes without modifying the dispatch context. */
+    /** Handler that passes the context on unchanged. */
     DispatchChainHandler NOOP = (context, chain) -> chain.next(context);
 
     /**
-     * Processes one dispatch stage.
+     * Handles one step of dispatch.
      *
-     * @param context state shared by the dispatch lifecycle
+     * @param context dispatch state shared by the chain
      * @param chain remaining dispatch handlers
      * @return continuation reached after this handler runs
      */

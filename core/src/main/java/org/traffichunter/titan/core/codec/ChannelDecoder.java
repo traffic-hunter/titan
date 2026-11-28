@@ -71,8 +71,8 @@ public abstract class ChannelDecoder implements ChannelInBoundHandler, AutoClose
     /**
      * Attempts to decode the bytes currently retained by this decoder.
      *
-     * <p>This is useful when decoding previously stopped without consuming input and an
-     * asynchronous prerequisite has since completed.</p>
+     * <p>Use this when decoding stopped earlier without consuming input and an asynchronous
+     * prerequisite has since completed.</p>
      */
     protected final void relayingDecode(NetChannel channel, ChannelInBoundHandlerChain chain) {
         Buffer pending = mergeBuffer;

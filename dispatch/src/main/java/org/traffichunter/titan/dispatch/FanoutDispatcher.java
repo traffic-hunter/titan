@@ -45,7 +45,7 @@ import org.traffichunter.titan.dispatch.exporter.DispatchExporter;
  *
  * <p>It listens to the path finder it is given, so a queue is started when the path finder
  * creates it and stopped when the path finder removes it. The consumer tasks run on virtual
- * threads this dispatcher owns and ends in {@link #close()}.</p>
+ * threads this dispatcher owns and end in {@link #close()}.</p>
  *
  * @author yun
  */

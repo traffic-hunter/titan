@@ -20,9 +20,9 @@ import org.traffichunter.titan.core.channel.NetChannel;
 import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
- * Decoder for protocols that prefix each frame with a length field.
+ * Placeholder decoder for protocols that prefix each frame with a length field.
  *
- * <p>This class is reserved for length-field based framing support.</p>
+ * <p>Not implemented: {@link #decode} always returns {@code null}, so no frame is produced.</p>
  *
  * @author yun
  */
