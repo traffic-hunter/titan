@@ -131,7 +131,7 @@ val publishedArtifacts = mapOf(
     "monitor" to "titan-monitor",
 )
 
-val apiBaselineVersion = providers.gradleProperty("apiBaselineVersion").orElse("0.9.1")
+val apiBaselineVersion = providers.gradleProperty("apiBaselineVersion").orElse("0.9.2")
 val apiCompatibilityStrict = providers.gradleProperty("apiCompatibilityStrict")
     .map(String::toBoolean)
     .orElse(false)
