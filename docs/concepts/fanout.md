@@ -23,9 +23,11 @@ titan:
         fanout-mode: "virtual"
 ```
 
-The `titan-dispatch` module supplies the gateway and exporter that connect STOMP
-`SEND` frames to matching subscriptions. Dispatch workers run on virtual threads,
-and `virtual` is the only mode.
+The `titan-dispatch` module connects STOMP `SEND` frames to matching
+subscriptions. The gateway puts each message into its destination queue on the
+connection's event loop. One consumer per queue runs on a virtual thread and
+hands the messages to the exporter, which writes them to the matching
+subscriptions. `virtual` is the only mode.
 
 ## Operational boundary
 
