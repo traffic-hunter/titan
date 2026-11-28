@@ -18,7 +18,7 @@ not imply success at the next one.
 | --- | --- | --- |
 | `send` without a STOMP `receipt` header | The client wrote the SEND frame to its connection | Server acceptance, queue admission, or subscriber delivery |
 | `subscribe` without a STOMP `receipt` header | The client wrote the SUBSCRIBE frame to its connection | That the server has registered the subscription |
-| STOMP `RECEIPT` for SEND | The destination queue accepted the message and dispatch was activated | A subscriber received, processed, or acknowledged the MESSAGE frame |
+| STOMP `RECEIPT` for SEND | The destination queue accepted the message | A subscriber received, processed, or acknowledged the MESSAGE frame |
 | Queue admission | The message entered the in-memory destination queue | Persistence or recovery after process failure |
 | Fanout attempt | Titan handed a MESSAGE frame to each writable matching connection it could reach | Completion of the socket write or application processing |
 | Subscriber `ACK` or `NACK` | Titan accepted the protocol command | Message retention, retry, or redelivery |

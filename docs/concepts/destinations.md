@@ -31,7 +31,7 @@ sequenceDiagram
     participant E as StompDispatchExporter
 
     P->>H: SEND destination=/orders
-    H->>G: publish(Message{/orders})
+    H->>G: sparkDispatch(Message{/orders})
     G->>D: getOrPut(/orders)
     D->>C: start the consumer when the queue is created
     D-->>G: exact queue for /orders
@@ -42,10 +42,10 @@ sequenceDiagram
     E->>E: find subscriptions equal to /orders
 ```
 
-The gateway's handler chain ends at the queue: `RouteDispatchChainHandler`
-invokes `Gateway.route(message)`. The consumer is not part of the
-chain. `FanoutDispatcher` starts it when the path finder creates the queue and
-stops it when the queue is removed.
+The gateway's handler chain starts at the queue: `RouteDispatchChainHandler`
+looks the queue up on the path finder and enqueues the message. The consumer is
+not part of the chain. `FanoutDispatcher` starts it when the path finder creates
+the queue and stops it when the queue is removed.
 
 Custom handlers run after routing. This allows backup, validation, or metrics
 work without putting protocol logic inside the queue.
@@ -62,12 +62,11 @@ pass on, or fails on, is dropped: the queue completes it and it is not exported.
 
 ## How a queue is selected
 
-`Gateway.route` does not search for the nearest path, a topic pattern,
-or every matching prefix. It performs this operation:
+`RouteDispatchChainHandler` does not search for the nearest path, a topic
+pattern, or every matching prefix. It performs this operation:
 
 ```java
-Destination destination = message.getDestination();
-DispatcherQueue queue = dispatcher.getOrPut(destination);
+DispatcherQueue queue = pathFinder.getOrPut(message.getGroup(), message.getDestination());
 queue.enqueue(message);
 ```
 
@@ -155,13 +154,14 @@ resent.
 `computeIfAbsent` guarantees at most one active queue-draining task for each
 queue. The same destination in two groups is two queues and two consumers.
 
-The consumer polls its queue and invokes the configured `DispatchExporter` one
-message at a time. This preserves FIFO processing within one destination while
-allowing different destination consumers to progress independently on the
-dispatcher's virtual threads.
+The consumer takes up to `max-message-block-size` messages from its queue, one
+by default, runs each through the dispatcher's handler chain, and hands the
+ones that passed to the configured `DispatchExporter`. This preserves FIFO
+processing within one destination while allowing different destination
+consumers to progress independently on the dispatcher's virtual threads.
 
-The `publish()` future represents completion of the dispatch handler chain and
-consumer-start request. It does **not** mean that every remote subscriber has
+The `sparkDispatch()` future completes when the gateway's chain has run, which
+is before the call returns. It does **not** mean that every remote subscriber has
 received or acknowledged the message. See [Delivery guarantees](delivery-guarantees.md)
 for the complete send, admission, fanout, and reconnect contract.
 
@@ -247,7 +247,7 @@ A group is a namespace, not a shared pool. Everything a destination owns exists
 once per group:
 
 - one `DispatcherQueue`, holding its own pending messages;
-- one consumer task on the gateway executor;
+- one consumer task on the dispatcher's virtual threads;
 - one JMX MBean, named for the group and the destination.
 
 `max-pending-bytes` is that one queue's limit, not a server-wide budget. Ten
