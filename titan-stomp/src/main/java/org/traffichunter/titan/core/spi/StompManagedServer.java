@@ -23,8 +23,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Managed lifecycle adapter for a STOMP server.
  *
- * <p>The SPI exposes this wrapper to bootstrap code while keeping STOMP-specific access
- * available through {@link #server()} for integrations that need it.</p>
+ * <p>Bootstrap code gets this wrapper from the SPI. Integrations that need the STOMP server
+ * itself get it from {@link #server()}.</p>
  *
  * @author yun
  */

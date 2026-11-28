@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>The bootstrap path should only transition from "not started" to "started"
  * once per instance. {@link #start()} returns whether the caller won that
- * transition, which keeps duplicate startup attempts explicit and cheap.</p>
+ * transition. A duplicate start gets {@code false}.</p>
  */
 public final class BootState {
 

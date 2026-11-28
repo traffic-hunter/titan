@@ -36,7 +36,6 @@ import java.util.List;
 /**
  * Detects {@link TitanListener} methods after bean initialization.
  * Builds listener endpoint metadata and registers it after singleton creation.
- * This keeps endpoint discovery aligned with Spring's bean lifecycle.
  *
  * @author yun
  */

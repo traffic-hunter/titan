@@ -20,10 +20,9 @@ import org.traffichunter.titan.bootstrap.Banner.Mode;
 /**
  * Reads process-level configuration from Java system properties.
  *
- * <p>These values are intentionally limited to bootstrap concerns such as the
- * environment file path, banner mode, and coarse default limits. Rich server
- * configuration is loaded from the YAML environment file into
- * {@link Settings}.</p>
+ * <p>Only bootstrap values live here, such as the environment file path,
+ * banner mode, and coarse default limits. Server configuration comes from the
+ * YAML environment file and is loaded into {@link Settings}.</p>
  */
 public final class Configurations {
 

@@ -1,14 +1,12 @@
 /**
  * Protocol-specific fanout exporters.
  *
- * <p>Exporters perform the final step of fanout. After destination selection and
- * dequeueing, an exporter converts the message to the protocol used by connected
- * consumers.</p>
+ * <p>Exporters are the last step of fanout. After the dispatcher takes a message from its
+ * queue, an exporter writes it to connected consumers in their protocol.</p>
  *
- * <p>Exporter implementations should copy or retain payload buffers according
- * to the channel semantics they use. A single fanout payload may be written to
- * many clients, so sharing a mutable or consumable buffer across writes is not
- * generally safe.</p>
+ * <p>Implementations should copy or retain payload buffers as their channels require. One
+ * payload may be written to many clients, so sharing a mutable or consumable buffer across
+ * writes is usually not safe.</p>
  */
 @NullMarked
 package org.traffichunter.titan.dispatch.exporter;

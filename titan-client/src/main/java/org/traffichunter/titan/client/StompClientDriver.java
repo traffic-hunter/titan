@@ -20,12 +20,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Service-provider contract for a transport-specific STOMP client runtime.
+ * Contract for a transport-specific STOMP client runtime.
  *
  * <p>A driver translates common {@link ClientConfiguration} values into its native networking
  * implementation and performs one complete transport and STOMP negotiation for each
- * {@link #connect(InetSocketAddress)} call. It does not retain logical client state or schedule
- * reconnect attempts; those responsibilities belong to {@link DefaultTitanClient}.</p>
+ * {@link #connect(InetSocketAddress)} call. It does not keep logical client state or schedule
+ * reconnect attempts; {@link DefaultTitanClient} does both.</p>
  *
  * <p>The driver owns only resources it creates. Implementations that wrap a caller-provided
  * runtime must preserve that runtime when {@link #close(long, TimeUnit)} is invoked.</p>

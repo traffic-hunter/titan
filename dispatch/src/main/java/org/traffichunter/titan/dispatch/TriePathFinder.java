@@ -31,9 +31,9 @@ import org.traffichunter.titan.core.util.management.DispatcherQueueMbeans;
 /**
  * Trie-backed path finder for path-like destinations.
  *
- * <p>Destinations are stored by their normalized path. A trie keeps wildcard search and prefix
- * existence checks aligned with the routing model used by queue creation and fanout consumers.
- * Exact lookups read a map keyed by the full path, which holds the same queues as the trie.</p>
+ * <p>Destinations are stored by their normalized path. Wildcard search and prefix checks walk
+ * the trie. Exact lookups read a map keyed by the full path, which holds the same queues as the
+ * trie.</p>
  *
  * @author yungwang-o
  */
@@ -178,7 +178,6 @@ public class TriePathFinder implements PathFinder {
         return true;
     }
 
-    /** {@code true} when this path finder holds no queues. */
     @Override
     public void listen(DispatcherQueueListener listener) {
         lock.lock();
@@ -190,6 +189,7 @@ public class TriePathFinder implements PathFinder {
         }
     }
 
+    /** {@code true} when this path finder holds no queues. */
     public boolean isEmpty() {
         return trie.isEmpty();
     }

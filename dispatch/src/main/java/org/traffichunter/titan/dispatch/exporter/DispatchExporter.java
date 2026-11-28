@@ -28,15 +28,14 @@ import org.traffichunter.titan.core.util.Frame;
 /**
  * Writes a fanout payload to subscribed clients using their protocol.
  *
- * <p>The gateway calls exporters after a message has been routed to a
- * destination queue. Implementations should find the currently eligible
- * consumers for the destination inside the given group and write the payload to
- * each of them. Subscribers of the same destination in another group must not
- * receive the payload.</p>
+ * <p>The dispatcher calls exporters with messages it has taken from a destination queue.
+ * Implementations should find the consumers of the destination inside the given group at
+ * that moment and write the payload to each of them. Subscribers of the same destination in
+ * another group must not receive the payload.</p>
  *
  * <p>Returning does not mean the payload reached anyone. The returned stage completes once
  * every consumer has either been handed the payload or been passed over, and it carries no
- * result. Whether a consumer's socket then takes the bytes is that connection's own pace.</p>
+ * result. How fast a consumer's socket then takes the bytes is up to that connection.</p>
  *
  * <p>Not every protocol can express a group. An implementation whose subscribers are resolved by
  * destination alone throws {@link UnsupportedOperationException} for a group other than

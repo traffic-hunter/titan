@@ -188,8 +188,8 @@ final class TitanStompConnection implements StompConnection {
      * Returns the identifier the SUBSCRIBE frame will carry, naming one when the caller did not.
      *
      * <p>The channel below falls back to the destination, so two subscriptions to one
-     * destination share an identifier and the second replaces the first. Two groups holding the
-     * same destination make that an everyday case rather than a mistake.</p>
+     * destination share an identifier and the second replaces the first. With groups, two
+     * subscriptions to one destination are common.</p>
      */
     private static String subscriptionId(StompHeaders headers) {
         String declared = headers.get(Elements.ID);

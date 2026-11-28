@@ -7,9 +7,9 @@ import org.traffichunter.titan.core.util.Destination;
  * Creates and deletes dispatcher queues owned by a running transport or
  * fanout component.
  *
- * <p>This interface provides a smaller set of operations than {@link PathFinder}.
- * Management tools such as the monitor HTTP API use it to create or remove queues
- * without depending on a specific fanout implementation.</p>
+ * <p>It has fewer operations than {@link PathFinder}. Management tools such as the monitor
+ * HTTP API use it to create or remove queues without depending on a fanout
+ * implementation.</p>
  *
  * <p>A queue is named by its group and its destination together. Callers pass a group
  * that has already been resolved, so a request never silently falls back to another

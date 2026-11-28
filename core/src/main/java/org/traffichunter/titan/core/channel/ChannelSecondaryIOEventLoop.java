@@ -25,7 +25,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 import org.traffichunter.titan.core.util.buffer.Buffers;
 
 /**
- * I/O event loop responsible for connection connect/read/write readiness.
+ * I/O event loop that handles connect, read and write readiness for connections.
  *
  * <p>The loop dispatches connect completion, read buffers into the inbound handler chain, and
  * write readiness back to the channel's pending write buffer.</p>

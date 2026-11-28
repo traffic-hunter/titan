@@ -25,7 +25,7 @@ import org.traffichunter.titan.springframework.stomp.messaging.TitanSpringMessag
 /**
  * Message converter that resolves the original {@link StompFrames}.
  * The frame is read from the internal Spring message header.
- * This supports listener method parameters of type {@code StompFrames}.
+ * Lets listener methods take a {@code StompFrames} parameter.
  *
  * @author yun
  */

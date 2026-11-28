@@ -23,11 +23,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * I/O event loop responsible for server accept readiness.
+ * I/O event loop that handles server accept readiness.
  *
- * <p>Accepted sockets are initialized as child {@link NetChannel} instances. The actual
- * read/write registration for those child channels is delegated by the server acceptor to a
- * secondary event loop.</p>
+ * <p>Accepted sockets become child {@link NetChannel} instances. The server acceptor
+ * registers each child for read/write on a secondary event loop.</p>
  */
 public class ChannelPrimaryIOEventLoop extends SingleThreadIOEventLoop {
 

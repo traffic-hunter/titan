@@ -43,7 +43,7 @@ public interface NetServerChannel extends Channel {
     Promise<Void> bind(String host, int port);
 
     /**
-     * Returns raw server transport operations that bypass channel-level orchestration.
+     * Returns raw server transport operations that bypass channel scheduling.
      */
     Internal internal();
 
@@ -53,7 +53,8 @@ public interface NetServerChannel extends Channel {
     Promise<Void> bind(InetSocketAddress address);
 
     /**
-     * Accepts one pending child connection, or returns {@code null} when no connection is ready.
+     * Accepts one pending child connection. The promise completes with {@code null} when no
+     * connection is ready.
      */
     Promise<NetChannel> accept();
 

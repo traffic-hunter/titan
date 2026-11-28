@@ -8,9 +8,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Process-local registry of dispatcher queue managers.
  *
- * <p>Fanout adapters register their running gateway under the managed server
- * name. Runtime extensions, such as the monitor module, can then resolve a
- * manager without taking a compile-time dependency on the fanout module.</p>
+ * <p>The fanout launcher registers a manager for its path finder under the managed server
+ * name. Other modules, such as monitor, look a manager up here without depending on a
+ * fanout implementation.</p>
  *
  * @author yungwang-o
  */

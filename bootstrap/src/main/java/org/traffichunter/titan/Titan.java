@@ -21,10 +21,10 @@ import org.traffichunter.titan.bootstrap.TitanBootstrap;
 /**
  * Command-line entry point for a Titan process.
  *
- * <p>The entry point resolves the environment file path from system properties
- * and delegates all startup work to {@link TitanBootstrap}. Keeping this class
- * thin makes embedded tests and alternate launchers use the same bootstrap
- * path as the production main method.</p>
+ * <p>The entry point reads the environment file path from system properties
+ * and leaves all startup work to {@link TitanBootstrap}. Embedded tests and
+ * other launchers call {@link TitanBootstrap} too, so they start the same way
+ * as this main method.</p>
  */
 public class Titan {
 

@@ -16,7 +16,7 @@
 package org.traffichunter.titan.core.channel;
 
 /**
- * Factory abstraction used by transports to create a fresh channel per connection.
+ * Creates a fresh channel per connection for a transport.
  *
  * @author yun
  */

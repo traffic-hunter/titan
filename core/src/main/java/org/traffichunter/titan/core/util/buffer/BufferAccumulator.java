@@ -116,7 +116,7 @@ public final class BufferAccumulator implements Clearable {
      * Returns a slice of the accumulated data.
      *
      * @param length number of bytes to read
-     * @return a new buffer containing the requested bytes
+     * @return a retained slice of the requested bytes, sharing storage with the accumulator
      * @throws IllegalArgumentException if length exceeds available bytes
      */
     public Buffer read(int length) {

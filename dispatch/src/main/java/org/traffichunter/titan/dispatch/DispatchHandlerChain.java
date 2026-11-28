@@ -25,19 +25,21 @@ import org.traffichunter.titan.core.channel.AbstractLinkedHandlerChain;
 import org.traffichunter.titan.core.channel.LinkedNode;
 
 /**
- * Asynchronous linked handler chain for message dispatch work.
+ * Linked chain of dispatch handlers.
  *
- * <p>The gateway places routing first and custom handlers after it. Custom handlers can
- * validate, persist, or measure messages without changes to the gateway. Each handler sees the
- * context changes made by earlier handlers.</p>
+ * <p>The gateway puts routing first and custom handlers after it. The dispatcher runs its own
+ * chain for each message before export. Custom handlers can validate, persist or measure
+ * messages without changes to the gateway. Each handler sees the changes earlier handlers made
+ * to the context.</p>
  *
- * <p>Starting the chain schedules the complete traversal on the configured {@link Executor}.
- * Each handler decides whether to continue by invoking its supplied {@link DispatchChain}. The
- * future returned to the caller completes when traversal finishes or a handler throws.</p>
+ * <p>{@link #sparkDispatch(DispatchContext)} runs the whole chain on the chain's
+ * {@link Executor}, which by default is the calling thread. Each handler decides whether to go on
+ * by calling its {@link DispatchChain}. The returned future completes when the chain finishes or
+ * a handler throws.</p>
  *
- * <p>Iteration skips the no-op sentinel head. The chain manages links and calls between handlers;
- * the component that creates a handler manages its lifecycle. Changes to the links are
- * unsynchronized and should finish before dispatch begins.</p>
+ * <p>Iteration skips the no-op head node. The chain only links and calls handlers; whoever
+ * creates a handler owns its lifecycle. The links are not synchronized, so add handlers before
+ * dispatch starts.</p>
  *
  * @author yun
  */
@@ -75,7 +77,7 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
         addAll(handlers);
     }
 
-    /** Appends a handler to the end of the dispatch lifecycle. */
+    /** Appends a handler to the end of the chain. */
     @CanIgnoreReturnValue
     public DispatchHandlerChain add(DispatchChainHandler handler) {
         return addLast(handler);
@@ -105,7 +107,7 @@ public class DispatchHandlerChain extends AbstractLinkedHandlerChain<DispatchHan
     }
 
     /**
-     * Sparks dispatch propagation on the configured executor.
+     * Runs the chain for the context on the chain's executor.
      */
     public CompletableFuture<Void> sparkDispatch(DispatchContext context) {
         return CompletableFuture.runAsync(() -> head().next(context), executor);

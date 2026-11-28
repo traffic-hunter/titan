@@ -31,7 +31,7 @@ import org.traffichunter.titan.core.message.Message;
 import org.traffichunter.titan.core.util.Destination;
 
 /**
- * FIFO queue implementation for one dispatcher destination.
+ * FIFO queue for one destination.
  *
  * <p>Messages are dispatched in insertion order through {@link LinkedBlockingQueue}. A manual
  * pause refuses new messages and blocks dispatch operations. A pressure pause refuses new

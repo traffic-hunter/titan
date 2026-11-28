@@ -25,7 +25,7 @@ import java.util.ServiceLoader;
 import java.util.function.Function;
 
 /**
- * Adapter SPI for installing fanout behavior into a concrete managed server.
+ * SPI that installs fanout into one kind of managed server.
  */
 public interface ManagedServerFanoutAdapter {
 

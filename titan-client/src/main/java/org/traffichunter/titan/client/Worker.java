@@ -25,7 +25,7 @@ import java.util.concurrent.Executor;
  * Executes client state changes serially, regardless of the transport implementation.
  *
  * <p>A worker runs submitted tasks in order on one event loop. Reconnect and subscription state
- * use this shared execution contract without exposing the event loop in the public client API.</p>
+ * changes run on it, so the public client API never exposes the event loop.</p>
  *
  * <p>Closing a worker prevents further submissions. Ownership of the underlying runtime remains
  * with the driver that supplied the worker.</p>

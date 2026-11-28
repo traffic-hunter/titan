@@ -19,7 +19,7 @@ import org.traffichunter.titan.core.util.buffer.Buffer;
 
 /**
  * Covers the group overloads on {@link TitanClient}, which turn a group argument into the
- * headers the transport actually carries.
+ * headers the transport carries.
  */
 class GroupApiTest {
 

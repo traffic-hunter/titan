@@ -11,8 +11,8 @@ import org.traffichunter.titan.core.util.OptionKey;
  * Hook for optional module integrations, such as fanout.
  *
  * <p>Launchers are loaded after a server has been created. They can inspect the selected
- * protocol and transport, then attach sidecar behavior without creating a direct dependency
- * from core bootstrap code to optional modules.</p>
+ * protocol and transport, then attach extra behavior such as fanout. Core bootstrap code
+ * has no direct dependency on these optional modules.</p>
  */
 public interface FanoutLauncher {
 

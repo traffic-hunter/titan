@@ -24,9 +24,8 @@ import org.traffichunter.titan.core.util.DestinationGroups;
 /**
  * Registry of destination queues.
  *
- * <p>Path finders do not deliver messages directly. They resolve the queue for a destination,
- * creating it when necessary, and queue consumers perform the actual dispatch from
- * {@link DispatcherQueue}.</p>
+ * <p>A path finder does not deliver messages. It finds the queue for a destination, creating it
+ * when needed, and queue consumers deliver from the {@link DispatcherQueue}.</p>
  *
  * <p>{@link DestinationGroupRegistry} is the default implementation. It keeps queues in
  * named {@link DestinationGroup}s. Each group is itself a {@code PathFinder} over the

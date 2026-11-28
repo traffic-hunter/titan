@@ -82,7 +82,7 @@ class GatewayGroupManagementTest {
 
     @Test
     void a_purge_empties_the_named_group_only() {
-        // Without a consumer the messages simply stay.
+        // No consumer runs, so the messages stay in the queue.
         registry.listen(DispatcherQueueListener.NOOP);
         DispatcherQueue market = manager.createQueue("market", DESTINATION, 4096);
         DispatcherQueue plain = manager.createQueue("default", DESTINATION, 4096);
@@ -120,7 +120,7 @@ class GatewayGroupManagementTest {
 
     @Test
     void a_non_empty_group_queue_is_kept_until_the_delete_is_forced() {
-        // Without a consumer the message simply stays.
+        // No consumer runs, so the message stays in the queue.
         registry.listen(DispatcherQueueListener.NOOP);
         DispatcherQueue market = manager.createQueue("market", DESTINATION, 4096);
         market.enqueue(message("market"));

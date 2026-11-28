@@ -18,16 +18,15 @@ package org.traffichunter.titan.dispatch;
 /**
  * Continuation passed to a dispatch handler.
  *
- * <p>The continuation represents only the handlers following the current
- * handler. A handler must invoke {@link #next(DispatchContext)} to propagate
- * the dispatch operation, and may omit that invocation to stop processing.</p>
+ * <p>It holds only the handlers after the current one. A handler calls
+ * {@link #next(DispatchContext)} to pass the message on, or skips the call to stop.</p>
  *
  * @author yun
  */
 public interface DispatchChain {
 
     /**
-     * Propagates the context to the next dispatch handler.
+     * Passes the context to the next handler.
      *
      * @param context dispatch state shared by the chain
      * @return continuation reached after propagation

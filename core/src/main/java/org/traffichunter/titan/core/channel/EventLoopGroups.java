@@ -24,8 +24,8 @@ import java.util.concurrent.TimeUnit;
  * outbound {@link NetChannel} instances that perform reads and writes. Keeping these roles
  * separate prevents accept readiness from competing with regular connection I/O.</p>
  *
- * @param primaryGroup event loops responsible for accepting server connections
- * @param secondaryGroup event loops responsible for connected channel I/O and queued tasks
+ * @param primaryGroup event loops that accept server connections
+ * @param secondaryGroup event loops that run connected channel I/O and queued tasks
  * @author yun
  */
 public record EventLoopGroups(

@@ -15,13 +15,12 @@ import org.traffichunter.titan.core.spi.*;
 import org.traffichunter.titan.core.util.OptionKey;
 
 /**
- * SPI launcher that installs fanout behavior into a managed STOMP server.
+ * SPI launcher that installs fanout into a managed STOMP server.
  *
  * <p>The bootstrap/core SPI discovers this class as a {@link FanoutLauncher}.
- * When the managed server is STOMP, the launcher creates a fanout gateway,
- * connects it to the server-side STOMP connection registry through
- * {@link StompServerFanoutLauncher}, and registers {@link StompSendToFanoutHandler}
- * as the SEND command ingress.</p>
+ * When the managed server is STOMP, the launcher builds a gateway and a dispatcher on one
+ * path finder. A {@link ManagedServerFanoutAdapter} connects them to the server's STOMP
+ * connections and registers {@link StompSendToFanoutHandler} as the SEND handler.</p>
  *
  * <pre>{@code
  * Titan bootstrap
@@ -33,7 +32,7 @@ import org.traffichunter.titan.core.util.OptionKey;
  * StompServerFanoutLauncher.apply(...)
  *      |
  *      v
- * SEND handler -> Gateway -> StompDispatchExporter
+ * SEND handler -> Gateway -> queue -> FanoutDispatcher -> StompDispatchExporter
  * }</pre>
  */
 @SuppressWarnings("unused")

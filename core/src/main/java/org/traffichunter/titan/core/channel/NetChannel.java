@@ -84,10 +84,9 @@ public interface NetChannel extends Channel {
     /**
      * Raw transport operations that bypass the inbound and outbound channel pipelines.
      *
-     * <p>Callers are responsible for invoking these operations from the appropriate channel
-     * execution context. A returned value or normal method completion only means that the
-     * transport operation was attempted or queued; it does not mean that network I/O has
-     * completed.</p>
+     * <p>Callers must invoke these operations from the right channel execution context.
+     * A returned value or normal method completion only means that the transport operation was
+     * attempted or queued; it does not mean that network I/O has completed.</p>
      */
     interface Internal {
 

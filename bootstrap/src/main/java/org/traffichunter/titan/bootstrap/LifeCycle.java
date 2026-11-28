@@ -18,8 +18,8 @@ package org.traffichunter.titan.bootstrap;
 /**
  * Minimal lifecycle state view for bootstrap-managed components.
  *
- * <p>The interface is intentionally read-only. Components expose their current
- * phase without forcing bootstrap to know how those phases are transitioned.</p>
+ * <p>The interface is read-only. Components report their current phase, and
+ * bootstrap does not need to know how they move between phases.</p>
  */
 public interface LifeCycle {
 

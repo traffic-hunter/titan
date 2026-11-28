@@ -18,16 +18,15 @@ package org.traffichunter.titan.core.util.management;
 /**
  * Aggregate management view of every active channel write buffer.
  *
- * <p>The view intentionally avoids one MBean per network connection. This keeps
- * management overhead stable while still exposing outbound pressure across the
- * process.</p>
+ * <p>There is no MBean per network connection, so management overhead does not
+ * grow with the connection count.</p>
  *
  * @author yun
  */
 public interface ChannelWriteBufferMbean {
 
     /**
-     * Returns the number of open channel write buffers attached to this event-loop group.
+     * Returns the number of open channel write buffers counted by this view.
      *
      * <p>One active buffer corresponds to one registered network channel. The value decreases
      * when the channel closes and its write buffer releases any remaining outbound data.</p>
